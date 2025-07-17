@@ -54,32 +54,72 @@
 <div id="sortable-container" class="flex flex-wrap gap-2">
     @if (pageThumbnails != null && pageThumbnails.Any())
     {
-        for (int i = 0; i < pageThumbnails.Count; i++)
+        for (int i = 0; i <= pageThumbnails.Count; i++)
         {
-            var index = i;
-            <div class="sortable-item relative group p-2" data-index="@i" @key="@($"thumbnail-{i}-{pageThumbnails[i].GetHashCode()}")">
-                <div class="w-24 h-32 sm:w-20 sm:h-28 lg:w-28 lg:h-36 flex items-center justify-center overflow-hidden">
-                    <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300 " draggable="false" />
+            var currentIndex = i;
+            @if (i > 0)
+            {
+                <!-- サムネイル間の＋ボタン -->
+                <div class="flex items-center">
+                    <div class="relative">
+                        <button class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+                                @onclick="() => ToggleInsertMenu(currentIndex)"
+                                @onclick:stopPropagation="true">
+                            +
+                        </button>
+                        
+                        <!-- 挿入メニュー -->
+                        @if (showInsertMenuIndex == currentIndex)
+                        {
+                            <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)" @onclick:stopPropagation="false"></div>
+    
+                            <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48"
+                                style="z-index: 9999;">
+                                <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
+                                        @onclick="() => InsertBlankPage(currentIndex)"
+                                        @onclick:stopPropagation="true">
+                                    📄 空白ページの挿入
+                                </button>
+                                <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
+                                        @onclick="() => InsertPdfAtPosition(currentIndex)"
+                                        @onclick:stopPropagation="true">
+                                    📁 PDFを選択して挿入
+                                </button>
+                            </div>
+                        }
+                    </div>
                 </div>
+            }
 
-                <!-- サブメニュー -->
-                <div class="menu-overlay absolute top-0 right-0 bg-white shadow-md rounded p-1 flex-col" style="display: none;">
-                    <button class="text-red-500 hover:text-red-700 p-1" @onclick="() => RemovePage(index)" @onclick:stopPropagation="true">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)" @onclick:stopPropagation="true">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
+            @if (i < pageThumbnails.Count)
+            {
+                var index = i;
+                <div class="sortable-item relative group p-2" data-index="@i" @key="@($"thumbnail-{i}-{pageThumbnails[i].GetHashCode()}")">
+                    <div class="w-24 h-32 sm:w-20 sm:h-28 lg:w-28 lg:h-36 flex items-center justify-center overflow-hidden">
+                        <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300" draggable="false" />
+                    </div>
+
+                    <!-- サブメニュー -->
+                    <div class="menu-overlay absolute top-0 right-0 bg-white shadow-md rounded p-1 flex-col" style="display: none;">
+                        <button class="text-red-500 hover:text-red-700 p-1" @onclick="() => RemovePage(index)" @onclick:stopPropagation="true">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)" @onclick:stopPropagation="true">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            }
         }
-        @* PDF追加ボタン *@
-        <div class="flex flex-col items-center justify-center w-24 h-32 border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-100"
+        
+        @* 最後のPDF追加ボタン *@
+        <div class="flex flex-col items-center justify-center w-24 h-32 border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-100 rounded"
             @onclick="OpenFileDialog">
             <span class="text-2xl text-gray-500">+</span>
             <span class="text-sm text-gray-500 mt-1">PDF追加</span>
         </div>
         <InputFile OnChange="HandleFileSelectionAsync" style="display: none;" id="fileInput" />
+        <InputFile OnChange="HandleInsertFileSelectionAsync" style="display: none;" id="insertFileInput" />
     }
 </div>
 
@@ -87,9 +127,16 @@
     .sortable-item:hover .menu-overlay {
         display: flex !important;
     }
+     /* メニュー外クリックで閉じるための背景 */
+    .menu-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 40;
+    }
 </style>
-
-
 
 @code {
     private bool isFilesLoaded = false;
@@ -349,5 +396,122 @@
             _currentInstance = this;
             Console.WriteLine("Current instance set in OnAfterRenderAsync");
         }
+    }
+
+    private int showInsertMenuIndex = -1; // どの位置の挿入メニューを表示するか
+    private int insertPosition = -1; // PDFを挿入する位置
+
+    // 挿入メニューの表示/非表示を切り替え
+    private void ToggleInsertMenu(int position)
+    {
+        if (showInsertMenuIndex == position)
+        {
+            Console.WriteLine($"Closing menu at position {position}");
+            showInsertMenuIndex = -1; // 既に開いているメニューを閉じる
+        }
+        else if (position == -1)
+        {
+            Console.WriteLine("Closing menu from background click");
+            showInsertMenuIndex = -1; // 背景クリックでメニューを閉じる
+        }
+        else
+        {
+            Console.WriteLine($"Opening menu at position {position}");
+            showInsertMenuIndex = position; // 新しいメニューを開く
+        }
+        Console.WriteLine($"New showInsertMenuIndex: {showInsertMenuIndex}");
+        StateHasChanged();
+    }
+
+    // 空白ページを挿入
+    private async Task InsertBlankPage(int position)
+    {
+        try
+        {
+            Console.WriteLine($"Inserting blank page at position {position}");
+            
+            // 空白ページのPDFデータとサムネイルを生成
+            var blankPageData = await JSRuntime.InvokeAsync<string>("createBlankPage");
+            var blankThumbnail = await JSRuntime.InvokeAsync<string>("renderSinglePDFPage", blankPageData);
+            
+            if (blankPageData != null && blankThumbnail != null)
+            {
+                // 指定位置に挿入
+                pageThumbnails.Insert(position, blankThumbnail);
+                pdfPageDataList.Insert(position, blankPageData);
+                
+                Console.WriteLine($"Blank page inserted at position {position}");
+                StateHasChanged();
+                
+                // Sortableを再初期化
+                await Task.Delay(100);
+                await InitializeSortableAfterLoad();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error inserting blank page: {ex.Message}");
+            errorMessage = $"空白ページの挿入に失敗しました: {ex.Message}";
+        }
+        finally
+        {
+            showInsertMenuIndex = -1; // メニューを閉じる
+        }
+    }
+
+    // PDF挿入用のファイル選択
+    private async Task InsertPdfAtPosition(int position)
+    {
+        insertPosition = position;
+        showInsertMenuIndex = -1; // メニューを閉じる
+        await JSRuntime.InvokeVoidAsync("openFileDialog", "insertFileInput");
+    }
+
+    // PDF挿入用のファイル処理
+    private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
+    {
+        if (insertPosition == -1) return;
+
+        const long maxFileSize = 52428800; // 50MB
+        
+        foreach (var file in e.GetMultipleFiles())
+        {
+            try
+            {
+                using var stream = file.OpenReadStream(maxFileSize);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                
+                var pdfData = memoryStream.ToArray();
+                
+                // JavaScript でサムネイルを生成
+                var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
+                var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
+                
+                if (newThumbnails != null && pageDataList != null)
+                {
+                    // 指定位置に挿入
+                    for (int i = 0; i < newThumbnails.Count; i++)
+                    {
+                        pageThumbnails.Insert(insertPosition + i, newThumbnails[i]);
+                        pdfPageDataList.Insert(insertPosition + i, pageDataList[i]);
+                    }
+                    
+                    Console.WriteLine($"Inserted {newThumbnails.Count} pages at position {insertPosition}");
+                    StateHasChanged();
+                    
+                    // Sortableを再初期化
+                    await Task.Delay(100);
+                    await InitializeSortableAfterLoad();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error inserting PDF: {ex.Message}");
+                errorMessage = $"PDFの挿入に失敗しました: {ex.Message}";
+            }
+        }
+        
+        insertPosition = -1; // リセット
     }
 }
