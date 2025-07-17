@@ -66,7 +66,7 @@
                         <i class="fas fa-trash"></i>
                     </button>
                     <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)" @onclick:stopPropagation="true">
-                        <i class="fas fa-sync-alt"></i>
+                        <i class="fa-solid fa-rotate-right"></i>
                     </button>
                 </div>
             </div>
@@ -173,26 +173,49 @@
             Console.WriteLine($"Page {index} removed.");
         }
     }
-
     private async Task RotatePage(int index)
     {
         if (index >= 0 && index < pageThumbnails.Count)
         {
-            var thumbnail = pageThumbnails[index];
-            var rotatedThumbnail = await JSRuntime.InvokeAsync<string>("rotateImage", thumbnail);
-            pageThumbnails[index] = rotatedThumbnail;
-
-            // 対応するPDFページも回転
-            if (index < pdfPageDataList.Count)
+            try
             {
-                var rotatedPageData = await JSRuntime.InvokeAsync<string>("rotatePDFPage", pdfPageDataList[index]);
-                if (rotatedPageData != null)
+                Console.WriteLine($"Rotating page {index}...");
+                
+                // サムネイルを回転
+                var thumbnail = pageThumbnails[index];
+                var rotatedThumbnail = await JSRuntime.InvokeAsync<string>("rotateImage", thumbnail);
+                if (rotatedThumbnail != null)
                 {
-                    pdfPageDataList[index] = rotatedPageData;
+                    pageThumbnails[index] = rotatedThumbnail;
+                    Console.WriteLine($"Thumbnail {index} rotated successfully");
                 }
-            }
 
-            Console.WriteLine($"Page {index} rotated.");
+                // 対応するPDFページも回転
+                if (index < pdfPageDataList.Count)
+                {
+                    Console.WriteLine($"Rotating PDF page data {index}...");
+                    
+                    // rotatePDFPage関数が存在するかチェック
+                    var rotatedPageData = await JSRuntime.InvokeAsync<string>("rotatePDFPage", pdfPageDataList[index]);
+                    if (rotatedPageData != null)
+                    {
+                        pdfPageDataList[index] = rotatedPageData;
+                        Console.WriteLine($"PDF page data {index} rotated successfully");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"rotatePDFPage returned null for page {index}");
+                    }
+                }
+
+                StateHasChanged();
+                Console.WriteLine($"Page {index} rotation completed.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rotating page {index}: {ex.Message}");
+                errorMessage = $"ページ {index + 1} の回転に失敗しました: {ex.Message}";
+            }
         }
     }
 
