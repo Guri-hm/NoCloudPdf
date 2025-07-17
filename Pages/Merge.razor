@@ -222,13 +222,29 @@
                 var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
                 if (newThumbnails != null)
                 {
+                    Console.WriteLine($"Generated {newThumbnails.Count} thumbnails");
                     pageThumbnails.AddRange(newThumbnails);
 
-                    // 各ページのPDFデータを個別に管理
-                    var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
-                    if (pageDataList != null)
+                    // extractPDFPagesを安全に呼び出し
+                    try
                     {
-                        pdfPageDataList.AddRange(pageDataList);
+                        Console.WriteLine("Calling extractPDFPages...");
+                        var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
+                        if (pageDataList != null)
+                        {
+                            Console.WriteLine($"Extracted {pageDataList.Count} pages");
+                            pdfPageDataList.AddRange(pageDataList);
+                        }
+                        else
+                        {
+                            Console.WriteLine("extractPDFPages returned null");
+                        }
+                    }
+                    catch (Exception jsEx)
+                    {
+                        Console.WriteLine($"JavaScript error in extractPDFPages: {jsEx.Message}");
+                        // ページデータの抽出に失敗した場合、サムネイルのみで続行
+                        errorMessage = $"ページデータの抽出に失敗しました: {file.Name}";
                     }
                 }
             }
@@ -280,12 +296,12 @@
             await Task.Delay(100);
             await JSRuntime.InvokeVoidAsync("initializeSortable");
         }
-        else if (isFilesLoaded && pageThumbnails.Any())
-        {
-            Console.WriteLine("Re-render with files loaded - re-initializing sortable");
-            // ファイルが読み込まれた後にも再初期化
-            await Task.Delay(50);
-            await JSRuntime.InvokeVoidAsync("initializeSortable");
-        }
+        //else if (isFilesLoaded && pageThumbnails.Any())
+        //{
+        //    Console.WriteLine("Re-render with files loaded - re-initializing sortable");
+        //    // ファイルが読み込まれた後にも再初期化
+        //    await Task.Delay(50);
+        //    await JSRuntime.InvokeVoidAsync("initializeSortable");
+        //}
     }
 }
