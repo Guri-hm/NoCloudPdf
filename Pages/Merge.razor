@@ -61,12 +61,12 @@
                 <img src="@pageThumbnails[i]" class="w-24 h-auto" draggable="false" />
 
                 <!-- サブメニュー -->
-                <div class="absolute top-0 right-0 hidden group-hover:flex flex-col bg-white shadow-md rounded p-1">
-                    <button class="text-red-500 hover:text-red-700" @onclick="() => RemovePage(index)" @onclick:stopPropagation="true">
-                        <i class="fas fa-trash"></i> <!-- ゴミ箱アイコン -->
+                <div class="menu-overlay absolute top-0 right-0 bg-white shadow-md rounded p-1 flex-col" style="display: none;">
+                    <button class="text-red-500 hover:text-red-700 p-1" @onclick="() => RemovePage(index)" @onclick:stopPropagation="true">
+                        <i class="fas fa-trash"></i>
                     </button>
-                    <button class="text-blue-500 hover:text-blue-700 mt-1" @onclick="() => RotatePage(index)" @onclick:stopPropagation="true">
-                        <i class="fas fa-sync-alt"></i> <!-- 回転アイコン -->
+                    <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)" @onclick:stopPropagation="true">
+                        <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
             </div>
@@ -80,6 +80,12 @@
         <InputFile OnChange="HandleFileSelectionAsync" style="display: none;" id="fileInput" />
     }
 </div>
+
+<style>
+    .sortable-item:hover .menu-overlay {
+        display: flex !important;
+    }
+</style>
 
 @code {
     private bool isFilesLoaded = false;
