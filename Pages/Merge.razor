@@ -56,7 +56,7 @@
     {
         for (int i = 0; i < pageThumbnails.Count; i++)
         {
-            var index = i; // ローカル変数にキャプチャ
+            var index = i;
             <div class="sortable-item relative group border border-gray-300 p-2" data-index="@i" @key="@($"thumbnail-{i}-{pageThumbnails[i].GetHashCode()}")">
                 <img src="@pageThumbnails[i]" class="w-24 h-auto" draggable="false" />
 
