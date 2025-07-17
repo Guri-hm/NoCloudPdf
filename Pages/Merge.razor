@@ -51,14 +51,16 @@
 {
     <a href="@mergedPdfUrl" target="_blank" download="merged.pdf">Download Merged PDF</a>
 }
-<div id="sortable-container" style="display: flex; flex-wrap: wrap; gap: 10px;">
+<div id="sortable-container" class="flex flex-wrap gap-2">
     @if (pageThumbnails != null && pageThumbnails.Any())
     {
         for (int i = 0; i < pageThumbnails.Count; i++)
         {
             var index = i;
-            <div class="sortable-item relative group border border-gray-300 p-2" data-index="@i" @key="@($"thumbnail-{i}-{pageThumbnails[i].GetHashCode()}")">
-                <img src="@pageThumbnails[i]" class="w-24 h-auto" draggable="false" />
+            <div class="sortable-item relative group p-2" data-index="@i" @key="@($"thumbnail-{i}-{pageThumbnails[i].GetHashCode()}")">
+                <div class="w-24 h-32 sm:w-20 sm:h-28 lg:w-28 lg:h-36 flex items-center justify-center overflow-hidden">
+                    <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300 " draggable="false" />
+                </div>
 
                 <!-- サブメニュー -->
                 <div class="menu-overlay absolute top-0 right-0 bg-white shadow-md rounded p-1 flex-col" style="display: none;">
@@ -66,13 +68,13 @@
                         <i class="fas fa-trash"></i>
                     </button>
                     <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)" @onclick:stopPropagation="true">
-                        <i class="fa-solid fa-rotate-right"></i>
+                        <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
             </div>
         }
-        @* PDF追加ボタン(実際は隣接要素のInputFileで処理する) *@
-        <div class="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-100"
+        @* PDF追加ボタン *@
+        <div class="flex flex-col items-center justify-center w-24 h-32 border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-100"
             @onclick="OpenFileDialog">
             <span class="text-2xl text-gray-500">+</span>
             <span class="text-sm text-gray-500 mt-1">PDF追加</span>
@@ -86,6 +88,8 @@
         display: flex !important;
     }
 </style>
+
+
 
 @code {
     private bool isFilesLoaded = false;
