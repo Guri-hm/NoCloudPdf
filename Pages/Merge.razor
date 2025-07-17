@@ -1,0 +1,291 @@
+﻿@page "/merge"
+@inject IJSRuntime JSRuntime
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>Merge</PageTitle>
+
+@if (isFilesLoaded)
+{
+    <!-- 上部固定バー -->
+    <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow-md z-50">
+        <div class="flex items-center justify-between px-4 py-2">
+            <span class="text-lg font-semibold">PDF操作</span>
+            <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" @onclick="MergePDFs">
+                結合
+            </button>
+        </div>
+    </div>
+}
+
+@if (!isFilesLoaded && !isLoading)
+{
+    <div id="drop-zone"
+        class="flex items-center justify-center w-full h-screen border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-100"
+        @onclick="OpenFileDialog">
+        <div class="text-center">
+            <span class="text-2xl text-gray-500">ファイルをここにドラッグ＆ドロップ</span>
+            <p class="text-sm text-gray-500 mt-2">またはクリックしてファイルを選択</p>
+        </div>
+    </div>
+}
+@if (isLoading)
+{
+    <div class="flex items-center justify-center w-full h-screen">
+        <div class="text-center">
+            <div class="w-64 h-4 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full bg-blue-500" style="width: @progress%;"></div>
+            </div>
+            <p class="text-sm text-gray-500 mt-2">読み込み中...</p>
+        </div>
+    </div>
+}
+<InputFile OnChange="HandleFileSelectionAsync" multiple="true" maxsize="52428800" style="display: none;"
+    id="fileInput" />
+@* <button @onclick="MergePDFs">Merge PDFs</button> *@
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p style="color: red;">@errorMessage</p>
+}
+@if (!string.IsNullOrEmpty(mergedPdfUrl))
+{
+    <a href="@mergedPdfUrl" target="_blank" download="merged.pdf">Download Merged PDF</a>
+}
+<div id="sortable-container" style="display: flex; flex-wrap: wrap; gap: 10px;">
+    @if (pageThumbnails != null && pageThumbnails.Any())
+    {
+        for (int i = 0; i < pageThumbnails.Count; i++)
+        {
+            var index = i; // ローカル変数にキャプチャ
+            <div class="sortable-item relative group border border-gray-300 p-2" data-index="@i" @key="@($"thumbnail-{i}-{pageThumbnails[i].GetHashCode()}")">
+                <img src="@pageThumbnails[i]" class="w-24 h-auto" draggable="false" />
+
+                <!-- サブメニュー -->
+                <div class="absolute top-0 right-0 hidden group-hover:flex flex-col bg-white shadow-md rounded p-1">
+                    <button class="text-red-500 hover:text-red-700" @onclick="() => RemovePage(index)" @onclick:stopPropagation="true">
+                        <i class="fas fa-trash"></i> <!-- ゴミ箱アイコン -->
+                    </button>
+                    <button class="text-blue-500 hover:text-blue-700 mt-1" @onclick="() => RotatePage(index)" @onclick:stopPropagation="true">
+                        <i class="fas fa-sync-alt"></i> <!-- 回転アイコン -->
+                    </button>
+                </div>
+            </div>
+        }
+        @* PDF追加ボタン(実際は隣接要素のInputFileで処理する) *@
+        <div class="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-400 cursor-pointer hover:bg-gray-100"
+            @onclick="OpenFileDialog">
+            <span class="text-2xl text-gray-500">+</span>
+            <span class="text-sm text-gray-500 mt-1">PDF追加</span>
+        </div>
+        <InputFile OnChange="HandleFileSelectionAsync" style="display: none;" id="fileInput" />
+    }
+</div>
+
+@code {
+    private bool isFilesLoaded = false;
+    private bool isLoading = false;
+    private int progress = 0;
+
+    private List<byte[]> pdfDataList = new();
+    private List<string> pdfPageDataList = new(); // ページレベルでのPDFデータ管理（base64文字列）
+    private string? mergedPdfUrl;
+    private string? errorMessage;
+    private List<string> pageThumbnails = new();
+
+    // 静的インスタンスで現在のコンポーネントを参照（並び替え用）
+    private static Merge? _currentInstance;
+
+    // JavaScript から呼び出される並び替えメソッド
+    [JSInvokable("UpdateOrder")]
+    public static void UpdateOrder(int oldIndex, int newIndex)
+    {
+        Console.WriteLine($"UpdateOrder called with oldIndex: {oldIndex}, newIndex: {newIndex}");
+
+        if (_currentInstance != null)
+        {
+            Console.WriteLine($"Current instance found, calling UpdateOrderInternal");
+            _currentInstance.UpdateOrderInternal(oldIndex, newIndex);
+        }
+        else
+        {
+            Console.WriteLine($"ERROR: Current instance is null!");
+        }
+    }
+
+    // 実際の並び替え処理（ThumbnailSorterの機能を統合）
+    private void UpdateOrderInternal(int oldIndex, int newIndex)
+    {
+        Console.WriteLine($"UpdateOrderInternal called. Before: thumbnails={pageThumbnails.Count}, pageData={pdfPageDataList.Count}");
+        Console.WriteLine($"Thumbnails before reorder: [{string.Join(", ", pageThumbnails.Select((t, i) => $"{i}:{t.Substring(0, Math.Min(20, t.Length))}"))}]");
+        
+        // サムネイルの並び替え
+        if (oldIndex >= 0 && oldIndex < pageThumbnails.Count &&
+            newIndex >= 0 && newIndex < pageThumbnails.Count)
+        {
+            var thumbnail = pageThumbnails[oldIndex];
+            pageThumbnails.RemoveAt(oldIndex);
+            pageThumbnails.Insert(newIndex, thumbnail);
+            Console.WriteLine($"Thumbnail moved from {oldIndex} to {newIndex}");
+            Console.WriteLine($"Thumbnails after reorder: [{string.Join(", ", pageThumbnails.Select((t, i) => $"{i}:{t.Substring(0, Math.Min(20, t.Length))}"))}]");
+        }
+
+        // PDFページデータの並び替え
+        if (oldIndex >= 0 && oldIndex < pdfPageDataList.Count &&
+            newIndex >= 0 && newIndex < pdfPageDataList.Count)
+        {
+            var pageData = pdfPageDataList[oldIndex];
+            pdfPageDataList.RemoveAt(oldIndex);
+            pdfPageDataList.Insert(newIndex, pageData);
+            Console.WriteLine($"Page data moved from {oldIndex} to {newIndex}");
+        }
+
+        Console.WriteLine($"After: thumbnails={pageThumbnails.Count}, pageData={pdfPageDataList.Count}");
+        Console.WriteLine($"Calling StateHasChanged...");
+        
+        // UIスレッドで確実に更新
+        InvokeAsync(() => {
+            StateHasChanged();
+            Console.WriteLine($"StateHasChanged called");
+        });
+    }
+
+    private async Task OpenFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+    }
+
+    private void RemovePage(int index)
+    {
+        if (index >= 0 && index < pageThumbnails.Count)
+        {
+            pageThumbnails.RemoveAt(index);
+            // 対応するページデータも削除
+            if (index < pdfPageDataList.Count)
+            {
+                pdfPageDataList.RemoveAt(index);
+            }
+            Console.WriteLine($"Page {index} removed.");
+        }
+    }
+
+    private async Task RotatePage(int index)
+    {
+        if (index >= 0 && index < pageThumbnails.Count)
+        {
+            var thumbnail = pageThumbnails[index];
+            var rotatedThumbnail = await JSRuntime.InvokeAsync<string>("rotateImage", thumbnail);
+            pageThumbnails[index] = rotatedThumbnail;
+
+            // 対応するPDFページも回転
+            if (index < pdfPageDataList.Count)
+            {
+                var rotatedPageData = await JSRuntime.InvokeAsync<string>("rotatePDFPage", pdfPageDataList[index]);
+                if (rotatedPageData != null)
+                {
+                    pdfPageDataList[index] = rotatedPageData;
+                }
+            }
+
+            Console.WriteLine($"Page {index} rotated.");
+        }
+    }
+
+    private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
+    {
+        isLoading = true;
+        progress = 0;
+        const long maxFileSize = 52428800; // 50MB
+
+        foreach (var file in e.GetMultipleFiles())
+        {
+            try
+            {
+                using var stream = file.OpenReadStream(maxFileSize);
+                using var memoryStream = new MemoryStream();
+                var buffer = new byte[8192];
+                long totalBytesRead = 0;
+                int bytesRead;
+
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    await memoryStream.WriteAsync(buffer, 0, bytesRead);
+                    totalBytesRead += bytesRead;
+
+                    progress = (int)((totalBytesRead / (double)file.Size) * 100);
+                    StateHasChanged();
+                }
+
+                var pdfData = memoryStream.ToArray();
+                pdfDataList.Add(pdfData);
+
+                // JavaScript でサムネイルを生成
+                var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
+                if (newThumbnails != null)
+                {
+                    pageThumbnails.AddRange(newThumbnails);
+
+                    // 各ページのPDFデータを個別に管理
+                    var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
+                    if (pageDataList != null)
+                    {
+                        pdfPageDataList.AddRange(pageDataList);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing file {file.Name}: {ex.Message}");
+                errorMessage = $"Error processing file {file.Name}. Please try again.";
+            }
+        }
+
+        isLoading = false;
+        isFilesLoaded = true;
+        StateHasChanged();
+
+        Console.WriteLine($"Total thumbnails: {pageThumbnails?.Count}");
+        Console.WriteLine($"Total page data: {pdfPageDataList?.Count}");
+    }
+
+    // PDFを結合する処理（並び替えが反映される）
+    private async Task MergePDFs()
+    {
+        try
+        {
+            if (pdfPageDataList.Count == 0)
+            {
+                errorMessage = "No PDF files to merge.";
+                Console.WriteLine("No files selected.");
+                return;
+            }
+
+            errorMessage = null;
+            // 並び替えられたページデータを使用してPDFを結合
+            mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", pdfPageDataList);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            errorMessage = "An error occurred while merging PDFs. Please try again.";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _currentInstance = this;
+            Console.WriteLine("First render - initializing sortable");
+            // DOMの準備を待つ
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("initializeSortable");
+        }
+        else if (isFilesLoaded && pageThumbnails.Any())
+        {
+            Console.WriteLine("Re-render with files loaded - re-initializing sortable");
+            // ファイルが読み込まれた後にも再初期化
+            await Task.Delay(50);
+            await JSRuntime.InvokeVoidAsync("initializeSortable");
+        }
+    }
+}
