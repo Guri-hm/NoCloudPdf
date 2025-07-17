@@ -259,6 +259,8 @@
         isFilesLoaded = true;
         StateHasChanged();
 
+        await InitializeSortableAfterLoad();
+        
         Console.WriteLine($"Total thumbnails: {pageThumbnails?.Count}");
         Console.WriteLine($"Total page data: {pdfPageDataList?.Count}");
     }
@@ -286,22 +288,24 @@
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task InitializeSortableAfterLoad()
     {
-        if (firstRender)
+        if (isFilesLoaded && pageThumbnails.Any())
         {
-            _currentInstance = this;
-            Console.WriteLine("First render - initializing sortable");
-            // DOMの準備を待つ
-            await Task.Delay(100);
-            await JSRuntime.InvokeVoidAsync("initializeSortable");
+            try
+            {
+                // DOMの更新を待つ
+                await Task.Delay(200);
+                
+                Console.WriteLine("Initializing sortable after file load");
+                await JSRuntime.InvokeVoidAsync("initializeSortable");
+                
+                Console.WriteLine("Sortable initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing sortable: {ex.Message}");
+            }
         }
-        //else if (isFilesLoaded && pageThumbnails.Any())
-        //{
-        //    Console.WriteLine("Re-render with files loaded - re-initializing sortable");
-        //    // ファイルが読み込まれた後にも再初期化
-        //    await Task.Delay(50);
-        //    await JSRuntime.InvokeVoidAsync("initializeSortable");
-        //}
     }
 }
