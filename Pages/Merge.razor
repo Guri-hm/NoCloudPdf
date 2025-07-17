@@ -308,4 +308,13 @@
             }
         }
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _currentInstance = this;
+            Console.WriteLine("Current instance set in OnAfterRenderAsync");
+        }
+    }
 }
