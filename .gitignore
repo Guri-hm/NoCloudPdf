@@ -1,7 +1,6 @@
 ## Build output
 bin/
 obj/
-wwwroot/
 
 ## User-specific files
 *.user
