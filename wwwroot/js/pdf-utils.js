@@ -1,5 +1,3 @@
-
-
 window.mergePDFs = async function (pdfDataList) {
     const { PDFDocument } = PDFLib;
     const mergedPdf = await PDFDocument.create();
@@ -72,29 +70,38 @@ window.mergePDFPages = async function (pdfPageDataList) {
 
 // PDFの各ページを個別のPDFデータとして抽出する関数
 window.extractPDFPages = async function (pdfData) {
-    const { PDFDocument } = PDFLib;
-    const pdfDoc = await PDFDocument.load(new Uint8Array(pdfData));
-    const pageDataList = [];
+    try {
+        const { PDFDocument } = PDFLib;
+        const pdfDoc = await PDFDocument.load(new Uint8Array(pdfData));
+        const pageDataList = [];
 
-    for (let i = 0; i < pdfDoc.getPageCount(); i++) {
-        const newPdf = await PDFDocument.create();
-        const [copiedPage] = await newPdf.copyPages(pdfDoc, [i]);
-        newPdf.addPage(copiedPage);
+        for (let i = 0; i < pdfDoc.getPageCount(); i++) {
+            const newPdf = await PDFDocument.create();
+            const [copiedPage] = await newPdf.copyPages(pdfDoc, [i]);
+            newPdf.addPage(copiedPage);
 
-        const pdfBytes = await newPdf.save();
-        // base64エンコードして返す
-        const base64String = btoa(String.fromCharCode(...pdfBytes));
-        pageDataList.push(base64String);
+            const pdfBytes = await newPdf.save();
+
+            // スプレッド演算子を使わずにbase64エンコード
+            let binary = '';
+            for (let j = 0; j < pdfBytes.length; j++) {
+                binary += String.fromCharCode(pdfBytes[j]);
+            }
+            const base64String = btoa(binary);
+            pageDataList.push(base64String);
+        }
+
+        return pageDataList;
+    } catch (error) {
+        console.error('Error extracting PDF pages:', error);
+        return [];
     }
-
-    return pageDataList;
 };
 
 // PDFページを回転する関数
 window.rotatePDFPage = async function (pageData) {
     try {
         const { PDFDocument, degrees } = PDFLib;
-        // base64文字列をUint8Arrayに変換
         const binaryString = atob(pageData);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -110,8 +117,13 @@ window.rotatePDFPage = async function (pageData) {
         }
 
         const pdfBytes = await pdfDoc.save();
-        // base64エンコードして返す
-        const base64String = btoa(String.fromCharCode(...pdfBytes));
+
+        // スプレッド演算子を使わずにbase64エンコード
+        let binary = '';
+        for (let j = 0; j < pdfBytes.length; j++) {
+            binary += String.fromCharCode(pdfBytes[j]);
+        }
+        const base64String = btoa(binary);
         return base64String;
     } catch (error) {
         console.error('Error rotating PDF page:', error);
