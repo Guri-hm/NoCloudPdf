@@ -54,32 +54,35 @@
 <div id="sortable-container" class="flex flex-wrap gap-2">
     @if (pageThumbnails != null && pageThumbnails.Any())
     {
-        @* 最初の＋ボタン *@
-        <div class="flex items-center">
-            <button
-                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                @onclick="() => ToggleInsertMenu(0)">
-                +
-            </button>
-            @if (showInsertMenuIndex == 0)
-            {
-                <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertBlankPage(0)">
-                        📄 空白ページの挿入
-                    </button>
-                </div>
-            }
-        </div>
-
-        @* サムネイルと＋マークのペア *@
+        @* 各サムネイルの左側に＋ボタンを配置（並び替え対象） *@
         @for (int i = 0; i < pageThumbnails.Count; i++)
         {
             var index = i;
-            var insertIndex = i + 1;
 
             <div class="sortable-item-container flex items-center gap-2" data-index="@i">
-                @* サムネイル *@
+                @* 左側の＋ボタン *@
+                <div class="flex items-center">
+                    <button
+                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+                        @onclick="() => ToggleInsertMenu(i)">
+                        +
+                    </button>
+                    @if (showInsertMenuIndex == i)
+                    {
+                        <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
+                        <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
+                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
+                                @onclick="() => InsertBlankPage(i)">
+                                📄 空白ページの挿入
+                            </button>
+                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertPdfAtPosition(i)">
+                                📁 PDFを選択して挿入
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                @* 右側のサムネイル *@
                 <div class="thumbnail-item relative group p-2">
                     <div class="w-24 h-32 flex items-center justify-center overflow-hidden">
                         <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300"
@@ -97,58 +100,59 @@
                         </button>
                     </div>
                 </div>
-
-                @* 後続の＋マーク *@
-                <div class="flex items-center">
-                    <button
-                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                        @onclick="() => ToggleInsertMenu(insertIndex)">
-                        +
-                    </button>
-                    @if (showInsertMenuIndex == insertIndex)
-                    {
-                        <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                        <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
-                                @onclick="() => InsertBlankPage(insertIndex)">
-                                📄 空白ページの挿入
-                            </button>
-                        </div>
-                    }
-                </div>
             </div>
         }
+
+        @* 最後尾の固定＋ボタン *@
+        <div class="flex items-center">
+            <button
+                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+                @onclick="() => ToggleInsertMenu(pageThumbnails.Count)">
+                +
+            </button>
+            @if (showInsertMenuIndex == pageThumbnails.Count)
+            {
+                <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
+                <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
+                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
+                        @onclick="() => InsertBlankPage(pageThumbnails.Count)">
+                        📄 空白ページの挿入
+                    </button>
+                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
+                        @onclick="() => InsertPdfAtPosition(pageThumbnails.Count)">
+                        📁 PDFを選択して挿入
+                    </button>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        @* サムネイルが0個の場合は最初の＋ボタンのみ *@
+        <div class="flex items-center">
+            <button
+                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+                @onclick="() => ToggleInsertMenu(0)">
+                +
+            </button>
+            @if (showInsertMenuIndex == 0)
+            {
+                <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
+                <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
+                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
+                        @onclick="() => InsertBlankPage(0)">
+                        📄 空白ページの挿入
+                    </button>
+                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertPdfAtPosition(0)">
+                        📁 PDFを選択して挿入
+                    </button>
+                </div>
+            }
+        </div>
     }
 </div>
 
-@* 最初の＋ボタン（最初のサムネイルの前） *@
-<div class="flex items-center insert-button">
-    <div class="relative">
-        <button
-            class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-            @onclick="() => ToggleInsertMenu(0)" @onclick:stopPropagation="true">
-            +
-        </button>
-
-        <!-- 挿入メニュー -->
-        @if (showInsertMenuIndex == 0)
-        {
-            <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)" @onclick:stopPropagation="false"></div>
-
-            <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48"
-                style="z-index: 9999;">
-                <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
-                    @onclick="() => InsertBlankPage(0)" @onclick:stopPropagation="true">
-                    📄 空白ページの挿入
-                </button>
-                <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertPdfAtPosition(0)"
-                    @onclick:stopPropagation="true">
-                    📁 PDFを選択して挿入
-                </button>
-            </div>
-        }
-    </div>
-</div>
+<InputFile OnChange="HandleInsertFileSelectionAsync" style="display: none;" id="insertFileInput" />
 
 <style>
     .thumbnail-item:hover .menu-overlay {
@@ -194,10 +198,16 @@
     // 実際の並び替え処理（ThumbnailSorterの機能を統合）
     private void UpdateOrderInternal(int oldIndex, int newIndex)
     {
+        Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
+        Console.WriteLine($"Current pageThumbnails count: {pageThumbnails.Count}");
+
         // サムネイルの並び替え
         if (oldIndex >= 0 && oldIndex < pageThumbnails.Count &&
         newIndex >= 0 && newIndex < pageThumbnails.Count)
         {
+            Console.WriteLine($"Before: pageThumbnails[{oldIndex}] = {pageThumbnails[oldIndex].Substring(0, 50)}...");
+            Console.WriteLine($"Before: pageThumbnails[{newIndex}] = {pageThumbnails[newIndex].Substring(0, 50)}...");
+
             var thumbnail = pageThumbnails[oldIndex];
             pageThumbnails.RemoveAt(oldIndex);
             pageThumbnails.Insert(newIndex, thumbnail);
@@ -205,16 +215,19 @@
             var pageData = pdfPageDataList[oldIndex];
             pdfPageDataList.RemoveAt(oldIndex);
             pdfPageDataList.Insert(newIndex, pageData);
+
+            Console.WriteLine($"After: pageThumbnails[{newIndex}] = {pageThumbnails[newIndex].Substring(0, 50)}...");
+            Console.WriteLine($"Moved thumbnail from {oldIndex} to {newIndex}");
+        }
+        else
+        {
+            Console.WriteLine($"Invalid indices: oldIndex={oldIndex}, newIndex={newIndex}, count={pageThumbnails.Count}");
         }
 
-        // UIスレッドで更新し、その後Sortableを再初期化
-        InvokeAsync(async () =>
+        // UIスレッドで更新
+        InvokeAsync(() =>
         {
             StateHasChanged();
-
-            // DOM更新を待ってからSortableを再初期化
-            await Task.Delay(100);
-            await JSRuntime.InvokeVoidAsync("initializeSortable");
         });
     }
 
@@ -401,7 +414,7 @@
         }
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnAfterRender(bool firstRender)
     {
         if (firstRender)
         {

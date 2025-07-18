@@ -7,18 +7,21 @@ window.initializeSortable = function () {
         if (container.sortableInstance) {
             container.sortableInstance.destroy();
         }
-        
+
         container.sortableInstance = new Sortable(container, {
-            draggable: '.sortable-item-container', // HTMLの実際のクラス名に合わせる
+            draggable: '.sortable-item-container', // ＋ボタン＋サムネイルのコンテナ全体を並び替え対象
             animation: 150,
             onEnd: function (evt) {
                 console.log('Sort completed:', evt.oldIndex, evt.newIndex);
                 DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex);
             }
         });
+
+        console.log('Sortable initialized successfully');
+    } else {
+        console.error('Failed to initialize sortable - container or Sortable library not found');
     }
 };
-
 // ＋マークを正しい位置に再配置する関数
 function repositionInsertButtons() {
     const container = document.getElementById('sortable-container');
