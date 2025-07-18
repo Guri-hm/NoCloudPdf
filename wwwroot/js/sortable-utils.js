@@ -2,38 +2,41 @@ let sortableInstance = null;
 
 window.initializeSortable = function () {
     const container = document.getElementById('sortable-container');
-    if (container) {
-        console.log("Sortable container found, initializing...");
-
-        // 既存のSortableインスタンスがあれば破棄
-        if (sortableInstance) {
-            sortableInstance.destroy();
-            console.log("Previous sortable instance destroyed");
+    if (container && window.Sortable) {
+        // 既存のインスタンスを破棄
+        if (container.sortableInstance) {
+            container.sortableInstance.destroy();
         }
-
-        sortableInstance = new Sortable(container, {
+        
+        container.sortableInstance = new Sortable(container, {
+            draggable: '.sortable-item-container', // HTMLの実際のクラス名に合わせる
             animation: 150,
-            ghostClass: 'sortable-ghost',
-            chosenClass: 'sortable-chosen',
-            dragClass: 'sortable-drag',
-            filter: '.flex.flex-col', // PDF追加ボタンを除外
-            onStart: function (evt) {
-                console.log('Drag started:', evt.oldIndex);
-            },
             onEnd: function (evt) {
-                console.log('Drag ended:', evt.oldIndex, '->', evt.newIndex);
-                if (evt.oldIndex !== evt.newIndex) {
-                    console.log('Calling UpdateOrder...');
-                    DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex)
-                        .then(() => console.log("UpdateOrder invoked successfully"))
-                        .catch(err => console.error("Error invoking UpdateOrder:", err));
-                } else {
-                    console.log('No change in position, skipping UpdateOrder');
-                }
+                console.log('Sort completed:', evt.oldIndex, evt.newIndex);
+                DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex);
             }
         });
-        console.log("Sortable initialized successfully.");
-    } else {
-        console.log("sortable-container element not found. Skipping initialization.");
     }
 };
+
+// ＋マークを正しい位置に再配置する関数
+function repositionInsertButtons() {
+    const container = document.getElementById('sortable-container');
+    const sortableItems = container.querySelectorAll('.sortable-item');
+    const insertButtons = container.querySelectorAll('.insert-button');
+
+    // 既存の＋マークを一時的に隠す
+    insertButtons.forEach(btn => btn.style.display = 'none');
+
+    // 各サムネイルの後に＋マークを配置
+    sortableItems.forEach((item, index) => {
+        const insertButton = insertButtons[index + 1]; // 最初の＋マークは位置0用
+        if (insertButton) {
+            // サムネイルの直後に配置
+            item.parentNode.insertBefore(insertButton, item.nextSibling);
+            insertButton.style.display = 'flex';
+            // data-insert-positionを更新
+            insertButton.setAttribute('data-insert-position', index + 1);
+        }
+    });
+}
