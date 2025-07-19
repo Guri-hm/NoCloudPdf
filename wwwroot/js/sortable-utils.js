@@ -9,11 +9,31 @@ window.initializeSortable = function () {
         }
 
         container.sortableInstance = new Sortable(container, {
-            draggable: '.sortable-item-container', // ＋ボタン＋サムネイルのコンテナ全体を並び替え対象
+            draggable: '.sortable-item-container',
             animation: 150,
-            onEnd: function (evt) {
+            onEnd: async function (evt) {
                 console.log('Sort completed:', evt.oldIndex, evt.newIndex);
-                DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex);
+
+                // DOM操作はSortable.jsに任せる（元に戻さない）
+                // データのみBlazor側で更新
+                try {
+                    await DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex);
+                    console.log('Data update completed successfully');
+                } catch (error) {
+                    console.error('Error updating data:', error);
+                    // エラー時のみDOMを元に戻す
+                    if (evt.oldIndex !== evt.newIndex) {
+                        const item = evt.item;
+                        const parent = item.parentNode;
+                        const children = Array.from(parent.children);
+
+                        if (evt.oldIndex < children.length) {
+                            parent.insertBefore(item, children[evt.oldIndex]);
+                        } else {
+                            parent.appendChild(item);
+                        }
+                    }
+                }
             }
         });
 
@@ -22,24 +42,3 @@ window.initializeSortable = function () {
         console.error('Failed to initialize sortable - container or Sortable library not found');
     }
 };
-// ＋マークを正しい位置に再配置する関数
-function repositionInsertButtons() {
-    const container = document.getElementById('sortable-container');
-    const sortableItems = container.querySelectorAll('.sortable-item');
-    const insertButtons = container.querySelectorAll('.insert-button');
-
-    // 既存の＋マークを一時的に隠す
-    insertButtons.forEach(btn => btn.style.display = 'none');
-
-    // 各サムネイルの後に＋マークを配置
-    sortableItems.forEach((item, index) => {
-        const insertButton = insertButtons[index + 1]; // 最初の＋マークは位置0用
-        if (insertButton) {
-            // サムネイルの直後に配置
-            item.parentNode.insertBefore(insertButton, item.nextSibling);
-            insertButton.style.display = 'flex';
-            // data-insert-positionを更新
-            insertButton.setAttribute('data-insert-position', index + 1);
-        }
-    });
-}

@@ -195,42 +195,47 @@
         }
     }
 
-    // 実際の並び替え処理（ThumbnailSorterの機能を統合）
+    // 実際の並び替え処理
     private void UpdateOrderInternal(int oldIndex, int newIndex)
     {
         Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
-        Console.WriteLine($"Current pageThumbnails count: {pageThumbnails.Count}");
 
-        // サムネイルの並び替え
         if (oldIndex >= 0 && oldIndex < pageThumbnails.Count &&
-        newIndex >= 0 && newIndex < pageThumbnails.Count)
+        newIndex >= 0 && newIndex < pageThumbnails.Count &&
+        oldIndex != newIndex)
         {
-            Console.WriteLine($"Before: pageThumbnails[{oldIndex}] = {pageThumbnails[oldIndex].Substring(0, 50)}...");
-            Console.WriteLine($"Before: pageThumbnails[{newIndex}] = {pageThumbnails[newIndex].Substring(0, 50)}...");
+            Console.WriteLine($"Moving data from index {oldIndex} to {newIndex}");
 
+            // データ配列のみ並び替え（DOM操作はしない）
             var thumbnail = pageThumbnails[oldIndex];
-            pageThumbnails.RemoveAt(oldIndex);
-            pageThumbnails.Insert(newIndex, thumbnail);
-
             var pageData = pdfPageDataList[oldIndex];
+
+            pageThumbnails.RemoveAt(oldIndex);
             pdfPageDataList.RemoveAt(oldIndex);
+
+            pageThumbnails.Insert(newIndex, thumbnail);
             pdfPageDataList.Insert(newIndex, pageData);
 
-            Console.WriteLine($"After: pageThumbnails[{newIndex}] = {pageThumbnails[newIndex].Substring(0, 50)}...");
-            Console.WriteLine($"Moved thumbnail from {oldIndex} to {newIndex}");
+            Console.WriteLine($"Data reordered successfully: {oldIndex} -> {newIndex}");
+
+            // StateHasChanged()は呼ばない（DOM操作はSortable.jsに任せる）
+            // await InvokeAsync(() => StateHasChanged()); // この行をコメントアウト
         }
         else
         {
-            Console.WriteLine($"Invalid indices: oldIndex={oldIndex}, newIndex={newIndex}, count={pageThumbnails.Count}");
+            Console.WriteLine($"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={pageThumbnails.Count}");
         }
-
-        // UIスレッドで更新
-        InvokeAsync(() =>
-        {
-            StateHasChanged();
-        });
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (isFilesLoaded && firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeSortable");
+        }
+    }
+
+    // ...existing code...
     private async Task OpenFileDialog()
     {
         await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
