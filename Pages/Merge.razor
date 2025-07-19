@@ -5,9 +5,9 @@
 
 <PageTitle>Merge</PageTitle>
 
-@if (isFilesLoaded)
+@if (isFilesLoaded && !showMergedResult)
 {
-    <!-- 上部固定バー -->
+    <!-- 上部固定バー（編集モード） -->
     <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow-md z-50">
         <div class="flex items-center justify-between px-4 py-2">
             <span class="text-lg font-semibold">PDF操作</span>
@@ -16,8 +16,201 @@
             </button>
         </div>
     </div>
+
+    <!-- サムネイル編集エリア -->
+    <div class="pt-16"> <!-- 上部バーの高さ分余白 -->
+        <div id="sortable-container" class="flex flex-wrap gap-2 p-4">
+            @if (pageThumbnails != null && pageThumbnails.Any())
+            {
+                @* 各サムネイルの左側に＋ボタンを配置（並び替え対象） *@
+                @for (int i = 0; i < pageThumbnails.Count; i++)
+                {
+                    var index = i;
+
+                    <div class="sortable-item-container flex items-center gap-2" data-index="@i">
+                        @* 左側の＋ボタン *@
+                        <div class="flex items-center">
+                            <button
+                                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+                                @onclick="() => ToggleInsertMenu(i)">
+                                +
+                            </button>
+                            @if (showInsertMenuIndex == i)
+                            {
+                                <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
+                                <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
+                                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
+                                        @onclick="() => InsertBlankPage(i)">
+                                        📄 空白ページの挿入
+                                    </button>
+                                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
+                                        @onclick="() => InsertPdfAtPosition(i)">
+                                        📁 PDFを選択して挿入
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        @* 右側のサムネイル *@
+                        <div class="thumbnail-item relative group p-2">
+                            <div class="w-24 h-32 flex items-center justify-center overflow-hidden">
+                                <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300"
+                                    draggable="false" />
+                            </div>
+
+                            <!-- サブメニュー -->
+                            <div class="menu-overlay absolute top-0 right-0 bg-white shadow-md rounded p-1 flex-col"
+                                style="display: none;">
+                                <button class="text-red-500 hover:text-red-700 p-1" @onclick="() => RemovePage(index)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)">
+                                    <i class="fa-solid fa-rotate-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* 最後尾の固定＋ボタン *@
+                <div class="flex items-center">
+                    <button
+                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+                        @onclick="() => ToggleInsertMenu(pageThumbnails.Count)">
+                        +
+                    </button>
+                    @if (showInsertMenuIndex == pageThumbnails.Count)
+                    {
+                        <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
+                        <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
+                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
+                                @onclick="() => InsertBlankPage(pageThumbnails.Count)">
+                                📄 空白ページの挿入
+                            </button>
+                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
+                                @onclick="() => InsertPdfAtPosition(pageThumbnails.Count)">
+                                📁 PDFを選択して挿入
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                @* サムネイルが0個の場合は最初の＋ボタンのみ *@
+                <div class="flex items-center">
+                    <button
+                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
+                        @onclick="() => ToggleInsertMenu(0)">
+                        +
+                    </button>
+                    @if (showInsertMenuIndex == 0)
+                    {
+                        <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
+                        <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
+                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
+                                @onclick="() => InsertBlankPage(0)">
+                                📄 空白ページの挿入
+                            </button>
+                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertPdfAtPosition(0)">
+                                📁 PDFを選択して挿入
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
 }
 
+@* 結合結果表示画面 *@
+@if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
+{
+    <!-- 上部固定バー（結果表示モード） -->
+    <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow-md z-50">
+        <div class="flex items-center justify-between px-4 py-2">
+            <button class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" @onclick="BackToEdit">
+                ← 編集に戻る
+            </button>
+            <span class="text-lg font-semibold">結合結果プレビュー</span>
+            <div></div> <!-- 右側のスペース確保 -->
+        </div>
+    </div>
+
+    <!-- メインコンテンツエリア -->
+    <div class="flex h-screen pt-16"> <!-- 上部バーの高さ分余白 -->
+        <!-- 左側：PDFプレビューエリア -->
+        <div class="flex-1 bg-gray-100 overflow-y-auto">
+            <div class="p-4">
+                <div id="pdf-preview-container" class="max-w-4xl mx-auto">
+                    <iframe src="@mergedPdfUrl" class="w-full h-screen border-none" style="min-height: 800px;">
+                    </iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：操作パネル -->
+        <div class="w-80 bg-white border-l border-gray-300 p-6 overflow-y-auto">
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">操作メニュー</h3>
+
+                <!-- ダウンロードボタン -->
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-700 mb-2">ファイル操作</h4>
+                    <a href="@mergedPdfUrl" target="_blank" download="merged.pdf"
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i>
+                        PDFをダウンロード
+                    </a>
+                </div>
+
+                <!-- 共有機能（将来の拡張用） -->
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-700 mb-2">共有</h4>
+                    <button
+                        class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
+                        @onclick="SharePDF">
+                        <i class="fas fa-share"></i>
+                        リンクをコピー
+                    </button>
+                </div>
+
+                <!-- 印刷機能 -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-700 mb-2">出力</h4>
+                    <button
+                        class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
+                        @onclick="PrintPDF">
+                        <i class="fas fa-print"></i>
+                        印刷
+                    </button>
+                </div>
+
+                <!-- 新しい編集 -->
+                <div class="bg-orange-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-700 mb-2">新規作成</h4>
+                    <button
+                        class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
+                        @onclick="StartNew">
+                        <i class="fas fa-plus"></i>
+                        新しいPDFを作成
+                    </button>
+                </div>
+
+                <!-- ファイル情報 -->
+                <div class="bg-gray-50 p-4 rounded-lg mt-6">
+                    <h4 class="font-medium text-gray-700 mb-2">ファイル情報</h4>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <p><span class="font-medium">ページ数:</span> @pdfPageDataList.Count</p>
+                        <p><span class="font-medium">作成日時:</span> @DateTime.Now.ToString("yyyy/MM/dd HH:mm")</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* 初期ドロップゾーン *@
 @if (!isFilesLoaded && !isLoading)
 {
     <div id="drop-zone"
@@ -29,6 +222,8 @@
         </div>
     </div>
 }
+
+@* ローディング画面 *@
 @if (isLoading)
 {
     <div class="flex items-center justify-center w-full h-screen">
@@ -40,118 +235,17 @@
         </div>
     </div>
 }
-<InputFile OnChange="HandleFileSelectionAsync" multiple="true" maxsize="52428800" style="display: none;"
-    id="fileInput" />
-@* <button @onclick="MergePDFs">Merge PDFs</button> *@
+
+@* エラーメッセージ *@
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <p style="color: red;">@errorMessage</p>
+    <div class="fixed top-20 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+        @errorMessage
+    </div>
 }
-@if (!string.IsNullOrEmpty(mergedPdfUrl))
-{
-    <a href="@mergedPdfUrl" target="_blank" download="merged.pdf">Download Merged PDF</a>
-}
-<div id="sortable-container" class="flex flex-wrap gap-2">
-    @if (pageThumbnails != null && pageThumbnails.Any())
-    {
-        @* 各サムネイルの左側に＋ボタンを配置（並び替え対象） *@
-        @for (int i = 0; i < pageThumbnails.Count; i++)
-        {
-            var index = i;
 
-            <div class="sortable-item-container flex items-center gap-2" data-index="@i">
-                @* 左側の＋ボタン *@
-                <div class="flex items-center">
-                    <button
-                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                        @onclick="() => ToggleInsertMenu(i)">
-                        +
-                    </button>
-                    @if (showInsertMenuIndex == i)
-                    {
-                        <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                        <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
-                                @onclick="() => InsertBlankPage(i)">
-                                📄 空白ページの挿入
-                            </button>
-                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertPdfAtPosition(i)">
-                                📁 PDFを選択して挿入
-                            </button>
-                        </div>
-                    }
-                </div>
-
-                @* 右側のサムネイル *@
-                <div class="thumbnail-item relative group p-2">
-                    <div class="w-24 h-32 flex items-center justify-center overflow-hidden">
-                        <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300"
-                            draggable="false" />
-                    </div>
-
-                    <!-- サブメニュー -->
-                    <div class="menu-overlay absolute top-0 right-0 bg-white shadow-md rounded p-1 flex-col"
-                        style="display: none;">
-                        <button class="text-red-500 hover:text-red-700 p-1" @onclick="() => RemovePage(index)">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)">
-                            <i class="fa-solid fa-rotate-right"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        }
-
-        @* 最後尾の固定＋ボタン *@
-        <div class="flex items-center">
-            <button
-                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                @onclick="() => ToggleInsertMenu(pageThumbnails.Count)">
-                +
-            </button>
-            @if (showInsertMenuIndex == pageThumbnails.Count)
-            {
-                <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
-                        @onclick="() => InsertBlankPage(pageThumbnails.Count)">
-                        📄 空白ページの挿入
-                    </button>
-                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
-                        @onclick="() => InsertPdfAtPosition(pageThumbnails.Count)">
-                        📁 PDFを選択して挿入
-                    </button>
-                </div>
-            }
-        </div>
-    }
-    else
-    {
-        @* サムネイルが0個の場合は最初の＋ボタンのみ *@
-        <div class="flex items-center">
-            <button
-                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                @onclick="() => ToggleInsertMenu(0)">
-                +
-            </button>
-            @if (showInsertMenuIndex == 0)
-            {
-                <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
-                        @onclick="() => InsertBlankPage(0)">
-                        📄 空白ページの挿入
-                    </button>
-                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertPdfAtPosition(0)">
-                        📁 PDFを選択して挿入
-                    </button>
-                </div>
-            }
-        </div>
-    }
-</div>
-
+<InputFile OnChange="HandleFileSelectionAsync" multiple="true" maxsize="52428800" style="display: none;"
+    id="fileInput" />
 <InputFile OnChange="HandleInsertFileSelectionAsync" style="display: none;" id="insertFileInput" />
 
 <style>
@@ -167,10 +261,11 @@
 @code {
     private bool isFilesLoaded = false;
     private bool isLoading = false;
+    private bool showMergedResult = false; // 結合結果表示フラグ
     private int progress = 0;
 
     private List<byte[]> pdfDataList = new();
-    private List<string> pdfPageDataList = new(); // ページレベルでのPDFデータ管理（base64文字列）
+    private List<string> pdfPageDataList = new();
     private string? mergedPdfUrl;
     private string? errorMessage;
     private List<string> pageThumbnails = new();
@@ -375,11 +470,17 @@
         Console.WriteLine($"Total page data: {pdfPageDataList?.Count}");
     }
 
-    // PDFを結合する処理（並び替えが反映される）
+    // PDFを結合する処理（結果表示モードに切り替え）
     private async Task MergePDFs()
     {
         try
         {
+            // デバッグ: 結合前のデータ順序を確認
+            Console.WriteLine("=== 結合前のデータ順序 ===");
+            for (int i = 0; i < pdfPageDataList.Count; i++)
+            {
+                Console.WriteLine($"Index {i}: {pdfPageDataList[i].Substring(0, 50)}...");
+            }
             if (pdfPageDataList.Count == 0)
             {
                 errorMessage = "No PDF files to merge.";
@@ -388,14 +489,72 @@
             }
 
             errorMessage = null;
+
             // 並び替えられたページデータを使用してPDFを結合
             mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", pdfPageDataList);
+
+            if (!string.IsNullOrEmpty(mergedPdfUrl))
+            {
+                // 結合成功：結果表示モードに切り替え
+                showMergedResult = true;
+                StateHasChanged();
+                Console.WriteLine("Switched to result view mode");
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
             errorMessage = "An error occurred while merging PDFs. Please try again.";
         }
+    }
+
+    // 編集モードに戻る
+    private void BackToEdit()
+    {
+        showMergedResult = false;
+        StateHasChanged();
+
+        // Sortableを再初期化
+        InvokeAsync(async () =>
+        {
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("initializeSortable");
+        });
+    }
+
+    // 共有機能
+    private async Task SharePDF()
+    {
+        if (!string.IsNullOrEmpty(mergedPdfUrl))
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", mergedPdfUrl);
+            // 成功メッセージを表示（必要に応じて）
+            Console.WriteLine("PDF URL copied to clipboard");
+        }
+    }
+
+    // 印刷機能
+    private async Task PrintPDF()
+    {
+        if (!string.IsNullOrEmpty(mergedPdfUrl))
+        {
+            await JSRuntime.InvokeVoidAsync("window.open", mergedPdfUrl, "_blank");
+        }
+    }
+
+    // 新規作成
+    private void StartNew()
+    {
+        // データをリセット
+        pdfDataList.Clear();
+        pdfPageDataList.Clear();
+        pageThumbnails.Clear();
+        mergedPdfUrl = null;
+        errorMessage = null;
+        showMergedResult = false;
+        isFilesLoaded = false;
+
+        StateHasChanged();
     }
 
     private async Task InitializeSortableAfterLoad()
