@@ -1,3 +1,13 @@
+// 指定input要素をクリックしてファイル選択ダイアログを開く（PDF挿入用）
+window.openInsertFileDialog = function(elementId) {
+    const fileInput = document.getElementById(elementId);
+    if (fileInput) {
+        fileInput.value = null; // 連続選択対応
+        fileInput.click();
+    } else {
+        console.error('openInsertFileDialog: input element not found:', elementId);
+    }
+};
 window.openFileDialog = function (elementId) {
     const fileInput = document.getElementById(elementId);
     if (fileInput) {
