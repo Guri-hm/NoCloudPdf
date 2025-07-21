@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
+@using System.IO
 
 <PageTitle>Merge</PageTitle>
 
@@ -78,6 +79,7 @@
                                 var pageCount = 1;
                                 var isPageLoading = false;
                                 var hasPageError = false;
+                                var displayInfo = GetItemDisplayInfo(index);
                                 
                                 // ファイル単位表示の場合、複数ページかチェック
                                 if (!isPageView && index < pdfFiles.Count)
@@ -95,6 +97,7 @@
                                 }
                             }
                             
+                            <!-- サムネイル画像部分 -->
                             <div class="@(isMultiPage ? "thumbnail-stack" : "")">
                                 <div class="w-24 h-32 flex items-center justify-center overflow-hidden @(isMultiPage ? "stack-layer" : "")">
                                     @if (isPageLoading)
@@ -118,6 +121,19 @@
                                 {
                                     <div class="page-count-badge">
                                         @pageCount
+                                    </div>
+                                }
+                            </div>
+                            
+                            <!-- ファイル情報表示 -->
+                            <div class="file-info">
+                                <div class="file-name" title="@displayInfo.fileName">
+                                    @displayInfo.displayFileName
+                                </div>
+                                @if (isPageView && displayInfo.pageNumber > 0)
+                                {
+                                    <div class="page-number">
+                                        p.@displayInfo.pageNumber
                                     </div>
                                 }
                             </div>
@@ -398,8 +414,11 @@
     .thumbnail-container {
         padding: 8px;
         position: relative;
-        min-width: 40px; /* バッジが見切れないように最小幅を設定 */
-        min-height: 40px; /* バッジが見切れないように最小高さを設定 */
+        min-width: 96px; /* サムネイル幅に合わせる */
+        min-height: 160px; /* サムネイル高さ + ファイル情報表示エリア */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 
     /* ドラッグ&ドロップスタイル */
@@ -469,6 +488,70 @@
     @@keyframes fadeIn {
         0% { opacity: 0; transform: scale(0.95); }
         100% { opacity: 1; transform: scale(1); }
+    }
+    
+    /* ファイル情報表示スタイル */
+    .file-info {
+        margin-top: 4px;
+        text-align: center;
+        width: 100%;
+        max-width: 96px; /* サムネイル幅(w-24 = 96px)に合わせる */
+        position: relative;
+    }
+    
+    .file-name {
+        font-size: 10px;
+        color: #374151;
+        font-weight: 500;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0 2px;
+        cursor: pointer;
+    }
+    
+    .page-number {
+        font-size: 9px;
+        color: #6b7280;
+        font-weight: 400;
+        line-height: 1.1;
+        margin-top: 1px;
+    }
+    
+    /* ホバー時にツールチップでファイル名全体を表示 */
+    .file-name::after {
+        content: attr(title);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: normal;
+        word-wrap: break-word;
+        word-break: break-all;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        margin-bottom: 6px;
+        min-width: 120px;
+        max-width: 280px;
+        text-align: center;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        line-height: 1.4;
+    }
+    
+    .file-name:hover::after {
+        opacity: 1;
+        visibility: visible;
     }
 </style>
 
@@ -572,6 +655,43 @@
             }
         }
         return result;
+    }
+    
+    // ファイル名を短縮表示するヘルパーメソッド
+    private string TruncateFileName(string fileName, int maxLength = 12)
+    {
+        if (string.IsNullOrEmpty(fileName))
+            return "";
+            
+        // 拡張子を除いたファイル名を取得
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+        var extension = Path.GetExtension(fileName);
+        
+        if (nameWithoutExtension.Length <= maxLength)
+            return fileName;
+            
+        // 長い場合は途中を省略
+        var truncated = nameWithoutExtension.Substring(0, maxLength - 1) + "…";
+        return truncated + extension;
+    }
+    
+    // 現在のアイテムの表示情報を取得するヘルパーメソッド
+    private (string fileName, int pageNumber, string displayFileName) GetItemDisplayInfo(int index)
+    {
+        if (isPageView && index < pageItems.Count)
+        {
+            // ページ単位表示
+            var pageItem = pageItems[index];
+            return (pageItem.FileName, pageItem.PageIndex + 1, TruncateFileName(pageItem.FileName));
+        }
+        else if (!isPageView && index < pdfFiles.Count)
+        {
+            // ファイル単位表示
+            var file = pdfFiles[index];
+            return (file.FileName, 0, TruncateFileName(file.FileName));
+        }
+        
+        return ("", 0, "");
     }
 
     // 表示モード切り替えメソッド
