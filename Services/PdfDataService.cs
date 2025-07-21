@@ -96,32 +96,25 @@ public class PdfDataService
     private List<DisplayItem> GetFileDisplayItems()
     {
         var result = new List<DisplayItem>();
-        var processedFiles = new HashSet<string>();
-
-        // Pagesの順序に基づいてファイルを順次処理
-        foreach (var page in _model.Pages)
+        // FileMetadataのCreatedAt順でファイルを列挙
+        foreach (var fileMetadata in _model.Files.Values.OrderBy(f => f.CreatedAt))
         {
-            if (!processedFiles.Contains(page.FileId))
+            // そのファイルの最初のPageItemを取得（状態反映用）
+            var firstPage = _model.Pages.FirstOrDefault(p => p.FileId == fileMetadata.FileId);
+            var hasError = firstPage?.HasError ?? false;
+            var isLoading = (string.IsNullOrEmpty(fileMetadata.CoverThumbnail) && !(firstPage?.HasError ?? false));
+            var item = new DisplayItem
             {
-                processedFiles.Add(page.FileId);
-
-                if (_model.Files.TryGetValue(page.FileId, out var fileMetadata))
-                {
-                    var item = new DisplayItem
-                    {
-                        Id = page.FileId,
-                        DisplayName = TruncateFileName(fileMetadata.FileName),
-                        Thumbnail = fileMetadata.CoverThumbnail,
-                        PageInfo = fileMetadata.PageCount > 1 ? $"{fileMetadata.PageCount}ページ" : "",
-                        IsLoading = string.IsNullOrEmpty(fileMetadata.CoverThumbnail) && !page.HasError, // 表紙サムネイルがなく、エラーでもない場合のみローディング
-                        HasError = page.HasError, // PageItemのエラー状態を反映
-                        RawData = fileMetadata
-                    };
-                    result.Add(item);
-                }
-            }
+                Id = fileMetadata.FileId,
+                DisplayName = TruncateFileName(fileMetadata.FileName),
+                Thumbnail = fileMetadata.CoverThumbnail,
+                PageInfo = fileMetadata.PageCount > 1 ? $"{fileMetadata.PageCount}ページ" : "",
+                IsLoading = isLoading,
+                HasError = hasError,
+                RawData = fileMetadata
+            };
+            result.Add(item);
         }
-
         return result;
     }
 
@@ -149,39 +142,18 @@ public class PdfDataService
     {
         try
         {
-            Console.WriteLine($"=== AddPdfFileAsync Debug Info ===");
-            Console.WriteLine($"File: {fileName}");
-            Console.WriteLine($"Size: {fileData.Length} bytes");
-
             // ファイルヘッダーの検証
             var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
-            Console.WriteLine($"File header: {header}");
-
             if (!header.StartsWith("%PDF-"))
             {
-                Console.WriteLine($"Invalid PDF header detected: {header}");
                 return false;
             }
 
-            var pdfVersion = header.Substring(5, 3);
-            Console.WriteLine($"PDF version: {pdfVersion}");
-
             var fileId = $"{fileName}_{DateTime.Now.Ticks}";
-
-            Console.WriteLine("Calling JavaScript renderFirstPDFPage...");
-            // BlazorからJavaScriptにはbyte[]を直接渡す（自動的に配列として変換される）
             var coverThumbnail = await _jsRuntime.InvokeAsync<string>("renderFirstPDFPage", fileData);
-            Console.WriteLine($"Cover thumbnail result: {(string.IsNullOrEmpty(coverThumbnail) ? "EMPTY" : "SUCCESS")}");
-
-            Console.WriteLine("Calling JavaScript getPDFPageCount...");
             var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
-            Console.WriteLine($"Page count result: {pageCount}");
-
             if (string.IsNullOrEmpty(coverThumbnail) || pageCount <= 0)
             {
-                Console.WriteLine($"Failed to load cover or get page count for {fileName}");
-                Console.WriteLine($"Cover thumbnail: {(string.IsNullOrEmpty(coverThumbnail) ? "EMPTY" : "OK")}");
-                Console.WriteLine($"Page count: {pageCount}");
                 return false;
             }
 
@@ -217,16 +189,20 @@ public class PdfDataService
                 _model.Pages.Add(pageItem);
             }
 
-            Console.WriteLine($"PageItems created for {fileName}: {pageCount} pages");
+            // 追加直後のPageItem順を出力
+            try
+            {
+                var order = _model.Pages.Select(p => $"{p.FileName}[{p.FileId}]_p{p.OriginalPageIndex}").ToList();
+                Console.WriteLine($"[PageItemOrder] After Add: {string.Join(", ", order)}");
+            }
+            catch { }
 
             // バックグラウンドで全ページの読み込みを開始（非同期・非ブロッキング）
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    Console.WriteLine($"Starting background page loading for {fileName}...");
                     await LoadAllPagesForFileAsync(fileId);
-                    Console.WriteLine($"Background page loading completed for {fileName}");
                 }
                 catch (Exception ex)
                 {
@@ -243,16 +219,6 @@ public class PdfDataService
             if (ex.InnerException != null)
             {
                 Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
-            }
-
-            // エラーの種類によってより具体的なメッセージを提供
-            if (ex.Message.Contains("Invalid PDF structure") || ex.Message.Contains("PDF parsing error"))
-            {
-                Console.WriteLine($"PDF structure error detected for file: {fileName}");
-            }
-            else if (ex.Message.Contains("too small"))
-            {
-                Console.WriteLine($"File size error detected for file: {fileName}");
             }
 
             // エラーが発生してもPageItemを追加してエラー状態を表示
@@ -285,8 +251,6 @@ public class PdfDataService
                     HasError = true
                 };
                 _model.Pages.Add(errorPageItem);
-
-                Console.WriteLine($"Added error item for failed file: {fileName}");
             }
             catch (Exception addErrorEx)
             {

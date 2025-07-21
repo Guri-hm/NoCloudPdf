@@ -515,7 +515,6 @@
     private async Task SwitchToFileMode()
     {
         if (IsFileMode) return;
-        Console.WriteLine("Switching to File mode");
         PdfDataService.SwitchDisplayMode(DisplayMode.File);
         StateHasChanged();
         await Task.Delay(100); // DOM更新待ち
@@ -584,8 +583,6 @@
     // ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        Console.WriteLine($"HandleFileSelectionAsync called with {e.FileCount} files");
-        
         if (e.FileCount == 0)
         {
             Console.WriteLine("No files selected");
@@ -601,7 +598,6 @@
         foreach (var file in e.GetMultipleFiles())
         {
             fileCount++;
-            Console.WriteLine($"Processing file {fileCount}: {file.Name}, Size: {file.Size} bytes");
             try
             {
                 using var stream = file.OpenReadStream(maxFileSize);
@@ -620,7 +616,6 @@
                 }
 
                 var pdfData = memoryStream.ToArray();
-                Console.WriteLine($"File {file.Name} read successfully, data size: {pdfData.Length} bytes");
 
                 // 統一データサービスを使用してファイルを追加
                 var success = await PdfDataService.AddPdfFileAsync(file.Name, pdfData);
@@ -628,10 +623,6 @@
                 {
                     Console.WriteLine($"Failed to add file {file.Name}");
                     errorMessage = $"ファイル処理に失敗しました: {file.Name} - PDFファイルが破損しているか、サポートされていない形式の可能性があります。";
-                }
-                else
-                {
-                    Console.WriteLine($"Successfully added file {file.Name}");
                 }
             }
             catch (Exception ex)
@@ -642,7 +633,6 @@
         }
 
         isLoading = false;
-        Console.WriteLine($"File loading completed. Total items: {DisplayItems.Count}");
         StateHasChanged();
     }
 
@@ -672,7 +662,6 @@
             {
                 // 結合成功：結果表示モードに切り替え
                 showMergedResult = true;
-                Console.WriteLine("Switched to result view mode");
             }
         }
         catch (Exception ex)
@@ -690,12 +679,10 @@
     // アイテム削除
     private void RemovePage(int index)
     {
-        Console.WriteLine($"RemovePage called with index: {index}");
         
         try
         {
             PdfDataService.RemoveItem(index);
-            Console.WriteLine($"Item {index} removed successfully.");
             StateHasChanged();
         }
         catch (Exception ex)
@@ -708,11 +695,9 @@
     // ファイルダイアログを開く
     private async Task OpenFileDialog()
     {
-        Console.WriteLine("OpenFileDialog called");
         try
         {
             await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
-            Console.WriteLine("File dialog opened successfully");
         }
         catch (Exception ex)
         {
@@ -825,8 +810,6 @@
     // 挿入ボタンクリック処理
     private async Task HandleInsertButtonClick(int position, MouseEventArgs e)
     {
-        Console.WriteLine($"=== HandleInsertButtonClick called ===");
-        Console.WriteLine($"Position: {position}");
         
         try
         {
