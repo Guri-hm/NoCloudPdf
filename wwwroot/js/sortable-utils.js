@@ -8,32 +8,27 @@ window.initializeSortable = function () {
             container.sortableInstance.destroy();
         }
 
+        // Sortable.jsの役割：イベント検知のみ
         container.sortableInstance = new Sortable(container, {
             draggable: '.sortable-item-container',
             animation: 150,
-            onEnd: async function (evt) {
-                console.log('Sort completed:', evt.oldIndex, evt.newIndex);
+            onEnd: function (evt) {
+                console.log('Sortable drag ended:', evt.oldIndex, '->', evt.newIndex);
+                // 重要：Sortable.jsのDOM変更を即座に元に戻す
+                const movedElement = evt.item;
+                const container = evt.from;
 
-                // DOM操作はSortable.jsに任せる（元に戻さない）
-                // データのみBlazor側で更新
-                try {
-                    await DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex);
-                    console.log('Data update completed successfully');
-                } catch (error) {
-                    console.error('Error updating data:', error);
-                    // エラー時のみDOMを元に戻す
-                    if (evt.oldIndex !== evt.newIndex) {
-                        const item = evt.item;
-                        const parent = item.parentNode;
-                        const children = Array.from(parent.children);
-
-                        if (evt.oldIndex < children.length) {
-                            parent.insertBefore(item, children[evt.oldIndex]);
-                        } else {
-                            parent.appendChild(item);
-                        }
+                // DOM操作を元の位置に戻す
+                if (evt.oldIndex < container.children.length) {
+                    const referenceElement = container.children[evt.oldIndex];
+                    if (referenceElement) {
+                        container.insertBefore(movedElement, referenceElement);
+                    } else {
+                        container.appendChild(movedElement);
                     }
                 }
+                // DOM操作はしない、Blazorに通知のみ
+                DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex);
             }
         });
 

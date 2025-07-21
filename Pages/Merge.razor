@@ -11,9 +11,16 @@
     <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow-md z-50">
         <div class="flex items-center justify-between px-4 py-2">
             <span class="text-lg font-semibold">PDF操作</span>
-            <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" @onclick="MergePDFs">
-                結合
-            </button>
+            <div class="flex gap-2">
+                <!-- テスト用並び替えボタン -->
+                <button class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
+                    @onclick="TestSwapFirstTwo">
+                    テスト：1↔2
+                </button>
+                <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" @onclick="MergePDFs">
+                    結合
+                </button>
+            </div>
         </div>
     </div>
 
@@ -275,50 +282,140 @@
 
     // JavaScript から呼び出される並び替えメソッド
     [JSInvokable("UpdateOrder")]
-    public static void UpdateOrder(int oldIndex, int newIndex)
+    public static async Task UpdateOrder(int oldIndex, int newIndex)
     {
         Console.WriteLine($"UpdateOrder called with oldIndex: {oldIndex}, newIndex: {newIndex}");
 
         if (_currentInstance != null)
         {
             Console.WriteLine($"Current instance found, calling UpdateOrderInternal");
-            _currentInstance.UpdateOrderInternal(oldIndex, newIndex);
+            await _currentInstance.UpdateOrderInternal(oldIndex, newIndex);
         }
         else
         {
             Console.WriteLine($"ERROR: Current instance is null!");
         }
     }
-
-    // 実際の並び替え処理
-    private void UpdateOrderInternal(int oldIndex, int newIndex)
+    // 処理中フラグを追加
+    private bool isUpdatingOrder = false;
+    // 実際の並び替え処理（DOM状態をBlazorに完全同期）
+    // 実際の並び替え処理（完全修正版）
+    private async Task UpdateOrderInternal(int oldIndex, int newIndex)
     {
-        Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
-
-        if (oldIndex >= 0 && oldIndex < pageThumbnails.Count &&
-        newIndex >= 0 && newIndex < pageThumbnails.Count &&
-        oldIndex != newIndex)
+        // 排他制御
+        if (isUpdatingOrder)
         {
-            Console.WriteLine($"Moving data from index {oldIndex} to {newIndex}");
+            Console.WriteLine("Order update already in progress, skipping...");
+            return;
+        }
 
-            // データ配列のみ並び替え（DOM操作はしない）
-            var thumbnail = pageThumbnails[oldIndex];
-            var pageData = pdfPageDataList[oldIndex];
+        isUpdatingOrder = true;
 
-            pageThumbnails.RemoveAt(oldIndex);
-            pdfPageDataList.RemoveAt(oldIndex);
+        try
+        {
+            Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
 
-            pageThumbnails.Insert(newIndex, thumbnail);
-            pdfPageDataList.Insert(newIndex, pageData);
+            if (oldIndex >= 0 && oldIndex < pageThumbnails.Count &&
+            newIndex >= 0 && newIndex < pageThumbnails.Count &&
+            oldIndex != newIndex)
+            {
+                Console.WriteLine($"Moving data from index {oldIndex} to {newIndex}");
 
-            Console.WriteLine($"Data reordered successfully: {oldIndex} -> {newIndex}");
+                // デバッグ：移動前の状態
+                Console.WriteLine("=== BEFORE MOVE ===");
+                for (int i = 0; i < pageThumbnails.Count; i++)
+                {
+                    var hash = pageThumbnails[i].GetHashCode();
+                    Console.WriteLine($"Index {i}: Hash={hash}");
+                }
 
-            // StateHasChanged()は呼ばない（DOM操作はSortable.jsに任せる）
-            // await InvokeAsync(() => StateHasChanged()); // この行をコメントアウト
+                // シンプルで確実な方法：C#のCollectionsAPIを使用
+                void MoveItem<T>(List<T> list, int from, int to)
+                {
+                    var item = list[from];
+                    list.RemoveAt(from);
+                    list.Insert(to, item);
+                }
+
+                // 実際のデータ移動
+                MoveItem(pageThumbnails, oldIndex, newIndex);
+                MoveItem(pdfPageDataList, oldIndex, newIndex);
+
+                Console.WriteLine($"Moved item from {oldIndex} to {newIndex}");
+
+                // デバッグ：移動後の状態
+                Console.WriteLine("=== AFTER MOVE ===");
+                for (int i = 0; i < pageThumbnails.Count; i++)
+                {
+                    var hash = pageThumbnails[i].GetHashCode();
+                    Console.WriteLine($"Index {i}: Hash={hash}");
+                }
+
+                Console.WriteLine($"Data reordered successfully: {oldIndex} -> {newIndex}");
+
+                // DOM更新
+                await InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    await Task.Delay(100);
+                    await JSRuntime.InvokeVoidAsync("initializeSortable");
+                });
+
+                Console.WriteLine("DOM management returned to Blazor");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={pageThumbnails.Count}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in UpdateOrderInternal: {ex.Message}");
+        }
+        finally
+        {
+            isUpdatingOrder = false;
+        }
+    }
+
+    private async Task TestSwapFirstTwo()
+    {
+        Console.WriteLine("=== テスト用並び替え開始 ===");
+
+        if (pageThumbnails.Count >= 2)
+        {
+            Console.WriteLine($"Before swap - Thumbnails count: {pageThumbnails.Count}");
+            Console.WriteLine($"Before swap - First thumbnail: {pageThumbnails[0].Substring(0, 50)}...");
+            Console.WriteLine($"Before swap - Second thumbnail: {pageThumbnails[1].Substring(0, 50)}...");
+
+            // 1. データを入れ替え
+            var firstThumbnail = pageThumbnails[0];
+            var firstPageData = pdfPageDataList[0];
+
+            pageThumbnails[0] = pageThumbnails[1];
+            pageThumbnails[1] = firstThumbnail;
+
+            pdfPageDataList[0] = pdfPageDataList[1];
+            pdfPageDataList[1] = firstPageData;
+
+            Console.WriteLine($"After swap - First thumbnail: {pageThumbnails[0].Substring(0, 50)}...");
+            Console.WriteLine($"After swap - Second thumbnail: {pageThumbnails[1].Substring(0, 50)}...");
+
+            // 2. DOM更新
+            Console.WriteLine("Calling StateHasChanged...");
+            StateHasChanged();
+
+            // 3. Sortable再初期化
+            await Task.Delay(100);
+            Console.WriteLine("Reinitializing sortable...");
+            await JSRuntime.InvokeVoidAsync("initializeSortable");
+
+            Console.WriteLine("=== テスト用並び替え完了 ===");
         }
         else
         {
-            Console.WriteLine($"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={pageThumbnails.Count}");
+            Console.WriteLine("Not enough thumbnails to swap (need at least 2)");
+            errorMessage = "並び替えテストには最低2枚のサムネイルが必要です";
         }
     }
 
@@ -336,6 +433,7 @@
         await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
     }
 
+    // 削除処理（Blazorで完全管理）
     private void RemovePage(int index)
     {
         if (index >= 0 && index < pageThumbnails.Count)
@@ -346,9 +444,20 @@
                 pdfPageDataList.RemoveAt(index);
             }
             Console.WriteLine($"Page {index} removed.");
-            StateHasChanged(); // ← これを追加
+
+            // 重要：DOM再構築
+            StateHasChanged();
+
+            // Sortable再初期化
+            InvokeAsync(async () =>
+            {
+                await Task.Delay(100);
+                await JSRuntime.InvokeVoidAsync("initializeSortable");
+            });
         }
     }
+
+    // 回転処理（Blazorで完全管理）
     private async Task RotatePage(int index)
     {
         if (index >= 0 && index < pageThumbnails.Count)
@@ -371,7 +480,6 @@
                 {
                     Console.WriteLine($"Rotating PDF page data {index}...");
 
-                    // rotatePDFPage関数が存在するかチェック
                     var rotatedPageData = await JSRuntime.InvokeAsync<string>("rotatePDFPage", pdfPageDataList[index]);
                     if (rotatedPageData != null)
                     {
@@ -384,8 +492,14 @@
                     }
                 }
 
-                StateHasChanged();
                 Console.WriteLine($"Page {index} rotation completed.");
+
+                // 重要：コメントアウトを解除
+                StateHasChanged();
+
+                // Sortable再初期化
+                await Task.Delay(100);
+                await JSRuntime.InvokeVoidAsync("initializeSortable");
             }
             catch (Exception ex)
             {
