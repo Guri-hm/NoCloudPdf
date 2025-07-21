@@ -18,9 +18,34 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
     menu.id = `dynamic-menu-${position}`;
     menu.className = 'insert-menu-dynamic';
 
-    // クリック位置の少し下に配置（ボタンの高さ分オフセット）
-    const menuTop = clickY + 10; // クリック位置の10px下
-    const menuLeft = clickX;     // クリック位置と同じX座標
+    // メニューの幅を定義
+    const menuWidth = 240;
+    
+    // クリック位置を基準にメニューの位置を計算
+    // 水平方向：メニューの中心がクリック位置に来るように（メニュー幅の半分だけ左にずらす）
+    // 垂直方向：メニューの上部がクリック位置に来るように
+    let menuTop = clickY;                    // クリック位置と同じY座標（メニュー上部）
+    let menuLeft = clickX - (menuWidth / 2); // クリック位置からメニュー幅の半分だけ左にずらす（メニュー中心）
+
+    // 画面境界チェック（メニューが画面からはみ出ないように調整）
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // 左端チェック
+    if (menuLeft < 0) {
+        menuLeft = 10; // 左端から10px離す
+    }
+    
+    // 右端チェック
+    if (menuLeft + menuWidth > viewportWidth) {
+        menuLeft = viewportWidth - menuWidth - 10; // 右端から10px離す
+    }
+    
+    // 下端チェック（概算メニュー高さ100pxとして）
+    const estimatedMenuHeight = 100;
+    if (menuTop + estimatedMenuHeight > viewportHeight) {
+        menuTop = clickY - estimatedMenuHeight - 10; // クリック位置の上に表示
+    }
 
     menu.style.cssText = `
         position: fixed;
@@ -30,12 +55,14 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
         border: 1px solid #d1d5db;
         border-radius: 6px;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        width: 240px;
+        width: ${menuWidth}px;
         z-index: 1000;
         display: block;
     `;
 
-    console.log(`Menu positioned at: top=${menuTop}px, left=${menuLeft}px`);
+    console.log(`Menu positioned at: top=${menuTop}px, left=${menuLeft}px (centered on click position)`);
+    console.log(`Click position: (${clickX}, ${clickY}), Menu center: (${clickX}, ${menuTop})`);
+    console.log(`Viewport: ${viewportWidth}x${viewportHeight}, Menu bounds: (${menuLeft}, ${menuTop}) to (${menuLeft + menuWidth}, ${menuTop + estimatedMenuHeight})`);
 
     // メニューボタンを作成
     const blankPageBtn = document.createElement('button');
