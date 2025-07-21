@@ -20,7 +20,7 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
 
     // メニューの幅を定義
     const menuWidth = 240;
-    
+
     // クリック位置を基準にメニューの位置を計算
     // 水平方向：メニューの中心がクリック位置に来るように（メニュー幅の半分だけ左にずらす）
     // 垂直方向：メニューの上部がクリック位置に来るように
@@ -30,17 +30,17 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
     // 画面境界チェック（メニューが画面からはみ出ないように調整）
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
+
     // 左端チェック
     if (menuLeft < 0) {
         menuLeft = 10; // 左端から10px離す
     }
-    
+
     // 右端チェック
     if (menuLeft + menuWidth > viewportWidth) {
         menuLeft = viewportWidth - menuWidth - 10; // 右端から10px離す
     }
-    
+
     // 下端チェック（概算メニュー高さ100pxとして）
     const estimatedMenuHeight = 100;
     if (menuTop + estimatedMenuHeight > viewportHeight) {
