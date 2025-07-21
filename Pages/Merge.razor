@@ -32,6 +32,9 @@
                 <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" @onclick="MergePDFs">
                     結合
                 </button>
+                <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded" @onclick="PrintAllPageItems">
+                    印刷
+                </button>
             </div>
         </div>
     </div>
@@ -532,7 +535,24 @@
         
         Console.WriteLine($"Switched to File mode. Items count: {DisplayItems.Count}");
     }
-
+ // PageItem全件をコンソールに出力するテストボタン用メソッド
+    private void PrintAllPageItems()
+    {
+        var model = PdfDataService.GetModel();
+        if (model != null && model.Pages != null)
+        {
+            Console.WriteLine($"=== PageItem一覧 ({model.Pages.Count}) ===");
+            for (int i = 0; i < model.Pages.Count; i++)
+            {
+                var p = model.Pages[i];
+                Console.WriteLine($"[{i}] FileId={p.FileId}, Page={p.OriginalPageNumber}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("PageItemリストが取得できませんでした");
+        }
+    }
     private async Task SwitchToPageMode()
     {
         if (IsPageMode) return;
