@@ -379,6 +379,17 @@
         min-width: 40px; /* バッジが見切れないように最小幅を設定 */
         min-height: 40px; /* バッジが見切れないように最小高さを設定 */
     }
+
+    /* ドラッグ&ドロップスタイル */
+    #drop-zone {
+        transition: all 0.3s ease;
+    }
+
+    #drop-zone.drag-over {
+        background-color: #e3f2fd !important;
+        border-color: #2196f3 !important;
+        transform: scale(1.02);
+    }
 </style>
 
 @code {
@@ -572,23 +583,40 @@
         try
         {
             Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
+            Console.WriteLine($"Current mode - isPageView: {isPageView}");
+            Console.WriteLine($"Current counts - pageThumbnails: {pageThumbnails?.Count}, pdfFiles: {pdfFiles.Count}, pageItems: {pageItems.Count}");
 
-            if (oldIndex >= 0 && oldIndex < pageThumbnails.Count &&
-            newIndex >= 0 && newIndex < pageThumbnails.Count &&
-            oldIndex != newIndex)
+            var currentCount = pageThumbnails?.Count ?? 0;
+            
+            if (oldIndex >= 0 && oldIndex < currentCount &&
+                newIndex >= 0 && newIndex < currentCount &&
+                oldIndex != newIndex)
             {
-
                 // シンプルで確実な方法：C#のCollectionsAPIを使用
                 void MoveItem<T>(List<T> list, int from, int to)
                 {
-                    var item = list[from];
-                    list.RemoveAt(from);
-                    list.Insert(to, item);
+                    if (from >= 0 && from < list.Count && to >= 0 && to <= list.Count)
+                    {
+                        var item = list[from];
+                        list.RemoveAt(from);
+                        list.Insert(to, item);
+                    }
                 }
 
-                // 実際のデータ移動
-                MoveItem(pageThumbnails, oldIndex, newIndex);
-                MoveItem(pdfPageDataList, oldIndex, newIndex);
+                if (isPageView)
+                {
+                    // ページ単位表示：pageItemsを並び替え
+                    Console.WriteLine("Reordering in page view mode");
+                    MoveItem(pageItems, oldIndex, newIndex);
+                }
+                else
+                {
+                    // ファイル単位表示：pdfFilesを並び替え
+                    Console.WriteLine("Reordering in file view mode");
+                    MoveItem(pdfFiles, oldIndex, newIndex);
+                }
+
+                Console.WriteLine($"Successfully moved item from {oldIndex} to {newIndex}");
 
                 // DOM更新
                 await InvokeAsync(async () =>
@@ -601,12 +629,14 @@
             }
             else
             {
-                Console.WriteLine($"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={pageThumbnails.Count}");
+                Console.WriteLine($"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={currentCount}");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error in UpdateOrderInternal: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            errorMessage = $"並び替えに失敗しました: {ex.Message}";
         }
         finally
         {
@@ -666,30 +696,73 @@
     // ...existing code...
     private async Task OpenFileDialog()
     {
-        await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+        Console.WriteLine("OpenFileDialog called");
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+            Console.WriteLine("File dialog opened successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening file dialog: {ex.Message}");
+            errorMessage = $"ファイル選択ダイアログの表示に失敗しました: {ex.Message}";
+        }
     }
 
     // 削除処理（Blazorで完全管理）
     private void RemovePage(int index)
     {
-        if (index >= 0 && index < pageThumbnails.Count)
+        Console.WriteLine($"RemovePage called with index: {index}");
+        Console.WriteLine($"Current mode - isPageView: {isPageView}");
+        Console.WriteLine($"Current counts - pageThumbnails: {pageThumbnails?.Count}, pdfFiles: {pdfFiles.Count}, pageItems: {pageItems.Count}");
+        
+        if (index >= 0 && index < (pageThumbnails?.Count ?? 0))
         {
-            pageThumbnails.RemoveAt(index);
-            if (index < pdfPageDataList.Count)
+            try
             {
-                pdfPageDataList.RemoveAt(index);
+                if (isPageView)
+                {
+                    // ページ単位表示：pageItemsから削除
+                    Console.WriteLine("Removing page in page view mode");
+                    if (index < pageItems.Count)
+                    {
+                        pageItems.RemoveAt(index);
+                        Console.WriteLine($"Removed page at index {index} from pageItems");
+                    }
+                }
+                else
+                {
+                    // ファイル単位表示：pdfFilesから削除
+                    Console.WriteLine("Removing file in file view mode");
+                    if (index < pdfFiles.Count)
+                    {
+                        var fileName = pdfFiles[index].FileName;
+                        pdfFiles.RemoveAt(index);
+                        Console.WriteLine($"Removed file {fileName} at index {index} from pdfFiles");
+                    }
+                }
+
+                Console.WriteLine($"Page/File {index} removed successfully.");
+
+                // 重要：DOM再構築
+                StateHasChanged();
+
+                // Sortable再初期化
+                InvokeAsync(async () =>
+                {
+                    await Task.Delay(100);
+                    await JSRuntime.InvokeVoidAsync("initializeSortable");
+                });
             }
-            Console.WriteLine($"Page {index} removed.");
-
-            // 重要：DOM再構築
-            StateHasChanged();
-
-            // Sortable再初期化
-            InvokeAsync(async () =>
+            catch (Exception ex)
             {
-                await Task.Delay(100);
-                await JSRuntime.InvokeVoidAsync("initializeSortable");
-            });
+                Console.WriteLine($"Error removing page/file {index}: {ex.Message}");
+                errorMessage = $"削除に失敗しました: {ex.Message}";
+            }
+        }
+        else
+        {
+            Console.WriteLine($"Invalid remove index: {index}, valid range: 0-{(pageThumbnails?.Count ?? 0) - 1}");
         }
     }
 
@@ -805,12 +878,22 @@
 
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
+        Console.WriteLine($"HandleFileSelectionAsync called with {e.FileCount} files");
+        
+        if (e.FileCount == 0)
+        {
+            Console.WriteLine("No files selected");
+            return;
+        }
+
         isLoading = true;
         progress = 0;
+        errorMessage = null; // エラーメッセージをクリア
         const long maxFileSize = 52428800; // 50MB
 
         foreach (var file in e.GetMultipleFiles())
         {
+            Console.WriteLine($"Processing file: {file.Name}, Size: {file.Size} bytes");
             try
             {
                 using var stream = file.OpenReadStream(maxFileSize);
@@ -830,8 +913,10 @@
 
                 var pdfData = memoryStream.ToArray();
                 pdfDataList.Add(pdfData);
+                Console.WriteLine($"File {file.Name} read successfully, data size: {pdfData.Length} bytes");
 
                 // JavaScript でサムネイルを生成
+                Console.WriteLine($"Calling renderPDFPages for {file.Name}");
                 var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
                 if (newThumbnails != null && newThumbnails.Count > 0)
                 {
@@ -861,6 +946,7 @@
                         else
                         {
                             Console.WriteLine("extractPDFPages returned null");
+                            pdfFileInfo.AllPageData = new List<string>();
                         }
                     }
                     catch (Exception jsEx)
@@ -873,7 +959,7 @@
 
                     // ファイルリストに追加
                     pdfFiles.Add(pdfFileInfo);
-                    Console.WriteLine($"Added file {file.Name} to pdfFiles list");
+                    Console.WriteLine($"Added file {file.Name} to pdfFiles list. Total files: {pdfFiles.Count}");
                 }
                 else
                 {
@@ -884,15 +970,19 @@
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing file {file.Name}: {ex.Message}");
-                errorMessage = $"Error processing file {file.Name}. Please try again.";
+                errorMessage = $"Error processing file {file.Name}. Please try again. {ex.Message}";
             }
         }
 
         isLoading = false;
-        isFilesLoaded = true;
+        isFilesLoaded = pdfFiles.Count > 0; // ファイルが実際に追加された場合のみtrue
+        Console.WriteLine($"File loading completed. isFilesLoaded: {isFilesLoaded}, pdfFiles.Count: {pdfFiles.Count}");
         StateHasChanged();
 
-        await InitializeSortableAfterLoad();
+        if (isFilesLoaded)
+        {
+            await InitializeSortableAfterLoad();
+        }
 
         Console.WriteLine($"Total files loaded: {pdfFiles.Count}");
         Console.WriteLine($"Total thumbnails (computed): {pageThumbnails?.Count}");
@@ -1016,6 +1106,20 @@
         {
             _currentInstance = this;
             Console.WriteLine("Current instance set in OnAfterRenderAsync");
+            
+            // ドラッグ&ドロップ初期化
+            InvokeAsync(async () =>
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("initializeDragDrop");
+                    Console.WriteLine("Drag and drop initialized");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error initializing drag and drop: {ex.Message}");
+                }
+            });
         }
     }
 
@@ -1050,6 +1154,8 @@
         try
         {
             Console.WriteLine($"Inserting blank page at position {position}");
+            Console.WriteLine($"Current mode - isPageView: {isPageView}");
+            Console.WriteLine($"Current counts - pageThumbnails: {pageThumbnails?.Count}, pdfFiles: {pdfFiles.Count}, pageItems: {pageItems.Count}");
 
             // 空白ページのPDFデータとサムネイルを生成
             var blankPageData = await JSRuntime.InvokeAsync<string>("createBlankPage");
@@ -1057,23 +1163,69 @@
 
             if (blankPageData != null && blankThumbnail != null)
             {
-                // 指定位置に挿入
-                pageThumbnails.Insert(position, blankThumbnail);
-                var blankPdfPageData = new PdfPageData
-                {
-                    FileName = "blank_page.pdf",
-                    PageIndex = 0,
-                    ThumbnailData = blankThumbnail,
-                    PageData = blankPageData
-                };
-                pdfPageDataList.Insert(position, blankPdfPageData);
+                Console.WriteLine("Blank page data generated successfully");
+                
+                // 挿入位置を検証
+                var currentCount = pageThumbnails?.Count ?? 0;
+                var safePosition = Math.Min(position, currentCount);
+                
+                Console.WriteLine($"Insert position: {position}, Safe position: {safePosition}, Current count: {currentCount}");
 
-                Console.WriteLine($"Blank page inserted at position {position}");
+                if (isPageView)
+                {
+                    // ページ単位表示：pageItemsに挿入
+                    Console.WriteLine("Inserting blank page in page view mode");
+                    var pageInfo = new PageInfo
+                    {
+                        FileId = "blank_page.pdf",
+                        FileName = "blank_page.pdf",
+                        PageIndex = 0,
+                        Thumbnail = blankThumbnail,
+                        PageData = blankPageData
+                    };
+                    
+                    if (safePosition <= pageItems.Count)
+                    {
+                        pageItems.Insert(safePosition, pageInfo);
+                        Console.WriteLine($"Inserted blank page at position {safePosition}");
+                    }
+                    else
+                    {
+                        pageItems.Add(pageInfo);
+                        Console.WriteLine($"Added blank page at end (position was out of bounds)");
+                    }
+                }
+                else
+                {
+                    // ファイル単位表示：新しいファイルとして追加
+                    Console.WriteLine("Inserting blank page in file view mode");
+                    var blankFile = new PdfFileInfo
+                    {
+                        FileName = "blank_page.pdf",
+                        FileData = Convert.FromBase64String(blankPageData),
+                        CoverThumbnail = blankThumbnail,
+                        AllThumbnails = new List<string> { blankThumbnail },
+                        AllPageData = new List<string> { blankPageData },
+                        PageCount = 1,
+                        IsFullyLoaded = true
+                    };
+                    
+                    var filePosition = Math.Min(safePosition, pdfFiles.Count);
+                    pdfFiles.Insert(filePosition, blankFile);
+                    Console.WriteLine($"Inserted blank file at position {filePosition}");
+                }
+
+                Console.WriteLine($"Blank page inserted successfully");
                 StateHasChanged();
 
                 // Sortableを再初期化
                 await Task.Delay(100);
                 await InitializeSortableAfterLoad();
+            }
+            else
+            {
+                Console.WriteLine("Failed to generate blank page data");
+                errorMessage = "空白ページの生成に失敗しました";
             }
         }
         catch (Exception ex)
@@ -1100,53 +1252,110 @@
     {
         if (insertPosition == -1) return;
 
+        Console.WriteLine($"HandleInsertFileSelectionAsync called with insertPosition: {insertPosition}");
+        Console.WriteLine($"Current mode - isPageView: {isPageView}");
+        Console.WriteLine($"Current counts - pageThumbnails: {pageThumbnails?.Count}, pdfFiles: {pdfFiles.Count}, pageItems: {pageItems.Count}");
+
         const long maxFileSize = 52428800; // 50MB
 
         foreach (var file in e.GetMultipleFiles())
         {
             try
             {
+                Console.WriteLine($"Processing insert file: {file.Name}");
+                
                 using var stream = file.OpenReadStream(maxFileSize);
                 using var memoryStream = new MemoryStream();
                 await stream.CopyToAsync(memoryStream);
 
                 var pdfData = memoryStream.ToArray();
+                Console.WriteLine($"File data size: {pdfData.Length} bytes");
 
                 // JavaScript でサムネイルを生成
                 var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
                 var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
 
-                if (newThumbnails != null && pageDataList != null)
+                if (newThumbnails != null && pageDataList != null && newThumbnails.Count > 0)
                 {
-                    // 指定位置に挿入
-                    for (int i = 0; i < newThumbnails.Count; i++)
+                    Console.WriteLine($"Generated {newThumbnails.Count} thumbnails and {pageDataList.Count} pages");
+                    
+                    // 挿入位置を検証
+                    var currentCount = pageThumbnails?.Count ?? 0;
+                    var safeInsertPosition = Math.Min(insertPosition, currentCount);
+                    
+                    Console.WriteLine($"Insert position: {insertPosition}, Safe position: {safeInsertPosition}, Current count: {currentCount}");
+
+                    if (isPageView)
                     {
-                        pageThumbnails.Insert(insertPosition + i, newThumbnails[i]);
-                        var insertPdfPageData = new PdfPageData
+                        // ページ単位表示：pageItemsに直接挿入
+                        Console.WriteLine("Inserting in page view mode");
+                        for (int i = 0; i < newThumbnails.Count; i++)
+                        {
+                            var pageInfo = new PageInfo
+                            {
+                                FileId = file.Name,
+                                FileName = file.Name,
+                                PageIndex = i,
+                                Thumbnail = newThumbnails[i],
+                                PageData = i < pageDataList.Count ? pageDataList[i] : ""
+                            };
+                            
+                            var actualPosition = safeInsertPosition + i;
+                            if (actualPosition <= pageItems.Count)
+                            {
+                                pageItems.Insert(actualPosition, pageInfo);
+                                Console.WriteLine($"Inserted page {i} at position {actualPosition}");
+                            }
+                            else
+                            {
+                                pageItems.Add(pageInfo);
+                                Console.WriteLine($"Added page {i} at end (position was out of bounds)");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // ファイル単位表示：新しいファイルを追加
+                        Console.WriteLine("Inserting in file view mode");
+                        var pdfFileInfo = new PdfFileInfo
                         {
                             FileName = file.Name,
-                            PageIndex = i,
-                            ThumbnailData = newThumbnails[i],
-                            PageData = pageDataList[i]
+                            FileData = pdfData,
+                            CoverThumbnail = newThumbnails[0],
+                            AllThumbnails = newThumbnails,
+                            AllPageData = pageDataList,
+                            PageCount = newThumbnails.Count,
+                            IsFullyLoaded = true
                         };
-                        pdfPageDataList.Insert(insertPosition + i, insertPdfPageData);
+                        
+                        // ファイル挿入位置を計算（ファイル単位での位置）
+                        var fileInsertPosition = Math.Min(safeInsertPosition, pdfFiles.Count);
+                        pdfFiles.Insert(fileInsertPosition, pdfFileInfo);
+                        Console.WriteLine($"Inserted file at position {fileInsertPosition}");
                     }
 
-                    Console.WriteLine($"Inserted {newThumbnails.Count} pages at position {insertPosition}");
+                    Console.WriteLine($"Successfully inserted {newThumbnails.Count} pages from {file.Name}");
                     StateHasChanged();
 
                     // Sortableを再初期化
                     await Task.Delay(100);
                     await InitializeSortableAfterLoad();
                 }
+                else
+                {
+                    Console.WriteLine($"Failed to generate thumbnails or page data for {file.Name}");
+                    errorMessage = $"サムネイルまたはページデータの生成に失敗しました: {file.Name}";
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error inserting PDF: {ex.Message}");
-                errorMessage = $"PDFの挿入に失敗しました: {ex.Message}";
+                Console.WriteLine($"Error inserting PDF {file.Name}: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                errorMessage = $"PDFの挿入に失敗しました: {file.Name} - {ex.Message}";
             }
         }
 
         insertPosition = -1; // リセット
+        Console.WriteLine("HandleInsertFileSelectionAsync completed");
     }
 }
