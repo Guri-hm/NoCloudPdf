@@ -976,9 +976,75 @@
                 pageItems[pageIndex].PageData = pageData;
                 pageItems[pageIndex].IsLoading = false;
                 pageItems[pageIndex].HasError = false; // エラー状態をリセット
-                StateHasChanged();
+                
+                // 重要：非同期更新中はStateHasChanged()を控える
+                // メニュー表示中はDOM再構築を避ける
+                if (showInsertMenuIndex == -1)
+                {
+                    StateHasChanged();
+                }
+                else
+                {
+                    // メニュー表示中は更新を保留
+                    hasPendingUIUpdates = true;
+                    StartUIUpdateTimer();
+                }
             });
             Console.WriteLine($"Updated page {pageIndex} with thumbnail");
+        }
+    }
+
+    // UI更新タイマーを開始（メニュー表示中の更新を遅延）
+    private void StartUIUpdateTimer()
+    {
+        if (uiUpdateTimer == null)
+        {
+            uiUpdateTimer = new System.Threading.Timer(
+                callback: _ => ProcessPendingUIUpdates(),
+                state: null,
+                dueTime: TimeSpan.FromMilliseconds(500), // 500ms後
+                period: TimeSpan.FromMilliseconds(1000)  // 1秒間隔
+            );
+        }
+    }
+
+    // 保留されたUI更新を処理
+    private void ProcessPendingUIUpdates()
+    {
+        if (hasPendingUIUpdates && showInsertMenuIndex == -1)
+        {
+            InvokeAsync(() =>
+            {
+                hasPendingUIUpdates = false;
+                StateHasChanged();
+                Console.WriteLine("Processed pending UI updates");
+            });
+        }
+    }
+
+    // メニューが閉じられた時の状態管理
+    private void OnMenuClosed()
+    {
+        showInsertMenuIndex = -1;
+        
+        // タイマーを停止
+        if (uiUpdateTimer != null)
+        {
+            uiUpdateTimer.Dispose();
+            uiUpdateTimer = null;
+        }
+        
+        // 保留されていたUI更新を即座に実行
+        if (hasPendingUIUpdates)
+        {
+            hasPendingUIUpdates = false;
+            StateHasChanged();
+            Console.WriteLine("Menu closed - processed pending UI updates");
+        }
+        else
+        {
+            StateHasChanged();
+            Console.WriteLine("Menu closed - UI state refreshed");
         }
     }
     
@@ -1616,6 +1682,8 @@
     private int showInsertMenuIndex = -1; // どの位置の挿入メニューを表示するか
     private int insertPosition = -1; // PDFを挿入する位置
     private HashSet<int> openMenus = new HashSet<int>(); // 開いているメニューのインデックスを管理
+    private bool hasPendingUIUpdates = false; // UI更新が保留されているかどうか
+    private System.Threading.Timer? uiUpdateTimer; // UI更新タイマー
 
     // JavaScript から呼び出される空白ページ挿入メソッド
     [JSInvokable("InsertBlankPageFromJS")]
@@ -1624,6 +1692,7 @@
         if (_currentInstance != null)
         {
             await _currentInstance.InsertBlankPage(position);
+            _currentInstance.OnMenuClosed();
         }
     }
 
@@ -1634,6 +1703,17 @@
         if (_currentInstance != null)
         {
             await _currentInstance.InsertPdfAtPosition(position);
+            _currentInstance.OnMenuClosed();
+        }
+    }
+
+    // JavaScript から呼び出されるメニュー閉じた時の処理
+    [JSInvokable("OnMenuClosedFromJS")]
+    public static void OnMenuClosedFromJS()
+    {
+        if (_currentInstance != null)
+        {
+            _currentInstance.OnMenuClosed();
         }
     }
 
@@ -1661,7 +1741,8 @@
         await JSRuntime.InvokeVoidAsync("showInsertMenuAtExactPosition", position, e.ClientX, e.ClientY);
         
         showInsertMenuIndex = position;
-        StateHasChanged();
+        // メニュー表示中はStateHasChanged()を避ける（DOM再構築防止）
+        // StateHasChanged();
         
         Console.WriteLine($"=== HandleInsertButtonClick completed ===");
     }

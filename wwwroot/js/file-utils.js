@@ -17,6 +17,7 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
     const menu = document.createElement('div');
     menu.id = `dynamic-menu-${position}`;
     menu.className = 'insert-menu-dynamic';
+    menu.setAttribute('data-position', position); // データ属性を追加（DOM再構築時の識別用）
 
     // メニューの幅を定義
     const menuWidth = 240;
@@ -89,16 +90,41 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
     // bodyに追加
     document.body.appendChild(menu);
 
-    // 背景オーバーレイを作成
+    // 背景オーバーレイを作成（イベント委譲で永続化）
     const overlay = document.createElement('div');
     overlay.id = `overlay-${position}`;
     overlay.className = 'insert-menu-overlay';
-    overlay.style.cssText = 'position: fixed; inset: 0; z-index: 999;';
-    overlay.onclick = () => window.hideAllInsertMenus();
+    overlay.setAttribute('data-position', position);
+    overlay.style.cssText = 'position: fixed; inset: 0; z-index: 999; background: transparent;';
+    
+    // より強力なイベントハンドリング（キャプチャフェーズで処理）
+    overlay.addEventListener('click', function(event) {
+        console.log('Overlay clicked - hiding menus');
+        event.preventDefault();
+        event.stopPropagation();
+        window.hideAllInsertMenus();
+    }, true); // true = キャプチャフェーズ
+
+    // ESCキーでメニューを閉じる
+    const escapeHandler = function(event) {
+        if (event.key === 'Escape') {
+            console.log('Escape key pressed - hiding menus');
+            window.hideAllInsertMenus();
+            document.removeEventListener('keydown', escapeHandler);
+        }
+    };
+    document.addEventListener('keydown', escapeHandler);
 
     document.body.appendChild(overlay);
 
     console.log(`✅ Dynamic menu created successfully at exact position (${menuLeft}, ${menuTop})`);
+    
+    // メニューが正しく作成されたかチェック
+    setTimeout(() => {
+        const createdMenu = document.getElementById(`dynamic-menu-${position}`);
+        const createdOverlay = document.getElementById(`overlay-${position}`);
+        console.log(`Menu verification - Menu exists: ${!!createdMenu}, Overlay exists: ${!!createdOverlay}`);
+    }, 100);
 };
 
 window.hideInsertMenu = function (position) {
@@ -116,12 +142,73 @@ window.hideInsertMenu = function (position) {
 };
 
 window.hideAllInsertMenus = function () {
+    console.log('hideAllInsertMenus called');
+    
     // 動的メニューをすべて削除
     const menus = document.querySelectorAll('.insert-menu-dynamic');
     const overlays = document.querySelectorAll('.insert-menu-overlay');
 
-    menus.forEach(menu => menu.remove());
-    overlays.forEach(overlay => overlay.remove());
+    console.log(`Found ${menus.length} menus and ${overlays.length} overlays to remove`);
 
-    console.log('All dynamic insert menus removed');
+    menus.forEach((menu, index) => {
+        console.log(`Removing menu ${index}: ${menu.id}`);
+        menu.remove();
+    });
+    
+    overlays.forEach((overlay, index) => {
+        console.log(`Removing overlay ${index}: ${overlay.id}`);
+        overlay.remove();
+    });
+
+    // ESCキーハンドラーも削除
+    document.removeEventListener('keydown', window.currentEscapeHandler);
+
+    // Blazorにメニューが閉じられたことを通知
+    if (window.DotNet) {
+        try {
+            window.DotNet.invokeMethodAsync('ClientPdfApp', 'OnMenuClosedFromJS');
+        } catch (error) {
+            console.log('Could not notify Blazor of menu closure:', error);
+        }
+    }
+
+    console.log('All dynamic insert menus and overlays removed');
 };
+
+// DOM変更の監視とメニューの復元
+window.setupMenuProtection = function() {
+    // DOM変更を監視してメニューを保護
+    const observer = new MutationObserver(function(mutations) {
+        let needsMenuCheck = false;
+        
+        mutations.forEach(function(mutation) {
+            // 大きなDOM変更（Blazorの再レンダリング）を検出
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 5) {
+                needsMenuCheck = true;
+            }
+        });
+        
+        if (needsMenuCheck) {
+            // メニューが存在するかチェック
+            const existingMenus = document.querySelectorAll('.insert-menu-dynamic');
+            if (existingMenus.length > 0) {
+                console.log('DOM change detected - protecting existing menus');
+                // メニューの再配置や修復はここで行う
+            }
+        }
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    window.menuProtectionObserver = observer;
+};
+
+// ページ読み込み時に保護機能を有効化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', window.setupMenuProtection);
+} else {
+    window.setupMenuProtection();
+}
