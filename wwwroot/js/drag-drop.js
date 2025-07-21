@@ -1,5 +1,5 @@
 // ドラッグ&ドロップ機能
-window.initializeDragDrop = function() {
+window.initializeDragDrop = function () {
     const dropZone = document.getElementById('drop-zone');
     if (!dropZone) return;
 
@@ -51,6 +51,6 @@ window.initializeDragDrop = function() {
 };
 
 // ページロード時に初期化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     window.initializeDragDrop();
 });

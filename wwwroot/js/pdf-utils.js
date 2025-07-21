@@ -52,7 +52,7 @@ window.renderFirstPDFPage = async function (pdfData) {
 
     const loadingTask = pdfjsLib.getDocument({ data: pdfData });
     const pdf = await loadingTask.promise;
-    
+
     // 最初のページのみレンダリング
     const page = await pdf.getPage(1);
     const viewport = page.getViewport({ scale: 1 });
