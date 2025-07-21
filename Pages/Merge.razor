@@ -127,6 +127,16 @@
                                 }
                             </div>
 
+                            <!-- 隣接サムネイルとの入れ替えボタン -->
+                            @if (index < pageThumbnails.Count - 1)
+                            {
+                                <button class="swap-button" 
+                                        @onclick="() => SwapWithNext(index)"
+                                        title="次のサムネイルと入れ替え">
+                                    ⇄
+                                </button>
+                            }
+
                             <!-- サブメニュー -->
                             <div class="menu-overlay absolute top-2 right-2 bg-white shadow-md rounded p-1 flex-col"
                                 style="display: none; z-index: 20;">
@@ -1149,6 +1159,36 @@
         finally
         {
 
+        }
+    }
+
+    // 隣接サムネイルとの入れ替え機能
+    private async Task SwapWithNext(int index)
+    {
+        try
+        {
+            Console.WriteLine($"SwapWithNext called: index {index}");
+            var currentCount = pageThumbnails?.Count ?? 0;
+            
+            if (index >= 0 && index < currentCount - 1)
+            {
+                var nextIndex = index + 1;
+                Console.WriteLine($"Swapping {index} with {nextIndex}");
+                
+                // UpdateOrderInternalを使用して入れ替え
+                await UpdateOrderInternal(index, nextIndex);
+                
+                Console.WriteLine($"Swap completed successfully");
+            }
+            else
+            {
+                Console.WriteLine($"Invalid swap: index={index}, count={currentCount}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in SwapWithNext: {ex.Message}");
+            errorMessage = $"サムネイルの入れ替えに失敗しました: {ex.Message}";
         }
     }
 

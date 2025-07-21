@@ -142,3 +142,37 @@ code {
 .sortable-drag {
     opacity: 0.8;
 }
+
+/* 隣接サムネイル入れ替えボタン */
+.swap-button {
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.2s ease;
+    background: linear-gradient(45deg, #2196f3, #21cbf3);
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    top: 50%;
+    right: -14px;
+    transform: translateY(-50%);
+    z-index: 10;
+}
+
+.sortable-item-container:hover .swap-button {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.swap-button:hover {
+    background: linear-gradient(45deg, #1976d2, #0288d1);
+    transform: translateY(-50%) scale(1.2);
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+}
