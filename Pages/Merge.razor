@@ -50,26 +50,13 @@
 
                     <div class="sortable-item-container flex items-center gap-2" data-index="@i">
                         @* 左側の＋ボタン *@
-                        <div class="flex items-center">
+                        <div class="flex items-center relative insert-button-container" data-position="@i">
                             <button
-                                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                                @onclick="() => ToggleInsertMenu(i)">
+                                class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md insert-button"
+                                data-position="@i"
+                                @onclick="@((e) => HandleInsertButtonClick(i, e))">
                                 +
                             </button>
-                            @if (showInsertMenuIndex == i)
-                            {
-                                <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                                <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
-                                        @onclick="() => InsertBlankPage(i)">
-                                        📄 空白ページの挿入
-                                    </button>
-                                    <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
-                                        @onclick="() => InsertPdfAtPosition(i)">
-                                        📁 PDFを選択して挿入
-                                    </button>
-                                </div>
-                            }
                         </div>
 
                         @* 右側のサムネイル *@
@@ -160,50 +147,25 @@
                 }
 
                 @* 最後尾の固定＋ボタン *@
-                <div class="non-sortable flex items-center">
+                <div class="non-sortable flex items-center relative insert-button-container" data-position="@pageThumbnails.Count">
                     <button
-                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                        @onclick="() => ToggleInsertMenu(pageThumbnails.Count)">
+                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md insert-button"
+                        data-position="@pageThumbnails.Count"
+                        @onclick="@((e) => HandleInsertButtonClick(pageThumbnails.Count, e))">
                         +
                     </button>
-                    @if (showInsertMenuIndex == pageThumbnails.Count)
-                    {
-                        <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                        <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
-                                @onclick="() => InsertBlankPage(pageThumbnails.Count)">
-                                📄 空白ページの挿入
-                            </button>
-                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100"
-                                @onclick="() => InsertPdfAtPosition(pageThumbnails.Count)">
-                                📁 PDFを選択して挿入
-                            </button>
-                        </div>
-                    }
                 </div>
             }
             else
             {
                 @* サムネイルが0個の場合は最初の＋ボタンのみ *@
-                <div class="flex items-center">
+                <div class="flex items-center relative insert-button-container" data-position="0">
                     <button
-                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
-                        @onclick="() => ToggleInsertMenu(0)">
+                        class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md insert-button"
+                        data-position="0"
+                        @onclick="@((e) => HandleInsertButtonClick(0, e))">
                         +
                     </button>
-                    @if (showInsertMenuIndex == 0)
-                    {
-                        <div class="fixed inset-0 z-40" @onclick="() => ToggleInsertMenu(-1)"></div>
-                        <div class="absolute top-10 left-0 bg-white border border-gray-300 rounded shadow-lg min-w-48 z-50">
-                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200"
-                                @onclick="() => InsertBlankPage(0)">
-                                📄 空白ページの挿入
-                            </button>
-                            <button class="w-full px-4 py-2 text-left hover:bg-gray-100" @onclick="() => InsertPdfAtPosition(0)">
-                                📁 PDFを選択して挿入
-                            </button>
-                        </div>
-                    }
                 </div>
             }
         </div>
@@ -552,6 +514,19 @@
     .file-name:hover::after {
         opacity: 1;
         visibility: visible;
+    }
+    
+    /* 挿入メニュー用のスタイル - インライン管理方式 */
+    .insert-menu.show {
+        display: block !important;
+    }
+    
+    .insert-menu.hide {
+        display: none !important;
+    }
+    
+    .insert-menu button:hover {
+        background-color: #f3f4f6 !important;
     }
 </style>
 
@@ -1634,27 +1609,61 @@
 
     private int showInsertMenuIndex = -1; // どの位置の挿入メニューを表示するか
     private int insertPosition = -1; // PDFを挿入する位置
+    private HashSet<int> openMenus = new HashSet<int>(); // 開いているメニューのインデックスを管理
 
-    // 挿入メニューの表示/非表示を切り替え
-    private void ToggleInsertMenu(int position)
+    // JavaScript から呼び出される空白ページ挿入メソッド
+    [JSInvokable("InsertBlankPageFromJS")]
+    public static async Task InsertBlankPageFromJS(int position)
     {
-        if (showInsertMenuIndex == position)
+        if (_currentInstance != null)
         {
-            Console.WriteLine($"Closing menu at position {position}");
-            showInsertMenuIndex = -1; // 既に開いているメニューを閉じる
+            await _currentInstance.InsertBlankPage(position);
         }
-        else if (position == -1)
+    }
+
+    // JavaScript から呼び出されるPDF挿入メソッド
+    [JSInvokable("InsertPdfAtPositionFromJS")]
+    public static async Task InsertPdfAtPositionFromJS(int position)
+    {
+        if (_currentInstance != null)
         {
-            Console.WriteLine("Closing menu from background click");
-            showInsertMenuIndex = -1; // 背景クリックでメニューを閉じる
+            await _currentInstance.InsertPdfAtPosition(position);
         }
-        else
-        {
-            Console.WriteLine($"Opening menu at position {position}");
-            showInsertMenuIndex = position; // 新しいメニューを開く
-        }
-        Console.WriteLine($"New showInsertMenuIndex: {showInsertMenuIndex}");
+    }
+
+    // 挿入ボタンクリック処理（クリック位置を直接指定してメニュー動的生成）
+    private async Task HandleInsertButtonClick(int position, MouseEventArgs e)
+    {
+        Console.WriteLine($"=== HandleInsertButtonClick called ===");
+        Console.WriteLine($"Position: {position}");
+        Console.WriteLine($"Mouse Event Details:");
+        Console.WriteLine($"  ClientX: {e.ClientX}");
+        Console.WriteLine($"  ClientY: {e.ClientY}");
+        Console.WriteLine($"  ScreenX: {e.ScreenX}");
+        Console.WriteLine($"  ScreenY: {e.ScreenY}");
+        Console.WriteLine($"  OffsetX: {e.OffsetX}");
+        Console.WriteLine($"  OffsetY: {e.OffsetY}");
+        Console.WriteLine($"  PageX: {e.PageX}");
+        Console.WriteLine($"  PageY: {e.PageY}");
+        Console.WriteLine($"  Button: {e.Button}");
+        Console.WriteLine($"  Type: {e.Type}");
+        
+        // すべての既存メニューを非表示にする
+        await JSRuntime.InvokeVoidAsync("hideAllInsertMenus");
+        
+        // クリック座標を直接JavaScriptに渡してメニューを表示
+        await JSRuntime.InvokeVoidAsync("showInsertMenuAtExactPosition", position, e.ClientX, e.ClientY);
+        
+        showInsertMenuIndex = position;
         StateHasChanged();
+        
+        Console.WriteLine($"=== HandleInsertButtonClick completed ===");
+    }
+    
+    // 特定位置のメニューが開いているかチェック
+    private bool IsMenuOpen(int position)
+    {
+        return openMenus.Contains(position);
     }
 
     // 空白ページを挿入
