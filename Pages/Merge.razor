@@ -34,7 +34,7 @@
                 {
                     var index = i;
 
-                    <div class="sortable-item-container flex items-center gap-2" data-index="@i">
+                    <div class="sortable-item-container flex items-center gap-2" data-index="@i" data-id="@i">
                         @* 左側の＋ボタン *@
                         <div class="flex items-center">
                             <button
@@ -80,7 +80,7 @@
                 }
 
                 @* 最後尾の固定＋ボタン *@
-                <div class="flex items-center">
+                <div class="non-sortable flex items-center">
                     <button
                         class="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md"
                         @onclick="() => ToggleInsertMenu(pageThumbnails.Count)">
