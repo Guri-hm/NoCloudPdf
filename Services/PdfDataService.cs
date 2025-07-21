@@ -44,7 +44,7 @@ public class PdfDataService
     {
         // 不要: ファイル追加時にページ数分のPageItemを生成するため、以降は何もしない
 
-        Console.WriteLine($"Created {fileMetadata.PageCount} loading page items for {fileMetadata.FileName}");
+
     }
 
     /// <summary>
@@ -56,24 +56,24 @@ public class PdfDataService
 
         if (pendingFiles.Any())
         {
-            Console.WriteLine($"Found {pendingFiles.Count} files with pending background loading");
+
 
             foreach (var file in pendingFiles)
             {
                 try
                 {
-                    Console.WriteLine($"Loading remaining pages for: {file.Value.FileName}");
+
                     await LoadAllPagesForFileAsync(file.Key);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error loading pages for {file.Value.FileName}: {ex.Message}");
+                    Console.WriteLine($"EnsureAllPagesLoadedAsync: {ex.Message}\n{ex.StackTrace}");
                 }
             }
         }
         else
         {
-            Console.WriteLine("All files already have background loading completed");
+
         }
     }
 
@@ -149,39 +149,29 @@ public class PdfDataService
     {
         try
         {
-            Console.WriteLine($"=== AddPdfFileAsync Debug Info ===");
-            Console.WriteLine($"File: {fileName}");
-            Console.WriteLine($"Size: {fileData.Length} bytes");
+
 
             // ファイルヘッダーの検証
             var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
-            Console.WriteLine($"File header: {header}");
 
             if (!header.StartsWith("%PDF-"))
             {
-                Console.WriteLine($"Invalid PDF header detected: {header}");
                 return false;
             }
 
             var pdfVersion = header.Substring(5, 3);
-            Console.WriteLine($"PDF version: {pdfVersion}");
 
             var fileId = $"{fileName}_{DateTime.Now.Ticks}";
 
-            Console.WriteLine("Calling JavaScript renderFirstPDFPage...");
+
             // BlazorからJavaScriptにはbyte[]を直接渡す（自動的に配列として変換される）
             var coverThumbnail = await _jsRuntime.InvokeAsync<string>("renderFirstPDFPage", fileData);
-            Console.WriteLine($"Cover thumbnail result: {(string.IsNullOrEmpty(coverThumbnail) ? "EMPTY" : "SUCCESS")}");
 
-            Console.WriteLine("Calling JavaScript getPDFPageCount...");
+
             var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
-            Console.WriteLine($"Page count result: {pageCount}");
 
             if (string.IsNullOrEmpty(coverThumbnail) || pageCount <= 0)
             {
-                Console.WriteLine($"Failed to load cover or get page count for {fileName}");
-                Console.WriteLine($"Cover thumbnail: {(string.IsNullOrEmpty(coverThumbnail) ? "EMPTY" : "OK")}");
-                Console.WriteLine($"Page count: {pageCount}");
                 return false;
             }
 
@@ -217,20 +207,17 @@ public class PdfDataService
                 _model.Pages.Add(pageItem);
             }
 
-            Console.WriteLine($"PageItems created for {fileName}: {pageCount} pages");
+
 
             // バックグラウンドで全ページの読み込みを開始（非同期・非ブロッキング）
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    Console.WriteLine($"Starting background page loading for {fileName}...");
                     await LoadAllPagesForFileAsync(fileId);
-                    Console.WriteLine($"Background page loading completed for {fileName}");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Background page loading failed for {fileName}: {ex.Message}");
                 }
             });
 
@@ -238,29 +225,12 @@ public class PdfDataService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error adding PDF file {fileName}: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            if (ex.InnerException != null)
-            {
-                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
-            }
-
-            // エラーの種類によってより具体的なメッセージを提供
-            if (ex.Message.Contains("Invalid PDF structure") || ex.Message.Contains("PDF parsing error"))
-            {
-                Console.WriteLine($"PDF structure error detected for file: {fileName}");
-            }
-            else if (ex.Message.Contains("too small"))
-            {
-                Console.WriteLine($"File size error detected for file: {fileName}");
-            }
-
+            Console.WriteLine($"AddPdfFileAsync: {ex.Message}\n{ex.StackTrace}");
             // エラーが発生してもPageItemを追加してエラー状態を表示
             try
             {
                 var fileId = $"{fileName}_{DateTime.Now.Ticks}";
                 var base64Data = Convert.ToBase64String(fileData);
-
                 // エラー状態のファイルメタデータを追加
                 var errorFileMetadata = new FileMetadata
                 {
@@ -272,7 +242,6 @@ public class PdfDataService
                     IsFullyLoaded = false
                 };
                 _model.Files[fileId] = errorFileMetadata;
-
                 // エラー状態のPageItemを追加
                 var errorPageItem = new PageItem
                 {
@@ -285,14 +254,11 @@ public class PdfDataService
                     HasError = true
                 };
                 _model.Pages.Add(errorPageItem);
-
-                Console.WriteLine($"Added error item for failed file: {fileName}");
             }
             catch (Exception addErrorEx)
             {
-                Console.WriteLine($"Failed to add error item: {addErrorEx.Message}");
+                Console.WriteLine($"AddPdfFileAsync (addErrorEx): {addErrorEx.Message}\n{addErrorEx.StackTrace}");
             }
-
             return false;
         }
     }
@@ -304,13 +270,12 @@ public class PdfDataService
     {
         if (!_model.Files.TryGetValue(fileId, out var fileMetadata) || fileMetadata.IsFullyLoaded)
         {
-            Console.WriteLine($"Skipping load for {fileId}: already loaded or not found");
             return;
         }
 
         try
         {
-            Console.WriteLine($"Background loading all pages for file: {fileMetadata.FileName} ({fileMetadata.PageCount} pages)");
+
 
             // 既存のページアイテムを取得（読み込み中状態のものがある可能性）
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
@@ -349,7 +314,7 @@ public class PdfDataService
                         }
                         catch (OperationCanceledException)
                         {
-                            Console.WriteLine($"Timeout loading page {pageIndex + 1} of {fileMetadata.FileName}");
+
                             thumbnail = "";
                             pageData = "";
                         }
@@ -387,14 +352,13 @@ public class PdfDataService
                     else
                     {
                         failedPages++;
-                        Console.WriteLine($"Warning: Page {pageIndex + 1} of {fileMetadata.FileName} failed to load properly");
+
                     }
                 }
                 catch (Exception pageEx)
                 {
                     failedPages++;
-                    Console.WriteLine($"Error loading page {pageIndex + 1} of {fileMetadata.FileName}: {pageEx.Message}");
-
+                    Console.WriteLine($"LoadAllPagesForFileAsync (pageEx): {pageEx.Message}\n{pageEx.StackTrace}");
                     // 既存のアイテムがあればエラー状態に更新、なければ新規作成
                     var pageId = $"{fileId}_p{pageIndex}";
                     var existingPageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
@@ -426,13 +390,11 @@ public class PdfDataService
             // ページ単位表示用データを準備完了とマーク
             fileMetadata.IsFullyLoaded = true;
 
-            Console.WriteLine($"Background loading completed: {successfulPages}/{fileMetadata.PageCount} pages successfully for {fileMetadata.FileName} ({failedPages} failed)");
+
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading all pages for file {fileId}: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-
+            Console.WriteLine($"LoadAllPagesForFileAsync: {ex.Message}\n{ex.StackTrace}");
             // 完全エラー時は既存のページアイテムをエラー状態に更新
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
             foreach (var item in existingPageItems)
@@ -555,7 +517,6 @@ public class PdfDataService
             index2 < 0 || index2 >= _model.Pages.Count ||
             index1 == index2)
         {
-            Console.WriteLine($"Invalid swap indices: {index1}, {index2}");
             return;
         }
 
@@ -564,7 +525,7 @@ public class PdfDataService
         _model.Pages[index1] = _model.Pages[index2];
         _model.Pages[index2] = temp;
 
-        Console.WriteLine($"Successfully swapped items at indices {index1} and {index2}");
+
     }
 
     /// <summary>
@@ -618,7 +579,7 @@ public class PdfDataService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error inserting blank page: {ex.Message}");
+            Console.WriteLine($"InsertBlankPageAsync: {ex.Message}\n{ex.StackTrace}");
             return false;
         }
     }
@@ -639,7 +600,6 @@ public class PdfDataService
             var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", base64Data);
             if (pageCount <= 0)
             {
-                Console.WriteLine("Invalid PDF file or page count");
                 return false;
             }
 
@@ -647,7 +607,6 @@ public class PdfDataService
             var coverThumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, 0);
             if (string.IsNullOrEmpty(coverThumbnail))
             {
-                Console.WriteLine("Failed to generate cover thumbnail");
                 return false;
             }
 
@@ -710,12 +669,12 @@ public class PdfDataService
                 fileMetadata.IsFullyLoaded = true;
             }
 
-            Console.WriteLine($"Successfully inserted PDF file: {fileName} at position {position}");
+
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error inserting PDF file: {ex.Message}");
+            Console.WriteLine($"InsertPdfFileAsync: {ex.Message}\n{ex.StackTrace}");
             return false;
         }
     }
@@ -743,13 +702,11 @@ public class PdfDataService
         {
             if (_model.CurrentMode != DisplayMode.File)
             {
-                Console.WriteLine("ExpandFileAsync can only be called in File mode");
                 return false;
             }
 
             if (fileIndex < 0 || fileIndex >= _model.Pages.Count)
             {
-                Console.WriteLine($"Invalid file index: {fileIndex}");
                 return false;
             }
 
@@ -758,7 +715,6 @@ public class PdfDataService
 
             if (!_model.Files.ContainsKey(fileId))
             {
-                Console.WriteLine($"File metadata not found for fileId: {fileId}");
                 return false;
             }
 
@@ -767,7 +723,6 @@ public class PdfDataService
             // ファイルが複数ページの場合のみ展開処理を実行
             if (fileMetadata.PageCount <= 1)
             {
-                Console.WriteLine($"File has only {fileMetadata.PageCount} page(s), no expansion needed");
                 return true; // 1ページしかない場合は成功として扱う
             }
 
@@ -806,12 +761,12 @@ public class PdfDataService
             // ファイルが完全に読み込まれたことをマーク
             fileMetadata.IsFullyLoaded = true;
 
-            Console.WriteLine($"Successfully expanded file {fileMetadata.FileName} into {fileMetadata.PageCount} pages");
+
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error expanding file: {ex.Message}");
+            Console.WriteLine($"ExpandFileAsync: {ex.Message}\n{ex.StackTrace}");
             return false;
         }
     }
@@ -825,7 +780,6 @@ public class PdfDataService
         {
             if (index < 0 || index >= _model.Pages.Count)
             {
-                Console.WriteLine($"Invalid index for rotation: {index}");
                 return false;
             }
 
@@ -835,7 +789,6 @@ public class PdfDataService
             var rotatedPageData = await _jsRuntime.InvokeAsync<string>("rotatePDFPage", pageItem.PageData, 90);
             if (string.IsNullOrEmpty(rotatedPageData))
             {
-                Console.WriteLine("Failed to rotate page data");
                 return false;
             }
 
@@ -843,7 +796,6 @@ public class PdfDataService
             var rotatedThumbnail = await _jsRuntime.InvokeAsync<string>("renderSinglePDFPage", rotatedPageData);
             if (string.IsNullOrEmpty(rotatedThumbnail))
             {
-                Console.WriteLine("Failed to generate rotated thumbnail");
                 return false;
             }
 
@@ -853,12 +805,12 @@ public class PdfDataService
             pageItem.IsLoading = false;
             pageItem.HasError = false;
 
-            Console.WriteLine($"Successfully rotated page {index}");
+
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error rotating page {index}: {ex.Message}");
+            Console.WriteLine($"RotateItemAsync: {ex.Message}\n{ex.StackTrace}");
             return false;
         }
     }

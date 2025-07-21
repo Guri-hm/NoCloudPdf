@@ -7,8 +7,7 @@ window.openFileDialog = function (elementId) {
 
 // 挿入メニューをクリック座標に直接表示
 window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
-    console.log(`=== showInsertMenuAtExactPosition called ===`);
-    console.log(`Position: ${position}, ClickX: ${clickX}, ClickY: ${clickY}`);
+
 
     // 既存メニューをすべて削除
     window.hideAllInsertMenus();
@@ -61,9 +60,7 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
         display: block;
     `;
 
-    console.log(`Menu positioned at: top=${menuTop}px, left=${menuLeft}px (centered on click position)`);
-    console.log(`Click position: (${clickX}, ${clickY}), Menu center: (${clickX}, ${menuTop})`);
-    console.log(`Viewport: ${viewportWidth}x${viewportHeight}, Menu bounds: (${menuLeft}, ${menuTop}) to (${menuLeft + menuWidth}, ${menuTop + estimatedMenuHeight})`);
+
 
     // メニューボタンを作成
     const blankPageBtn = document.createElement('button');
@@ -96,19 +93,19 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
     overlay.className = 'insert-menu-overlay';
     overlay.setAttribute('data-position', position);
     overlay.style.cssText = 'position: fixed; inset: 0; z-index: 999; background: transparent;';
-    
+
     // より強力なイベントハンドリング（キャプチャフェーズで処理）
-    overlay.addEventListener('click', function(event) {
-        console.log('Overlay clicked - hiding menus');
+    overlay.addEventListener('click', function (event) {
+
         event.preventDefault();
         event.stopPropagation();
         window.hideAllInsertMenus();
     }, true); // true = キャプチャフェーズ
 
     // ESCキーでメニューを閉じる
-    const escapeHandler = function(event) {
+    const escapeHandler = function (event) {
         if (event.key === 'Escape') {
-            console.log('Escape key pressed - hiding menus');
+
             window.hideAllInsertMenus();
             document.removeEventListener('keydown', escapeHandler);
         }
@@ -117,14 +114,10 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
 
     document.body.appendChild(overlay);
 
-    console.log(`✅ Dynamic menu created successfully at exact position (${menuLeft}, ${menuTop})`);
-    
+
+
     // メニューが正しく作成されたかチェック
-    setTimeout(() => {
-        const createdMenu = document.getElementById(`dynamic-menu-${position}`);
-        const createdOverlay = document.getElementById(`overlay-${position}`);
-        console.log(`Menu verification - Menu exists: ${!!createdMenu}, Overlay exists: ${!!createdOverlay}`);
-    }, 100);
+
 };
 
 window.hideInsertMenu = function (position) {
@@ -138,25 +131,22 @@ window.hideInsertMenu = function (position) {
         overlay.remove();
     }
 
-    console.log(`Dynamic menu ${position} removed`);
+
 };
 
 window.hideAllInsertMenus = function () {
-    console.log('hideAllInsertMenus called');
-    
+
+
     // 動的メニューをすべて削除
     const menus = document.querySelectorAll('.insert-menu-dynamic');
     const overlays = document.querySelectorAll('.insert-menu-overlay');
 
-    console.log(`Found ${menus.length} menus and ${overlays.length} overlays to remove`);
 
-    menus.forEach((menu, index) => {
-        console.log(`Removing menu ${index}: ${menu.id}`);
+
+    menus.forEach((menu) => {
         menu.remove();
     });
-    
-    overlays.forEach((overlay, index) => {
-        console.log(`Removing overlay ${index}: ${overlay.id}`);
+    overlays.forEach((overlay) => {
         overlay.remove();
     });
 
@@ -165,37 +155,37 @@ window.hideAllInsertMenus = function () {
 
     // Blazorへの通知処理は不要のため削除
 
-    console.log('All dynamic insert menus and overlays removed');
+
 };
 
 // DOM変更の監視とメニューの復元
-window.setupMenuProtection = function() {
+window.setupMenuProtection = function () {
     // DOM変更を監視してメニューを保護
-    const observer = new MutationObserver(function(mutations) {
+    const observer = new MutationObserver(function (mutations) {
         let needsMenuCheck = false;
-        
-        mutations.forEach(function(mutation) {
+
+        mutations.forEach(function (mutation) {
             // 大きなDOM変更（Blazorの再レンダリング）を検出
             if (mutation.type === 'childList' && mutation.addedNodes.length > 5) {
                 needsMenuCheck = true;
             }
         });
-        
+
         if (needsMenuCheck) {
             // メニューが存在するかチェック
             const existingMenus = document.querySelectorAll('.insert-menu-dynamic');
             if (existingMenus.length > 0) {
-                console.log('DOM change detected - protecting existing menus');
+
                 // メニューの再配置や修復はここで行う
             }
         }
     });
-    
+
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
-    
+
     window.menuProtectionObserver = observer;
 };
 

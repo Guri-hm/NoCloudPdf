@@ -13,14 +13,14 @@ window.mergePDFs = async function (pdfDataList) {
     return URL.createObjectURL(blob);
 };
 
-// 統一アーキチE�E��E�チャ用�E�E�E��E�EージチE�E�Eタに基づぁE�E��E�PDFペ�Eジを結合
+// 統一アーキテクチャ用のマージデータに基づいてPDFページを結合
 window.mergePDFPages = async function (mergeData) {
     const { PDFDocument } = PDFLib;
     const mergedPdf = await PDFDocument.create();
 
     for (const item of mergeData) {
         const pdfDoc = await PDFDocument.load(new Uint8Array(item.fileData));
-        const pageIndex = item.originalPageNumber - 1; // 0ベ�EスインチE�E��E�クスに変換
+        const pageIndex = item.originalPageNumber - 1; // 0ベースインデックスに変換
         const [copiedPage] = await mergedPdf.copyPages(pdfDoc, [pageIndex]);
         mergedPdf.addPage(copiedPage);
     }
@@ -54,7 +54,7 @@ window.renderPDFPages = async function (pdfData) {
 
         await page.render(renderContext).promise;
 
-        // Canvasを画像データとして取征E
+        // Canvasを画像データとして取得
         const imageData = canvas.toDataURL('image/png');
         pageImages.push(imageData);
     }
@@ -65,29 +65,27 @@ window.renderPDFPages = async function (pdfData) {
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
 window.renderFirstPDFPage = async function (pdfData) {
     try {
-        console.log('=== renderFirstPDFPage Debug Info ===');
-        console.log('Data type:', typeof pdfData);
-        console.log('Data is Array:', Array.isArray(pdfData));
+
 
         // BlazorからのデータがUint8Arrayかどうかチェック
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
             uint8Array = pdfData;
-            console.log('Data is already Uint8Array, length:', uint8Array.length);
+
         } else if (Array.isArray(pdfData)) {
             uint8Array = new Uint8Array(pdfData);
-            console.log('Converted Array to Uint8Array, length:', uint8Array.length);
+
         } else if (typeof pdfData === 'string') {
             // Base64エンコードされた文字列の場合
-            console.log('Data appears to be base64 string, converting...');
+
             const binaryString = atob(pdfData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
-            console.log('Converted base64 to Uint8Array, length:', uint8Array.length);
+
         } else {
-            console.log('Data type not recognized, attempting to convert...');
+
             uint8Array = new Uint8Array(pdfData);
         }
 
@@ -97,10 +95,10 @@ window.renderFirstPDFPage = async function (pdfData) {
         }
 
         const header = String.fromCharCode.apply(null, uint8Array.slice(0, 8));
-        console.log('PDF header:', header);
+
 
         if (!header.startsWith('%PDF-')) {
-            console.log('First 20 bytes:', Array.from(uint8Array.slice(0, 20)).map(b => String.fromCharCode(b)).join(''));
+
             throw new Error(`Invalid PDF header: ${header}`);
         }
 
@@ -110,7 +108,7 @@ window.renderFirstPDFPage = async function (pdfData) {
             throw new Error('PDF.js library not loaded');
         }
 
-        console.log('PDF.js version:', pdfjsLib.version || 'unknown');
+
 
         // Worker設定
         if (pdfjsLib.GlobalWorkerOptions) {
@@ -159,10 +157,10 @@ window.renderFirstPDFPage = async function (pdfData) {
 
         for (let i = 0; i < loadingOptions.length; i++) {
             try {
-                console.log(`Trying loading option ${i + 1}:`, Object.keys(loadingOptions[i]));
+
                 const loadingTask = pdfjsLib.getDocument(loadingOptions[i]);
                 pdf = await loadingTask.promise;
-                console.log(`Successfully loaded PDF with option ${i + 1}`);
+
                 break;
             } catch (error) {
                 console.warn(`Loading option ${i + 1} failed:`, error.message);
@@ -177,9 +175,9 @@ window.renderFirstPDFPage = async function (pdfData) {
             throw new Error('Failed to load PDF with all options');
         }
 
-        console.log('PDF loaded successfully, page count:', pdf.numPages);
 
-        // 最初�Eペ�Eジのみレンダリング
+
+        // 最初のページのみレンダリング
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 1 });
         const canvas = document.createElement('canvas');
@@ -194,7 +192,7 @@ window.renderFirstPDFPage = async function (pdfData) {
 
         await page.render(renderContext).promise;
         const result = canvas.toDataURL('image/png');
-        console.log('First page rendered successfully');
+
         return result;
     } catch (error) {
         console.error('Error in renderFirstPDFPage:', error);
@@ -205,21 +203,19 @@ window.renderFirstPDFPage = async function (pdfData) {
 // 指定したページのサムネイルを生成
 window.renderPDFPage = async function (pdfData, pageIndex) {
     try {
-        console.log(`renderPDFPage called for page ${pageIndex}`);
-        console.log('Data type:', typeof pdfData);
-        console.log('Data is Array:', Array.isArray(pdfData));
+
 
         // BlazorからのデータがUint8Arrayかどうかチェック
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
             uint8Array = pdfData;
-            console.log('Data is already Uint8Array, length:', uint8Array.length);
+
         } else if (Array.isArray(pdfData)) {
             uint8Array = new Uint8Array(pdfData);
-            console.log('Converted Array to Uint8Array, length:', uint8Array.length);
+
         } else if (typeof pdfData === 'string') {
             // Base64エンコードされた文字列の場合
-            console.log('Data appears to be base64 string, converting...');
+
             const binaryString = atob(pdfData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
@@ -275,10 +271,8 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
 
         for (let i = 0; i < loadingOptions.length; i++) {
             try {
-                console.log(`Trying loading option ${i + 1} for page ${pageIndex}:`, Object.keys(loadingOptions[i]));
                 const loadingTask = pdfjsLib.getDocument(loadingOptions[i]);
                 pdf = await loadingTask.promise;
-                console.log(`Successfully loaded PDF with option ${i + 1} for page ${pageIndex}`);
                 break;
             } catch (error) {
                 console.warn(`Loading option ${i + 1} failed for page ${pageIndex}:`, error.message);
@@ -295,7 +289,6 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
 
         // ページ数チェック
         if (pageIndex >= pdf.numPages) {
-            console.warn(`Page index ${pageIndex} is out of range (total pages: ${pdf.numPages})`);
             return '';
         }
 
@@ -323,7 +316,6 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
 
         await Promise.race([renderTask.promise, timeoutPromise]);
 
-        console.log(`Successfully rendered page ${pageIndex}`);
         return canvas.toDataURL('image/png');
 
     } catch (error) {
@@ -346,7 +338,7 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
             ctx.textAlign = 'center';
             ctx.fillText('読み込みエラー', canvas.width / 2, canvas.height / 2 - 10);
             ctx.font = '10px Arial';
-            ctx.fillText(`ペ�Eジ ${pageIndex + 1}`, canvas.width / 2, canvas.height / 2 + 10);
+            ctx.fillText(`ページ ${pageIndex + 1}`, canvas.width / 2, canvas.height / 2 + 10);
 
             // 枠線を描画
             ctx.strokeStyle = '#fca5a5';
@@ -356,7 +348,7 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
             return canvas.toDataURL('image/png');
         } catch (fallbackError) {
             console.error('Error creating fallback image:', fallbackError);
-            return ''; // 完�Eに失敗した場合�E空斁E�E��E��E�E
+            return ''; // 完全に失敗した場合は空文字を返す
         }
     }
 };
@@ -364,28 +356,26 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
 // PDFのページ数のみ取得
 window.getPDFPageCount = async function (pdfData) {
     try {
-        console.log('getPDFPageCount called, data type:', typeof pdfData);
-        console.log('Data is Array:', Array.isArray(pdfData));
 
         // BlazorからのデータがUint8Arrayかどうかチェック
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
             uint8Array = pdfData;
-            console.log('Data is already Uint8Array, length:', uint8Array.length);
+
         } else if (Array.isArray(pdfData)) {
             uint8Array = new Uint8Array(pdfData);
-            console.log('Converted Array to Uint8Array, length:', uint8Array.length);
+
         } else if (typeof pdfData === 'string') {
             // Base64エンコードされた文字列の場合
-            console.log('Data appears to be base64 string, converting...');
+
             const binaryString = atob(pdfData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
-            console.log('Converted base64 to Uint8Array, length:', uint8Array.length);
+
         } else {
-            console.log('Data type not recognized, attempting to convert...');
+
             uint8Array = new Uint8Array(pdfData);
         }
 
@@ -413,7 +403,7 @@ window.getPDFPageCount = async function (pdfData) {
     }
 };
 
-// ペ�EジレベルでPDFを結合する関数
+// ページレベルでPDFを結合する関数
 window.mergePDFPages = async function (pdfPageDataList) {
     const { PDFDocument } = PDFLib;
     const mergedPdf = await PDFDocument.create();
@@ -439,9 +429,6 @@ window.mergePDFPages = async function (pdfPageDataList) {
 // 持E�E��E�した�E�Eージを個別のPDFチE�E�Eタとして抽出する関数
 window.extractPDFPage = async function (pdfData, pageIndex) {
     try {
-        console.log(`extractPDFPage called for page ${pageIndex}`);
-        console.log('Data type:', typeof pdfData);
-        console.log('Data is Array:', Array.isArray(pdfData));
 
         const { PDFDocument } = PDFLib;
         if (!PDFDocument) {
@@ -452,32 +439,26 @@ window.extractPDFPage = async function (pdfData, pageIndex) {
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
             uint8Array = pdfData;
-            console.log('Data is already Uint8Array, length:', uint8Array.length);
         } else if (Array.isArray(pdfData)) {
             uint8Array = new Uint8Array(pdfData);
-            console.log('Converted Array to Uint8Array, length:', uint8Array.length);
         } else if (typeof pdfData === 'string') {
             // Base64エンコードされた文字列の場合
-            console.log('Data appears to be base64 string, converting...');
             const binaryString = atob(pdfData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
-            console.log('Converted base64 to Uint8Array, length:', uint8Array.length);
         } else {
-            console.log('Data type not recognized, attempting to convert...');
             uint8Array = new Uint8Array(pdfData);
         }
 
         const pdfDoc = await PDFDocument.load(uint8Array);
 
-        // ペ�Eジ数チェチE�E��E�
+        // ページ数チェック
         if (pageIndex >= pdfDoc.getPageCount()) {
-            console.warn(`Page index ${pageIndex} is out of range (total pages: ${pdfDoc.getPageCount()})`);
-            // エラー時�E空白ペ�Eジを作�E
+            // エラー時は空白ページを作成
             const blankPdf = await PDFDocument.create();
-            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ペ�Eジ
+            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ページ
             const pdfBytes = await blankPdf.save();
 
             let binary = '';
@@ -494,7 +475,7 @@ window.extractPDFPage = async function (pdfData, pageIndex) {
             newPdf.addPage(copiedPage);
         } catch (copyError) {
             console.warn(`Failed to copy page ${pageIndex}, creating blank page:`, copyError);
-            // ペ�Eジコピ�Eに失敗した場合�E空白ペ�Eジを追加
+            // ページコピーに失敗した場合は空白ページを追加
             newPdf.addPage([595.28, 841.89]);
         }
 
@@ -506,17 +487,16 @@ window.extractPDFPage = async function (pdfData, pageIndex) {
             binary += String.fromCharCode(pdfBytes[j]);
         }
 
-        console.log(`Successfully extracted page ${pageIndex}`);
         return btoa(binary);
 
     } catch (error) {
         console.error(`Error extracting PDF page ${pageIndex}:`, error);
 
-        // 完�Eにエラーが発生した場合�E空白PDFを作�E
+        // 完全にエラーが発生した場合は空白PDFを作成
         try {
             const { PDFDocument } = PDFLib;
             const blankPdf = await PDFDocument.create();
-            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ペ�Eジ
+            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ページ
             const pdfBytes = await blankPdf.save();
 
             let binary = '';
@@ -524,11 +504,10 @@ window.extractPDFPage = async function (pdfData, pageIndex) {
                 binary += String.fromCharCode(pdfBytes[j]);
             }
 
-            console.log(`Created blank PDF for failed page ${pageIndex}`);
             return btoa(binary);
         } catch (fallbackError) {
             console.error('Error creating fallback blank PDF:', fallbackError);
-            return ''; // 完�Eに失敗した場合�E空斁E�E��E��E�E
+            return ''; // 完全に失敗した場合は空文字を返す
         }
     }
 };
@@ -563,7 +542,7 @@ window.extractPDFPages = async function (pdfData) {
     }
 };
 
-// PDFペ�Eジを回転する関数
+// PDFページを回転する関数
 window.rotatePDFPage = async function (pageData) {
     try {
         const { PDFDocument, degrees } = PDFLib;
@@ -596,7 +575,7 @@ window.rotatePDFPage = async function (pageData) {
     }
 };
 
-// 非同期でペ�Eジごとにサムネイルを生成する関数�E�E�E�頁E�E��E�処琁E�E��E�メモリ効玁E�E��E�向上！E
+// 非同期でページごとにサムネイルを生成する関数（大量ページ処理やメモリ効率向上向け）
 window.renderPDFPagesAsync = async function (pdfData, dotNetRef) {
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
@@ -649,14 +628,14 @@ window.renderPDFPagesAsync = async function (pdfData, dotNetRef) {
     }
 };
 
-// 空白ペ�EジのPDFを作�E
+// 空白ページのPDFを作成
 window.createBlankPage = async function () {
     try {
         const { PDFDocument, rgb } = PDFLib;
         const pdfDoc = await PDFDocument.create();
         const page = pdfDoc.addPage([595.28, 841.89]); // A4サイズ
 
-        // 空白ペ�Eジなので何も描画しなぁE
+        // 空白ページなので何も描画しない
 
         const pdfBytes = await pdfDoc.save();
 
@@ -672,7 +651,7 @@ window.createBlankPage = async function () {
     }
 };
 
-// 単一PDFペ�Eジをレンダリング
+// 単一PDFページをレンダリング
 window.renderSinglePDFPage = async function (pdfData) {
     try {
         const pdfjsLib = window['pdfjs-dist/build/pdf'];
