@@ -165,3 +165,56 @@ window.rotatePDFPage = async function (pageData) {
         return null;
     }
 };
+
+// 非同期でページごとにサムネイルを生成する関数（順次処理でメモリ効率を向上）
+window.renderPDFPagesAsync = async function (pdfData, dotNetRef) {
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    try {
+        const loadingTask = pdfjsLib.getDocument({ data: pdfData });
+        const pdf = await loadingTask.promise;
+
+        console.log(`Starting async rendering for ${pdf.numPages} pages`);
+
+        // 各ページを順次処理
+        for (let i = 1; i <= pdf.numPages; i++) {
+            try {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 1 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                const context = canvas.getContext('2d');
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport,
+                };
+
+                await page.render(renderContext).promise;
+                const imageData = canvas.toDataURL('image/png');
+
+                // DotNetObjectReferenceのメソッドを呼び出し
+                await dotNetRef.invokeMethodAsync('OnPageThumbnailReady', i - 1, imageData);
+
+                console.log(`Page ${i} rendered and sent to Blazor`);
+
+                // メモリ解放とUI更新のための短い待機
+                await new Promise(resolve => setTimeout(resolve, 10));
+
+            } catch (pageError) {
+                console.error(`Error rendering page ${i}:`, pageError);
+                // エラーの場合もBlazorに通知
+                await dotNetRef.invokeMethodAsync('OnPageThumbnailReady', i - 1, null);
+            }
+        }
+
+        console.log('All pages rendered');
+        return true;
+
+    } catch (error) {
+        console.error('Error in renderPDFPagesAsync:', error);
+        return false;
+    }
+};
