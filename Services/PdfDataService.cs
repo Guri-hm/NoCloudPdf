@@ -312,10 +312,9 @@ public class PdfDataService
         {
             Console.WriteLine($"Background loading all pages for file: {fileMetadata.FileName} ({fileMetadata.PageCount} pages)");
 
-            // 既存のページアイテムを取得（読み込み中状態のものがある可能性）
+            // 既存のページアイテムを取得
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
 
-            // 各ページを個別に読み込み、既存のアイテムを更新
             int successfulPages = 0;
             int failedPages = 0;
 
@@ -323,27 +322,29 @@ public class PdfDataService
             {
                 try
                 {
-                    // 既存のページアイテムをIdで探す
                     var pageId = $"{fileId}_p{pageIndex}";
                     var existingPageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
+                    if (existingPageItem == null)
+                    {
+                        // PageItemが存在しない場合はスキップ（追加はしない）
+                        failedPages++;
+                        Console.WriteLine($"Warning: PageItem not found for {pageId}, skipping update.");
+                        continue;
+                    }
 
                     string thumbnail;
                     string pageData;
 
                     if (pageIndex == 0)
                     {
-                        // 表紙は既に読み込み済み
                         thumbnail = fileMetadata.CoverThumbnail;
                         pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", fileMetadata.FileData, pageIndex);
                     }
                     else
                     {
-                        // その他のページは個別に読み込み（タイムアウト付き）
-                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)); // 30秒タイムアウト
-
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                         try
                         {
-                            // renderPDFPageには生のバイト配列を渡す（自動的にUint8Arrayに変換される）
                             thumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
                             pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
                         }
@@ -355,30 +356,10 @@ public class PdfDataService
                         }
                     }
 
-                    if (existingPageItem != null)
-                    {
-                        // 既存のアイテムを更新
-                        existingPageItem.Thumbnail = thumbnail;
-                        existingPageItem.PageData = pageData;
-                        existingPageItem.IsLoading = false;
-                        existingPageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
-                    }
-                    else
-                    {
-                        // 新しいページアイテムを作成
-                        var pageItem = new PageItem
-                        {
-                            Id = pageId,
-                            FileId = fileId,
-                            FileName = fileMetadata.FileName,
-                            OriginalPageIndex = pageIndex,
-                            Thumbnail = thumbnail,
-                            PageData = pageData,
-                            IsLoading = false,
-                            HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData)
-                        };
-                        _model.Pages.Add(pageItem);
-                    }
+                    existingPageItem.Thumbnail = thumbnail;
+                    existingPageItem.PageData = pageData;
+                    existingPageItem.IsLoading = false;
+                    existingPageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
 
                     if (!string.IsNullOrEmpty(thumbnail) && !string.IsNullOrEmpty(pageData))
                     {
@@ -395,7 +376,6 @@ public class PdfDataService
                     failedPages++;
                     Console.WriteLine($"Error loading page {pageIndex + 1} of {fileMetadata.FileName}: {pageEx.Message}");
 
-                    // 既存のアイテムがあればエラー状態に更新、なければ新規作成
                     var pageId = $"{fileId}_p{pageIndex}";
                     var existingPageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
                     if (existingPageItem != null)
@@ -405,27 +385,10 @@ public class PdfDataService
                         existingPageItem.Thumbnail = "";
                         existingPageItem.PageData = "";
                     }
-                    else
-                    {
-                        var errorPageItem = new PageItem
-                        {
-                            Id = pageId,
-                            FileId = fileId,
-                            FileName = fileMetadata.FileName,
-                            OriginalPageIndex = pageIndex,
-                            Thumbnail = "", // エラー表示になる
-                            PageData = "",
-                            IsLoading = false,
-                            HasError = true
-                        };
-                        _model.Pages.Add(errorPageItem);
-                    }
                 }
             }
 
-            // ページ単位表示用データを準備完了とマーク
             fileMetadata.IsFullyLoaded = true;
-
             Console.WriteLine($"Background loading completed: {successfulPages}/{fileMetadata.PageCount} pages successfully for {fileMetadata.FileName} ({failedPages} failed)");
         }
         catch (Exception ex)
@@ -433,7 +396,6 @@ public class PdfDataService
             Console.WriteLine($"Error loading all pages for file {fileId}: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
 
-            // 完全エラー時は既存のページアイテムをエラー状態に更新
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
             foreach (var item in existingPageItems)
             {
