@@ -663,52 +663,30 @@ public class PdfDataService
             };
             _model.Files[fileId] = fileMetadata;
 
-            // 現在のモードに基づいて挿入処理を行う
-            if (_model.CurrentMode == DisplayMode.File)
+            // 常に全ページ分のPageItemを生成し、Pagesリストに挿入する
+            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
             {
-                // ファイル単位モード：ファイル全体を1つのアイテムとして挿入
+                var thumbnail = pageIndex == 0 ? coverThumbnail :
+                              await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, pageIndex);
+
+                var pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", base64Data, pageIndex);
+
                 var pageItem = new PageItem
                 {
                     FileId = fileId,
                     FileName = fileName,
-                    OriginalPageIndex = 0, // ファイル全体を表す場合は0
-                    Thumbnail = coverThumbnail,
-                    PageData = Convert.ToBase64String(fileData),
+                    OriginalPageIndex = pageIndex,
+                    Thumbnail = thumbnail,
+                    PageData = pageData,
                     IsLoading = false,
-                    HasError = false
+                    HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData)
                 };
 
-                var safePosition = Math.Min(position, _model.Pages.Count);
-                _model.Pages.Insert(safePosition, pageItem);
+                var insertPos = Math.Min(position + pageIndex, _model.Pages.Count);
+                _model.Pages.Insert(insertPos, pageItem);
             }
-            else
-            {
-                // ページ単位モード：全ページを個別に挿入
-                for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
-                {
-                    var thumbnail = pageIndex == 0 ? coverThumbnail :
-                                  await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, pageIndex);
-
-                    var pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", base64Data, pageIndex);
-
-                    var pageItem = new PageItem
-                    {
-                        FileId = fileId,
-                        FileName = fileName,
-                        OriginalPageIndex = pageIndex,
-                        Thumbnail = thumbnail,
-                        PageData = pageData,
-                        IsLoading = false,
-                        HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData)
-                    };
-
-                    var insertPos = Math.Min(position + pageIndex, _model.Pages.Count);
-                    _model.Pages.Insert(insertPos, pageItem);
-                }
-
-                // ファイルが完全に読み込まれたことをマーク
-                fileMetadata.IsFullyLoaded = true;
-            }
+            // ファイルが完全に読み込まれたことをマーク
+            fileMetadata.IsFullyLoaded = true;
 
             Console.WriteLine($"Successfully inserted PDF file: {fileName} at position {position}");
             return true;
