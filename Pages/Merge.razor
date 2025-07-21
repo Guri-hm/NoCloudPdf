@@ -11,7 +11,19 @@
     <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow-md z-50">
         <div class="flex items-center justify-between px-4 py-2">
             <span class="text-lg font-semibold">PDF操作</span>
-            <div class="flex gap-2">
+            <div class="flex gap-2 items-center">
+                <!-- 表示切り替えスイッチ -->
+                <div class="flex items-center gap-2 mr-4">
+                    <span class="text-sm">表示:</span>
+                    <button class="@(isPageView ? "bg-gray-600" : "bg-blue-500") hover:bg-blue-600 text-white py-1 px-3 rounded text-sm"
+                        @onclick="() => SwitchView(false)">
+                        ファイル単位
+                    </button>
+                    <button class="@(isPageView ? "bg-blue-500" : "bg-gray-600") hover:bg-blue-600 text-white py-1 px-3 rounded text-sm"
+                        @onclick="() => SwitchView(true)">
+                        ページ単位
+                    </button>
+                </div>
                 <!-- テスト用並び替えボタン -->
                 <button class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
                     @onclick="TestSwapFirstTwo">
@@ -270,12 +282,148 @@
     private bool isLoading = false;
     private bool showMergedResult = false; // 結合結果表示フラグ
     private int progress = 0;
+    private bool isPageView = false; // false: ファイル単位表示, true: ページ単位表示
 
-    private List<byte[]> pdfDataList = new();
-    private List<string> pdfPageDataList = new();
+    // ファイル情報を管理するクラス
+    public class PdfFileInfo
+    {
+        public string FileName { get; set; } = "";
+        public byte[] FileData { get; set; } = Array.Empty<byte>();
+        public string CoverThumbnail { get; set; } = ""; // 表紙サムネイル
+        public List<string> AllThumbnails { get; set; } = new(); // 全ページサムネイル（遅延読み込み）
+        public List<string> AllPageData { get; set; } = new(); // 全ページデータ（遅延読み込み）
+        public int PageCount { get; set; } = 0;
+        public bool IsFullyLoaded { get; set; } = false; // 全ページが読み込まれているか
+    }
+
+    // ページ情報を管理するクラス
+    public class PageInfo
+    {
+        public string FileId { get; set; } = ""; // 元ファイルのID
+        public string FileName { get; set; } = "";
+        public int PageIndex { get; set; } = 0; // ファイル内でのページ番号
+        public string Thumbnail { get; set; } = "";
+        public string PageData { get; set; } = "";
+    }
+
+    // 互換性のためのページデータクラス
+    public class PdfPageData
+    {
+        public string FileName { get; set; } = "";
+        public int PageIndex { get; set; } = 0;
+        public string ThumbnailData { get; set; } = "";
+        public string PageData { get; set; } = "";
+    }
+
+    private List<PdfFileInfo> pdfFiles = new();
+    private List<PageInfo> pageItems = new(); // ページ単位表示用
     private string? mergedPdfUrl;
     private string? errorMessage;
-    private List<string> pageThumbnails = new();
+    
+    // 互換性のための追加フィールド
+    private List<byte[]> pdfDataList = new List<byte[]>();
+
+    // 互換性のためのプロパティ（既存コードとの互換性維持）
+    private List<string> pageThumbnails => isPageView ? pageItems.Select(p => p.Thumbnail).ToList() : GetDisplayThumbnails();
+    private List<PdfPageData> pdfPageDataList => isPageView ? GetPageDataList() : GetFileDataList();
+
+    private List<string> GetDisplayThumbnails()
+    {
+        return pdfFiles.Select(f => f.CoverThumbnail).ToList();
+    }
+
+    private List<PdfPageData> GetPageDataList()
+    {
+        return pageItems.Select(p => new PdfPageData 
+        { 
+            FileName = p.FileName,
+            PageIndex = p.PageIndex,
+            ThumbnailData = p.Thumbnail,
+            PageData = p.PageData 
+        }).ToList();
+    }
+
+    private List<PdfPageData> GetFileDataList()
+    {
+        var result = new List<PdfPageData>();
+        foreach (var file in pdfFiles)
+        {
+            result.Add(new PdfPageData 
+            { 
+                FileName = file.FileName,
+                PageIndex = 0,
+                ThumbnailData = file.CoverThumbnail,
+                PageData = "" // ファイル表示時は不要
+            });
+        }
+        return result;
+    }
+
+    // 表示モード切り替えメソッド
+    private async Task SwitchView(bool pageView)
+    {
+        if (isPageView == pageView) return;
+
+        isPageView = pageView;
+        
+        if (isPageView)
+        {
+            // ページ単位表示に切り替え：全ページを展開
+            await LoadAllPagesAsync();
+        }
+        
+        StateHasChanged();
+        
+        // ソート機能を再初期化
+        await Task.Delay(100);
+        await InitializeSortableAfterLoad();
+    }
+
+    // 全ページを展開してページ単位表示用データを準備
+    private Task LoadAllPagesAsync()
+    {
+        pageItems.Clear();
+        
+        Console.WriteLine($"LoadAllPagesAsync: Processing {pdfFiles.Count} files");
+        
+        foreach (var file in pdfFiles)
+        {
+            Console.WriteLine($"Processing file: {file.FileName}, IsFullyLoaded: {file.IsFullyLoaded}, PageCount: {file.PageCount}");
+            
+            if (file.IsFullyLoaded && file.AllThumbnails.Count > 0)
+            {
+                // 全ページが読み込まれている場合：すべてのページを展開
+                for (int i = 0; i < file.AllThumbnails.Count; i++)
+                {
+                    pageItems.Add(new PageInfo
+                    {
+                        FileId = file.FileName,
+                        FileName = file.FileName,
+                        PageIndex = i,
+                        Thumbnail = file.AllThumbnails[i],
+                        PageData = i < file.AllPageData.Count ? file.AllPageData[i] : ""
+                    });
+                }
+                Console.WriteLine($"Added {file.AllThumbnails.Count} pages from {file.FileName}");
+            }
+            else
+            {
+                // まだ全ページが読み込まれていない場合：表紙のみ表示
+                pageItems.Add(new PageInfo
+                {
+                    FileId = file.FileName,
+                    FileName = file.FileName,
+                    PageIndex = 0,
+                    Thumbnail = file.CoverThumbnail,
+                    PageData = ""
+                });
+                Console.WriteLine($"Added cover page only from {file.FileName}");
+            }
+        }
+        
+        Console.WriteLine($"LoadAllPagesAsync completed: {pageItems.Count} total pages");
+        return Task.CompletedTask;
+    }
 
     // 静的インスタンスで現在のコンポーネントを参照（並び替え用）
     private static Merge? _currentInstance;
@@ -445,11 +593,17 @@
                 if (index < pdfPageDataList.Count)
                 {
                     Console.WriteLine($"Rotating PDF page data {index}...");
-
-                    var rotatedPageData = await JSRuntime.InvokeAsync<string>("rotatePDFPage", pdfPageDataList[index]);
+                    var currentPageData = pdfPageDataList[index];
+                    var rotatedPageData = await JSRuntime.InvokeAsync<string>("rotatePDFPage", currentPageData.PageData);
                     if (rotatedPageData != null)
                     {
-                        pdfPageDataList[index] = rotatedPageData;
+                        pdfPageDataList[index] = new PdfPageData
+                        {
+                            FileName = currentPageData.FileName,
+                            PageIndex = currentPageData.PageIndex,
+                            ThumbnailData = rotatedThumbnail ?? "",
+                            PageData = rotatedPageData
+                        };
                         Console.WriteLine($"PDF page data {index} rotated successfully");
                     }
                     else
@@ -505,10 +659,20 @@
 
                 // JavaScript でサムネイルを生成
                 var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
-                if (newThumbnails != null)
+                if (newThumbnails != null && newThumbnails.Count > 0)
                 {
-                    Console.WriteLine($"Generated {newThumbnails.Count} thumbnails");
-                    pageThumbnails.AddRange(newThumbnails);
+                    Console.WriteLine($"Generated {newThumbnails.Count} thumbnails for {file.Name}");
+
+                    // 新しいファイル構造にデータを格納
+                    var pdfFileInfo = new PdfFileInfo
+                    {
+                        FileName = file.Name,
+                        FileData = pdfData,
+                        CoverThumbnail = newThumbnails[0], // 最初のページを表紙として使用
+                        AllThumbnails = newThumbnails,
+                        PageCount = newThumbnails.Count,
+                        IsFullyLoaded = true
+                    };
 
                     // extractPDFPagesを安全に呼び出し
                     try
@@ -517,8 +681,8 @@
                         var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
                         if (pageDataList != null)
                         {
-                            Console.WriteLine($"Extracted {pageDataList.Count} pages");
-                            pdfPageDataList.AddRange(pageDataList);
+                            Console.WriteLine($"Extracted {pageDataList.Count} pages for {file.Name}");
+                            pdfFileInfo.AllPageData = pageDataList;
                         }
                         else
                         {
@@ -530,7 +694,17 @@
                         Console.WriteLine($"JavaScript error in extractPDFPages: {jsEx.Message}");
                         // ページデータの抽出に失敗した場合、サムネイルのみで続行
                         errorMessage = $"ページデータの抽出に失敗しました: {file.Name}";
+                        pdfFileInfo.AllPageData = new List<string>();
                     }
+
+                    // ファイルリストに追加
+                    pdfFiles.Add(pdfFileInfo);
+                    Console.WriteLine($"Added file {file.Name} to pdfFiles list");
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to generate thumbnails for {file.Name}");
+                    errorMessage = $"サムネイル生成に失敗しました: {file.Name}";
                 }
             }
             catch (Exception ex)
@@ -546,8 +720,9 @@
 
         await InitializeSortableAfterLoad();
 
-        Console.WriteLine($"Total thumbnails: {pageThumbnails?.Count}");
-        Console.WriteLine($"Total page data: {pdfPageDataList?.Count}");
+        Console.WriteLine($"Total files loaded: {pdfFiles.Count}");
+        Console.WriteLine($"Total thumbnails (computed): {pageThumbnails?.Count}");
+        Console.WriteLine($"Total page data (computed): {pdfPageDataList?.Count}");
     }
 
     // PDFを結合する処理（結果表示モードに切り替え）
@@ -559,7 +734,9 @@
             Console.WriteLine("=== 結合前のデータ順序 ===");
             for (int i = 0; i < pdfPageDataList.Count; i++)
             {
-                Console.WriteLine($"Index {i}: {pdfPageDataList[i].Substring(0, 50)}...");
+                var pageData = pdfPageDataList[i];
+                var dataPreview = pageData.PageData.Length > 50 ? pageData.PageData.Substring(0, 50) + "..." : pageData.PageData;
+                Console.WriteLine($"Index {i}: {pageData.FileName} (Page {pageData.PageIndex}): {dataPreview}");
             }
             if (pdfPageDataList.Count == 0)
             {
@@ -627,12 +804,13 @@
     {
         // データをリセット
         pdfDataList.Clear();
-        pdfPageDataList.Clear();
-        pageThumbnails.Clear();
+        pdfFiles.Clear();
+        pageItems.Clear();
         mergedPdfUrl = null;
         errorMessage = null;
         showMergedResult = false;
         isFilesLoaded = false;
+        isPageView = false; // ファイル単位表示に戻す
 
         StateHasChanged();
     }
@@ -707,7 +885,14 @@
             {
                 // 指定位置に挿入
                 pageThumbnails.Insert(position, blankThumbnail);
-                pdfPageDataList.Insert(position, blankPageData);
+                var blankPdfPageData = new PdfPageData
+                {
+                    FileName = "blank_page.pdf",
+                    PageIndex = 0,
+                    ThumbnailData = blankThumbnail,
+                    PageData = blankPageData
+                };
+                pdfPageDataList.Insert(position, blankPdfPageData);
 
                 Console.WriteLine($"Blank page inserted at position {position}");
                 StateHasChanged();
@@ -763,7 +948,14 @@
                     for (int i = 0; i < newThumbnails.Count; i++)
                     {
                         pageThumbnails.Insert(insertPosition + i, newThumbnails[i]);
-                        pdfPageDataList.Insert(insertPosition + i, pageDataList[i]);
+                        var insertPdfPageData = new PdfPageData
+                        {
+                            FileName = file.Name,
+                            PageIndex = i,
+                            ThumbnailData = newThumbnails[i],
+                            PageData = pageDataList[i]
+                        };
+                        pdfPageDataList.Insert(insertPosition + i, insertPdfPageData);
                     }
 
                     Console.WriteLine($"Inserted {newThumbnails.Count} pages at position {insertPosition}");
