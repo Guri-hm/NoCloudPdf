@@ -16,7 +16,6 @@ window.initializeSortable = function () {
             animation: 150,
             onEnd: function (evt) {
 
-                // 手動でDOM順序を復元（確実な方法）
                 const sortableItems = Array.from(container.querySelectorAll('.sortable-item-container:not(.non-sortable)'));
 
                 // data-indexでソート
@@ -31,14 +30,13 @@ window.initializeSortable = function () {
                 // sortable要素のみを削除
                 container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
 
-                // 正しい順序で再追加
-                sortableItems.forEach(item => {
-                    container.appendChild(item);
-                });
+                // sortable要素のみを削除
+                container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
 
-                // non-sortable要素を最後に追加
-                nonSortableElements.forEach(element => {
-                    container.appendChild(element);
+                // +マークの前に順番に挿入
+                const insertPoint = container.querySelector('.non-sortable');
+                sortableItems.forEach(item => {
+                    container.insertBefore(item, insertPoint);
                 });
 
                 DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, evt.newIndex);
