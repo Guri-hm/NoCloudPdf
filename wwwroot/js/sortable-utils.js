@@ -1,6 +1,5 @@
 let sortableInstance = null;
 
-// sortable-utils.js
 window.initializeSortable = function () {
     const container = document.getElementById('sortable-container');
 
@@ -43,7 +42,6 @@ window.initializeSortable = function () {
             }
         });
 
-        console.log('Sortable initialized successfully');
     } else {
         console.error('Failed to initialize sortable - container or Sortable library not found');
     }

@@ -296,21 +296,9 @@
             Console.WriteLine($"ERROR: Current instance is null!");
         }
     }
-    // 処理中フラグを追加
-    private bool isUpdatingOrder = false;
     // 実際の並び替え処理（DOM状態をBlazorに完全同期）
-    // 実際の並び替え処理（完全修正版）
     private async Task UpdateOrderInternal(int oldIndex, int newIndex)
     {
-        // 排他制御
-        if (isUpdatingOrder)
-        {
-            Console.WriteLine("Order update already in progress, skipping...");
-            return;
-        }
-
-        isUpdatingOrder = true;
-
         try
         {
             Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
@@ -319,15 +307,6 @@
             newIndex >= 0 && newIndex < pageThumbnails.Count &&
             oldIndex != newIndex)
             {
-                Console.WriteLine($"Moving data from index {oldIndex} to {newIndex}");
-
-                // デバッグ：移動前の状態
-                Console.WriteLine("=== BEFORE MOVE ===");
-                for (int i = 0; i < pageThumbnails.Count; i++)
-                {
-                    var hash = pageThumbnails[i].GetHashCode();
-                    Console.WriteLine($"Index {i}: Hash={hash}");
-                }
 
                 // シンプルで確実な方法：C#のCollectionsAPIを使用
                 void MoveItem<T>(List<T> list, int from, int to)
@@ -341,18 +320,6 @@
                 MoveItem(pageThumbnails, oldIndex, newIndex);
                 MoveItem(pdfPageDataList, oldIndex, newIndex);
 
-                Console.WriteLine($"Moved item from {oldIndex} to {newIndex}");
-
-                // デバッグ：移動後の状態
-                Console.WriteLine("=== AFTER MOVE ===");
-                for (int i = 0; i < pageThumbnails.Count; i++)
-                {
-                    var hash = pageThumbnails[i].GetHashCode();
-                    Console.WriteLine($"Index {i}: Hash={hash}");
-                }
-
-                Console.WriteLine($"Data reordered successfully: {oldIndex} -> {newIndex}");
-
                 // DOM更新
                 await InvokeAsync(async () =>
                 {
@@ -361,7 +328,6 @@
                     await JSRuntime.InvokeVoidAsync("initializeSortable");
                 });
 
-                Console.WriteLine("DOM management returned to Blazor");
             }
             else
             {
@@ -374,7 +340,7 @@
         }
         finally
         {
-            isUpdatingOrder = false;
+
         }
     }
 
