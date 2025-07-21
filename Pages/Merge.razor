@@ -512,8 +512,52 @@
         await InitializeSortableAfterLoad();
     }
 
+    // 遅延読み込み：特定のファイルの全ページデータを読み込み
+    private async Task LoadAllPagesForFile(PdfFileInfo file)
+    {
+        if (file.IsFullyLoaded) return; // 既に読み込み済み
+
+        try
+        {
+            Console.WriteLine($"Loading all pages for file: {file.FileName}");
+            
+            // 全ページのサムネイルを生成
+            var allThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", file.FileData);
+            if (allThumbnails != null && allThumbnails.Count > 0)
+            {
+                file.AllThumbnails = allThumbnails;
+                Console.WriteLine($"Loaded {allThumbnails.Count} thumbnails for {file.FileName}");
+                
+                // 全ページのデータを抽出
+                var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", file.FileData);
+                if (pageDataList != null)
+                {
+                    file.AllPageData = pageDataList;
+                    Console.WriteLine($"Loaded {pageDataList.Count} page data for {file.FileName}");
+                }
+                else
+                {
+                    file.AllPageData = new List<string>();
+                    Console.WriteLine($"Failed to load page data for {file.FileName}");
+                }
+                
+                file.IsFullyLoaded = true;
+                Console.WriteLine($"File {file.FileName} fully loaded");
+            }
+            else
+            {
+                Console.WriteLine($"Failed to load thumbnails for {file.FileName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading all pages for {file.FileName}: {ex.Message}");
+            errorMessage = $"ページ読み込みに失敗しました: {file.FileName}";
+        }
+    }
+
     // 全ページを展開してページ単位表示用データを準備
-    private Task LoadAllPagesAsync()
+    private async Task LoadAllPagesAsync()
     {
         pageItems.Clear();
         
@@ -522,6 +566,14 @@
         foreach (var file in pdfFiles)
         {
             Console.WriteLine($"Processing file: {file.FileName}, IsFullyLoaded: {file.IsFullyLoaded}, PageCount: {file.PageCount}");
+            
+            // まだ全ページが読み込まれていない場合は遅延読み込み
+            if (!file.IsFullyLoaded)
+            {
+                Console.WriteLine($"Loading all pages for {file.FileName}...");
+                await LoadAllPagesForFile(file);
+                StateHasChanged(); // 読み込み進行を表示
+            }
             
             if (file.IsFullyLoaded && file.AllThumbnails.Count > 0)
             {
@@ -541,7 +593,7 @@
             }
             else
             {
-                // まだ全ページが読み込まれていない場合：表紙のみ表示
+                // 読み込みに失敗した場合：表紙のみ表示
                 pageItems.Add(new PageInfo
                 {
                     FileId = file.FileName,
@@ -550,12 +602,11 @@
                     Thumbnail = file.CoverThumbnail,
                     PageData = ""
                 });
-                Console.WriteLine($"Added cover page only from {file.FileName}");
+                Console.WriteLine($"Added cover page only from {file.FileName} (load failed)");
             }
         }
         
         Console.WriteLine($"LoadAllPagesAsync completed: {pageItems.Count} total pages");
-        return Task.CompletedTask;
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（並び替え用）
@@ -776,12 +827,21 @@
                 var file = pdfFiles[fileIndex];
                 Console.WriteLine($"Expanding file {file.FileName} at index {fileIndex}");
                 
+                // まだ全ページが読み込まれていない場合は遅延読み込み
+                if (!file.IsFullyLoaded)
+                {
+                    Console.WriteLine($"Loading all pages for expansion: {file.FileName}");
+                    isLoading = true;
+                    StateHasChanged();
+                    
+                    await LoadAllPagesForFile(file);
+                    
+                    isLoading = false;
+                    StateHasChanged();
+                }
+                
                 if (file.IsFullyLoaded && file.AllThumbnails.Count > 0)
                 {
-                    // 現在のファイルサムネイルを削除
-                    var currentThumbnails = GetDisplayThumbnails();
-                    var currentPageData = GetFileDataList();
-                    
                     // ファイルの全ページを挿入位置に展開
                     for (int i = 0; i < file.AllThumbnails.Count; i++)
                     {
@@ -809,11 +869,16 @@
                     
                     Console.WriteLine($"File {file.FileName} expanded successfully");
                 }
+                else
+                {
+                    errorMessage = $"ファイル {file.FileName} の全ページ読み込みに失敗しました";
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error expanding file: {ex.Message}");
                 errorMessage = $"ファイル展開に失敗しました: {ex.Message}";
+                isLoading = false;
             }
         }
     }
@@ -915,56 +980,67 @@
                 pdfDataList.Add(pdfData);
                 Console.WriteLine($"File {file.Name} read successfully, data size: {pdfData.Length} bytes");
 
-                // JavaScript でサムネイルを生成
-                Console.WriteLine($"Calling renderPDFPages for {file.Name}");
-                var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
-                if (newThumbnails != null && newThumbnails.Count > 0)
+                // 高速表示のため、最初は表紙サムネイルとページ数のみ取得
+                Console.WriteLine($"Calling renderFirstPDFPage for {file.Name} (fast loading)");
+                var coverThumbnail = await JSRuntime.InvokeAsync<string>("renderFirstPDFPage", pdfData);
+                var pageCount = await JSRuntime.InvokeAsync<int>("getPDFPageCount", pdfData);
+                
+                if (coverThumbnail != null && pageCount > 0)
                 {
-                    Console.WriteLine($"Generated {newThumbnails.Count} thumbnails for {file.Name}");
+                    Console.WriteLine($"Generated cover thumbnail for {file.Name}, total pages: {pageCount}");
 
-                    // 新しいファイル構造にデータを格納
+                    // 新しいファイル構造にデータを格納（遅延読み込み用）
                     var pdfFileInfo = new PdfFileInfo
                     {
                         FileName = file.Name,
                         FileData = pdfData,
-                        CoverThumbnail = newThumbnails[0], // 最初のページを表紙として使用
-                        AllThumbnails = newThumbnails,
-                        PageCount = newThumbnails.Count,
-                        IsFullyLoaded = true
+                        CoverThumbnail = coverThumbnail,
+                        AllThumbnails = new List<string>(), // 遅延読み込み
+                        AllPageData = new List<string>(), // 遅延読み込み
+                        PageCount = pageCount,
+                        IsFullyLoaded = false // まだ全ページは読み込まれていない
                     };
-
-                    // extractPDFPagesを安全に呼び出し
-                    try
-                    {
-                        Console.WriteLine("Calling extractPDFPages...");
-                        var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
-                        if (pageDataList != null)
-                        {
-                            Console.WriteLine($"Extracted {pageDataList.Count} pages for {file.Name}");
-                            pdfFileInfo.AllPageData = pageDataList;
-                        }
-                        else
-                        {
-                            Console.WriteLine("extractPDFPages returned null");
-                            pdfFileInfo.AllPageData = new List<string>();
-                        }
-                    }
-                    catch (Exception jsEx)
-                    {
-                        Console.WriteLine($"JavaScript error in extractPDFPages: {jsEx.Message}");
-                        // ページデータの抽出に失敗した場合、サムネイルのみで続行
-                        errorMessage = $"ページデータの抽出に失敗しました: {file.Name}";
-                        pdfFileInfo.AllPageData = new List<string>();
-                    }
 
                     // ファイルリストに追加
                     pdfFiles.Add(pdfFileInfo);
-                    Console.WriteLine($"Added file {file.Name} to pdfFiles list. Total files: {pdfFiles.Count}");
+                    Console.WriteLine($"Added file {file.Name} to pdfFiles list (fast mode). Total files: {pdfFiles.Count}");
                 }
                 else
                 {
-                    Console.WriteLine($"Failed to generate thumbnails for {file.Name}");
-                    errorMessage = $"サムネイル生成に失敗しました: {file.Name}";
+                    Console.WriteLine($"Fast loading failed for {file.Name}, falling back to full loading");
+                    // フォールバック：従来の全ページ読み込み
+                    var newThumbnails = await JSRuntime.InvokeAsync<List<string>>("renderPDFPages", pdfData);
+                    if (newThumbnails != null && newThumbnails.Count > 0)
+                    {
+                        var pdfFileInfo = new PdfFileInfo
+                        {
+                            FileName = file.Name,
+                            FileData = pdfData,
+                            CoverThumbnail = newThumbnails[0],
+                            AllThumbnails = newThumbnails,
+                            PageCount = newThumbnails.Count,
+                            IsFullyLoaded = true
+                        };
+
+                        // ページデータも取得
+                        try
+                        {
+                            var pageDataList = await JSRuntime.InvokeAsync<List<string>>("extractPDFPages", pdfData);
+                            pdfFileInfo.AllPageData = pageDataList ?? new List<string>();
+                        }
+                        catch (Exception)
+                        {
+                            pdfFileInfo.AllPageData = new List<string>();
+                        }
+
+                        pdfFiles.Add(pdfFileInfo);
+                        Console.WriteLine($"Added file {file.Name} using fallback method");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to process {file.Name}");
+                        errorMessage = $"ファイル処理に失敗しました: {file.Name}";
+                    }
                 }
             }
             catch (Exception ex)
@@ -994,6 +1070,28 @@
     {
         try
         {
+            Console.WriteLine("=== PDF結合開始 ===");
+            
+            // ファイル単位表示の場合、まだ読み込まれていないファイルの全ページを読み込み
+            if (!isPageView)
+            {
+                bool needsLoading = pdfFiles.Any(f => !f.IsFullyLoaded);
+                if (needsLoading)
+                {
+                    Console.WriteLine("Loading all pages for merge...");
+                    isLoading = true;
+                    StateHasChanged();
+                    
+                    foreach (var file in pdfFiles.Where(f => !f.IsFullyLoaded))
+                    {
+                        await LoadAllPagesForFile(file);
+                    }
+                    
+                    isLoading = false;
+                    StateHasChanged();
+                }
+            }
+            
             // デバッグ: 結合前のデータ順序を確認
             Console.WriteLine("=== 結合前のデータ順序 ===");
             for (int i = 0; i < pdfPageDataList.Count; i++)
@@ -1026,6 +1124,7 @@
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
             errorMessage = "An error occurred while merging PDFs. Please try again.";
+            isLoading = false;
         }
     }
 
