@@ -163,14 +163,7 @@ window.hideAllInsertMenus = function () {
     // ESCキーハンドラーも削除
     document.removeEventListener('keydown', window.currentEscapeHandler);
 
-    // Blazorにメニューが閉じられたことを通知
-    if (window.DotNet) {
-        try {
-            window.DotNet.invokeMethodAsync('ClientPdfApp', 'OnMenuClosedFromJS');
-        } catch (error) {
-            console.log('Could not notify Blazor of menu closure:', error);
-        }
-    }
+    // Blazorへの通知処理は不要のため削除
 
     console.log('All dynamic insert menus and overlays removed');
 };
