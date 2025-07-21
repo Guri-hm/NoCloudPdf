@@ -38,7 +38,7 @@
 
     <!-- サムネイル編集エリア -->
     <div class="pt-16"> <!-- 上部バーの高さ分余白 -->
-        <div id="sortable-container" class="flex flex-wrap gap-2 p-4">
+        <div id="sortable-container" class="flex flex-wrap gap-4 p-6">
             @if (pageThumbnails != null && pageThumbnails.Any())
             {
                 @* 各サムネイルの左側に＋ボタンを配置（並び替え対象） *@
@@ -71,21 +71,51 @@
                         </div>
 
                         @* 右側のサムネイル *@
-                        <div class="thumbnail-item relative group p-2">
-                            <div class="w-24 h-32 flex items-center justify-center overflow-hidden">
-                                <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300"
-                                    draggable="false" />
+                        <div class="thumbnail-item relative group thumbnail-container">
+                            @{
+                                var isMultiPage = false;
+                                var pageCount = 1;
+                                
+                                // ファイル単位表示の場合、複数ページかチェック
+                                if (!isPageView && index < pdfFiles.Count)
+                                {
+                                    var file = pdfFiles[index];
+                                    isMultiPage = file.PageCount > 1;
+                                    pageCount = file.PageCount;
+                                    Console.WriteLine($"File {file.FileName}: isMultiPage={isMultiPage}, pageCount={pageCount}");
+                                }
+                            }
+                            
+                            <div class="@(isMultiPage ? "thumbnail-stack" : "")">
+                                <div class="w-24 h-32 flex items-center justify-center overflow-hidden @(isMultiPage ? "stack-layer" : "")">
+                                    <img src="@pageThumbnails[i]" class="max-w-full max-h-full object-contain border border-gray-300"
+                                        draggable="false" />
+                                </div>
+                                    
+                                @if (isMultiPage)
+                                {
+                                    <div class="page-count-badge">
+                                        @pageCount
+                                    </div>
+                                }
                             </div>
 
                             <!-- サブメニュー -->
-                            <div class="menu-overlay absolute top-0 right-0 bg-white shadow-md rounded p-1 flex-col"
-                                style="display: none;">
+                            <div class="menu-overlay absolute top-2 right-2 bg-white shadow-md rounded p-1 flex-col"
+                                style="display: none; z-index: 20;">
                                 <button class="text-red-500 hover:text-red-700 p-1" @onclick="() => RemovePage(index)">
                                     <i class="fas fa-trash"></i>
                                 </button>
                                 <button class="text-blue-500 hover:text-blue-700 p-1 mt-1" @onclick="() => RotatePage(index)">
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
+                                @if (isMultiPage)
+                                {
+                                    <button class="text-green-500 hover:text-green-700 p-1 mt-1" @onclick="() => ExpandFile(index)" 
+                                            title="全ページを展開">
+                                        <i class="fa-solid fa-expand"></i>
+                                    </button>
+                                }
                             </div>
                         </div>
                     </div>
@@ -275,6 +305,80 @@
     .sortable-item-container {
         cursor: move;
     }
+
+    /* 複数ページファイル用のスタックエフェクト */
+    .thumbnail-stack {
+        position: relative;
+        margin: 8px; /* バッジのスペースを確保 */
+    }
+
+    .thumbnail-stack .stack-layer {
+        position: relative;
+        z-index: 3;
+    }
+
+    .thumbnail-stack::before {
+        content: '';
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        right: -4px;
+        bottom: -4px;
+        background: #f8f9fa;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        z-index: 1;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .thumbnail-stack::after {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        right: -8px;
+        bottom: -8px;
+        background: #f1f3f4;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        z-index: 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    /* ページ数バッジ */
+    .page-count-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #dc2626;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+        z-index: 10;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        border: 2px solid white;
+        line-height: 1;
+    }
+
+    /* サムネイル画像の調整 */
+    .thumbnail-stack .stack-layer img {
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* コンテナの調整 */
+    .thumbnail-container {
+        padding: 8px;
+        position: relative;
+        min-width: 40px; /* バッジが見切れないように最小幅を設定 */
+        min-height: 40px; /* バッジが見切れないように最小高さを設定 */
+    }
 </style>
 
 @code {
@@ -348,13 +452,31 @@
         var result = new List<PdfPageData>();
         foreach (var file in pdfFiles)
         {
-            result.Add(new PdfPageData 
-            { 
-                FileName = file.FileName,
-                PageIndex = 0,
-                ThumbnailData = file.CoverThumbnail,
-                PageData = "" // ファイル表示時は不要
-            });
+            // ファイル表示時は全ページのデータを含める
+            if (file.IsFullyLoaded && file.AllPageData.Count > 0)
+            {
+                for (int i = 0; i < file.AllPageData.Count; i++)
+                {
+                    result.Add(new PdfPageData 
+                    { 
+                        FileName = file.FileName,
+                        PageIndex = i,
+                        ThumbnailData = i < file.AllThumbnails.Count ? file.AllThumbnails[i] : "",
+                        PageData = file.AllPageData[i]
+                    });
+                }
+            }
+            else
+            {
+                // フォールバック：表紙のみ
+                result.Add(new PdfPageData 
+                { 
+                    FileName = file.FileName,
+                    PageIndex = 0,
+                    ThumbnailData = file.CoverThumbnail,
+                    PageData = "" // ファイル表示時でデータが不完全な場合
+                });
+            }
         }
         return result;
     }
@@ -568,6 +690,58 @@
                 await Task.Delay(100);
                 await JSRuntime.InvokeVoidAsync("initializeSortable");
             });
+        }
+    }
+
+    // ファイル展開機能（ファイル単位表示から特定のファイルの全ページを展開）
+    private async Task ExpandFile(int fileIndex)
+    {
+        if (fileIndex >= 0 && fileIndex < pdfFiles.Count && !isPageView)
+        {
+            try
+            {
+                var file = pdfFiles[fileIndex];
+                Console.WriteLine($"Expanding file {file.FileName} at index {fileIndex}");
+                
+                if (file.IsFullyLoaded && file.AllThumbnails.Count > 0)
+                {
+                    // 現在のファイルサムネイルを削除
+                    var currentThumbnails = GetDisplayThumbnails();
+                    var currentPageData = GetFileDataList();
+                    
+                    // ファイルの全ページを挿入位置に展開
+                    for (int i = 0; i < file.AllThumbnails.Count; i++)
+                    {
+                        var pageInfo = new PageInfo
+                        {
+                            FileId = file.FileName,
+                            FileName = file.FileName,
+                            PageIndex = i,
+                            Thumbnail = file.AllThumbnails[i],
+                            PageData = i < file.AllPageData.Count ? file.AllPageData[i] : ""
+                        };
+                        pageItems.Add(pageInfo);
+                    }
+                    
+                    // ファイルを削除
+                    pdfFiles.RemoveAt(fileIndex);
+                    
+                    // ページ単位表示に切り替え
+                    isPageView = true;
+                    StateHasChanged();
+                    
+                    // ソート機能を再初期化
+                    await Task.Delay(100);
+                    await InitializeSortableAfterLoad();
+                    
+                    Console.WriteLine($"File {file.FileName} expanded successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error expanding file: {ex.Message}");
+                errorMessage = $"ファイル展開に失敗しました: {ex.Message}";
+            }
         }
     }
 
