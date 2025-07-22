@@ -168,24 +168,22 @@ public class PdfDataService
             };
             _model.Files[fileId] = fileMetadata;
 
-            // base64データは必要な時に変換する
-            var base64Data = Convert.ToBase64String(fileData);
-
-            // ページ単位表示用：ページ数分のPageItemを必ず生成
+            // 1. まずローディング中PageItemを即座に追加
+            int insertIndex = _model.Pages.Count;
             for (int i = 0; i < pageCount; i++)
             {
-                var pageItem = new PageItem
+                var loadingItem = new PageItem
                 {
                     Id = $"{fileId}_p{i}",
                     FileId = fileId,
                     FileName = fileName,
                     OriginalPageIndex = i,
-                    Thumbnail = i == 0 ? coverThumbnail : "",
+                    Thumbnail = i == 0 ? coverThumbnail : "", // 1ページ目は表紙
                     PageData = "",
-                    IsLoading = i > 0 || string.IsNullOrEmpty(coverThumbnail),
+                    IsLoading = true,
                     HasError = false
                 };
-                _model.Pages.Add(pageItem);
+                _model.Pages.Add(loadingItem);
             }
 
             // 追加直後のPageItem順を出力
@@ -220,42 +218,7 @@ public class PdfDataService
                 Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
             }
 
-            // エラーが発生してもPageItemを追加してエラー状態を表示
-            try
-            {
-                var fileId = $"{fileName}_{DateTime.Now.Ticks}";
-                var base64Data = Convert.ToBase64String(fileData);
-
-                // エラー状態のファイルメタデータを追加
-                var errorFileMetadata = new FileMetadata
-                {
-                    FileId = fileId,
-                    FileName = fileName,
-                    FileData = fileData,
-                    PageCount = 1, // エラー時は1ページとして扱う
-                    CoverThumbnail = "", // エラー画像は後で生成
-                    IsFullyLoaded = false
-                };
-                _model.Files[fileId] = errorFileMetadata;
-
-                // エラー状態のPageItemを追加
-                var errorPageItem = new PageItem
-                {
-                    FileId = fileId,
-                    FileName = fileName,
-                    OriginalPageIndex = 0,
-                    Thumbnail = "", // 空にしてエラー状態を表示
-                    PageData = base64Data,
-                    IsLoading = false,
-                    HasError = true
-                };
-                _model.Pages.Add(errorPageItem);
-            }
-            catch (Exception addErrorEx)
-            {
-                Console.WriteLine($"Failed to add error item: {addErrorEx.Message}");
-            }
-
+            // エラーが発生してもPageItemを追加してエラー状態を表示（必要なら後で追加）
             return false;
         }
     }
@@ -560,42 +523,58 @@ public class PdfDataService
             var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", base64Data);
             if (pageCount <= 0) return false;
 
-            var coverThumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, 0);
-            if (string.IsNullOrEmpty(coverThumbnail)) return false;
+            // まずローディング中PageItemを即座に挿入
+            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
+            {
+                var loadingItem = new PageItem
+                {
+                    FileId = fileId,
+                    FileName = fileName,
+                    OriginalPageIndex = pageIndex,
+                    Thumbnail = "", // ローディング中は空
+                    PageData = "",
+                    IsLoading = true,
+                    HasError = false
+                };
+                _model.Pages.Insert(position + pageIndex, loadingItem);
+            }
 
+            // ファイルメタデータを追加
             var fileMetadata = new FileMetadata
             {
                 FileId = fileId,
                 FileName = fileName,
                 FileData = fileData,
                 PageCount = pageCount,
-                CoverThumbnail = coverThumbnail,
+                CoverThumbnail = "",
                 IsFullyLoaded = false
             };
             _model.Files[fileId] = fileMetadata;
 
-            // すべてのページを position の位置に Insert
-            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
+            // サムネイル・ページデータ生成はバックグラウンド
+            _ = Task.Run(async () =>
             {
-                var thumbnail = pageIndex == 0 ? coverThumbnail :
-                    await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, pageIndex);
-
-                var pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", base64Data, pageIndex);
-
-                var pageItem = new PageItem
+                try
                 {
-                    FileId = fileId,
-                    FileName = fileName,
-                    OriginalPageIndex = pageIndex,
-                    Thumbnail = thumbnail,
-                    PageData = pageData,
-                    IsLoading = false,
-                    HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData)
-                };
-
-                _model.Pages.Insert(position + pageIndex, pageItem);
-            }
-            fileMetadata.IsFullyLoaded = true;
+                    var coverThumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, 0);
+                    fileMetadata.CoverThumbnail = coverThumbnail;
+                    for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
+                    {
+                        var thumbnail = pageIndex == 0 ? coverThumbnail : await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, pageIndex);
+                        var pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", base64Data, pageIndex);
+                        var pageItem = _model.Pages[position + pageIndex];
+                        pageItem.Thumbnail = thumbnail;
+                        pageItem.PageData = pageData;
+                        pageItem.IsLoading = false;
+                        pageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
+                    }
+                    fileMetadata.IsFullyLoaded = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Background page loading failed for {fileName}: {ex.Message}");
+                }
+            });
 
             Console.WriteLine($"Successfully inserted PDF file: {fileName} at position {position}");
             return true;
