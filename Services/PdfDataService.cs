@@ -96,10 +96,8 @@ public class PdfDataService
     private List<DisplayItem> GetFileDisplayItems()
     {
         var result = new List<DisplayItem>();
-        // FileMetadataのCreatedAt順でファイルを列挙
         foreach (var fileMetadata in _model.Files.Values.OrderBy(f => f.CreatedAt))
         {
-            // そのファイルの最初のPageItemを取得（状態反映用）
             var firstPage = _model.Pages.FirstOrDefault(p => p.FileId == fileMetadata.FileId);
             var hasError = firstPage?.HasError ?? false;
             var isLoading = (string.IsNullOrEmpty(fileMetadata.CoverThumbnail) && !(firstPage?.HasError ?? false));
@@ -111,7 +109,8 @@ public class PdfDataService
                 PageInfo = fileMetadata.PageCount > 1 ? $"{fileMetadata.PageCount}ページ" : "",
                 IsLoading = isLoading,
                 HasError = hasError,
-                RawData = fileMetadata
+                RawData = fileMetadata,
+                PageCount = fileMetadata.PageCount // ← ここを追加
             };
             result.Add(item);
         }
@@ -557,27 +556,13 @@ public class PdfDataService
         try
         {
             var fileId = $"inserted_{DateTime.Now.Ticks}";
-
-            // JavaScriptでPDFファイルを処理
             var base64Data = Convert.ToBase64String(fileData);
-
-            // PDFのページ数を取得
             var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", base64Data);
-            if (pageCount <= 0)
-            {
-                Console.WriteLine("Invalid PDF file or page count");
-                return false;
-            }
+            if (pageCount <= 0) return false;
 
-            // カバーサムネイルを生成（最初のページ）
             var coverThumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, 0);
-            if (string.IsNullOrEmpty(coverThumbnail))
-            {
-                Console.WriteLine("Failed to generate cover thumbnail");
-                return false;
-            }
+            if (string.IsNullOrEmpty(coverThumbnail)) return false;
 
-            // ファイルメタデータを追加
             var fileMetadata = new FileMetadata
             {
                 FileId = fileId,
@@ -585,15 +570,15 @@ public class PdfDataService
                 FileData = fileData,
                 PageCount = pageCount,
                 CoverThumbnail = coverThumbnail,
-                IsFullyLoaded = false // 最初は1ページ目のみ読み込み
+                IsFullyLoaded = false
             };
             _model.Files[fileId] = fileMetadata;
 
-            // 常に全ページ分のPageItemを生成し、Pagesリストに挿入する
+            // すべてのページを position の位置に Insert
             for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
             {
                 var thumbnail = pageIndex == 0 ? coverThumbnail :
-                              await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, pageIndex);
+                    await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, pageIndex);
 
                 var pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", base64Data, pageIndex);
 
@@ -608,10 +593,9 @@ public class PdfDataService
                     HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData)
                 };
 
-                var insertPos = Math.Min(position + pageIndex, _model.Pages.Count);
-                _model.Pages.Insert(insertPos, pageItem);
+
+                _model.Pages.Insert(position, pageItem); // ← 毎回同じ position に Insert
             }
-            // ファイルが完全に読み込まれたことをマーク
             fileMetadata.IsFullyLoaded = true;
 
             Console.WriteLine($"Successfully inserted PDF file: {fileName} at position {position}");
@@ -623,7 +607,6 @@ public class PdfDataService
             return false;
         }
     }
-
     /// <summary>
     /// 結合用のページデータリストを取得
     /// </summary>

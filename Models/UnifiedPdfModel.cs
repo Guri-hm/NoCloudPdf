@@ -73,4 +73,5 @@ public class DisplayItem
     public bool IsLoading { get; set; } = false; // ローディング状態
     public bool HasError { get; set; } = false; // エラー状態
     public object RawData { get; set; } = null!; // 元データへの参照
+    public int PageCount { get; set; }// ファイル単位表示時のページ数
 }
