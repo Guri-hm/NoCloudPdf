@@ -989,20 +989,16 @@
         {
             try
             {
+                // 挿入前のPageItemリストを出力
+                var model = PdfDataService.GetModel();
+                Console.WriteLine("=== 挿入前 PageItem一覧 ===");
+                for (int i = 0; i < model.Pages.Count; i++)
+                {
+                    var p = model.Pages[i];
+                    Console.WriteLine($"[{i}] FileId={p.FileId}, Page={p.OriginalPageNumber}");
+                }
 
                 var file = e.GetMultipleFiles().First();
-
-                // ここで仮のFileMetadataを追加（白サムネイル＋ローディング表示）
-                var tempFileId = "temp_" + DateTime.Now.Ticks;
-                PdfDataService.GetModel().Files[tempFileId] = new FileMetadata
-                {
-                    FileId = tempFileId,
-                    FileName = file.Name,
-                    PageCount = 0,
-                    CoverThumbnail = "/images/blank-thumbnail.png", // 白画像
-                    IsFullyLoaded = false
-                };
-                StateHasChanged();
 
                 using var stream = file.OpenReadStream(52428800); // 50MB
                 using var memoryStream = new MemoryStream();
@@ -1023,7 +1019,7 @@
                     }
                 }
 
-                Console.WriteLine($"ページ単位挿入位置={insertPosition}, ファイル単位挿入位置（ページ数考慮）={pageInsertPosition}");
+                Console.WriteLine($"insertPosition={insertPosition}, pageInsertPosition={pageInsertPosition}");
 
                 // 統一データサービスを使用してファイルを挿入
                 await PdfDataService.InsertPdfFileAsync(pageInsertPosition, file.Name, pdfData);
@@ -1031,6 +1027,14 @@
 
                 insertPosition = -1; // リセット
 
+                // 挿入後のPageItemリストを出力
+                model = PdfDataService.GetModel();
+                Console.WriteLine("=== 挿入後 PageItem一覧 ===");
+                for (int i = 0; i < model.Pages.Count; i++)
+                {
+                    var p = model.Pages[i];
+                    Console.WriteLine($"[{i}] FileId={p.FileId}, Page={p.OriginalPageNumber}");
+                }
             }
             catch (Exception ex)
             {
