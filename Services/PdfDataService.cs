@@ -593,8 +593,7 @@ public class PdfDataService
                     HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData)
                 };
 
-
-                _model.Pages.Insert(position, pageItem); // ← 毎回同じ position に Insert
+                _model.Pages.Insert(position + pageIndex, pageItem);
             }
             fileMetadata.IsFullyLoaded = true;
 
