@@ -1,4 +1,5 @@
 ﻿@page "/merge"
+@implements IDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
 @using Microsoft.AspNetCore.Components.Forms
@@ -525,6 +526,20 @@
 </style>
 
 @code {
+    protected override void OnInitialized()
+    {
+        PdfDataService.OnChange += OnServiceChanged;
+    }
+
+    private void OnServiceChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        PdfDataService.OnChange -= OnServiceChanged;
+    }
     private bool isLoading = false;
     private bool showMergedResult = false;
     private int progress = 0;

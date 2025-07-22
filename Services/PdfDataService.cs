@@ -10,6 +10,7 @@ public class PdfDataService
 {
     private readonly IJSRuntime _jsRuntime;
     private UnifiedPdfModel _model = new();
+    public event Action? OnChange;
 
     public PdfDataService(IJSRuntime jsRuntime)
     {
@@ -287,6 +288,9 @@ public class PdfDataService
                     existingPageItem.IsLoading = false;
                     existingPageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
 
+                    // UI更新イベント発火
+                    await InvokeOnChangeAsync();
+
                     if (!string.IsNullOrEmpty(thumbnail) && !string.IsNullOrEmpty(pageData))
                     {
                         successfulPages++;
@@ -310,6 +314,8 @@ public class PdfDataService
                         existingPageItem.HasError = true;
                         existingPageItem.Thumbnail = "";
                         existingPageItem.PageData = "";
+                        // エラー時もUI更新イベント発火
+                        await InvokeOnChangeAsync();
                     }
                 }
             }
@@ -569,6 +575,8 @@ public class PdfDataService
                         pageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
                     }
                     fileMetadata.IsFullyLoaded = true;
+                    _model.Pages = _model.Pages.ToList();
+                    await InvokeOnChangeAsync(); // UIスレッドでイベント発火
                 }
                 catch (Exception ex)
                 {
@@ -758,5 +766,11 @@ public class PdfDataService
 
         var truncated = nameWithoutExtension.Substring(0, maxLength - extension.Length - 1) + "…";
         return truncated + extension;
+    }
+
+    private async Task InvokeOnChangeAsync()
+    {
+        OnChange?.Invoke();
+        await Task.CompletedTask;
     }
 }
