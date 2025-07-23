@@ -490,7 +490,7 @@ window.extractPDFPages = async function (pdfData) {
 };
 
 // PDFページを回転する関数
-window.rotatePDFPage = async function (pageData) {
+window.rotatePDFPage = async function (pageData, angle) {
     try {
         const { PDFDocument, degrees } = PDFLib;
         const binaryString = atob(pageData);
@@ -504,9 +504,9 @@ window.rotatePDFPage = async function (pageData) {
 
         if (pages.length > 0) {
             const page = pages[0];
-            // 現在の回転角度を取得し、90度加算
+            // 現在の回転角度を取得し、angle加算
             const currentRotation = page.getRotation().angle;
-            page.setRotation(degrees((currentRotation + 90) % 360));
+            page.setRotation(degrees((currentRotation + angle) % 360));
         }
 
         const pdfBytes = await pdfDoc.save();

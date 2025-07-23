@@ -726,7 +726,7 @@ public class PdfDataService
     /// <summary>
     /// 指定されたアイテムを回転
     /// </summary>
-    public async Task<bool> RotateItemAsync(int index)
+    public async Task<bool> RotateItemAsync(int index, int angle = 90)
     {
         try
         {
@@ -738,8 +738,8 @@ public class PdfDataService
 
             var pageItem = _model.Pages[index];
 
-            // JavaScriptでページを90度回転
-            var rotatedPageData = await _jsRuntime.InvokeAsync<string>("rotatePDFPage", pageItem.PageData, 90);
+            // JavaScriptでページを指定角度回転
+            var rotatedPageData = await _jsRuntime.InvokeAsync<string>("rotatePDFPage", pageItem.PageData, angle);
             if (string.IsNullOrEmpty(rotatedPageData))
             {
                 Console.WriteLine("Failed to rotate page data");
@@ -760,7 +760,6 @@ public class PdfDataService
             pageItem.IsLoading = false;
             pageItem.HasError = false;
 
-            Console.WriteLine($"Successfully rotated page {index}");
             return true;
         }
         catch (Exception ex)
