@@ -14,42 +14,41 @@
 @if (IsFilesLoaded && !showMergedResult)
 {
     <!-- 上部固定バー（編集モード） -->
-    <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
+    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
         <div class="flex items-center justify-between px-4 py-2">
-            <span class="text-lg font-semibold">PDF操作</span>
-            <div class="flex gap-2 items-center">
-                <!-- 表示切り替えスイッチ（既存） -->
-                <div class="flex items-center gap-2 mr-4">
-                    <span class="text-sm text-white">表示:</span>
+            <div class="flex-1 flex items-center">
+                <!-- 左寄せ：表示切替・回転ボタン -->
+                <div class="flex gap-2 items-center">
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                rounded-s-lg border-e border-gray-500" @onclick="SwitchToFileMode">
-                            ファイル単位
+                                                    @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                    rounded-s-lg border-e border-gray-500" @onclick="SwitchToFileMode">
+                            <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                rounded-e-lg" @onclick="SwitchToPageMode">
-                            ページ単位
+                                                    @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                    rounded-e-lg" @onclick="SwitchToPageMode">
+                            <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
                     </div>
+                    <button
+                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-1"
+                        @onclick="RotateSelectedLeft" title="左回転">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <button
+                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-1"
+                        @onclick="RotateSelectedRight" title="右回転">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
                 </div>
-                <!-- 回転ボタン追加 -->
-                <button
-                    class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-1"
-                    @onclick="RotateSelectedLeft" title="左回転">
-                    <i class="fa-solid fa-rotate-left"></i>
-                </button>
-                <button
-                    class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-1"
-                    @onclick="RotateSelectedRight" title="右回転">
-                    <i class="fa-solid fa-rotate-right"></i>
-                </button>
-                <!-- 既存の結合・印刷ボタン -->
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
-                    @onclick="MergePDFs">
-                    結合
-                </button>
+                <!-- 右寄せ：結合ボタン -->
+                <div class="flex-1 flex justify-end">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
+                        @onclick="MergePDFs">
+                        結合
+                    </button>
+                </div>
             </div>
         </div>
     </div>
