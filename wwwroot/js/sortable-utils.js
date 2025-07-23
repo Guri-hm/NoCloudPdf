@@ -122,7 +122,5 @@ window.initializeSortable = function () {
             }
         });
 
-    } else {
-        console.error('Failed to initialize sortable - container or Sortable library not found');
     }
 };
