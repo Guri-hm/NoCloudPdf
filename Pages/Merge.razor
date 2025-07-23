@@ -563,13 +563,9 @@
         {
             try
             {
-                Console.WriteLine($"Rotating item {index}...");
-
                 // 統一データサービスを使用して回転
                 await PdfDataService.RotateItemAsync(index);
                 StateHasChanged();
-
-                Console.WriteLine($"Item {index} rotation completed.");
             }
             catch (Exception ex)
             {
@@ -586,15 +582,11 @@
         {
             try
             {
-                Console.WriteLine($"Expanding file at index {fileIndex}");
-
                 // 統一データサービスを使用してファイル展開
                 await PdfDataService.ExpandFileAsync(fileIndex);
 
                 // ページ単位表示に切り替え
                 await SwitchToPageMode();
-
-                Console.WriteLine($"File {fileIndex} expanded successfully");
             }
             catch (Exception ex)
             {
@@ -610,7 +602,6 @@
 
         try
         {
-            Console.WriteLine($"Button clicked at position: {position}");
             // JavaScriptの挿入メニューを表示
             await JSRuntime.InvokeVoidAsync("showInsertMenuAtExactPosition", position, e.ClientX, e.ClientY);
         }
