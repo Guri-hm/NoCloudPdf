@@ -145,34 +145,258 @@ code {
 
 /* 隣接サムネイル入れ替えボタン */
 .swap-button {
-    opacity: 0;
-    transition: opacity 0.3s ease, transform 0.2s ease;
-    background: linear-gradient(45deg, #2196f3, #21cbf3);
-    border: none;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 12px;
-    font-weight: bold;
-    cursor: pointer;
     position: absolute;
-    top: 50%;
-    right: -14px;
-    transform: translateY(-50%);
-    z-index: 10;
-}
-
-.sortable-item-container:hover .swap-button {
-    opacity: 1;
-    transform: translateY(-50%) scale(1.1);
+    top: 30px;
+    background: #ffc107 !important;
+    color: #212529 !important;
+    border: 1px solid #ffc107 !important;
+    border-radius: 50% !important;
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 20 !important;
+    transition: background 0.2s, border 0.2s !important;
+    padding: 0 !important;
+    opacity: 0.6;
 }
 
 .swap-button:hover {
-    background: linear-gradient(45deg, #1976d2, #0288d1);
-    transform: translateY(-50%) scale(1.2);
-    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+    background: #e0a800 !important;
+    border-color: #d39e00 !important;
+    opacity: 1;
+}
+
+.thumbnail-item:hover .menu-overlay {
+    display: flex !important;
+}
+
+.sortable-item-container {
+    cursor: move;
+}
+
+/* 複数ページファイル用のスタックエフェクト */
+.thumbnail-stack {
+    position: relative;
+    margin: 8px;
+    /* バッジのスペースを確保 */
+}
+
+.thumbnail-stack .stack-layer {
+    position: relative;
+    z-index: 3;
+}
+
+.thumbnail-stack::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: -4px;
+    bottom: -4px;
+    background: #f8f9fa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    z-index: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.thumbnail-stack::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: -8px;
+    bottom: -8px;
+    background: #f1f3f4;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    z-index: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* ページ数バッジ */
+.page-count-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #dc2626;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    border: 2px solid white;
+    line-height: 1;
+}
+
+/* サムネイル画像の調整 */
+.thumbnail-stack .stack-layer img {
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* コンテナの調整 */
+.thumbnail-container {
+    padding: 8px;
+    position: relative;
+    min-width: 96px;
+    /* サムネイル幅に合わせる */
+    min-height: 160px;
+    /* サムネイル高さ + ファイル情報表示エリア */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.2s ease-in-out;
+}
+
+.thumbnail-container:hover {
+    transform: scale(1.05);
+}
+
+/* ローディングアニメーション */
+.page-loading {
+    position: relative;
+    background: #f3f4f6;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 128px;
+    animation: pulse 2s infinite;
+}
+
+.page-loading::before {
+    content: '';
+    width: 24px;
+    height: 24px;
+    border: 3px solid #e5e7eb;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.page-error {
+    position: relative;
+    background: #fef2f2;
+    border: 2px solid #fca5a5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 128px;
+    color: #dc2626;
+    font-size: 12px;
+    text-align: center;
+    padding: 8px;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* サムネイル読み込み完了時のアニメーション */
+.thumbnail-loaded {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ファイル情報表示スタイル */
+.file-info {
+    margin-top: 4px;
+    text-align: center;
+    width: 100%;
+    max-width: 96px;
+    /* サムネイル幅(w-24 = 96px)に合わせる */
+    position: relative;
+}
+
+.file-name {
+    font-size: 10px;
+    color: #374151;
+    font-weight: 500;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 2px;
+    cursor: pointer;
+}
+
+.page-number {
+    font-size: 9px;
+    color: #6b7280;
+    font-weight: 400;
+    line-height: 1.1;
+    margin-top: 1px;
+}
+
+
+/* ドラッグ&ドロップ用のコンテナ修正 */
+.sortable-item-container {
+    cursor: move;
+    user-select: none;
+    position: relative;
+}
+
+.sortable-item-container:hover {
+    z-index: 10;
+}
+
+.sortable-item-container.ui-sortable-helper {
+    z-index: 1000 !important;
+    opacity: 0.8;
+    transform: rotate(5deg);
+}
+
+/* 挿入メニュー用のスタイル - インライン管理方式 */
+.insert-menu.show {
+    display: block !important;
+}
+
+.insert-menu.hide {
+    display: none !important;
+}
+
+.insert-menu button:hover {
+    background-color: #f3f4f6 !important;
 }
