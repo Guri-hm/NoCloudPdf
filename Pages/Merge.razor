@@ -215,7 +215,8 @@
         @if (DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex] != null && !string.IsNullOrEmpty(DisplayItems[previewIndex].Thumbnail))
         {
             <img src="@DisplayItems[previewIndex].Thumbnail"
-                class="max-w-[90vw] max-h-[90vh] object-contain border border-neutral-300 shadow-lg" draggable="false"
+                class="w-[80vw] h-[80vh] object-contain"
+                draggable="false"
                 @onclick:stopPropagation />
         }
         <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-white text-lg bg-black/60 px-4 py-2 rounded-lg">
