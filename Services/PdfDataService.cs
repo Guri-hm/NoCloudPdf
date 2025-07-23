@@ -546,7 +546,8 @@ public class PdfDataService
         try
         {
             var fileId = $"inserted_{DateTime.Now.Ticks}";
-            var base64Data = Convert.ToBase64String(fileData);
+            // Base64エンコード時に改行を入れない
+            var base64Data = Convert.ToBase64String(fileData, Base64FormattingOptions.None);
             var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", base64Data);
             if (pageCount <= 0) return false;
 
@@ -619,6 +620,13 @@ public class PdfDataService
     /// </summary>
     public List<object> GetMergeData()
     {
+        foreach (var page in _model.Pages)
+        {
+            if (!IsBase64String(page.PageData))
+            {
+                Console.WriteLine($"[Base64Check] NG: {page.FileName}");
+            }
+        }
         return _model.Pages.Select(page => new
         {
             FileName = page.FileName,
@@ -627,7 +635,12 @@ public class PdfDataService
             PageData = page.PageData
         }).Cast<object>().ToList();
     }
-
+    private bool IsBase64String(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        Span<byte> buffer = new Span<byte>(new byte[s.Length]);
+        return Convert.TryFromBase64String(s, buffer, out _);
+    }
     /// <summary>
     /// ファイル単位表示でのファイル展開（全ページを個別表示に切り替え）
     /// </summary>
@@ -675,7 +688,8 @@ public class PdfDataService
             _model.Pages.RemoveAt(fileIndex);
 
             // 該当ファイルの全ページを個別に挿入
-            var base64Data = Convert.ToBase64String(fileMetadata.FileData);
+            // Base64エンコード時に改行を入れない
+            var base64Data = Convert.ToBase64String(fileMetadata.FileData, Base64FormattingOptions.None);
             for (int pageIndex = 0; pageIndex < fileMetadata.PageCount; pageIndex++)
             {
                 var thumbnail = pageIndex == 0 ? fileMetadata.CoverThumbnail :

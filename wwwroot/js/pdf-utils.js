@@ -13,16 +13,51 @@ window.mergePDFs = async function (pdfDataList) {
     return URL.createObjectURL(blob);
 };
 
-// 統一アーキチE�E��E�チャ用�E�E�E��E�EージチE�E�Eタに基づぁE�E��E�PDFペ�Eジを結合
-window.mergePDFPages = async function (mergeData) {
+function base64ToUint8Array(base64) {
+    // 改行・空白除去
+    const cleanBase64 = base64.replace(/[\r\n\s]/g, "");
+    const binaryString = atob(cleanBase64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+}
+
+// 結合
+window.mergePDFPages = async function (pdfPageDataList) {
     const { PDFDocument } = PDFLib;
     const mergedPdf = await PDFDocument.create();
 
-    for (const item of mergeData) {
-        const pdfDoc = await PDFDocument.load(new Uint8Array(item.fileData));
-        const pageIndex = item.originalPageNumber - 1; // 0ベ�EスインチE�E��E�クスに変換
-        const [copiedPage] = await mergedPdf.copyPages(pdfDoc, [pageIndex]);
-        mergedPdf.addPage(copiedPage);
+    for (let i = 0; i < pdfPageDataList.length; i++) {
+        let pageData = pdfPageDataList[i];
+
+        // オブジェクトなら .pageData を使う
+        if (typeof pageData === 'object' && pageData !== null && 'pageData' in pageData) {
+            pageData = pageData.pageData;
+        }
+
+        let bytes;
+        if (typeof pageData === 'string') {
+            bytes = base64ToUint8Array(pageData);
+        } else if (pageData instanceof Uint8Array) {
+            bytes = pageData;
+        } else if (Array.isArray(pageData)) {
+            bytes = new Uint8Array(pageData);
+        } else {
+            throw new Error(`Unsupported pageData type at index ${i}: ${typeof pageData}`);
+        }
+
+        try {
+
+            const pdfDoc = await PDFDocument.load(bytes);
+            const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
+            mergedPdf.addPage(page);
+        } catch (error) {
+            console.error(`Error at mergePDFPages index=${i}:`, error, pageData);
+            throw error; // ここで止めるとどのデータが原因か分かる
+        }
     }
 
     const mergedPdfBytes = await mergedPdf.save();
@@ -334,29 +369,6 @@ window.getPDFPageCount = async function (pdfData) {
         console.error('Error in getPDFPageCount:', error);
         throw error;
     }
-};
-
-// ペ�EジレベルでPDFを結合する関数
-window.mergePDFPages = async function (pdfPageDataList) {
-    const { PDFDocument } = PDFLib;
-    const mergedPdf = await PDFDocument.create();
-
-    for (const pageData of pdfPageDataList) {
-        // base64斁E�E��E��E�EをUint8Arrayに変換
-        const binaryString = atob(pageData);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        const pdfDoc = await PDFDocument.load(bytes);
-        const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
-        mergedPdf.addPage(page);
-    }
-
-    const mergedPdfBytes = await mergedPdf.save();
-    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-    return URL.createObjectURL(blob);
 };
 
 // 持E�E��E�した�E�Eージを個別のPDFチE�E�Eタとして抽出する関数

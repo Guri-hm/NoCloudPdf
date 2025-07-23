@@ -109,9 +109,6 @@ window.initializeSortable = function () {
                 // sortable要素のみを削除
                 container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
 
-                // sortable要素のみを削除
-                container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
-
                 // +マークの前に順番に挿入
                 const insertPoint = container.querySelector('.non-sortable');
                 sortableItems.forEach(item => {
