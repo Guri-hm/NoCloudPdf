@@ -129,7 +129,7 @@ public class PdfDataService
                 PageInfo = count > 1 ? $"{count}ページ" : "",
                 IsLoading = isLoading,
                 HasError = hasError,
-                RawData = fileMetadata,
+                RawData = fileMetadata ?? new FileMetadata(), // nullの場合は空のFileMetadataを代入
                 PageCount = count
             };
             result.Add(item);

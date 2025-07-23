@@ -212,12 +212,17 @@
             title="閉じる">
             &times;
         </button>
-        <img src="@DisplayItems[previewIndex].Thumbnail"
-            class="max-w-[90vw] max-h-[90vh] object-contain border border-neutral-300 shadow-lg" draggable="false"
-            @onclick:stopPropagation />
+        @if (DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex] != null && !string.IsNullOrEmpty(DisplayItems[previewIndex].Thumbnail))
+        {
+            <img src="@DisplayItems[previewIndex].Thumbnail"
+                class="max-w-[90vw] max-h-[90vh] object-contain border border-neutral-300 shadow-lg" draggable="false"
+                @onclick:stopPropagation />
+        }
         <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-white text-lg bg-black/60 px-4 py-2 rounded-lg">
-            @DisplayItems[previewIndex].DisplayName
-            @if (!string.IsNullOrEmpty(DisplayItems[previewIndex].PageInfo))
+            @(DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex] != null
+                ? DisplayItems[previewIndex].DisplayName
+                : string.Empty)
+            @if (DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex] != null && !string.IsNullOrEmpty(DisplayItems[previewIndex].PageInfo))
             {
                 <span class="ml-2">@DisplayItems[previewIndex].PageInfo</span>
             }
@@ -575,7 +580,7 @@
     }
 
     // 隣接サムネイルとの入れ替え機能
-    private async Task SwapWithNext(int index)
+    private void SwapWithNext(int index)
     {
         try
         {
