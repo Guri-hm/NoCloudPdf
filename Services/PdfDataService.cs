@@ -118,7 +118,8 @@ public class PdfDataService
 
             // ファイルメタデータ（表紙サムネイルなど）
             var fileMetadata = _model.Files.ContainsKey(fileId) ? _model.Files[fileId] : null;
-            var thumbnail = fileMetadata?.CoverThumbnail ?? firstPage.Thumbnail;
+            // 代表ページのサムネイルではなく、グループ先頭ページのサムネイルを使う
+            var thumbnail = firstPage.Thumbnail;
 
             var item = new DisplayItem
             {
