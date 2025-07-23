@@ -693,13 +693,9 @@
     {
         try
         {
-            Console.WriteLine($"Inserting blank page at position {position}");
-
             // 統一データサービスを使用して空白ページ挿入
             await PdfDataService.InsertBlankPageAsync(position);
             StateHasChanged();
-
-            Console.WriteLine("Blank page inserted successfully");
         }
         catch (Exception ex)
         {

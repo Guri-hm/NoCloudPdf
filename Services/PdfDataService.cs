@@ -499,7 +499,7 @@ public class PdfDataService
             }
 
             var fileId = $"blank_page_{DateTime.Now.Ticks}";
-            var fileName = $"空白ページ_{DateTime.Now:HHmmss}.pdf";
+            var fileName = $"空白ページ";
 
             // ファイルメタデータを追加
             var fileMetadata = new FileMetadata
