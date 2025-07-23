@@ -97,23 +97,43 @@ public class PdfDataService
     private List<DisplayItem> GetFileDisplayItems()
     {
         var result = new List<DisplayItem>();
-        foreach (var fileMetadata in _model.Files.Values.OrderBy(f => f.CreatedAt))
+        if (_model.Pages.Count == 0) return result;
+
+        int start = 0;
+        while (start < _model.Pages.Count)
         {
-            var firstPage = _model.Pages.FirstOrDefault(p => p.FileId == fileMetadata.FileId);
-            var hasError = firstPage?.HasError ?? false;
-            var isLoading = (string.IsNullOrEmpty(fileMetadata.CoverThumbnail) && !(firstPage?.HasError ?? false));
+            var fileId = _model.Pages[start].FileId;
+            var fileName = _model.Pages[start].FileName;
+            int count = 1;
+            // 連続する同じFileIdをカウント
+            while (start + count < _model.Pages.Count && _model.Pages[start + count].FileId == fileId)
+            {
+                count++;
+            }
+
+            // 代表ページ（最初のページ）からサムネイルやエラー状態を取得
+            var firstPage = _model.Pages[start];
+            var hasError = firstPage.HasError;
+            var isLoading = firstPage.IsLoading;
+
+            // ファイルメタデータ（表紙サムネイルなど）
+            var fileMetadata = _model.Files.ContainsKey(fileId) ? _model.Files[fileId] : null;
+            var thumbnail = fileMetadata?.CoverThumbnail ?? firstPage.Thumbnail;
+
             var item = new DisplayItem
             {
-                Id = fileMetadata.FileId,
-                DisplayName = TruncateFileName(fileMetadata.FileName),
-                Thumbnail = fileMetadata.CoverThumbnail,
-                PageInfo = fileMetadata.PageCount > 1 ? $"{fileMetadata.PageCount}ページ" : "",
+                Id = fileId,
+                DisplayName = TruncateFileName(fileName),
+                Thumbnail = thumbnail,
+                PageInfo = count > 1 ? $"{count}ページ" : "",
                 IsLoading = isLoading,
                 HasError = hasError,
                 RawData = fileMetadata,
-                PageCount = fileMetadata.PageCount // ← ここを追加
+                PageCount = count
             };
             result.Add(item);
+
+            start += count; // 次のグループへ
         }
         return result;
     }
