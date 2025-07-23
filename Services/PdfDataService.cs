@@ -392,32 +392,40 @@ public class PdfDataService
     {
         var fileGroups = _model.Pages.GroupBy(p => p.FileId).ToList();
 
-        if (fromFileIndex >= fileGroups.Count || toFileIndex >= fileGroups.Count)
+        if (fromFileIndex < 0 || fromFileIndex >= fileGroups.Count ||
+            toFileIndex < 0 || toFileIndex >= fileGroups.Count ||
+            fromFileIndex == toFileIndex)
         {
             return;
         }
 
-        var sourceGroup = fileGroups[fromFileIndex];
-        var sourcePages = sourceGroup.ToList();
+        var sourceGroup = fileGroups[fromFileIndex].ToList();
 
         // 移動元のページを削除
-        foreach (var page in sourcePages)
+        foreach (var page in sourceGroup)
         {
             _model.Pages.Remove(page);
         }
 
         // 挿入位置を計算
         int insertIndex = 0;
-        for (int i = 0; i < toFileIndex && i < fileGroups.Count; i++)
+        for (int i = 0; i < fileGroups.Count; i++)
         {
-            if (i != fromFileIndex) // 移動元は除外
-            {
-                insertIndex += fileGroups[i].Count();
-            }
+            if (i == toFileIndex)
+                break;
+            if (i == fromFileIndex)
+                continue;
+            insertIndex += fileGroups[i].Count();
+        }
+
+        // from→toの移動で、toがfromより後ろの場合は挿入位置を調整
+        if (toFileIndex > fromFileIndex)
+        {
+            insertIndex += fileGroups[toFileIndex].Count();
         }
 
         // 新しい位置に挿入
-        _model.Pages.InsertRange(insertIndex, sourcePages);
+        _model.Pages.InsertRange(insertIndex, sourceGroup);
     }
 
     /// <summary>
@@ -461,24 +469,29 @@ public class PdfDataService
     }
 
     /// <summary>
-    /// 2つのアイテムを入れ替え
+    /// アイテムを入れ替え
     /// </summary>
-    public void SwapItems(int index1, int index2)
+    public void SwapItems(int fromIndex, int toIndex)
     {
-        if (index1 < 0 || index1 >= _model.Pages.Count ||
-            index2 < 0 || index2 >= _model.Pages.Count ||
-            index1 == index2)
+        if (_model.CurrentMode == DisplayMode.File)
         {
-            Console.WriteLine($"Invalid swap indices: {index1}, {index2}");
-            return;
+            // ファイル単位表示：ファイルグループごと入れ替え
+            MoveFileBlock(fromIndex, toIndex);
         }
-
-        // PageItemを直接入れ替え
-        var temp = _model.Pages[index1];
-        _model.Pages[index1] = _model.Pages[index2];
-        _model.Pages[index2] = temp;
-
-        Console.WriteLine($"Successfully swapped items at indices {index1} and {index2}");
+        else
+        {
+            // ページ単位表示：ページ単位で入れ替え
+            var pages = _model.Pages;
+            if (fromIndex < 0 || fromIndex >= pages.Count ||
+                toIndex < 0 || toIndex >= pages.Count ||
+                fromIndex == toIndex)
+            {
+                return;
+            }
+            var item = pages[fromIndex];
+            pages.RemoveAt(fromIndex);
+            pages.Insert(toIndex, item);
+        }
     }
 
     /// <summary>
