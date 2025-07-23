@@ -257,7 +257,6 @@ public class PdfDataService
 
         try
         {
-            Console.WriteLine($"Background loading all pages for file: {fileMetadata.FileName} ({fileMetadata.PageCount} pages)");
 
             // 既存のページアイテムを取得
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
