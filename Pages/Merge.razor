@@ -21,14 +21,14 @@
                 <div class="flex gap-2 items-center">
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                                        @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                        rounded-s-lg border-e border-gray-500"
+                                                                            @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                            rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                                        @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                        rounded-e-lg" @onclick="SwitchToPageMode">
+                                                                            @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                            rounded-e-lg" @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
                     </div>
@@ -153,8 +153,8 @@
                                     @onclick="() => (IsFileMode ? RotateFile(item.Id) : RotatePage(index))" title="回転">
                                     <i class="fa-solid fa-rotate-right"></i>
                                 </button>
-                                <button class="text-purple-500 hover:text-purple-700 p-1 mt-1" @onclick="() => ShowPreview(index)"
-                                    title="拡大プレビュー">
+                                <button class="text-purple-500 hover:text-purple-700 p-1 mt-1"
+                                    @onclick="() => ShowPreviewAsync(index)" title="拡大プレビュー">
                                     <i class="fa-solid fa-magnifying-glass"></i>
                                 </button>
                                 @if (isMultiPage)
@@ -212,18 +212,25 @@
             title="閉じる">
             &times;
         </button>
-        @if (DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex] != null && !string.IsNullOrEmpty(DisplayItems[previewIndex].Thumbnail))
+        @if (isPreviewLoading)
         {
-            <img src="@DisplayItems[previewIndex].Thumbnail"
-                class="w-[80vw] h-[80vh] object-contain"
-                draggable="false"
-                @onclick:stopPropagation />
+            <div class="flex flex-col items-center justify-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+                <span class="text-white">プレビュー画像を生成中...</span>
+            </div>
         }
-        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-white text-lg bg-black/60 px-4 py-2 rounded-lg">
-            @(DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex] != null
+        else if (!string.IsNullOrEmpty(previewImageUrl))
+        {
+            <img src="@previewImageUrl" class="max-w-[90vw] max-h-[90vh] object-contain mx-auto"
+                style="width:auto; height:auto;" draggable="false" @onclick:stopPropagation />
+        }
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-white text-lg bg-black/60 px-4 py-2 rounded-lg">
+        @(DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex]
+                != null
                 ? DisplayItems[previewIndex].DisplayName
                 : string.Empty)
-            @if (DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex] != null && !string.IsNullOrEmpty(DisplayItems[previewIndex].PageInfo))
+            @if (DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count &&
+                    DisplayItems[previewIndex] != null && !string.IsNullOrEmpty(DisplayItems[previewIndex].PageInfo))
             {
                 <span class="ml-2">@DisplayItems[previewIndex].PageInfo</span>
             }
@@ -337,9 +344,27 @@
 
     private int previewIndex = -1;
 
-    private void ShowPreview(int index)
+    private string? previewImageUrl = null;
+    private bool isPreviewLoading = false;
+
+    private async Task ShowPreviewAsync(int index)
     {
         previewIndex = index;
+        previewImageUrl = null;
+        isPreviewLoading = true;
+        StateHasChanged();
+
+        // 高画質画像をサービスから取得（例: PdfDataService.GetPreviewImageAsync）
+        try
+        {
+            previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[index].Id);
+        }
+        catch
+        {
+            // 失敗時はサムネイル
+            previewImageUrl = DisplayItems[index].Thumbnail;
+        }
+        isPreviewLoading = false;
         StateHasChanged();
     }
 

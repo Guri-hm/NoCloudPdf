@@ -835,4 +835,25 @@ public class PdfDataService
         OnChange?.Invoke();
         await Task.CompletedTask;
     }
+
+    public async Task<string?> GetPreviewImageAsync(string id)
+    {
+        // ファイルIDから該当ページデータを取得
+        var pageItem = _model.Pages.FirstOrDefault(p => p.Id == id);
+        if (pageItem == null || string.IsNullOrEmpty(pageItem.PageData))
+            return null;
+
+        // JSInteropでcanvasを使って高画質画像生成
+        // pageItem.PageDataはBase64のPDFデータ
+        try
+        {
+            var previewImage = await _jsRuntime.InvokeAsync<string>(
+                "generatePreviewImage", pageItem.PageData);
+            return previewImage;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

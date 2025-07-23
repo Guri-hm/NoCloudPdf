@@ -634,3 +634,28 @@ window.renderSinglePDFPage = async function (pdfData) {
         return '';
     }
 };
+
+window.generatePreviewImage = async function (pdfBase64) {
+    // PDF.jsなどでPDFを読み込み
+    // ここでは仮の例（PDF.jsのAPIに合わせて実装してください）
+    // 例: 1ページ目をcanvasで1200px幅でレンダリングし、base64画像として返す
+
+    // PDF.jsのロード・初期化は省略
+    const pdfData = atob(pdfBase64);
+    const loadingTask = window.pdfjsLib.getDocument({ data: pdfData });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+
+    const scale = 2.0; // 高画質用スケール
+    const viewport = page.getViewport({ scale: scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const context = canvas.getContext('2d');
+
+    await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+    // 画像品質を調整（例: JPEG, quality: 0.85）
+    return canvas.toDataURL('image/jpeg', 0.85);
+};
