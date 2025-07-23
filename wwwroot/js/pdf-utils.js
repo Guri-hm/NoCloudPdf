@@ -319,7 +319,7 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
             ctx.textAlign = 'center';
             ctx.fillText('読み込みエラー', canvas.width / 2, canvas.height / 2 - 10);
             ctx.font = '10px Arial';
-            ctx.fillText(`ペ�Eジ ${pageIndex + 1}`, canvas.width / 2, canvas.height / 2 + 10);
+            ctx.fillText(`ペーEジ ${pageIndex + 1}`, canvas.width / 2, canvas.height / 2 + 10);
             ctx.strokeStyle = '#fca5a5';
             ctx.lineWidth = 2;
             ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
@@ -403,7 +403,8 @@ window.extractPDFPage = async function (pdfData, pageIndex) {
             console.warn(`Page index ${pageIndex} is out of range (total pages: ${pdfDoc.getPageCount()})`);
             // エラー時は空白ページを作成
             const blankPdf = await PDFDocument.create();
-            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ページ
+            // A4サイズの空白ページ
+            blankPdf.addPage([595.28, 841.89]);
             const pdfBytes = await blankPdf.save();
 
             let binary = '';
@@ -472,7 +473,7 @@ window.extractPDFPages = async function (pdfData) {
 
             const pdfBytes = await newPdf.save();
 
-            // スプレチE�E��E�演算子を使わずにbase64エンコーチE
+            // スプレッド演算子を使わずにbase64エンコード
             let binary = '';
             for (let j = 0; j < pdfBytes.length; j++) {
                 binary += String.fromCharCode(pdfBytes[j]);
@@ -503,7 +504,9 @@ window.rotatePDFPage = async function (pageData) {
 
         if (pages.length > 0) {
             const page = pages[0];
-            page.setRotation(degrees(90));
+            // 現在の回転角度を取得し、90度加算
+            const currentRotation = page.getRotation().angle;
+            page.setRotation(degrees((currentRotation + 90) % 360));
         }
 
         const pdfBytes = await pdfDoc.save();

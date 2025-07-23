@@ -212,7 +212,6 @@ public class PdfDataService
             try
             {
                 var order = _model.Pages.Select(p => $"{p.FileName}[{p.FileId}]_p{p.OriginalPageIndex}").ToList();
-                Console.WriteLine($"[PageItemOrder] After Add: {string.Join(", ", order)}");
             }
             catch { }
 
@@ -769,6 +768,23 @@ public class PdfDataService
             Console.WriteLine($"Error rotating page {index}: {ex.Message}");
             return false;
         }
+    }
+
+    public async Task<bool> RotateFileAsync(string fileId)
+    {
+        var pageIndexes = _model.Pages
+            .Select((p, idx) => new { Page = p, Index = idx })
+            .Where(x => x.Page.FileId == fileId)
+            .Select(x => x.Index)
+            .ToList();
+
+        bool allSuccess = true;
+        foreach (var idx in pageIndexes)
+        {
+            var success = await RotateItemAsync(idx);
+            if (!success) allSuccess = false;
+        }
+        return allSuccess;
     }
 
     /// <summary>
