@@ -193,7 +193,9 @@ window.registerOutsideClick = (elementId, dotnetHelper) => {
     function handler(event) {
         const el = document.getElementById(elementId);
         if (el && !el.contains(event.target)) {
-            dotnetHelper.invokeMethodAsync('CloseSortMenu');
+            dotnetHelper.invokeMethodAsync(
+                elementId === "addMenu" ? "CloseAddMenu" : "CloseSortMenu"
+            );
             document.removeEventListener('mousedown', handler);
         }
     }
