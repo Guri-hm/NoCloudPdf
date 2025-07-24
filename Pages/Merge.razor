@@ -20,14 +20,27 @@
                 <!-- 表示切替ボタングループ -->
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button class="px-4 py-1 font-bold focus:outline-none transition
-                        @(IsFileMode ? "bg-blue-300 text-white hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                        rounded-s-lg border-e border-gray-500 h-full" @onclick="SwitchToFileMode">
-                        <i class="fa-solid fa-file mr-2"></i>ファイル
+                    @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                    rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2" @onclick="SwitchToFileMode">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
+                            class="w-5 h-5 mr-1">
+                            <path fill-rule="evenodd"
+                                d="M2 2.002h14v2h2l4 4v14H8v-2H2zm1 17h5v-2H5v-1h3v-2H5v-1h3v-2H5v-1h3v-6h7v-1H3zm6 0v2h12v-12h-4v-4H9zm9-11V5.417l2.586 2.585zm-7 4h8v1h-8zm8 3h-8v1h8zm-2 3h-6v1h6z">
+                            </path>
+                        </svg>
+
+                        <span class="whitespace-nowrap">ファイル</span>
                     </button>
                     <button class="px-4 py-1 font-bold focus:outline-none transition
-                        @(IsPageMode ? "bg-blue-300 text-white hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                        rounded-e-lg h-full" @onclick="SwitchToPageMode">
-                        <i class="fa-solid fa-file-lines mr-2"></i>ページ
+                    @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                    rounded-e-lg h-full flex items-center gap-2" @onclick="SwitchToPageMode">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
+                            class="w-5 h-5 mr-1">
+                            <path fill-rule="evenodd"
+                                d="M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7h5zm-6-1v9h7v-9zm10 1h5v7h-5zm-1 8v-9h7v9z"
+                                clip-rule="evenodd"></path>
+                        </svg>
+        <span class="whitespace-nowrap">ページ</span>
                     </button>
                 </div>
                 <!-- 回転ボタングループ -->
