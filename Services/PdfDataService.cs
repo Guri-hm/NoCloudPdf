@@ -665,88 +665,83 @@ public class PdfDataService
         Span<byte> buffer = new Span<byte>(new byte[s.Length]);
         return Convert.TryFromBase64String(s, buffer, out _);
     }
-    /// <summary>
-    /// ファイル単位表示でのファイル展開（全ページを個別表示に切り替え）
-    /// </summary>
-    public async Task<bool> ExpandFileAsync(int fileIndex)
+    public async Task DuplicateItemAsync(string id, bool isFile, int insertIndex)
     {
-        try
+        if (isFile)
         {
-            if (_model.CurrentMode != DisplayMode.File)
+            var file = _model.Files.ContainsKey(id) ? _model.Files[id] : null;
+            if (file == null) return;
+
+            var pagesToCopy = _model.Pages.Where(p => p.FileId == id).ToList();
+            var newFileId = Guid.NewGuid().ToString();
+
+            // FileMetadataも複製して追加
+            var newFileMetadata = new FileMetadata
             {
-                Console.WriteLine("ExpandFileAsync can only be called in File mode");
-                return false;
+                FileId = newFileId,
+                FileName = file.FileName,
+                FileData = file.FileData,
+                PageCount = file.PageCount,
+                CoverThumbnail = file.CoverThumbnail,
+                IsFullyLoaded = file.IsFullyLoaded,
+                CreatedAt = DateTime.Now
+            };
+            _model.Files[newFileId] = newFileMetadata;
+
+            // ファイル単位の挿入位置を計算
+            // insertIndexは「ファイルの次の位置」なので、ページリストのインデックスに変換
+            var fileGroups = _model.Pages.GroupBy(p => p.FileId).ToList();
+            int fileGroupIndex = fileGroups.FindIndex(g => g.Key == id);
+            int pageInsertIndex = 0;
+            for (int i = 0; i < fileGroups.Count; i++)
+            {
+                if (i == insertIndex)
+                    break;
+                pageInsertIndex += fileGroups[i].Count();
             }
 
-            if (fileIndex < 0 || fileIndex >= _model.Pages.Count)
+            foreach (var page in pagesToCopy)
             {
-                Console.WriteLine($"Invalid file index: {fileIndex}");
-                return false;
-            }
-
-            var fileItem = _model.Pages[fileIndex];
-            var fileId = fileItem.FileId;
-
-            if (!_model.Files.ContainsKey(fileId))
-            {
-                Console.WriteLine($"File metadata not found for fileId: {fileId}");
-                return false;
-            }
-
-            var fileMetadata = _model.Files[fileId];
-
-            // ファイルが複数ページの場合のみ展開処理を実行
-            if (fileMetadata.PageCount <= 1)
-            {
-                Console.WriteLine($"File has only {fileMetadata.PageCount} page(s), no expansion needed");
-                return true; // 1ページしかない場合は成功として扱う
-            }
-
-            // 全ページが読み込まれていない場合は読み込み
-            if (!fileMetadata.IsFullyLoaded)
-            {
-                await LoadAllPagesForFileAsync(fileId);
-            }
-
-            // 現在のファイルアイテムを削除
-            _model.Pages.RemoveAt(fileIndex);
-
-            // 該当ファイルの全ページを個別に挿入
-            // Base64エンコード時に改行を入れない
-            var base64Data = Convert.ToBase64String(fileMetadata.FileData, Base64FormattingOptions.None);
-            for (int pageIndex = 0; pageIndex < fileMetadata.PageCount; pageIndex++)
-            {
-                var thumbnail = pageIndex == 0 ? fileMetadata.CoverThumbnail :
-                              await _jsRuntime.InvokeAsync<string>("renderPDFPage", base64Data, pageIndex);
-
-                var pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", base64Data, pageIndex);
-
-                var pageItem = new PageItem
+                var copy = new PageItem
                 {
-                    FileId = fileId,
-                    FileName = fileMetadata.FileName,
-                    OriginalPageIndex = pageIndex,
-                    Thumbnail = thumbnail,
-                    PageData = pageData,
+                    Id = $"{newFileId}_p{page.OriginalPageIndex}",
+                    FileId = newFileId,
+                    FileName = page.FileName,
+                    OriginalPageIndex = page.OriginalPageIndex,
+                    Thumbnail = page.Thumbnail,
+                    PageData = page.PageData,
                     IsLoading = false,
-                    HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData),
-                    ColorHsl = GenerateColorHsl(fileId)
+                    HasError = false,
+                    ColorHsl = GenerateColorHsl(newFileId)
                 };
-
-                _model.Pages.Insert(fileIndex + pageIndex, pageItem);
+                _model.Pages.Insert(pageInsertIndex++, copy);
             }
-
-            // ファイルが完全に読み込まれたことをマーク
-            fileMetadata.IsFullyLoaded = true;
-
-            Console.WriteLine($"Successfully expanded file {fileMetadata.FileName} into {fileMetadata.PageCount} pages");
-            return true;
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"Error expanding file: {ex.Message}");
-            return false;
+            // ページ単位複製はそのまま
+            var page = _model.Pages.FirstOrDefault(p => p.Id == id);
+            if (page == null) return;
+
+            var newPage = new PageItem
+            {
+                Id = Guid.NewGuid().ToString(),
+                FileId = page.FileId,
+                FileName = page.FileName,
+                OriginalPageIndex = page.OriginalPageIndex,
+                Thumbnail = page.Thumbnail,
+                PageData = page.PageData,
+                IsLoading = false,
+                HasError = false,
+                ColorHsl = page.ColorHsl
+            };
+            int pageIndex = _model.Pages.FindIndex(p => p.Id == id);
+            if (pageIndex >= 0)
+                _model.Pages.Insert(pageIndex + 1, newPage);
+            else
+                _model.Pages.Add(newPage);
         }
+        await InvokeOnChangeAsync();
     }
 
     /// <summary>
