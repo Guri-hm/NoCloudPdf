@@ -906,4 +906,14 @@ public class PdfDataService
         _model.Pages.Reverse();
         OnChange?.Invoke();
     }
+
+    public void SortPagesByName(bool ascending)
+    {
+        if (_model.Pages == null) return;
+        if (ascending)
+            _model.Pages = _model.Pages.OrderBy(p => p.FileName).ToList();
+        else
+            _model.Pages = _model.Pages.OrderByDescending(p => p.FileName).ToList();
+        OnChange?.Invoke();
+    }
 }

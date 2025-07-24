@@ -353,6 +353,7 @@ input[type=number] {
     --color-yellow-500: oklch(79.5% 0.184 86.047);
     --color-green-500: oklch(72.3% 0.219 149.579);
     --color-green-700: oklch(52.7% 0.154 150.069);
+    --color-blue-50: oklch(97% 0.014 254.604);
     --color-blue-500: oklch(62.3% 0.214 259.815);
     --color-blue-600: oklch(54.6% 0.245 262.881);
     --color-blue-700: oklch(48.8% 0.243 264.376);
@@ -360,6 +361,7 @@ input[type=number] {
     --color-purple-700: oklch(49.6% 0.265 301.924);
     --color-gray-100: oklch(96.7% 0.003 264.542);
     --color-gray-200: oklch(92.8% 0.006 264.531);
+    --color-gray-300: oklch(87.2% 0.01 258.338);
     --color-gray-400: oklch(70.7% 0.022 261.325);
     --color-gray-500: oklch(55.1% 0.027 264.364);
     --color-gray-600: oklch(44.6% 0.03 256.802);
@@ -617,6 +619,9 @@ input[type=number] {
   }
   .top-100 {
     top: calc(var(--spacing) * 100);
+  }
+  .top-full {
+    top: 100%;
   }
   .right-2 {
     right: calc(var(--spacing) * 2);
@@ -1047,6 +1052,9 @@ input[type=number] {
   .max-w-md {
     max-width: var(--container-md);
   }
+  .min-w-\[120px\] {
+    min-width: 120px;
+  }
   .flex-1 {
     flex: 1;
   }
@@ -1230,6 +1238,10 @@ input[type=number] {
     border-start-end-radius: var(--radius-lg);
     border-end-end-radius: var(--radius-lg);
   }
+  .rounded-t-lg {
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
+  }
   .rounded-l-lg {
     border-top-left-radius: var(--radius-lg);
     border-bottom-left-radius: var(--radius-lg);
@@ -1237,6 +1249,10 @@ input[type=number] {
   .rounded-r-lg {
     border-top-right-radius: var(--radius-lg);
     border-bottom-right-radius: var(--radius-lg);
+  }
+  .rounded-b-lg {
+    border-bottom-right-radius: var(--radius-lg);
+    border-bottom-left-radius: var(--radius-lg);
   }
   .border {
     border-style: var(--tw-border-style);
@@ -1294,6 +1310,9 @@ input[type=number] {
   }
   .border-gray-200 {
     border-color: var(--color-gray-200);
+  }
+  .border-gray-300 {
+    border-color: var(--color-gray-300);
   }
   .border-gray-400 {
     border-color: var(--color-gray-400);
@@ -1596,6 +1615,9 @@ input[type=number] {
   .text-gray-200 {
     color: var(--color-gray-200);
   }
+  .text-gray-800 {
+    color: var(--color-gray-800);
+  }
   .text-green-500 {
     color: var(--color-green-500);
   }
@@ -1702,6 +1724,13 @@ input[type=number] {
   .ease-out {
     --tw-ease: var(--ease-out);
     transition-timing-function: var(--ease-out);
+  }
+  .hover\:bg-blue-50 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-blue-50);
+      }
+    }
   }
   .hover\:bg-blue-600 {
     &:hover {

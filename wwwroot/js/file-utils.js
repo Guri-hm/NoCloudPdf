@@ -188,3 +188,14 @@ if (document.readyState === 'loading') {
 } else {
     window.setupMenuProtection();
 }
+
+window.registerOutsideClick = (elementId, dotnetHelper) => {
+    function handler(event) {
+        const el = document.getElementById(elementId);
+        if (el && !el.contains(event.target)) {
+            dotnetHelper.invokeMethodAsync('CloseSortMenu');
+            document.removeEventListener('mousedown', handler);
+        }
+    }
+    document.addEventListener('mousedown', handler);
+};

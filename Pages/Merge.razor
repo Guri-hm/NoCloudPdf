@@ -21,15 +21,15 @@
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                            @(IsFileMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                            rounded-s-lg border-e border-gray-500 h-full"
+                                                                                                                                                                                                                            @(IsFileMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                                                            rounded-s-lg border-e border-gray-500 h-full"
                         @onclick="SwitchToFileMode">
                         <i class="fa-solid fa-file mr-2"></i>ファイル
                     </button>
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                            @(IsPageMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                            rounded-e-lg h-full"
+                                                                                                                                                                                                                            @(IsPageMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                                                            rounded-e-lg h-full"
                         @onclick="SwitchToPageMode">
                         <i class="fa-solid fa-file-lines mr-2"></i>ページ
                     </button>
@@ -77,6 +77,25 @@
                         </svg>
                         逆順
                     </button>
+                </div>
+                <div class="inline-flex shadow border border-gray-500 rounded-lg bg-gray-700 h-10 ml-2 relative">
+                    <button
+    class="px-4 py-1 font-bold focus:outline-none transition text-white h-full bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center"
+    @onclick="ToggleSortMenu" title="並び替え">
+    <i class="fa-solid fa-arrow-down-a-z"></i>
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" class="ml-2">
+        <polygon points="5,8 10,13 15,8" />
+    </svg>
+</button>
+                    @if (showSortMenu)
+                    {
+                        <div id="sortMenu" class="absolute top-full left-0 mt-1 min-w-[120px] bg-white rounded-lg shadow-lg z-50 border border-gray-300">
+    <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg whitespace-nowrap"
+        @onclick="() => SelectSort(true)">名前（昇順）</button>
+    <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg whitespace-nowrap"
+        @onclick="() => SelectSort(false)">名前（降順）</button>
+</div>
+                    }
                 </div>
             </div>
         </div>
@@ -404,7 +423,7 @@
     private int progress = 0;
     private string? mergedPdfUrl;
     private string? errorMessage;
-
+    private bool showSortMenu = false;
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
@@ -434,6 +453,22 @@
         if (!IsFileMode || previewIndex < 0 || previewIndex >= DisplayItems.Count)
             return 1;
         return DisplayItems[previewIndex].PageCount;
+    }
+    private async Task ToggleSortMenu()
+    {
+        showSortMenu = !showSortMenu;
+        if (showSortMenu)
+        {
+
+            await JSRuntime.InvokeVoidAsync("registerOutsideClick", "sortMenu", DotNetObjectReference.Create(this));
+        }
+    }
+
+    [JSInvokable]
+    public void CloseSortMenu()
+    {
+        showSortMenu = false;
+        StateHasChanged();
     }
     private async Task MovePreview(int direction)
     {
@@ -1065,6 +1100,27 @@
         StateHasChanged();
         isBusy = false;
         return Task.CompletedTask;
+    }
+
+    private void SelectSort(bool ascending)
+    {
+        showSortMenu = false;
+        SortByName(ascending);
+    }
+    private void SortByName(bool ascending)
+    {
+        if (IsFileMode)
+        {
+            var sorted = ascending
+            ? DisplayItems.OrderBy(x => x.DisplayName).Select(x => x.Id).ToList()
+            : DisplayItems.OrderByDescending(x => x.DisplayName).Select(x => x.Id).ToList();
+            PdfDataService.ReorderFiles(sorted);
+        }
+        else if (IsPageMode)
+        {
+            PdfDataService.SortPagesByName(ascending);
+        }
+        StateHasChanged();
     }
     protected override void OnAfterRender(bool firstRender)
     {
