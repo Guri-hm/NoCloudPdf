@@ -1552,6 +1552,9 @@ code {
   .text-wrap {
     text-wrap: wrap;
   }
+  .whitespace-nowrap {
+    white-space: nowrap;
+  }
   .text-black {
     color: var(--color-black);
   }
