@@ -16,43 +16,41 @@
     <!-- 上部固定バー（編集モード） -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
         <div class="flex items-center justify-between px-4 py-2">
-            <div class="flex-1 flex items-center">
-                <!-- 左寄せ：表示切替・回転ボタン -->
-                <div class="flex gap-2 items-center">
-                    <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
-                        <button
-                            class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        rounded-s-lg border-e border-gray-500"
-                            @onclick="SwitchToFileMode">
-                            <i class="fa-solid fa-file mr-2"></i>ファイル
-                        </button>
-                        <button
-                            class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        rounded-e-lg"
-                            @onclick="SwitchToPageMode">
-                            <i class="fa-solid fa-file-lines mr-2"></i>ページ
-                        </button>
-                    </div>
+            <div class="flex gap-2 items-center">
+                <!-- 表示切替ボタングループ -->
+                <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
+                    <button class="px-4 py-1 font-bold focus:outline-none transition
+                @(IsFileMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                rounded-s-lg border-e border-gray-500 h-full" @onclick="SwitchToFileMode">
+                        <i class="fa-solid fa-file mr-2"></i>ファイル
+                    </button>
+                    <button class="px-4 py-1 font-bold focus:outline-none transition
+                @(IsPageMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                rounded-e-lg h-full" @onclick="SwitchToPageMode">
+                        <i class="fa-solid fa-file-lines mr-2"></i>ページ
+                    </button>
+                </div>
+                <!-- 回転ボタングループ -->
+                <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button
-                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-1"
+                        class="px-4 py-1 font-bold focus:outline-none transition text-white border-e border-gray-500 h-full hover:bg-gray-600"
                         @onclick="RotateAllLeft" title="左回転">
                         <i class="fa-solid fa-rotate-left"></i>
+                        <span class="ml-2">左</span>
                     </button>
-                    <button
-                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-1"
+                    <button class="px-4 py-1 font-bold focus:outline-none transition text-white h-full hover:bg-gray-600"
                         @onclick="RotateAllRight" title="右回転">
                         <i class="fa-solid fa-rotate-right"></i>
+                        <span class="ml-2">右</span>
                     </button>
                 </div>
-                <!-- 右寄せ：結合ボタン -->
-                <div class="flex-1 flex justify-end">
-                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
-                        @onclick="MergePDFs">
-                        結合
-                    </button>
-                </div>
+            </div>
+            <!-- 右寄せ：結合ボタン -->
+            <div class="flex-1 flex justify-end">
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
+                    @onclick="MergePDFs">
+                    結合
+                </button>
             </div>
         </div>
     </div>
