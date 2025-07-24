@@ -1,5 +1,7 @@
 using ClientPdfApp.Models;
 using Microsoft.JSInterop;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ClientPdfApp.Services;
 
@@ -121,6 +123,10 @@ public class PdfDataService
             // 代表ページのサムネイルではなく、グループ先頭ページのサムネイルを使う
             var thumbnail = firstPage.Thumbnail;
 
+            var colorHsl = string.IsNullOrEmpty(firstPage.ColorHsl)
+                ? GenerateColorHsl(fileId)
+                : firstPage.ColorHsl;
+
             var item = new DisplayItem
             {
                 Id = fileId,
@@ -131,7 +137,8 @@ public class PdfDataService
                 IsLoading = isLoading,
                 HasError = hasError,
                 RawData = fileMetadata ?? new FileMetadata(), // nullの場合は空のFileMetadataを代入
-                PageCount = count
+                PageCount = count,
+                ColorHsl = colorHsl
             };
             result.Add(item);
 
@@ -154,7 +161,9 @@ public class PdfDataService
             PageInfo = $"{page.OriginalPageNumber}",
             IsLoading = page.IsLoading,
             HasError = page.HasError,
-            RawData = page
+            RawData = page,
+            PageCount = 1,
+            ColorHsl = page.ColorHsl
         }).ToList();
     }
 
@@ -205,7 +214,8 @@ public class PdfDataService
                     Thumbnail = i == 0 ? coverThumbnail : "", // 1ページ目は表紙
                     PageData = "",
                     IsLoading = true,
-                    HasError = false
+                    HasError = false,
+                    ColorHsl = GenerateColorHsl(fileId)
                 };
                 _model.Pages.Add(loadingItem);
             }
@@ -575,7 +585,8 @@ public class PdfDataService
                     Thumbnail = "", // ローディング中は空
                     PageData = "",
                     IsLoading = true,
-                    HasError = false
+                    HasError = false,
+                    ColorHsl = GenerateColorHsl(fileId)
                 };
                 _model.Pages.Insert(position + pageIndex, loadingItem);
             }
@@ -718,7 +729,8 @@ public class PdfDataService
                     Thumbnail = thumbnail,
                     PageData = pageData,
                     IsLoading = false,
-                    HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData)
+                    HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData),
+                    ColorHsl = GenerateColorHsl(fileId)
                 };
 
                 _model.Pages.Insert(fileIndex + pageIndex, pageItem);
@@ -866,5 +878,18 @@ public class PdfDataService
         {
             return null;
         }
+    }
+
+    // ファイルIDから安定したパステルカラー（HSL）を生成
+    private static string GenerateColorHsl(string fileId)
+    {
+        // SHA256で安定したハッシュ値を取得
+        using var sha = SHA256.Create();
+        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(fileId));
+        int hue = bytes[0]; // 0～255
+        hue = (int)(hue / 255.0 * 360); // 0～359に変換
+        int saturation = 60; // 彩度（見やすい値）
+        int lightness = 85;  // 明度（背景向きの淡い色）
+        return $"hsl({hue}, {saturation}%, {lightness}%)";
     }
 }

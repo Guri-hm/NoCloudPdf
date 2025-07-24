@@ -22,15 +22,15 @@
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            rounded-s-lg border-e border-gray-500"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            rounded-e-lg"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    rounded-e-lg"
                             @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
@@ -135,12 +135,13 @@
 
                             <!-- ファイル情報表示 -->
                             <div class="file-info">
-                                <div class="file-name truncate text-base font-semibold" title="@item.FullFileName">
+                                <div class="file-name truncate text-[11px] px-2 rounded" title="@item.FullFileName"
+                                    style="background:@(item.RawData is PageItem pi ? pi.ColorHsl : item.ColorHsl); margin: 2px 0;">
                                     @item.DisplayName
                                 </div>
                                 @if (IsPageMode && !string.IsNullOrEmpty(item.PageInfo))
                                 {
-                                    <div class="page-number text-base font-semibold">
+                                    <div class="page-number text-[10px] font-normal mt-1">
                                         @item.PageInfo
                                     </div>
                                 }

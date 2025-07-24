@@ -290,18 +290,12 @@ code {
   position: relative;
 }
 .file-name {
-  font-size: 10px;
-  color: #374151;
-  font-weight: 500;
-  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 0 2px;
   cursor: pointer;
 }
 .page-number {
-  font-size: 9px;
   color: #6b7280;
   font-weight: 400;
   line-height: 1.1;
@@ -353,7 +347,6 @@ input[type=number] {
       "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
-    --color-red-400: oklch(70.4% 0.191 22.216);
     --color-red-500: oklch(63.7% 0.237 25.331);
     --color-red-700: oklch(50.5% 0.213 27.518);
     --color-yellow-400: oklch(85.2% 0.199 91.936);
@@ -391,6 +384,7 @@ input[type=number] {
     --text-3xl--line-height: calc(2.25 / 1.875);
     --text-4xl: 2.25rem;
     --text-4xl--line-height: calc(2.5 / 2.25);
+    --font-weight-normal: 400;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
@@ -1545,6 +1539,12 @@ input[type=number] {
     font-size: var(--text-xl);
     line-height: var(--tw-leading, var(--text-xl--line-height));
   }
+  .text-\[10px\] {
+    font-size: 10px;
+  }
+  .text-\[11px\] {
+    font-size: 11px;
+  }
   .font-bold {
     --tw-font-weight: var(--font-weight-bold);
     font-weight: var(--font-weight-bold);
@@ -1552,6 +1552,10 @@ input[type=number] {
   .font-medium {
     --tw-font-weight: var(--font-weight-medium);
     font-weight: var(--font-weight-medium);
+  }
+  .font-normal {
+    --tw-font-weight: var(--font-weight-normal);
+    font-weight: var(--font-weight-normal);
   }
   .font-semibold {
     --tw-font-weight: var(--font-weight-semibold);
@@ -1577,9 +1581,6 @@ input[type=number] {
   }
   .text-green-500 {
     color: var(--color-green-500);
-  }
-  .text-neutral-200 {
-    color: var(--color-neutral-200);
   }
   .text-neutral-500 {
     color: var(--color-neutral-500);
@@ -1713,6 +1714,13 @@ input[type=number] {
       }
     }
   }
+  .hover\:bg-neutral-200 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-neutral-200);
+      }
+    }
+  }
   .hover\:bg-neutral-600 {
     &:hover {
       @media (hover: hover) {
@@ -1752,13 +1760,6 @@ input[type=number] {
     &:hover {
       @media (hover: hover) {
         color: var(--color-purple-700);
-      }
-    }
-  }
-  .hover\:text-red-400 {
-    &:hover {
-      @media (hover: hover) {
-        color: var(--color-red-400);
       }
     }
   }

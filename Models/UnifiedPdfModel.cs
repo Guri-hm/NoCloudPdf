@@ -36,6 +36,7 @@ public class PageItem
     public bool IsLoading { get; set; } = true; // ローディング中フラグ
     public bool HasError { get; set; } = false; // エラー状態フラグ
     public DateTime CreatedAt { get; set; } = DateTime.Now; // 作成日時（並び替えの参考用）
+    public string ColorHsl { get; set; } = ""; // 色（HSL形式） - ファイルIDから生成
 }
 
 /// <summary>
@@ -75,4 +76,5 @@ public class DisplayItem
     public bool HasError { get; set; } = false; // エラー状態
     public object RawData { get; set; } = null!; // 元データへの参照
     public int PageCount { get; set; }// ファイル単位表示時のページ数
+    public string ColorHsl { get; set; } = ""; // 色（HSL形式） - ファイルIDから生成
 }
