@@ -22,15 +22,15 @@
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                    @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                    rounded-s-lg border-e border-gray-500"
+                                                                                                                                                                                                                                                                                                                                                                                                            @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                            rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                    @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                    rounded-e-lg"
+                                                                                                                                                                                                                                                                                                                                                                                                            @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                            rounded-e-lg"
                             @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
@@ -233,7 +233,7 @@
             <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
                 <button
                     class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg"
-                    @onclick="PrevPreview" disabled="@(CurrentFilePageIndex == 0)">
+                    @onclick="PrevPreview" disabled="@(IsFileMode? CurrentFilePageIndex == 0 : previewIndex == 0)">
                     <i class="text-white fa-solid fa-chevron-left"></i>
                 </button>
                 <div class="flex-1 flex items-center justify-center text-white font-bold whitespace-nowrap">
@@ -243,7 +243,8 @@
                     }
                 </div>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="NextPreview" disabled="@(CurrentFilePageIndex == CurrentFilePageCount - 1)">
+                    @onclick="NextPreview"
+                    disabled="@(IsFileMode? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))">
                     <i class="text-white fa-solid fa-chevron-right"></i>
                 </button>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
@@ -379,12 +380,7 @@
     {
         if (!IsFileMode || previewIndex < 0 || previewIndex >= DisplayItems.Count)
             return 0;
-        var currentFileId = DisplayItems[previewIndex].Id;
-        var sameFilePages = DisplayItems.Where(x => x.Id == currentFileId).ToList();
-        // Idで一致するインデックスを取得
-        var currentPageId = DisplayItems[previewIndex].Id;
-        var idx = sameFilePages.FindIndex(x => x.Id == currentPageId);
-        return idx >= 0 ? idx : 0;
+        return filePageIndex;
     }
     private int GetCurrentFilePageCount()
     {
@@ -394,17 +390,40 @@
     }
     private async Task PrevPreview()
     {
-        if (previewIndex > 0)
+        if (IsFileMode)
         {
-            await ShowPreviewAsync(previewIndex - 1);
+            if (filePageIndex > 0)
+            {
+                filePageIndex--;
+                await ShowPreviewAsync(previewIndex, filePageIndex);
+            }
+        }
+        else
+        {
+            if (previewIndex > 0)
+            {
+                await ShowPreviewAsync(previewIndex - 1);
+            }
         }
     }
 
     private async Task NextPreview()
     {
-        if (previewIndex < DisplayItems.Count - 1)
+        if (IsFileMode)
         {
-            await ShowPreviewAsync(previewIndex + 1);
+            var pageCount = DisplayItems[previewIndex].PageCount;
+            if (filePageIndex < pageCount - 1)
+            {
+                filePageIndex++;
+                await ShowPreviewAsync(previewIndex, filePageIndex);
+            }
+        }
+        else
+        {
+            if (previewIndex < DisplayItems.Count - 1)
+            {
+                await ShowPreviewAsync(previewIndex + 1);
+            }
         }
     }
 
@@ -426,26 +445,39 @@
         }
     }
 
-    private async Task ShowPreviewAsync(int index)
+    // ファイル単位表示時のファイル内ページ番号
+    private int filePageIndex = 0;
+
+    private async Task ShowPreviewAsync(int fileIndex, int pageIndex = 0)
     {
-        previewIndex = index;
+        previewIndex = fileIndex;
+        filePageIndex = pageIndex;
         previewImageUrl = null;
         isPreviewLoading = true;
         StateHasChanged();
 
-        // 高画質画像をサービスから取得（例: PdfDataService.GetPreviewImageAsync）
         try
         {
-            previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[index].Id);
+            if (IsFileMode)
+            {
+                // ファイル単位表示時も GetPreviewImageAsync を使う（pageIndex を渡す）
+                previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id, pageIndex);
+            }
+            else
+            {
+                // ページ単位表示時は従来通り
+                previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
+            }
         }
         catch
         {
-            // 失敗時はサムネイル
-            previewImageUrl = DisplayItems[index].Thumbnail;
+            // 失敗時はサムネイル表示
+            previewImageUrl = DisplayItems[fileIndex].Thumbnail;
         }
         isPreviewLoading = false;
         StateHasChanged();
     }
+
 
     private void ClosePreview()
     {
