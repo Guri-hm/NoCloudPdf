@@ -125,6 +125,7 @@ public class PdfDataService
             {
                 Id = fileId,
                 DisplayName = TruncateFileName(fileName),
+                FullFileName = fileName,
                 Thumbnail = thumbnail,
                 PageInfo = count > 1 ? $"{count}ページ" : "",
                 IsLoading = isLoading,
@@ -148,8 +149,9 @@ public class PdfDataService
         {
             Id = page.Id,
             DisplayName = TruncateFileName(page.FileName),
+            FullFileName = page.FileName,
             Thumbnail = page.Thumbnail,
-            PageInfo = $"p.{page.OriginalPageNumber}",
+            PageInfo = $"{page.OriginalPageNumber}",
             IsLoading = page.IsLoading,
             HasError = page.HasError,
             RawData = page

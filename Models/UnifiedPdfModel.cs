@@ -68,6 +68,7 @@ public class DisplayItem
 {
     public string Id { get; set; } = ""; // PageItem.Id または FileId
     public string DisplayName { get; set; } = ""; // 表示名
+    public string FullFileName { get; set; } = ""; // フルファイル名（パスを含む）
     public string Thumbnail { get; set; } = ""; // 表示用サムネイル
     public string PageInfo { get; set; } = ""; // ページ情報（"p.3" など）
     public bool IsLoading { get; set; } = false; // ローディング状態
