@@ -1,5 +1,7 @@
 
-
+【新しい環境】
+「npm install」
+⇒package.jsonに載るライブラリを自動インストール
 
 【読み込み用cssファイル】
 app.cssには独自＋@import "tailwindcss";
