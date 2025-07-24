@@ -22,15 +22,15 @@
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                            @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                            rounded-s-lg border-e border-gray-500"
+                                                                                                                                                                                                @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                            @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                            rounded-e-lg"
+                                                                                                                                                                                                @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                rounded-e-lg"
                             @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
@@ -230,14 +230,14 @@
         <!-- プレビュー下部の操作バー -->
         <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg"
             @onclick:stopPropagation>
-            <div class="flex w-full items-stretch divide-x divide-gray-200 rounded-lg">
+            <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
                 <button
                     class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg"
                     @onclick="PrevPreview" disabled="@(previewIndex == 0)">
                     <i class="text-white fa-solid fa-chevron-left"></i>
                 </button>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="NextPreview" disabled="@(previewIndex == DisplayItems.Count - 1)">
+                    @onclick="NextPreview" disabled="@(DisplayItems == null || previewIndex == DisplayItems.Count - 1)">
                     <i class="text-white fa-solid fa-chevron-right"></i>
                 </button>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"

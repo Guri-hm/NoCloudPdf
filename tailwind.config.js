@@ -3,7 +3,7 @@ export default {
     content: ["./**/*.razor", "./**/*.html"],
     safelist: [
         "divide-x",
-        "divide-gray-200"
+        "divide-gray-400"
     ],
     theme: {
         extend: {},
