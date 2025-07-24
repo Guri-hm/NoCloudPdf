@@ -790,7 +790,7 @@ public class PdfDataService
         }
     }
 
-    public async Task<bool> RotateFileAsync(string fileId)
+    public async Task<bool> RotateFileAsync(string fileId, int angle)
     {
         var pageIndexes = _model.Pages
             .Select((p, idx) => new { Page = p, Index = idx })
@@ -801,7 +801,7 @@ public class PdfDataService
         bool allSuccess = true;
         foreach (var idx in pageIndexes)
         {
-            var success = await RotateItemAsync(idx);
+            var success = await RotateItemAsync(idx, angle);
             if (!success) allSuccess = false;
         }
         return allSuccess;
