@@ -22,15 +22,15 @@
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-s-lg border-e border-gray-500"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-e-lg"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-e-lg"
                             @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
@@ -158,7 +158,7 @@
                                 </button>
                                 <button class="text-purple-500 hover:text-purple-700 p-1 mt-1"
                                     @onclick="() => ShowPreviewAsync(index)" title="拡大プレビュー">
-                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <i class="fa-solid fa-magnifying-glass-plus"></i>
                                 </button>
                                 @if (isMultiPage)
                                 {
@@ -211,8 +211,9 @@
 @if (previewIndex >= 0)
 {
     <div class="fixed inset-0 flex items-center justify-center z-50 bg-black/70" @onclick="ClosePreview">
-        <button class="absolute top-8 right-8 text-3xl text-neutral-200 hover:text-red-400 z-10" @onclick="ClosePreview"
-            title="閉じる">
+        <button
+            class="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white rounded-full shadow z-10 hover:bg-neutral-200 text-black text-3xl"
+            @onclick="ClosePreview" title="閉じる">
             &times;
         </button>
         @if (isPreviewLoading)
