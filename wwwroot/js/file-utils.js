@@ -69,7 +69,7 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
 
     // メニューボタンを作成
     const blankPageBtn = document.createElement('button');
-    blankPageBtn.innerHTML = '📄 空白ページの挿入';
+    blankPageBtn.innerHTML = '空白ページの挿入';
     blankPageBtn.className = 'w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200';
     blankPageBtn.style.cssText = 'border: none; background: none; cursor: pointer;';
     blankPageBtn.onclick = () => {
@@ -78,7 +78,7 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
     };
 
     const insertPdfBtn = document.createElement('button');
-    insertPdfBtn.innerHTML = '📁 PDFを選択して挿入';
+    insertPdfBtn.innerHTML = 'PDFを選択して挿入';
     insertPdfBtn.className = 'w-full px-4 py-2 text-left hover:bg-gray-100';
     insertPdfBtn.style.cssText = 'border: none; background: none; cursor: pointer;';
     insertPdfBtn.onclick = () => {
