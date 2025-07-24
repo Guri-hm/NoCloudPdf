@@ -20,15 +20,18 @@
                 <!-- 左寄せ：表示切替・回転ボタン -->
                 <div class="flex gap-2 items-center">
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
-                        <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                                            @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                            rounded-s-lg border-e border-gray-500"
+                        <button
+                            class="px-4 py-1 font-bold focus:outline-none transition
+                                                                                                                                                        @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                        rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
-                        <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                                            @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                            rounded-e-lg" @onclick="SwitchToPageMode">
+                        <button
+                            class="px-4 py-1 font-bold focus:outline-none transition
+                                                                                                                                                        @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                        rounded-e-lg"
+                            @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
                     </div>
@@ -224,16 +227,31 @@
             <img src="@previewImageUrl" class="max-w-[90vw] max-h-[90vh] object-contain mx-auto"
                 style="width:auto; height:auto;" draggable="false" @onclick:stopPropagation />
         }
-    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-white text-lg bg-black/60 px-4 py-2 rounded-lg">
-        @(DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count && DisplayItems[previewIndex]
-                != null
-                ? DisplayItems[previewIndex].DisplayName
-                : string.Empty)
-            @if (DisplayItems != null && previewIndex >= 0 && previewIndex < DisplayItems.Count &&
-                    DisplayItems[previewIndex] != null && !string.IsNullOrEmpty(DisplayItems[previewIndex].PageInfo))
-            {
-                <span class="ml-2">@DisplayItems[previewIndex].PageInfo</span>
-            }
+        <!-- プレビュー下部の操作バー -->
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-4 rounded-lg min-h-12 shadow-lg"
+            @onclick:stopPropagation>
+            <div class="flex w-full items-stretch divide-x divide-white rounded-lg overflow-hidden">
+                <button class="icon-btn flex-1 flex items-center justify-center py-2 px-4 hover:bg-gray-700 transition"
+                    @onclick="PrevPreview" disabled="@(previewIndex == 0)">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <button class="icon-btn flex-1 flex items-center justify-center py-2 px-4 hover:bg-gray-700 transition"
+                    @onclick="NextPreview" disabled="@(previewIndex == DisplayItems.Count - 1)">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                <button class="icon-btn flex-1 flex items-center justify-center py-2 px-4 hover:bg-gray-700 transition"
+                    @onclick="RotatePreviewLeft">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+                <button class="icon-btn flex-1 flex items-center justify-center py-2 px-4 hover:bg-gray-700 transition"
+                    @onclick="RotatePreviewRight">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button class="icon-btn flex-1 flex items-center justify-center py-2 px-4 hover:bg-gray-700 transition"
+                    @onclick="() => RemovePage(previewIndex)">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
         </div>
     </div>
 }
@@ -346,6 +364,40 @@
 
     private string? previewImageUrl = null;
     private bool isPreviewLoading = false;
+
+    private async Task PrevPreview()
+    {
+        if (previewIndex > 0)
+        {
+            await ShowPreviewAsync(previewIndex - 1);
+        }
+    }
+
+    private async Task NextPreview()
+    {
+        if (previewIndex < DisplayItems.Count - 1)
+        {
+            await ShowPreviewAsync(previewIndex + 1);
+        }
+    }
+
+    private async Task RotatePreviewLeft()
+    {
+        if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
+        {
+            await PdfDataService.RotateItemAsync(previewIndex, -90);
+            await ShowPreviewAsync(previewIndex);
+        }
+    }
+
+    private async Task RotatePreviewRight()
+    {
+        if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
+        {
+            await PdfDataService.RotateItemAsync(previewIndex, 90);
+            await ShowPreviewAsync(previewIndex);
+        }
+    }
 
     private async Task ShowPreviewAsync(int index)
     {
