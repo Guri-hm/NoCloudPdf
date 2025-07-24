@@ -1,0 +1,6 @@
+
+
+
+【読み込み用cssファイル】
+app.cssには独自＋@import "tailwindcss";
+⇒「npx postcss wwwroot/css/app.css -o wwwroot/css/site.css」実行でsite.cssに出力される

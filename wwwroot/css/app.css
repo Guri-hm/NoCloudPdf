@@ -7,11 +7,6 @@ h1:focus {
     outline: none;
 }
 
-a,
-.btn-link {
-    color: #0071c1;
-}
-
 .btn-primary {
     color: #fff;
     background-color: #1b6ec2;
@@ -397,16 +392,6 @@ code {
     background-color: #f3f4f6 !important;
 }
 
-.icon-btn {
-    background: none;
-    border: none;
-    color: white;
-    padding: 6px 10px;
-    font-size: 1.4em;
-    border-radius: 6px;
-    transition: background 0.2s;
-}
-
 .icon-btn:hover:enabled {
     background: #333;
 }
@@ -415,3 +400,5 @@ code {
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+@import "tailwindcss";
