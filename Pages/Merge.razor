@@ -20,13 +20,13 @@
                 <!-- 表示切替ボタングループ -->
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button class="px-4 py-1 font-bold focus:outline-none transition
-                @(IsFileMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                rounded-s-lg border-e border-gray-500 h-full" @onclick="SwitchToFileMode">
+                                        @(IsFileMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                        rounded-s-lg border-e border-gray-500 h-full" @onclick="SwitchToFileMode">
                         <i class="fa-solid fa-file mr-2"></i>ファイル
                     </button>
                     <button class="px-4 py-1 font-bold focus:outline-none transition
-                @(IsPageMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                rounded-e-lg h-full" @onclick="SwitchToPageMode">
+                                        @(IsPageMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                        rounded-e-lg h-full" @onclick="SwitchToPageMode">
                         <i class="fa-solid fa-file-lines mr-2"></i>ページ
                     </button>
                 </div>
@@ -321,7 +321,15 @@
         </div>
     </div>
 }
-
+@if (isBusy)
+{
+    <div class="fixed inset-0 flex items-center justify-center z-[100] bg-black/40">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
+            <span class="text-white font-bold text-lg">処理中です...</span>
+        </div>
+    </div>
+}
 <!-- エラーメッセージ表示 -->
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -359,6 +367,7 @@
     }
     private bool isLoading = false;
     private bool showMergedResult = false;
+    private bool isBusy = false;
     private int progress = 0;
     private string? mergedPdfUrl;
     private string? errorMessage;
@@ -772,20 +781,25 @@
 
     private async Task RotateAllLeft()
     {
+        isBusy = true;
+        StateHasChanged();
         for (int i = 0; i < DisplayItems.Count; i++)
         {
-            // 左回転（90度）
             await PdfDataService.RotateItemAsync(i, -90);
         }
+        isBusy = false;
         StateHasChanged();
     }
 
     private async Task RotateAllRight()
     {
+        isBusy = true;
+        StateHasChanged();
         for (int i = 0; i < DisplayItems.Count; i++)
         {
             await PdfDataService.RotateItemAsync(i);
         }
+        isBusy = false;
         StateHasChanged();
     }
 
