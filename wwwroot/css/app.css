@@ -401,4 +401,18 @@ code {
     cursor: not-allowed;
 }
 
+/* スピンボタン非表示 */
+/* Chrome, Safari, Edge */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* スピンボタン非表示 */
+/* Firefox */
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
 @import "tailwindcss";

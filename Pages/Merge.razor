@@ -22,15 +22,15 @@
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-s-lg border-e border-gray-500"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-e-lg"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                rounded-e-lg"
                             @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
@@ -237,10 +237,13 @@
                     disabled="@(IsFileMode? CurrentFilePageIndex == 0 : previewIndex == 0)">
                     <i class="text-white fa-solid fa-chevron-left"></i>
                 </button>
-                <div class="flex-1 flex items-center justify-center text-white font-bold whitespace-nowrap">
+                <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
                     @if (IsFileMode && CurrentFilePageCount > 1)
                     {
-                        <span>@(CurrentFilePageIndex + 1) / @CurrentFilePageCount</span>
+                        <input type="number" min="1" max="@CurrentFilePageCount" value="@(CurrentFilePageIndex + 1)"
+                            class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
+                            style="appearance: none; -moz-appearance: textfield;" @onchange="OnPreviewPageInputChanged" />
+                        <span>/ @CurrentFilePageCount</span>
                     }
                 </div>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
@@ -414,7 +417,20 @@
             }
         }
     }
+    private async Task OnPreviewPageInputChanged(ChangeEventArgs e)
+    {
+        if (!IsFileMode) return;
 
+        if (int.TryParse(e.Value?.ToString(), out int inputPage))
+        {
+            // 1以上、最大ページ数以下のみ有効
+            if (inputPage >= 1 && inputPage <= CurrentFilePageCount)
+            {
+                filePageIndex = inputPage - 1;
+                await ShowPreviewAsync(previewIndex, filePageIndex);
+            }
+        }
+    }
     private async Task RotatePreviewLeft()
     {
         if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
