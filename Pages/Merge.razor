@@ -22,15 +22,15 @@
                     <div class="inline-flex shadow rounded overflow-hidden border border-gray-500">
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                            @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                            rounded-s-lg border-e border-gray-500"
+                                                                                                                                                                                                                                                                                                                                                                                                                    @(IsFileMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                    rounded-s-lg border-e border-gray-500"
                             @onclick="SwitchToFileMode">
                             <i class="fa-solid fa-file mr-2"></i>ファイル
                         </button>
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                                                                                                                                                                                                                            @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
-                                                                                                                                                                                                                                                                                                                                                                                                            rounded-e-lg"
+                                                                                                                                                                                                                                                                                                                                                                                                                    @(IsPageMode ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-200")
+                                                                                                                                                                                                                                                                                                                                                                                                                    rounded-e-lg"
                             @onclick="SwitchToPageMode">
                             <i class="fa-solid fa-file-lines mr-2"></i>ページ
                         </button>
@@ -233,7 +233,8 @@
             <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
                 <button
                     class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg"
-                    @onclick="PrevPreview" disabled="@(IsFileMode? CurrentFilePageIndex == 0 : previewIndex == 0)">
+                    @onclick="() => MovePreview(-1)"
+                    disabled="@(IsFileMode? CurrentFilePageIndex == 0 : previewIndex == 0)">
                     <i class="text-white fa-solid fa-chevron-left"></i>
                 </button>
                 <div class="flex-1 flex items-center justify-center text-white font-bold whitespace-nowrap">
@@ -243,7 +244,7 @@
                     }
                 </div>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="NextPreview"
+                    @onclick="() => MovePreview(1)"
                     disabled="@(IsFileMode? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))">
                     <i class="text-white fa-solid fa-chevron-right"></i>
                 </button>
@@ -388,41 +389,24 @@
             return 1;
         return DisplayItems[previewIndex].PageCount;
     }
-    private async Task PrevPreview()
-    {
-        if (IsFileMode)
-        {
-            if (filePageIndex > 0)
-            {
-                filePageIndex--;
-                await ShowPreviewAsync(previewIndex, filePageIndex);
-            }
-        }
-        else
-        {
-            if (previewIndex > 0)
-            {
-                await ShowPreviewAsync(previewIndex - 1);
-            }
-        }
-    }
-
-    private async Task NextPreview()
+    private async Task MovePreview(int direction)
     {
         if (IsFileMode)
         {
             var pageCount = DisplayItems[previewIndex].PageCount;
-            if (filePageIndex < pageCount - 1)
+            var nextPage = filePageIndex + direction;
+            if (nextPage >= 0 && nextPage < pageCount)
             {
-                filePageIndex++;
+                filePageIndex = nextPage;
                 await ShowPreviewAsync(previewIndex, filePageIndex);
             }
         }
         else
         {
-            if (previewIndex < DisplayItems.Count - 1)
+            var nextIndex = previewIndex + direction;
+            if (nextIndex >= 0 && nextIndex < DisplayItems.Count)
             {
-                await ShowPreviewAsync(previewIndex + 1);
+                await ShowPreviewAsync(nextIndex);
             }
         }
     }
