@@ -65,7 +65,7 @@
     {
         <div id="addMenu" class="absolute top-full left-0 mt-1 min-w-[120px] bg-white rounded-lg shadow-lg z-50 border border-gray-300">
             <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg whitespace-nowrap"
-                @onclick="AddBlankPage">空白ページを追加</button>
+                @onclick="() => InsertBlankPage(DisplayItems.Count)">空白ページを追加</button>
             <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg whitespace-nowrap"
                 @onclick="AddPdfFile">PDFファイルを追加</button>
         </div>
@@ -477,12 +477,6 @@ private async Task ToggleAddMenu()
 public void CloseAddMenu()
 {
     showAddMenu = false;
-    StateHasChanged();
-}
-private async Task AddBlankPage()
-{
-    showAddMenu = false;
-    await PdfDataService.InsertBlankPageAsync(DisplayItems.Count);
     StateHasChanged();
 }
 
@@ -998,13 +992,15 @@ showAddMenu = false;
 
     // JavaScript から呼び出される空白ページ挿入メソッド
     [JSInvokable("InsertBlankPageFromJS")]
-    public static async Task InsertBlankPageFromJS(int position)
+public static Task InsertBlankPageFromJS(int position)
+{
+    // インスタンス参照が必要なら、staticフィールドで管理
+    if (_currentInstance != null)
     {
-        if (_currentInstance != null)
-        {
-            await _currentInstance.InsertBlankPage(position);
-        }
+        return _currentInstance.InsertBlankPage(position);
     }
+    return Task.CompletedTask;
+}
 
     // JavaScript から呼び出されるPDF挿入メソッド
     [JSInvokable("InsertPdfAtPositionFromJS")]
@@ -1019,17 +1015,25 @@ showAddMenu = false;
     // 空白ページを挿入
     private async Task InsertBlankPage(int position)
     {
-        try
+        showAddMenu = false;
+
+        int insertPosition;
+        if (IsFileMode)
         {
-            // 統一データサービスを使用して空白ページ挿入
-            await PdfDataService.InsertBlankPageAsync(position);
-            StateHasChanged();
+            int pageInsertPosition = 0;
+            for (int i = 0; i < position && i < DisplayItems.Count; i++)
+            {
+                pageInsertPosition += DisplayItems[i].PageCount;
+            }
+            insertPosition = pageInsertPosition;
         }
-        catch (Exception ex)
+        else
         {
-            Console.WriteLine($"Error inserting blank page: {ex.Message}");
-            errorMessage = $"空白ページの挿入に失敗しました: {ex.Message}";
+            insertPosition = position;
         }
+
+        await PdfDataService.InsertBlankPageAsync(insertPosition);
+        StateHasChanged();
     }
 
     // PDF挿入
