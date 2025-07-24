@@ -20,8 +20,9 @@
                 <!-- 表示切替ボタングループ -->
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button class="px-4 py-1 font-bold focus:outline-none transition
-                    @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                    rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2" @onclick="SwitchToFileMode">
+                                @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
+                        @onclick="SwitchToFileMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
                             <path fill-rule="evenodd"
@@ -32,15 +33,15 @@
                         <span class="whitespace-nowrap">ファイル</span>
                     </button>
                     <button class="px-4 py-1 font-bold focus:outline-none transition
-                    @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                    rounded-e-lg h-full flex items-center gap-2" @onclick="SwitchToPageMode">
+                                @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                rounded-e-lg h-full flex items-center gap-2" @onclick="SwitchToPageMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
                             <path fill-rule="evenodd"
                                 d="M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7h5zm-6-1v9h7v-9zm10 1h5v7h-5zm-1 8v-9h7v9z"
                                 clip-rule="evenodd"></path>
                         </svg>
-        <span class="whitespace-nowrap">ページ</span>
+                        <span class="whitespace-nowrap">ページ</span>
                     </button>
                 </div>
                 <!-- 回転ボタングループ -->
@@ -899,10 +900,24 @@
     {
         isBusy = true;
         StateHasChanged();
-        for (int i = 0; i < DisplayItems.Count; i++)
+
+        if (IsFileMode)
         {
-            await PdfDataService.RotateItemAsync(i, -90);
+            // ファイル単位表示時はファイルごとに回転
+            foreach (var file in DisplayItems)
+            {
+                await PdfDataService.RotateFileAsync(file.Id);
+            }
         }
+        else
+        {
+            // ページ単位表示時はページごとに回転
+            for (int i = 0; i < DisplayItems.Count; i++)
+            {
+                await PdfDataService.RotateItemAsync(i, -90);
+            }
+        }
+
         isBusy = false;
         StateHasChanged();
     }
@@ -911,9 +926,21 @@
     {
         isBusy = true;
         StateHasChanged();
-        for (int i = 0; i < DisplayItems.Count; i++)
+        if (IsFileMode)
         {
-            await PdfDataService.RotateItemAsync(i);
+            // ファイル単位表示時はファイルごとに回転
+            foreach (var file in DisplayItems)
+            {
+                await PdfDataService.RotateFileAsync(file.Id);
+            }
+        }
+        else
+        {
+            // ページ単位表示時はページごとに回転
+            for (int i = 0; i < DisplayItems.Count; i++)
+            {
+                await PdfDataService.RotateItemAsync(i, -90);
+            }
         }
         isBusy = false;
         StateHasChanged();
