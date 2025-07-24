@@ -840,6 +840,10 @@ public class PdfDataService
     {
         // ファイルIDから該当ページデータを取得
         var pageItem = _model.Pages.FirstOrDefault(p => p.Id == id);
+
+        // ページIDが見つからない場合はファイルIDとして先頭ページを検索
+        pageItem ??= _model.Pages.FirstOrDefault(p => p.FileId == id && p.OriginalPageIndex == 0);
+
         if (pageItem == null || string.IsNullOrEmpty(pageItem.PageData))
             return null;
 
