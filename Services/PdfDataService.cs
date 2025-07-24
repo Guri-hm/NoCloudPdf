@@ -887,4 +887,23 @@ public class PdfDataService
         int lightness = 85;  // 明度（背景向きの淡い色）
         return $"hsl({hue}, {saturation}%, {lightness}%)";
     }
+
+    // ファイル単位の並び替え
+    public void ReorderFiles(List<string> newOrder)
+    {
+        var newPages = new List<PageItem>();
+        foreach (var fileId in newOrder)
+        {
+            newPages.AddRange(_model.Pages.Where(p => p.FileId == fileId));
+        }
+        _model.Pages = newPages;
+        OnChange?.Invoke();
+    }
+
+    // ページ単位の逆順
+    public void ReversePages()
+    {
+        _model.Pages.Reverse();
+        OnChange?.Invoke();
+    }
 }
