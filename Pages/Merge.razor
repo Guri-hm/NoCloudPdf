@@ -1155,13 +1155,6 @@
             {
                 // 挿入前のPageItemリストを出力
                 var model = PdfDataService.GetModel();
-                Console.WriteLine("=== 挿入前 PageItem一覧 ===");
-                for (int i = 0; i < model.Pages.Count; i++)
-                {
-                    var p = model.Pages[i];
-                    Console.WriteLine($"[{i}] FileId={p.FileId}, Page={p.OriginalPageNumber}");
-                }
-
                 var file = e.GetMultipleFiles().First();
 
                 using var stream = file.OpenReadStream(52428800); // 50MB
@@ -1183,8 +1176,6 @@
                     }
                 }
 
-                Console.WriteLine($"insertPosition={insertPosition}, pageInsertPosition={pageInsertPosition}");
-
                 // 統一データサービスを使用してファイルを挿入
                 await PdfDataService.InsertPdfFileAsync(pageInsertPosition, file.Name, pdfData);
                 StateHasChanged();
@@ -1193,12 +1184,6 @@
 
                 // 挿入後のPageItemリストを出力
                 model = PdfDataService.GetModel();
-                Console.WriteLine("=== 挿入後 PageItem一覧 ===");
-                for (int i = 0; i < model.Pages.Count; i++)
-                {
-                    var p = model.Pages[i];
-                    Console.WriteLine($"[{i}] FileId={p.FileId}, Page={p.OriginalPageNumber}");
-                }
             }
             catch (Exception ex)
             {
