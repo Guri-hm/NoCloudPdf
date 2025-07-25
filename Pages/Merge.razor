@@ -21,8 +21,8 @@
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
+                                                                                                                                    @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                    rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
                         @onclick="SwitchToFileMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -35,8 +35,8 @@
                     </button>
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                rounded-e-lg h-full flex items-center gap-2"
+                                                                                                                                    @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                    rounded-e-lg h-full flex items-center gap-2"
                         @onclick="SwitchToPageMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -177,12 +177,29 @@
                         <div class="thumbnail-item relative group thumbnail-container">
                             @{
                                 var isMultiPage = IsFileMode && item.PageInfo.Contains("ページ");
+                                int stackCount = 1;
+                                var pageCountMatch = System.Text.RegularExpressions.Regex.Match(item.PageInfo, @"(\d+)ページ");
+                                if (isMultiPage && pageCountMatch.Success)
+                                {
+                                    var pageCount = int.Parse(pageCountMatch.Groups[1].Value);
+                                    if (pageCount == 2) stackCount = 2;
+                                    else if (pageCount >= 3) stackCount = 3;
+                                }
                             }
 
                             <!-- サムネイル画像部分 -->
-                            <div class="@(isMultiPage ? "thumbnail-stack" : "")">
+                            <div class="@(isMultiPage ? "thumbnail-stack" : "")" style="position: relative;">
+                                @if (isMultiPage)
+                                {
+                                    for (int stackIdx = stackCount - 1; stackIdx > 0; stackIdx--)
+                                    {
+                                        <div class="stack-layer"
+                                            style="position: absolute; top:@(-4 * stackIdx)px; left:@(-4 * stackIdx)px; right:@(4 * stackIdx)px; bottom:@(4 * stackIdx)px; z-index:@stackIdx;">
+                                        </div>
+                                    }
+                                }
                                 <div
-                                    class="w-24 h-32 flex items-center justify-center overflow-hidden @(isMultiPage ? "stack-layer" : "")">
+                                    class="h-32 flex items-center justify-center overflow-hidden @(isMultiPage ? "stack-layer" : "")">
                                     @if (item.IsLoading)
                                     {
                                         <div class="page-loading w-full h-full"></div>
@@ -195,21 +212,19 @@
                                     }
                                     else if (!string.IsNullOrEmpty(item.Thumbnail))
                                     {
-                                        <img src="@item.Thumbnail"
-                                            class="max-w-full max-h-full object-contain border border-neutral-300 @(IsPageMode ? "thumbnail-loaded" : "")"
-                                            draggable="false" />
+                                        <img src="@item.Thumbnail" class="max-w-full max-h-full object-contain
+                        @(isMultiPage
+                                                                               ? "" // 複数ページ時はborderなし
+                                                                               : (IsPageMode ? "border border-neutral-300 thumbnail-loaded" : "border border-blue-200"))
+                    " draggable="false" />
                                     }
                                 </div>
 
-                                @if (isMultiPage && item.PageInfo.Contains("ページ"))
+                                @if (isMultiPage && pageCountMatch.Success)
                                 {
-                                    var pageCountMatch = System.Text.RegularExpressions.Regex.Match(item.PageInfo, @"(\d+)ページ");
-                                    if (pageCountMatch.Success)
-                                    {
-                                        <div class="page-count-badge">
-                                            @pageCountMatch.Groups[1].Value
-                                        </div>
-                                    }
+                                    <div class="page-count-badge">
+                                        @pageCountMatch.Groups[1].Value
+                                    </div>
                                 }
                             </div>
 
