@@ -150,7 +150,8 @@ code {
 }
 .thumbnail-stack {
   position: relative;
-  margin: 8px;
+  margin-left: 8px;
+  margin-right: 8px;
 }
 .thumbnail-stack .stack-layer {
   position: relative;
@@ -159,10 +160,10 @@ code {
 .thumbnail-stack::before {
   content: '';
   position: absolute;
-  top: 4px;
-  left: 4px;
-  right: -4px;
-  bottom: -4px;
+  top: -4px;
+  left: -4px;
+  right: 4px;
+  bottom: 4px;
   background: #f8f9fa;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
@@ -172,10 +173,10 @@ code {
 .thumbnail-stack::after {
   content: '';
   position: absolute;
-  top: 8px;
-  left: 8px;
-  right: -8px;
-  bottom: -8px;
+  top: -8px;
+  left: -8px;
+  right: 8px;
+  bottom: 8px;
   background: #f1f3f4;
   border: 1px solid #d1d5db;
   border-radius: 6px;
