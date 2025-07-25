@@ -478,7 +478,22 @@ public class PdfDataService
             _model.Files.Remove(item.Id);
         }
     }
+    public void RemovePageFromFile(string fileId, int pageIndex)
+    {
+        // fileIdで絞った残っているページリストを取得
+        var filePages = _model.Pages.Where(p => p.FileId == fileId).OrderBy(p => p.OriginalPageIndex).ToList();
+        if (pageIndex >= 0 && pageIndex < filePages.Count)
+        {
+            var pageToRemove = filePages[pageIndex];
+            _model.Pages.Remove(pageToRemove);
 
+            // ページが0になったらファイルごと削除
+            if (!_model.Pages.Any(p => p.FileId == fileId))
+            {
+                _model.Files.Remove(fileId);
+            }
+        }
+    }
     /// <summary>
     /// アイテムを入れ替え
     /// </summary>

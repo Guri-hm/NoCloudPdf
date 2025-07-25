@@ -19,9 +19,10 @@
             <div class="flex gap-2 items-center">
                 <!-- 表示切替ボタングループ -->
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
-                    <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                    @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                    rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
+                    <button
+                        class="px-4 py-1 font-bold focus:outline-none transition
+                                                                                                            @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                            rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
                         @onclick="SwitchToFileMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -32,9 +33,10 @@
 
                         <span class="whitespace-nowrap">ファイル</span>
                     </button>
-                    <button class="px-4 py-1 font-bold focus:outline-none transition
-                                                    @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                    rounded-e-lg h-full flex items-center gap-2"
+                    <button
+                        class="px-4 py-1 font-bold focus:outline-none transition
+                                                                                                            @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                            rounded-e-lg h-full flex items-center gap-2"
                         @onclick="SwitchToPageMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -338,7 +340,7 @@
                 </button>
                 <button
                     class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
-                    @onclick="() => RemovePage(previewIndex)">
+                    @onclick="RemoveItemFromPreview">
                     <i class="text-white fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -470,6 +472,7 @@
     private int CurrentFilePageCount => GetCurrentFilePageCount();
 
     // ファイル単位表示時のファイル内ページ番号（0始まり）
+    // プレビュー中のファイル内で、何ページ目を表示しているか
     private int filePageIndex = 0;
     private int GetCurrentFilePageIndex()
     {
@@ -586,8 +589,19 @@
         {
             if (IsFileMode)
             {
-                // ファイル単位表示時も GetPreviewImageAsync を使う（pageIndex を渡す）
-                previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id, pageIndex);
+                // 修正: 残っているページリストからOriginalPageIndexを取得して渡す
+                var fileId = DisplayItems[fileIndex].Id;
+                var model = PdfDataService.GetModel();
+                var filePages = model.Pages.Where(p => p.FileId == fileId).OrderBy(p => p.OriginalPageIndex).ToList();
+                if (pageIndex >= 0 && pageIndex < filePages.Count)
+                {
+                    var page = filePages[pageIndex];
+                    previewImageUrl = await PdfDataService.GetPreviewImageAsync(fileId, page.OriginalPageIndex);
+                }
+                else
+                {
+                    previewImageUrl = null;
+                }
             }
             else
             {
@@ -806,6 +820,7 @@
         }
     }
 
+
     // ファイルダイアログを開く
     private async Task OpenFileDialog()
     {
@@ -923,6 +938,59 @@
         StateHasChanged();
     }
 
+    private async void RemoveItemFromPreview()
+    {
+        if (IsFileMode)
+        {
+            var fileId = DisplayItems[previewIndex].Id;
+            int removedPageIndex = filePageIndex;
+
+            PdfDataService.RemovePageFromFile(fileId, removedPageIndex);
+            await InvokeAsync(StateHasChanged);
+
+            var items = DisplayItems;
+            var newIndex = items.FindIndex(x => x.Id == fileId);
+
+            if (newIndex >= 0 && items[newIndex].PageCount > 0)
+            {
+                int pageCount = items[newIndex].PageCount;
+                // インデックス再計算
+                filePageIndex = (removedPageIndex >= pageCount) ? pageCount - 1 : removedPageIndex;
+                if (filePageIndex < 0) filePageIndex = 0;
+                previewIndex = newIndex;
+
+                await ShowPreviewAsync(previewIndex, filePageIndex);
+            }
+            else
+            {
+                // ファイル自体が消えた場合、次のインデックスにプレビューを移動
+                if (items.Count > 0)
+                {
+                    previewIndex = Math.Min(previewIndex, items.Count - 1);
+                    filePageIndex = 0;
+                    await ShowPreviewAsync(previewIndex, filePageIndex);
+                }
+                else
+                {
+                    ClosePreview();
+                }
+            }
+        }
+        else
+        {
+            PdfDataService.RemoveItem(previewIndex);
+            var items = DisplayItems;
+            if (items.Count > 0)
+            {
+                previewIndex = Math.Min(previewIndex, items.Count - 1);
+                await ShowPreviewAsync(previewIndex);
+            }
+            else
+            {
+                ClosePreview();
+            }
+        }
+    }
     private async Task DuplicateItem(int index)
     {
         if (IsFileMode)
