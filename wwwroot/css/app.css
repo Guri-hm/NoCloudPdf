@@ -186,44 +186,40 @@ code {
 .thumbnail-stack::before {
     content: '';
     position: absolute;
-    top: -4px;
+    top: -5px;
     /* 上に4pxずらす */
-    left: -4px;
+    left: -5px;
     /* 左に4pxずらす */
-    right: 4px;
+    right: 5px;
     /* 右端を4px狭める */
-    bottom: 4px;
+    bottom: 5px;
     /* 下は少しだけ */
     background: #f8f9fa;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    z-index: 1;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    z-index: -1;
 }
 
 .thumbnail-stack::after {
     content: '';
     position: absolute;
-    top: -8px;
+    top: -10px;
     /* 上に8pxずらす */
-    left: -8px;
+    left: -10px;
     /* 左に8pxずらす */
-    right: 8px;
+    right: 10px;
     /* 右端を8px狭める */
-    bottom: 8px;
+    bottom: 10px;
     /* 下は少しだけ */
     background: #f1f3f4;
     border: 1px solid #d1d5db;
-    border-radius: 6px;
-    z-index: 0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    z-index: -2;
 }
 
 /* ページ数バッジ */
 .page-count-badge {
     position: absolute;
-    top: -8px;
-    right: -8px;
+    top: 5px;
+    left: 5px;
     background: #dc2626;
     color: white;
     border-radius: 50%;
@@ -257,11 +253,14 @@ code {
     display: flex;
     flex-direction: column;
     align-items: center;
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.2s ease-in-out, background 0.2s;
+    border-radius: 5px;
 }
 
 .thumbnail-container:hover {
     transform: scale(1.05);
+    background: #e0f2fe;
+    border-radius: 5px;
 }
 
 /* ローディングアニメーション */
