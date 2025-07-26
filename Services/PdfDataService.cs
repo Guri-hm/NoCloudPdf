@@ -344,8 +344,59 @@ public class PdfDataService
         }
     }
 
+    public async Task ReloadPageAsync(string fileId, int pageIndex)
+    {
+        if (!_model.Files.TryGetValue(fileId, out var fileMetadata))
+            return;
+
+        var pageId = $"{fileId}_p{pageIndex}";
+        var pageItem = _model.Pages.FirstOrDefault(p => p.Id == pageId);
+        if (pageItem == null)
+            return;
+
+        try
+        {
+            pageItem.IsLoading = true;
+            pageItem.HasError = false;
+            pageItem.Thumbnail = "";
+            pageItem.PageData = "";
+            await InvokeOnChangeAsync();
+
+            string thumbnail = "";
+            string pageData = "";
+
+            if (pageIndex == 0)
+            {
+                thumbnail = fileMetadata.CoverThumbnail;
+                pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", fileMetadata.FileData, pageIndex);
+            }
+            else
+            {
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                thumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+            }
+
+            pageItem.Thumbnail = thumbnail;
+            pageItem.PageData = pageData;
+            pageItem.IsLoading = false;
+            pageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
+
+            await InvokeOnChangeAsync();
+        }
+        catch (Exception ex)
+        {
+            pageItem.IsLoading = false;
+            pageItem.HasError = true;
+            pageItem.Thumbnail = "";
+            pageItem.PageData = "";
+            await InvokeOnChangeAsync();
+            Console.WriteLine($"Error reloading page {pageIndex + 1} of {fileMetadata.FileName}: {ex.Message}");
+        }
+    }
+
     /// <summary>
-    /// アイテムの順序を変更（ドラッグ&ドロップ対応）
+    /// アイテムの順序を変更（ドラッグアンドドロップ対応）
     /// </summary>
     public void MoveItem(int fromIndex, int toIndex)
     {

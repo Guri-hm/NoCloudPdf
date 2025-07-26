@@ -204,8 +204,14 @@
                                     }
                                     else if (item.HasError)
                                     {
-                                        <div class="page-error w-full h-full">
-                                            読み込み<br />エラー
+                                        <div class="page-error w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-red-100 transition"
+                                            title="クリックで再読み込み"
+                                            @onclick="() => ReloadPageItem(item)">
+                                            <div class="text-red-700 font-bold text-base mb-1">読み込み<br />エラー</div>
+                                            <div class="flex items-center gap-1 text-blue-600 text-xs mt-1 underline">
+                                                <i class="fa-solid fa-rotate-right"></i>
+                                                再読み込み
+                                            </div>
                                         </div>
                                     }
                                     else if (!string.IsNullOrEmpty(item.Thumbnail))
@@ -270,7 +276,7 @@
                         </div>
                     }
 
-                    </div>
+                </div>
 
                 <!-- 追加エリアは別divとして配置 -->
                 <div class="flex flex-wrap gap-4">
@@ -285,15 +291,15 @@
                             </svg>
                         </button>
                     </div>
-    <div class="w-24 h-full flex items-center justify-center border-2 border-dashed border-blue-400 rounded-lg cursor-pointer hover:bg-blue-50 transition"
-        @onclick="OpenFileDialog">
-        <div class="flex flex-col items-center justify-center text-blue-500 p-4">
-            <i class="fa-thin fa-plus text-3xl mb-2"></i>
-            <span class="text-sm font-semibold">PDF，画像ファイルを追加</span>
-        </div>
-    </div>
+                    <div class="w-24 h-full flex items-center justify-center border-2 border-dashed border-blue-400 rounded-lg cursor-pointer hover:bg-blue-50 transition"
+                        @onclick="OpenFileDialog">
+                        <div class="flex flex-col items-center justify-center text-blue-500 p-4">
+                            <i class="fa-thin fa-plus text-3xl mb-2"></i>
+                            <span class="text-sm font-semibold">PDF，画像ファイルを追加</span>
+                        </div>
+                    </div>
                 </div>
-                </div>
+            </div>
             }
             else
             {
@@ -1580,6 +1586,21 @@ private async void ShowWarn(string msg)
         catch (Exception ex)
         {
             errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+        private async Task ReloadPageItem(DisplayItem item)
+    {
+        // ページ単位の場合のみ対応
+        if (item.RawData is PageItem pageItem)
+        {
+            pageItem.IsLoading = true;
+            pageItem.HasError = false;
+            StateHasChanged();
+
+            // ページ再読み込み（ファイルIDとページインデックスで再実行）
+            await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
+
             StateHasChanged();
         }
     }
