@@ -125,7 +125,8 @@ public class PdfDataService
                 HasError = hasError,
                 RawData = fileMetadata ?? new FileMetadata(), // nullの場合は空のFileMetadataを代入
                 PageCount = count,
-                ColorHsl = colorHsl
+                ColorHsl = colorHsl,
+                RotateAngle = firstPage.RotateAngle
             };
             result.Add(item);
 
@@ -150,7 +151,8 @@ public class PdfDataService
             HasError = page.HasError,
             RawData = page,
             PageCount = 1,
-            ColorHsl = page.ColorHsl
+            ColorHsl = page.ColorHsl,
+            RotateAngle = page.RotateAngle,
         }).ToList();
     }
 
@@ -184,7 +186,8 @@ public class PdfDataService
                 FileData = fileData,
                 PageCount = pageCount,
                 CoverThumbnail = coverThumbnail,
-                IsFullyLoaded = false // バックグラウンド読み込み開始前
+                IsFullyLoaded = false, // バックグラウンド読み込み開始前
+
             };
             _model.Files[fileId] = fileMetadata;
 
@@ -760,29 +763,10 @@ public class PdfDataService
             }
 
             var pageItem = _model.Pages[index];
+            // ここでデータ自体は変更せず、回転角度だけを更新
+            pageItem.RotateAngle = (pageItem.RotateAngle + angle + 360) % 360;
 
-            // JavaScriptでページを指定角度回転
-            var rotatedPageData = await _jsRuntime.InvokeAsync<string>("rotatePDFPage", pageItem.PageData, angle);
-            if (string.IsNullOrEmpty(rotatedPageData))
-            {
-                Console.WriteLine("Failed to rotate page data");
-                return false;
-            }
-
-            // 回転後のサムネイルを生成
-            var rotatedThumbnail = await _jsRuntime.InvokeAsync<string>("renderSinglePDFPage", rotatedPageData);
-            if (string.IsNullOrEmpty(rotatedThumbnail))
-            {
-                Console.WriteLine("Failed to generate rotated thumbnail");
-                return false;
-            }
-
-            // ページアイテムを更新
-            pageItem.PageData = rotatedPageData;
-            pageItem.Thumbnail = rotatedThumbnail;
-            pageItem.IsLoading = false;
-            pageItem.HasError = false;
-
+            await InvokeOnChangeAsync();
             return true;
         }
         catch (Exception ex)

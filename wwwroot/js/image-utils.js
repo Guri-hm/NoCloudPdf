@@ -18,3 +18,22 @@ window.rotateImage = async function (imageUrl) {
 
     return canvas.toDataURL('image/png');
 };
+window.drawImageToCanvas = function (canvasId, imageUrl) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const img = new window.Image();
+    img.onload = function () {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 枠いっぱいにアスペクト比を保って描画
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const drawWidth = img.width * scale;
+        const drawHeight = img.height * scale;
+        ctx.drawImage(img,
+            (canvas.width - drawWidth) / 2,
+            (canvas.height - drawHeight) / 2,
+            drawWidth, drawHeight);
+    };
+    img.src = imageUrl;
+};

@@ -21,8 +21,8 @@
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                                                                                                rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
+                                                                                                                                                                                                                                                                                            @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                                                                                                                            rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
                         @onclick="SwitchToFileMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -35,8 +35,8 @@
                     </button>
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                                @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                                                                                                rounded-e-lg h-full flex items-center gap-2"
+                                                                                                                                                                                                                                                                                            @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                                                                                                                            rounded-e-lg h-full flex items-center gap-2"
                         @onclick="SwitchToPageMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -177,6 +177,12 @@
                         <div class="thumbnail-item relative group thumbnail-container">
                             @{
                                 var isMultiPage = IsFileMode && item.PageInfo.Contains("ページ");
+                                int angle = item.RotateAngle % 360;
+                                // scale計算
+                                double scale = (angle == 90 || angle == 270)
+                                    ? Math.Min(96.0 / 128.0, 128.0 / 96.0) // 横長時
+                                    : 1.0; // 縦長時
+                                string transform = $"rotate({angle}deg) scale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
                             }
 
                             <!-- サムネイル画像部分 -->
@@ -194,9 +200,15 @@
                                 }
                                 else if (!string.IsNullOrEmpty(item.Thumbnail))
                                 {
-                                    <img src="@item.Thumbnail"
+                                    @* <img src="@item.Thumbnail"
                                         class="max-w-full max-h-full object-contain border border-gray-200 @(IsPageMode ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
-                                        draggable="false" />
+                                        draggable="false" /> *@
+                                    <canvas id="thumb-@item.Id"
+                                        class="w-full h-full object-contain border border-gray-200 @(IsPageMode ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
+                                        draggable="false"
+                                        width="96" height="128"
+                                        tabindex="-1"
+                                        style="transform: @transform;"  />
                                 }
 
                                 @if (isMultiPage && item.PageInfo.Contains("ページ"))
@@ -887,14 +899,13 @@
     }
 
     // 回転処理
-    private async Task RotatePage(int index)
+    private async Task RotatePage(int index, int angle = 90)
     {
         if (index >= 0 && index < DisplayItems.Count)
         {
             try
             {
-                // 統一データサービスを使用して回転
-                await PdfDataService.RotateItemAsync(index);
+                await PdfDataService.RotateItemAsync(index, angle);
                 StateHasChanged();
             }
             catch (Exception ex)
@@ -1235,17 +1246,30 @@
         }
         StateHasChanged();
     }
-    protected override void OnAfterRender(bool firstRender)
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _currentInstance = this;
         }
 
+        if (IsFilesLoaded && DisplayItems.Any())
+        {
+            foreach (var item in DisplayItems)
+            {
+                await JSRuntime.InvokeVoidAsync(
+                "drawImageToCanvas",
+                $"thumb-{item.Id}",
+                item.Thumbnail
+                );
+            }
+        }
+
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
         if (IsFilesLoaded && DisplayItems.Any())
         {
-            InvokeAsync(async () =>
+            await InvokeAsync(async () =>
             {
                 try
                 {
