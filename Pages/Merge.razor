@@ -868,6 +868,14 @@
             // 1. PageItemリストを取得
             var mergeItems = PdfDataService.GetModel().Pages;
 
+            // 準備できていないページがある場合はローディング画面を表示して待機
+            var notReady = mergeItems.Any(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            if (notReady)
+            {
+                errorMessage = "PDFの読み込みが完了していないページがあります。";
+                return;
+            }
+
             if (mergeItems.Count == 0)
             {
                 errorMessage = "結合対象がありません。";

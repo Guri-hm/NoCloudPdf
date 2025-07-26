@@ -45,7 +45,6 @@ window.mergePDFPages = async function (pdfPageDataList) {
             throw new Error(`Unsupported pageData type at index ${i}: ${typeof pageData}`);
         }
 
-
         try {
             const pdfDoc = await PDFDocument.load(bytes);
             const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
