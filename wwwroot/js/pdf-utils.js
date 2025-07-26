@@ -659,3 +659,99 @@ window.generatePreviewImage = async function (pdfBase64) {
     // 画像品質を調整（例: JPEG, quality: 0.85）
     return canvas.toDataURL('image/jpeg', 0.85);
 };
+window.getPdfFileSize = async function (url) {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    // サイズをMB表記
+    const sizeMB = (blob.size / (1024 * 1024)).toFixed(2) + "MB";
+    return sizeMB;
+};
+
+window.downloadFileFromUrl = function (url, filename, mimeType) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.type = mimeType || 'application/octet-stream';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+window.downloadMergedPngOrZip = async function (pdfUrl, baseFileName, pageCount) {
+    async function ensureJsZipLoaded() {
+        if (!window.JSZip) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+    }
+    await ensureJsZipLoaded();
+    // PDF.jsとJSZipが必要です
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    if (!pdfjsLib) {
+        alert('PDF.jsがロードされていません');
+        return;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+
+    const response = await fetch(pdfUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    if (pageCount <= 1) {
+        // 1ページのみPNGでダウンロード
+        const page = await pdf.getPage(1);
+        const canvas = document.createElement('canvas');
+        const viewport = page.getViewport({ scale: 2 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        canvas.toBlob(blob => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = baseFileName.replace(/\.pdf$/i, '.png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }, 'image/png');
+    } else {
+        // 複数ページ: ZIPでダウンロード
+        if (!window.JSZip) {
+            alert('JSZipがロードされていません');
+            return;
+        }
+        const zip = new window.JSZip();
+        for (let i = 1; i <= pageCount; i++) {
+            const page = await pdf.getPage(i);
+            const canvas = document.createElement('canvas');
+            const viewport = page.getViewport({ scale: 2 });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            const dataUrl = canvas.toDataURL('image/png');
+            zip.file(`page${i}.png`, dataUrl.split(',')[1], { base64: true });
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = baseFileName.replace(/\.pdf$/i, '.zip');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+};
+window.registerOutsideClickForDownloadMenu = function (menuId, dotNetRef) {
+    function handler(e) {
+        const menu = document.getElementById(menuId);
+        if (menu && !menu.contains(e.target)) {
+            dotNetRef.invokeMethodAsync('CloseDownloadMenu');
+            document.removeEventListener('mousedown', handler);
+        }
+    }
+    setTimeout(() => { // メニュー表示直後のクリックを防ぐ
+        document.addEventListener('mousedown', handler);
+    }, 100);
+};

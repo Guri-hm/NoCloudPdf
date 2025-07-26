@@ -201,3 +201,4 @@ window.registerOutsideClick = (elementId, dotnetHelper) => {
     }
     document.addEventListener('mousedown', handler);
 };
+

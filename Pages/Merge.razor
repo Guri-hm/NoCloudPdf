@@ -11,7 +11,8 @@
 
 <PageTitle>Merge</PageTitle>
 
-
+@if (!showMergedResult)
+{
 <div id="drop-area" class="relative min-h-screen">
     <div class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(isDragOver ? "opacity-100" : "opacity-0")">
         <div class="w-full h-full bg-gray-700/70 rounded-2xl border-4 border-dashed border-blue-400 flex items-center justify-center transition-all duration-200
@@ -399,32 +400,144 @@
         </div>
     }
 </div>
-
+}
 @if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
 {
-    <!-- 結果表示モード -->
-    <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
-        <div class="flex items-center justify-between px-4 py-2">
-            <span class="text-lg font-semibold">結合結果</span>
-            <div class="flex gap-2">
-                <button class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-4 rounded-lg"
-                    @onclick="BackToEdit">
-                    編集に戻る
-                </button>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg" @onclick="StartNew">
-                    新規作成
-                </button>
-            </div>
+    <!-- PC: 横並び, タブレット以下: 縦並び -->
+    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50" style="height: 4rem;">
+        <div class="flex items-center px-4 py-2 h-16">
+            <button
+                class="px-4 py-1 font-bold focus:outline-none transition text-white bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center gap-2"
+                @onclick="BackToEdit">
+                <i class="fa-solid fa-arrow-left"></i>
+                編集に戻る
+            </button>
         </div>
     </div>
 
-    <div class="pt-16">
-        <div class="p-6">
-            <iframe src="@mergedPdfUrl" class="w-full h-screen border-none" style="min-height: 800px;">
-                お使いのブラウザはPDFの表示をサポートしていません。
-                <a href="@mergedPdfUrl" target="_blank">こちらをクリック</a>してPDFを開いてください。
-            </iframe>
+    <!-- メインエリア -->
+    <div class="h-screen overflow-hidden"  style="height: calc(100vh - 4rem);">
+        <div class="flex flex-col md:flex-row h-full">
+            <!-- PDFプレビュー -->
+            <div class="flex-1 h-full bg-neutral-100 overflow-hidden">
+                <iframe src="@mergedPdfUrl"
+                        class="w-full h-full border-none"
+                        style="height: 100%; min-height: 0;">
+                    お使いのブラウザはPDFの表示をサポートしていません。
+                    <a href="@mergedPdfUrl" target="_blank">こちらをクリック</a>してPDFを開いてください。
+                </iframe>
+            </div>
+            <!-- 情報パネル（PCのみ表示） -->
+            <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <span>完了</span>
+                    </div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
+                    <div class="text-gray-600 text-sm">ページ数: @mergedPageCount</div>
+                    <div class="relative w-full mt-4">
+                        <div class="flex w-full">
+                            <!-- メインボタン -->
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
+                                    @onclick="DownloadMergedPdf">
+                                ダウンロード
+                            </button>
+                            <!-- ドロップダウンボタン -->
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
+                                    @onclick="() => showDownloadMenu = !showDownloadMenu">
+                                <i class="fa-solid fa-caret-down"></i>
+                            </button>
+                        </div>
+                        @if (showDownloadMenu)
+                        {
+                            <div id="downloadMenu" class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
+                                        @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
+                                    PDFでダウンロード
+                                </button>
+                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
+                                        @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
+                                    PNG画像でダウンロード
+                                </button>
+                            </div>
+
+                        }
+                    </div>
+                    <button class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="StartNew">
+                        <i class="fa-solid fa-rotate-right mr-2"></i>
+                        新規作成
+                    </button>
+                </div>
+            </div>
         </div>
+        <!-- タブレット/スマホ用: 下部スライドアップメニュー -->
+        <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
+            <div class="@($"transition-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 { (isMenuOpen ? "translate-y-0" : "translate-y-full") }")"
+                 style="will-change: transform;">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <span>完了</span>
+                    </div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
+                    <div class="text-gray-600 text-sm">ページ数: @mergedPageCount</div>
+<div class="relative w-full mt-4">
+                <div class="flex w-full">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
+                            @onclick="DownloadMergedPdf">
+                        ダウンロード
+                    </button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
+                            @onclick="() => showDownloadMenu = !showDownloadMenu">
+                        <i class="fa-solid fa-caret-down"></i>
+                    </button>
+                </div>
+                @if (showDownloadMenu)
+                {
+                    <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                        <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
+                                @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
+                            PDFでダウンロード
+                        </button>
+                        <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
+                                @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
+                            PNG画像でダウンロード
+                        </button>
+                    </div>
+                }
+            </div>
+            <button class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                @onclick="StartNew">
+                <i class="fa-solid fa-rotate-right mr-2"></i>
+                新規作成
+            </button>
+                </div>
+                <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <!-- 展開ボタン -->
+            @if (!isMenuOpen)
+            {
+                <button
+                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition"
+                    style="min-width: 260px;"
+                    @onclick="() => isMenuOpen = true">
+                    <i class="fa-solid fa-check-circle text-green-600 text-2xl"></i>
+                    <span>完了</span>
+                    <i class="fa-solid fa-chevron-up ml-2"></i>
+                </button>
+            }
+        </div>
+        <!-- メニュー展開時はPDFのスクロールを禁止 -->
+        @if (isMenuOpen)
+        {
+            <div class="fixed inset-0 bg-black/30 z-[199]" style="touch-action:none;" @onclick="() => isMenuOpen = false"></div>
+        }
     </div>
 }
 @if (isBusy)
@@ -499,7 +612,12 @@
     // プレビュー中のファイル内で、何ページ目を表示しているか
     private int filePageIndex = 0;
     private DotNetObjectReference<Merge>? _dotNetRef;
-        private bool isDragOver = false;
+    private bool isDragOver = false;
+    private bool isMenuOpen = false;
+    private string mergedFileName = ""; 
+    private string mergedFileSize = ""; 
+    private int mergedPageCount = 0;
+    private bool showDownloadMenu = false;
     private int GetCurrentFilePageIndex()
     {
         if (!IsFileMode || previewIndex < 0 || previewIndex >= DisplayItems.Count)
@@ -734,18 +852,26 @@
         });
     }
 
+    public class MergePageDto
+    {
+        public string FileId { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string PageData { get; set; } = "";
+        public bool IsPdf { get; set; }
+        public int RotateAngle { get; set; }
+    }
     // PDF結合処理
     private async Task MergePDFs()
     {
         try
         {
-            Console.WriteLine("=== PDF結合開始 ===");
+            // 1. PageItemリストを取得
+            var mergeItems = PdfDataService.GetModel().Pages;
 
-            var mergeData = PdfDataService.GetMergeData();
-            if (mergeData.Count == 0)
+            if (mergeItems.Count == 0)
             {
-                errorMessage = "No PDF files to merge.";
-                Console.WriteLine("No files selected.");
+                errorMessage = "結合対象がありません。";
+                Console.WriteLine("No items selected.");
                 return;
             }
 
@@ -753,19 +879,32 @@
             isLoading = true;
             StateHasChanged();
 
-            // 並び替えられたページデータを使用してPDFを結合
+            // 2. JSに渡すためのデータを整形
+            var mergeData = mergeItems.Select(item => new MergePageDto
+            {
+                FileId = item.FileId,
+                FileName = item.FileName,
+                PageData = item.PageData,
+                IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
+                RotateAngle = item.RotateAngle % 360
+            }).ToList();
+
+            // 3. JSで結合処理
             mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
 
             if (!string.IsNullOrEmpty(mergedPdfUrl))
             {
-                // 結合成功：結果表示モードに切り替え
+                mergedFileName = $"merge_{DateTime.Now:yyyyMMddHHmm}.pdf";
+                mergedFileSize = await JSRuntime.InvokeAsync<string>("getPdfFileSize", mergedPdfUrl);
+                mergedPageCount = mergeItems.Count;
+
                 showMergedResult = true;
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            errorMessage = "An error occurred while merging PDFs. Please try again.";
+            errorMessage = "PDF/画像の結合中にエラーが発生しました。";
         }
         finally
         {
@@ -1307,7 +1446,14 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
             _dotNetRef = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("registerDropArea", "drop-area", _dotNetRef);
         }
-
+        if (showDownloadMenu)
+            {
+                await JSRuntime.InvokeVoidAsync(
+                    "registerOutsideClickForDownloadMenu",
+                    "downloadMenu",
+                    DotNetObjectReference.Create(this)
+                );
+            }
         if (IsFilesLoaded && DisplayItems.Any())
         {
             foreach (var item in DisplayItems)
@@ -1343,5 +1489,52 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
     {
         isDragOver = over;
         StateHasChanged();
+    }
+    [JSInvokable]
+    public void CloseDownloadMenu()
+    {
+        showDownloadMenu = false;
+        StateHasChanged();
+    }
+    private async void DownloadMergedPdf()
+    {
+        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
+            return;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync(
+                "downloadFileFromUrl",
+                mergedPdfUrl,
+                mergedFileName,
+                "application/pdf"
+            );
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"PDFのダウンロードに失敗しました: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+    private async void DownloadMergedPng()
+    {
+        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
+        return;
+
+        try
+        {
+            // JSでPNGまたはZIPダウンロードを実行
+            await JSRuntime.InvokeVoidAsync(
+                "downloadMergedPngOrZip",
+                mergedPdfUrl,
+                mergedFileName,
+                mergedPageCount // ページ数
+            );
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
+            StateHasChanged();
+        }
     }
 }
