@@ -77,6 +77,8 @@ window.mergePDFPages = async function (pdfPageDataList) {
 };
 
 window.renderPDFPages = async function (pdfData) {
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
     const loadingTask = pdfjsLib.getDocument({ data: pdfData });
     const pdf = await loadingTask.promise;
@@ -137,6 +139,12 @@ window.renderFirstPDFPage = async function (pdfData) {
         const pdfjsLib = window['pdfjs-dist/build/pdf'];
         if (!pdfjsLib) {
             throw new Error('PDF.js library not loaded');
+        }
+
+        if (pdfjsLib.GlobalWorkerOptions) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        } else if (pdfjsLib.workerSrc) {
+            pdfjsLib.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
         }
 
         if (uint8Array.length < 1024) {
@@ -233,6 +241,9 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
             throw new Error('PDF.js library not loaded');
         }
 
+        if (pdfjsLib.GlobalWorkerOptions) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        }
 
         const loadingOptions = [
             {
@@ -349,6 +360,14 @@ window.getPDFPageCount = async function (pdfData) {
             uint8Array = new Uint8Array(pdfData);
         }
 
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        if (!pdfjsLib) {
+            throw new Error('PDF.js library not loaded');
+        }
+
+        if (pdfjsLib.GlobalWorkerOptions) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        }
 
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
@@ -517,7 +536,8 @@ window.rotatePDFPage = async function (pageData, angle) {
 
 // 非同期でページごとにサムネイルを生成する関数
 window.renderPDFPagesAsync = async function (pdfData, dotNetRef) {
-
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
     try {
         const loadingTask = pdfjsLib.getDocument({ data: pdfData });
@@ -593,6 +613,8 @@ window.createBlankPage = async function () {
 // 単一PDFページをレンダリング
 window.renderSinglePDFPage = async function (pdfData) {
     try {
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
         // base64文字列をUint8Arrayに変換
         const binaryString = atob(pdfData);
@@ -690,6 +712,7 @@ window.downloadMergedPngOrZip = async function (pdfUrl, baseFileName, pageCount)
         alert('PDF.jsがロードされていません');
         return;
     }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
     const response = await fetch(pdfUrl);
     const arrayBuffer = await response.arrayBuffer();
