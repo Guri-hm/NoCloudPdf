@@ -1,3 +1,4 @@
+// ファイルドロップによる追加
 window.registerDropArea = function (elementId, dotNetRef) {
     const area = document.getElementById(elementId);
     if (!area) return;
@@ -25,6 +26,8 @@ window.registerDropArea = function (elementId, dotNetRef) {
     });
 };
 
+// ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+// 並び替え
 window.initializeDragDrop = function () {
     const dropZone = document.getElementById('drop-zone');
     if (!dropZone) return;
