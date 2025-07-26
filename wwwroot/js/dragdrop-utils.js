@@ -32,6 +32,51 @@ window.registerDropArea = function (elementId, dotNetRef) {
     });
 };
 
+window.registerSelectDropArea = function (dotNetRef) {
+    console.log('registerSelectDropArea called');
+    const area = document.getElementById('select-drop-area');
+    if (!area) return;
+    // 既に登録済みなら一度解除
+    area.ondragover = null;
+    area.ondragleave = null;
+    area.ondrop = null;
+    area.onpaste = null;
+    // 再登録
+    area.ondragover = e => { e.preventDefault(); area.classList.add('ring', 'ring-blue-400'); };
+    area.ondragleave = e => { area.classList.remove('ring', 'ring-blue-400'); };
+    area.ondrop = e => {
+        e.preventDefault();
+        area.classList.remove('ring', 'ring-blue-400');
+        if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+            // Blazor InputFileを使わず、JSからbase64で渡す場合
+            Array.from(e.dataTransfer.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function (evt) {
+                    const base64 = evt.target.result.split(',')[1];
+                    dotNetRef.invokeMethodAsync('OnJsFileDropped', file.name, file.type, base64);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    };
+
+    // ペースト
+    area.onpaste = e => {
+        if (e.clipboardData && e.clipboardData.files.length > 0) {
+            Array.from(e.clipboardData.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function (evt) {
+                    const base64 = evt.target.result.split(',')[1];
+                    dotNetRef.invokeMethodAsync('OnJsFileDropped', file.name, file.type, base64);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    };
+
+};
+
+
 // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 // 並び替え
 window.initializeDragDrop = function () {
