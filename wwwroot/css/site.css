@@ -1087,6 +1087,9 @@ input[type=number] {
   .animate-spin {
     animation: var(--animate-spin);
   }
+  .cursor-pointer {
+    cursor: pointer;
+  }
   .resize {
     resize: both;
   }
@@ -1287,12 +1290,19 @@ input[type=number] {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 4px;
   }
+  .border-dashed {
+    --tw-border-style: dashed;
+    border-style: dashed;
+  }
   .border-none {
     --tw-border-style: none;
     border-style: none;
   }
   .border-black {
     border-color: var(--color-black);
+  }
+  .border-blue-400 {
+    border-color: var(--color-blue-400);
   }
   .border-blue-600 {
     border-color: var(--color-blue-600);

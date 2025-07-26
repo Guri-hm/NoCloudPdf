@@ -139,11 +139,12 @@
 
     <!-- サムネイル編集エリア -->
     <div class="pt-16">
-        <div id="sortable-container" class="flex flex-wrap gap-4 p-6">
-            @if (DisplayItems != null && DisplayItems.Any())
-            {
-                @for (int i = 0; i < DisplayItems.Count; i++)
-                {
+        @if (DisplayItems != null && DisplayItems.Any())
+        {
+                <div class="flex flex-wrap gap-4 p-6">
+                    <div id="sortable-container" class="flex flex-wrap gap-4">
+                    @for (int i = 0; i < DisplayItems.Count; i++)
+                    {
                     var index = i;
                     var item = DisplayItems[index];
 
@@ -260,8 +261,12 @@
                     </div>
                 }
 
+                </div>
+
+            <!-- 追加エリアは別divとして配置 -->
+            <div class="flex flex-wrap gap-4">
                 <!-- 最後尾の固定＋ボタン -->
-                <div class="non-sortable flex items-center relative insert-button-container"
+                <div class="flex items-center relative insert-button-container"
                     data-position="@DisplayItems.Count">
                     <button
                         class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
@@ -271,29 +276,28 @@
                         </svg>
                     </button>
                 </div>
-            }
-            else
-            {
-                <!-- サムネイルが0個の場合は最初の＋ボタンのみ -->
-                <div class="flex items-center relative insert-button-container" data-position="0">
-                    <button
-                        class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
-                        data-position="0" @onclick="@((e) => HandleInsertButtonClick(0, e))">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
-                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                        </svg>
-                    </button>
-                </div>
-                <!-- 初期状態：ファイル選択を促すメッセージ -->
-                <div class="w-full text-center py-20">
-                    <p class="text-neutral-500 text-lg mb-4">PDFファイルを選択してください</p>
-                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
-                        @onclick="OpenFileDialog">
-                        ファイルを選択
-                    </button>
-                </div>
-            }
-        </div>
+<div class="w-24 h-full flex items-center justify-center border-2 border-dashed border-blue-400 rounded-lg cursor-pointer hover:bg-blue-50 transition"
+    @onclick="OpenFileDialog">
+    <div class="flex flex-col items-center justify-center text-blue-500 p-4">
+        <i class="fa-thin fa-plus text-3xl mb-2"></i>
+        <span class="text-sm font-semibold">PDF，画像ファイルを追加</span>
+    </div>
+</div>
+            </div>
+            </div>
+        }
+        else
+        {
+            <!-- 初期状態：ファイル選択を促すメッセージ -->
+            <div class="w-full text-center py-20">
+                <p class="text-neutral-500 text-lg mb-4">PDFファイルを選択してください</p>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
+                    @onclick="OpenFileDialog">
+                    ファイルを選択
+                </button>
+            </div>
+        }
+
     </div>
 }
 @if (previewIndex >= 0)
