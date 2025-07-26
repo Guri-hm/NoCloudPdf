@@ -27,16 +27,12 @@ function base64ToUint8Array(base64) {
 
 // 結合
 window.mergePDFPages = async function (pdfPageDataList) {
-    const { PDFDocument } = PDFLib;
+    const { PDFDocument, degrees } = PDFLib;
     const mergedPdf = await PDFDocument.create();
 
     for (let i = 0; i < pdfPageDataList.length; i++) {
-        let pageData = pdfPageDataList[i];
-
-        // オブジェクトなら .pageData を使う
-        if (typeof pageData === 'object' && pageData !== null && 'pageData' in pageData) {
-            pageData = pageData.pageData;
-        }
+        let pageInfo = pdfPageDataList[i];
+        let pageData = pageInfo.pageData;
 
         let bytes;
         if (typeof pageData === 'string') {
@@ -49,14 +45,21 @@ window.mergePDFPages = async function (pdfPageDataList) {
             throw new Error(`Unsupported pageData type at index ${i}: ${typeof pageData}`);
         }
 
-        try {
 
+        try {
             const pdfDoc = await PDFDocument.load(bytes);
             const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
+
+            // 回転値が指定されていれば反映
+            if (typeof pageInfo === 'object' && pageInfo.rotateAngle && pageInfo.rotateAngle % 360 !== 0) {
+                page.setRotation(degrees(pageInfo.rotateAngle));
+                console.log(`→ setRotation(${pageInfo.rotateAngle}) 実行`);
+            }
+
             mergedPdf.addPage(page);
         } catch (error) {
             console.error(`Error at mergePDFPages index=${i}:`, error, pageData);
-            throw error; // ここで止めるとどのデータが原因か分かる
+            throw error;
         }
     }
 
