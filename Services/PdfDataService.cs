@@ -962,4 +962,61 @@ public class PdfDataService
         }
     }
 
+    public async Task<bool> InsertImageFileAsync(int insertPosition, string fileName, byte[] fileData)
+    {
+        try
+        {
+            var fileId = $"{fileName}_{DateTime.Now.Ticks}";
+            string base64 = Convert.ToBase64String(fileData);
+            string ext = Path.GetExtension(fileName).ToLowerInvariant();
+
+            string mime = ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".webp" => "image/webp",
+                ".svg" => "image/svg+xml",
+                _ => "application/octet-stream"
+            };
+            string dataUrl = $"data:{mime};base64,{base64}";
+
+            var fileMetadata = new FileMetadata
+            {
+                FileId = fileId,
+                FileName = fileName,
+                FileData = fileData,
+                PageCount = 1,
+                CoverThumbnail = dataUrl,
+                IsFullyLoaded = true
+            };
+            _model.Files[fileId] = fileMetadata;
+
+            var pageItem = new PageItem
+            {
+                Id = $"{fileId}_p0",
+                FileId = fileId,
+                FileName = fileName,
+                OriginalPageIndex = 0,
+                Thumbnail = dataUrl,
+                PageData = dataUrl,
+                IsLoading = false,
+                HasError = false,
+                ColorHsl = GenerateColorHsl(fileId)
+            };
+            // ここだけ違う
+            var safePosition = Math.Min(insertPosition, _model.Pages.Count);
+            _model.Pages.Insert(safePosition, pageItem);
+
+            await InvokeOnChangeAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error inserting image file {fileName}: {ex.Message}");
+            return false;
+        }
+    }
+
 }

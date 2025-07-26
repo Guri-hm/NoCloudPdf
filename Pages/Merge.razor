@@ -1158,51 +1158,64 @@
 
     // 挿入用ファイル選択処理
     private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
+{
+    if (e.FileCount > 0 && insertPosition >= 0)
     {
-        if (e.FileCount > 0 && insertPosition >= 0)
+        try
         {
-            try
+            var model = PdfDataService.GetModel();
+            var file = e.GetMultipleFiles().First();
+
+            using var stream = file.OpenReadStream(52428800); // 50MB
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            var fileData = memoryStream.ToArray();
+
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+
+            int pageInsertPosition = insertPosition;
+            if (IsFileMode)
             {
-                // 挿入前のPageItemリストを出力
-                var model = PdfDataService.GetModel();
-                var file = e.GetMultipleFiles().First();
-
-                using var stream = file.OpenReadStream(52428800); // 50MB
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                var pdfData = memoryStream.ToArray();
-
-                // ファイル単位表示の場合、insertPositionはファイル単位のインデックス
-                // ページ単位の挿入位置に変換する必要がある
-                int pageInsertPosition = insertPosition;
-                if (IsFileMode)
+                pageInsertPosition = 0;
+                for (int i = 0; i < insertPosition && i < DisplayItems.Count; i++)
                 {
-                    // ファイル単位表示の場合、挿入位置は「何番目のファイルの後か」
-                    // そのファイルまでのページ数を合計してページ挿入位置に変換
-                    pageInsertPosition = 0;
-                    for (int i = 0; i < insertPosition && i < DisplayItems.Count; i++)
-                    {
-                        pageInsertPosition += DisplayItems[i].PageCount;
-                    }
+                    pageInsertPosition += DisplayItems[i].PageCount;
                 }
-
-                // 統一データサービスを使用してファイルを挿入
-                await PdfDataService.InsertPdfFileAsync(pageInsertPosition, file.Name, pdfData);
-                StateHasChanged();
-
-                insertPosition = -1; // リセット
-
-                // 挿入後のPageItemリストを出力
-                model = PdfDataService.GetModel();
             }
-            catch (Exception ex)
+
+            bool success = false;
+            if (PdfDataService.SupportedPdfExtensions.Contains(ext))
             {
-                Console.WriteLine($"Error inserting file: {ex.Message}");
-                errorMessage = $"ファイル挿入に失敗しました: {ex.Message}";
-                insertPosition = -1; // リセット
+                // PDFファイル挿入
+                await PdfDataService.InsertPdfFileAsync(pageInsertPosition, file.Name, fileData);
+                success = true;
             }
+            else if (PdfDataService.SupportedImageExtensions.Contains(ext))
+            {
+                // 画像ファイル挿入
+                await PdfDataService.InsertImageFileAsync(pageInsertPosition, file.Name, fileData);
+                success = true;
+            }
+            else
+            {
+                errorMessage = $"未対応のファイル形式です: {file.Name}";
+            }
+
+            if (success)
+            {
+                StateHasChanged();
+            }
+
+            insertPosition = -1; // リセット
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error inserting file: {ex.Message}");
+            errorMessage = $"ファイル挿入に失敗しました: {ex.Message}";
+            insertPosition = -1; // リセット
         }
     }
+}
     private Task ReverseOrder()
     {
         isBusy = true;
