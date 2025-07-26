@@ -21,13 +21,15 @@ main {
     align-items: center;
 }
 
-.top-row ::deep a, .top-row ::deep .btn-link {
+.top-row ::deep a,
+.top-row ::deep .btn-link {
     white-space: nowrap;
     margin-left: 1.5rem;
     text-decoration: none;
 }
 
-.top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
+.top-row ::deep a:hover,
+.top-row ::deep .btn-link:hover {
     text-decoration: underline;
 }
 
@@ -36,17 +38,19 @@ main {
     text-overflow: ellipsis;
 }
 
-@media (max-width: 640.98px) {
+/* --- （Tailwindのmd: 768px） --- */
+@media (max-width: 767.98px) {
     .top-row {
         justify-content: space-between;
     }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
+    .top-row ::deep a,
+    .top-row ::deep .btn-link {
         margin-left: 0;
     }
 }
 
-@media (min-width: 641px) {
+@media (min-width: 768px) {
     .page {
         flex-direction: row;
     }

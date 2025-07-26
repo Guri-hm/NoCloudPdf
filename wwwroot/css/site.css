@@ -7,10 +7,8 @@ body {
 h1:focus {
   outline: none;
 }
-.btn-primary {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+article {
+  background-color: #F5F5F5;
 }
 .btn:focus,
 .btn:active:focus,
@@ -961,6 +959,9 @@ input[type=number] {
   .ml-2 {
     margin-left: calc(var(--spacing) * 2);
   }
+  .ml-auto {
+    margin-left: auto;
+  }
   .block {
     display: block;
   }
@@ -1015,6 +1016,9 @@ input[type=number] {
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
+  .h-14 {
+    height: calc(var(--spacing) * 14);
+  }
   .h-16 {
     height: calc(var(--spacing) * 16);
   }
@@ -1063,6 +1067,9 @@ input[type=number] {
   .w-6 {
     width: calc(var(--spacing) * 6);
   }
+  .w-10 {
+    width: calc(var(--spacing) * 10);
+  }
   .w-12 {
     width: calc(var(--spacing) * 12);
   }
@@ -1102,11 +1109,14 @@ input[type=number] {
   .max-w-xs {
     max-width: var(--container-xs);
   }
+  .min-w-0 {
+    min-width: calc(var(--spacing) * 0);
+  }
+  .min-w-\[44px\] {
+    min-width: 44px;
+  }
   .min-w-\[120px\] {
     min-width: 120px;
-  }
-  .min-w-\[160px\] {
-    min-width: 160px;
   }
   .flex-1 {
     flex: 1;
@@ -1170,6 +1180,9 @@ input[type=number] {
   }
   .animate-spin {
     animation: var(--animate-spin);
+  }
+  .cursor-grab {
+    cursor: grab;
   }
   .cursor-pointer {
     cursor: pointer;
@@ -1462,6 +1475,9 @@ input[type=number] {
   .bg-blue-600 {
     background-color: var(--color-blue-600);
   }
+  .bg-gray-200 {
+    background-color: var(--color-gray-200);
+  }
   .bg-gray-300 {
     background-color: var(--color-gray-300);
   }
@@ -1546,6 +1562,9 @@ input[type=number] {
   }
   .px-8 {
     padding-inline: calc(var(--spacing) * 8);
+  }
+  .px-32 {
+    padding-inline: calc(var(--spacing) * 32);
   }
   .py-0 {
     padding-block: calc(var(--spacing) * 0);
@@ -1639,6 +1658,9 @@ input[type=number] {
   }
   .pb-5 {
     padding-bottom: calc(var(--spacing) * 5);
+  }
+  .pb-\[64px\] {
+    padding-bottom: 64px;
   }
   .text-center {
     text-align: center;
@@ -1745,6 +1767,9 @@ input[type=number] {
   .text-gray-200 {
     color: var(--color-gray-200);
   }
+  .text-gray-400 {
+    color: var(--color-gray-400);
+  }
   .text-gray-500 {
     color: var(--color-gray-500);
   }
@@ -1819,6 +1844,10 @@ input[type=number] {
   }
   .shadow {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-\[0_-4px_16px_-4px_rgba\(0\,0\,0\,0\.10\)\] {
+    --tw-shadow: 0 -4px 16px -4px var(--tw-shadow-color, rgba(0,0,0,0.10));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .shadow-lg {
@@ -1952,6 +1981,13 @@ input[type=number] {
       }
     }
   }
+  .hover\:text-blue-500 {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-blue-500);
+      }
+    }
+  }
   .hover\:text-blue-700 {
     &:hover {
       @media (hover: hover) {
@@ -2004,6 +2040,16 @@ input[type=number] {
   .md\:flex-row {
     @media (width >= 48rem) {
       flex-direction: row;
+    }
+  }
+  .md\:p-0 {
+    @media (width >= 48rem) {
+      padding: calc(var(--spacing) * 0);
+    }
+  }
+  .xl\:inline {
+    @media (width >= 80rem) {
+      display: inline;
     }
   }
 }

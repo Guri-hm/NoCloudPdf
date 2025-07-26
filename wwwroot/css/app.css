@@ -7,10 +7,9 @@ h1:focus {
     outline: none;
 }
 
-.btn-primary {
-    color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+article {
+    /* ホワイトスモーク */
+    background-color: #F5F5F5;
 }
 
 .btn:focus,
