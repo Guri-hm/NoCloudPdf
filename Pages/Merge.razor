@@ -1303,9 +1303,9 @@ private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
             else if (PdfDataService.SupportedImageExtensions.Contains(ext))
             {
                 if (insertPosition.HasValue)
-                    success = await PdfDataService.InsertImageFileAsync(insertPosition.Value, file.Name, fileData);
+                    success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData, insertPosition);
                 else
-                    success = await PdfDataService.AddImageFileAsync(file.Name, fileData);
+                    success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
             }
             else
             {

@@ -810,8 +810,7 @@ public class PdfDataService
         OnChange?.Invoke();
     }
 
-    // PdfDataService.cs
-    public async Task<bool> AddImageFileAsync(string fileName, byte[] fileData)
+    public async Task<bool> AddOrInsertImageFileAsync(string fileName, byte[] fileData, int? insertPosition = null)
     {
         try
         {
@@ -832,62 +831,8 @@ public class PdfDataService
             };
             string dataUrl = $"data:{mime};base64,{base64}";
 
-            // ファイルメタデータ
-            var fileMetadata = new FileMetadata
-            {
-                FileId = fileId,
-                FileName = fileName,
-                FileData = fileData,
-                PageCount = 1,
-                CoverThumbnail = dataUrl,
-                IsFullyLoaded = true
-            };
-            _model.Files[fileId] = fileMetadata;
-
-            // PageItem追加
-            var pageItem = new PageItem
-            {
-                Id = $"{fileId}_p0",
-                FileId = fileId,
-                FileName = fileName,
-                OriginalPageIndex = 0,
-                Thumbnail = dataUrl,
-                PageData = dataUrl, // 画像はそのままデータURL
-                IsLoading = false,
-                HasError = false,
-                ColorHsl = GenerateColorHsl(fileId)
-            };
-            _model.Pages.Add(pageItem);
-
-            await InvokeOnChangeAsync();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error adding image file {fileName}: {ex.Message}");
-            return false;
-        }
-    }
-
-    public async Task<bool> InsertImageFileAsync(int insertPosition, string fileName, byte[] fileData)
-    {
-        try
-        {
-            var fileId = $"{fileName}_{DateTime.Now.Ticks}";
-            string base64 = Convert.ToBase64String(fileData);
-            string ext = Path.GetExtension(fileName).ToLowerInvariant();
-
-            string mime = ext switch
-            {
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".png" => "image/png",
-                ".gif" => "image/gif",
-                ".bmp" => "image/bmp",
-                ".webp" => "image/webp",
-                ".svg" => "image/svg+xml",
-                _ => "application/octet-stream"
-            };
-            string dataUrl = $"data:{mime};base64,{base64}";
+            // 画像をPDF化
+            string pdfBase64 = await _jsRuntime.InvokeAsync<string>("embedImageAsPdf", base64, ext);
 
             var fileMetadata = new FileMetadata
             {
@@ -907,23 +852,29 @@ public class PdfDataService
                 FileName = fileName,
                 OriginalPageIndex = 0,
                 Thumbnail = dataUrl,
-                PageData = dataUrl,
+                PageData = pdfBase64,
                 IsLoading = false,
                 HasError = false,
                 ColorHsl = GenerateColorHsl(fileId)
             };
-            // ここだけ違う
-            var safePosition = Math.Min(insertPosition, _model.Pages.Count);
-            _model.Pages.Insert(safePosition, pageItem);
+
+            if (insertPosition.HasValue)
+            {
+                var safePosition = Math.Min(insertPosition.Value, _model.Pages.Count);
+                _model.Pages.Insert(safePosition, pageItem);
+            }
+            else
+            {
+                _model.Pages.Add(pageItem);
+            }
 
             await InvokeOnChangeAsync();
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error inserting image file {fileName}: {ex.Message}");
+            Console.WriteLine($"Error adding/inserting image file {fileName}: {ex.Message}");
             return false;
         }
     }
-
 }

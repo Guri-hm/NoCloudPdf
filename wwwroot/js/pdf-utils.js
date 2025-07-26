@@ -1,16 +1,25 @@
-window.mergePDFs = async function (pdfDataList) {
+window.embedImageAsPdf = async function (imageBase64, ext) {
     const { PDFDocument } = PDFLib;
-    const mergedPdf = await PDFDocument.create();
-
-    for (const pdfData of pdfDataList) {
-        const pdfDoc = await PDFDocument.load(new Uint8Array(pdfData));
-        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        copiedPages.forEach((page) => mergedPdf.addPage(page));
+    const pdfDoc = await PDFDocument.create();
+    let img;
+    const bytes = base64ToUint8Array(imageBase64);
+    if (ext.endsWith('.png')) {
+        img = await pdfDoc.embedPng(bytes);
+    } else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) {
+        img = await pdfDoc.embedJpg(bytes);
+    } else {
+        throw new Error('Unsupported image type');
     }
-
-    const mergedPdfBytes = await mergedPdf.save();
-    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
-    return URL.createObjectURL(blob);
+    const imgDims = img.scale(1);
+    const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
+    page.drawImage(img, { x: 0, y: 0, width: imgDims.width, height: imgDims.height });
+    const pdfBytes = await pdfDoc.save();
+    // base64エンコードして返す
+    let binary = '';
+    for (let i = 0; i < pdfBytes.length; i++) {
+        binary += String.fromCharCode(pdfBytes[i]);
+    }
+    return btoa(binary);
 };
 
 function base64ToUint8Array(base64) {
