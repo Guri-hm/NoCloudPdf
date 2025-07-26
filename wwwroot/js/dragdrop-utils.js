@@ -3,14 +3,20 @@ window.registerDropArea = function (elementId, dotNetRef) {
     const area = document.getElementById(elementId);
     if (!area) return;
 
-    area.addEventListener('dragover', function (e) {
-        e.preventDefault();
+    area.addEventListener('dragenter', function (e) {
+        if (window.isSorting) return;
         dotNetRef.invokeMethodAsync('SetDragOver', true);
     });
+    area.addEventListener('dragover', function (e) {
+        if (window.isSorting) return;
+        e.preventDefault();
+    });
     area.addEventListener('dragleave', function (e) {
+        if (window.isSorting) return;
         dotNetRef.invokeMethodAsync('SetDragOver', false);
     });
     area.addEventListener('drop', function (e) {
+        if (window.isSorting) return;
         e.preventDefault();
         dotNetRef.invokeMethodAsync('SetDragOver', false);
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {

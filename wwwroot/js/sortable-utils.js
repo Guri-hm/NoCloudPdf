@@ -1,4 +1,5 @@
 let sortableInstance = null;
+window.isSorting = false;
 
 window.initializeSortable = function () {
     const container = document.getElementById('sortable-container');
@@ -16,6 +17,7 @@ window.initializeSortable = function () {
 
             // ドラッグ開始時
             onStart: function (evt) {
+                window.isSorting = true;
                 console.log('=== DRAG START ===');
                 console.log('Dragging item:', evt.item);
                 console.log('From index:', evt.oldIndex);
@@ -75,6 +77,7 @@ window.initializeSortable = function () {
             },
 
             onEnd: function (evt) {
+                window.isSorting = false;
                 console.log('=== DRAG END ===');
                 console.log('Final oldIndex:', evt.oldIndex);
                 console.log('Final newIndex:', evt.newIndex);
