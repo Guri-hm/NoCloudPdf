@@ -110,9 +110,6 @@ code {
 .sortable-ghost {
   opacity: 0.4;
 }
-.sortable-chosen {
-  background-color: #f0f0f0;
-}
 .sortable-drag {
   opacity: 0.8;
 }
@@ -327,9 +324,6 @@ input[type=number] {
 }
 .hide-during-drag {
   visibility: hidden;
-}
-.sortable-chosen {
-  background-color: transparent;
 }
 .dragging-ghost {
   background-color: #e8f2ff;

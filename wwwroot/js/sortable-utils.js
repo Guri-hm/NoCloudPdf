@@ -16,7 +16,6 @@ window.initializeSortable = function () {
             filter: '.non-sortable',
             animation: 150,
             ghostClass: 'dragging-ghost',
-            dragClass: 'sortable-chosen',
             onStart: function (evt) {
                 document.querySelectorAll('.non-sortable').forEach(el => {
                     el.classList.add('hide-during-drag');
@@ -94,7 +93,6 @@ window.initializeSortable = function () {
             handle: '.drag-handle',
             animation: 150,
             ghostClass: 'dragging-ghost',
-            dragClass: 'sortable-chosen',
             onStart: function () {
                 window.isSorting = true;
             },

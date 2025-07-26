@@ -217,7 +217,7 @@
                                             class="max-w-full max-h-full object-contain border border-gray-200 @(IsPageMode ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
                                             draggable="false" /> *@
                                         <canvas id="thumb-@item.Id"
-                                            class="w-full h-full object-contain border border-gray-200 @(IsPageMode ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
+                                            class="w-full h-full object-contain border border-gray-200 bg-white @(IsPageMode ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
                                             draggable="false"
                                             width="96" height="128"
                                             tabindex="-1"
@@ -308,10 +308,23 @@
             </span>
             <!-- サムネイル -->
             <div class="w-10 h-14 flex items-center justify-center mr-2 cursor-pointer"
-                 @onclick="() => ShowPreviewAsync(index)">
+                @onclick="() => ShowPreviewAsync(index)">
+                @{
+                    int angle = item.RotateAngle % 360;
+                    // scale計算
+                    double scale = (angle == 90 || angle == 270)
+                        ? Math.Min(96.0 / 128.0, 128.0 / 96.0) // 横長時
+                        : 1.0; // 縦長時
+                    string transform = $"rotate({angle}deg) scale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
+                }
                 @if (!string.IsNullOrEmpty(item.Thumbnail))
                 {
-                    <img src="@item.Thumbnail" class="max-w-full max-h-full object-contain border border-gray-200 rounded" draggable="false" />
+                    <canvas id="thumb-@item.Id"
+                                            class="w-full h-full object-contain border border-gray-200 @(IsPageMode ? "thumbnail-loaded" : "")"
+                                            draggable="false"
+                                            width="96" height="128"
+                                            tabindex="-1"
+                                            style="transform: @transform;"  />
                 }
                 else
                 {
