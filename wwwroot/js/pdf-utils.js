@@ -646,30 +646,36 @@ window.renderSinglePDFPage = async function (pdfData) {
     }
 };
 
-window.generatePreviewImage = async function (pdfBase64) {
-    // PDF.jsなどでPDFを読み込み
-    // ここでは仮の例（PDF.jsのAPIに合わせて実装してください）
-    // 例: 1ページ目をcanvasで1200px幅でレンダリングし、base64画像として返す
+// 回転角度を指定してPDFプレビュー画像を生成
+window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
 
-    // PDF.jsのロード・初期化は省略
-    const pdfData = atob(pdfBase64);
-    const loadingTask = window.pdfjsLib.getDocument({ data: pdfData });
+    // base64文字列をUint8Arrayに変換
+    const binaryString = atob(pdfBase64);
+    const uint8Array = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+    }
+
+    // PDF読み込み
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
+    // 回転角度を反映したviewportを作成
     const scale = 2.0; // 高画質用スケール
-    const viewport = page.getViewport({ scale: scale });
+    const viewport = page.getViewport({ scale: scale, rotation: (rotateAngle || 0) });
 
+    // canvas生成・描画
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const context = canvas.getContext('2d');
-
     await page.render({ canvasContext: context, viewport: viewport }).promise;
 
-    // 画像品質を調整（例: JPEG, quality: 0.85）
+    // 画像データとして返す
     return canvas.toDataURL('image/jpeg', 0.85);
 };
+
 window.getPdfFileSize = async function (url) {
     const response = await fetch(url);
     const blob = await response.blob();

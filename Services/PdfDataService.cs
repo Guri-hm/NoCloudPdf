@@ -810,7 +810,7 @@ public class PdfDataService
         try
         {
             var previewImage = await _jsRuntime.InvokeAsync<string>(
-                "generatePreviewImage", pageItem.PageData);
+            "generatePreviewImage", pageItem.PageData, pageItem.RotateAngle);
             return previewImage;
         }
         catch
