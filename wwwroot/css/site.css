@@ -327,6 +327,23 @@ input[type=number] {
 .message-bar-anim {
   animation: message-bar-shrink 5s linear forwards;
 }
+.hide-during-drag {
+  visibility: hidden;
+}
+.sortable-chosen .insert-button-container {
+  display: none;
+}
+.dragging-ghost {
+  background-color: #e8f2ff;
+  color: transparent;
+  border: 2px dashed #ccc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
+  transition: all 0.2s ease;
+}
+.dragging-ghost * {
+  visibility: hidden;
+}
 @layer theme, base, components, utilities;
 @layer theme {
   :root, :host {
@@ -1604,9 +1621,6 @@ input[type=number] {
   }
   .pt-5 {
     padding-top: calc(var(--spacing) * 5);
-  }
-  .pt-16 {
-    padding-top: calc(var(--spacing) * 16);
   }
   .pb-0 {
     padding-bottom: calc(var(--spacing) * 0);

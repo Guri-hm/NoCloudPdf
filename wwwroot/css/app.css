@@ -396,4 +396,26 @@ input[type=number] {
     animation: message-bar-shrink 5s linear forwards;
 }
 
+.hide-during-drag {
+    visibility: hidden;
+}
+
+.sortable-chosen .insert-button-container {
+    display: none
+}
+
+.dragging-ghost {
+    background-color: #e8f2ff;
+    color: transparent;
+    border: 2px dashed #ccc;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: scale(1.05);
+    transition: all 0.2s ease;
+}
+
+/* 画像やアイコンなども非表示にしたい場合 */
+.dragging-ghost * {
+    visibility: hidden;
+}
+
 @import "tailwindcss";
