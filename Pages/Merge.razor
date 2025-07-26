@@ -11,6 +11,14 @@
 
 <PageTitle>Merge</PageTitle>
 
+
+<div id="drop-area" class="relative">
+    <div class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-50 transition-all duration-200 @(isDragOver ? "opacity-100" : "opacity-0")">
+        <div class="w-full h-full bg-gray-700/70 rounded-2xl border-4 border-dashed border-blue-400 flex items-center justify-center transition-all duration-200
+            @(isDragOver ? "scale-100" : "scale-70")">
+            <span class="text-white text-2xl font-bold">ここにファイルをドロップ</span>
+        </div>
+    </div>
 @if (IsFilesLoaded && !showMergedResult)
 {
     <!-- 上部固定バー（編集モード） -->
@@ -361,33 +369,6 @@
         </div>
     </div>
 }
-@if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
-{
-    <!-- 結果表示モード -->
-    <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
-        <div class="flex items-center justify-between px-4 py-2">
-            <span class="text-lg font-semibold">結合結果</span>
-            <div class="flex gap-2">
-                <button class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-4 rounded-lg"
-                    @onclick="BackToEdit">
-                    編集に戻る
-                </button>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg" @onclick="StartNew">
-                    新規作成
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div class="pt-16">
-        <div class="p-6">
-            <iframe src="@mergedPdfUrl" class="w-full h-screen border-none" style="min-height: 800px;">
-                お使いのブラウザはPDFの表示をサポートしていません。
-                <a href="@mergedPdfUrl" target="_blank">こちらをクリック</a>してPDFを開いてください。
-            </iframe>
-        </div>
-    </div>
-}
 @if (!IsFilesLoaded && !showMergedResult)
 {
     <!-- 初期画面：ファイル選択 -->
@@ -414,6 +395,34 @@
                     <p class="mt-4 text-neutral-600">読み込み中... @progress%</p>
                 </div>
             }
+        </div>
+    </div>
+}
+</div>
+@if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
+{
+    <!-- 結果表示モード -->
+    <div class="fixed top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
+        <div class="flex items-center justify-between px-4 py-2">
+            <span class="text-lg font-semibold">結合結果</span>
+            <div class="flex gap-2">
+                <button class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-4 rounded-lg"
+                    @onclick="BackToEdit">
+                    編集に戻る
+                </button>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg" @onclick="StartNew">
+                    新規作成
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="pt-16">
+        <div class="p-6">
+            <iframe src="@mergedPdfUrl" class="w-full h-screen border-none" style="min-height: 800px;">
+                お使いのブラウザはPDFの表示をサポートしていません。
+                <a href="@mergedPdfUrl" target="_blank">こちらをクリック</a>してPDFを開いてください。
+            </iframe>
         </div>
     </div>
 }
@@ -488,6 +497,8 @@
     // ファイル単位表示時のファイル内ページ番号（0始まり）
     // プレビュー中のファイル内で、何ページ目を表示しているか
     private int filePageIndex = 0;
+    private DotNetObjectReference<Merge>? _dotNetRef;
+        private bool isDragOver = false;
     private int GetCurrentFilePageIndex()
     {
         if (!IsFileMode || previewIndex < 0 || previewIndex >= DisplayItems.Count)
@@ -1212,11 +1223,88 @@ private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
         StateHasChanged();
     }
 
+
+
+private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
+{
+    isLoading = true;
+    progress = 0;
+    errorMessage = null;
+    const long maxFileSize = 52428800; // 50MB
+
+    foreach (var file in files)
+    {
+        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+        try
+        {
+            using var stream = file.OpenReadStream(maxFileSize);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            var fileData = memoryStream.ToArray();
+
+            bool success = false;
+            if (PdfDataService.SupportedPdfExtensions.Contains(ext))
+            {
+                success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, null);
+            }
+            else if (PdfDataService.SupportedImageExtensions.Contains(ext))
+            {
+                success = await PdfDataService.AddImageFileAsync(file.Name, fileData);
+            }
+            else
+            {
+                errorMessage = $"未対応のファイル形式です: {file.Name}";
+            }
+
+            if (!success)
+            {
+                errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
+        }
+    }
+
+    isLoading = false;
+    StateHasChanged();
+}
+
+[JSInvokable]
+    public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
+    {
+        var fileData = Convert.FromBase64String(base64Data);
+
+        bool success = false;
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        if (PdfDataService.SupportedPdfExtensions.Contains(ext))
+        {
+            success = await PdfDataService.AddOrInsertPdfFileAsync(fileName, fileData, null);
+        }
+        else if (PdfDataService.SupportedImageExtensions.Contains(ext))
+        {
+            success = await PdfDataService.AddImageFileAsync(fileName, fileData);
+        }
+        else
+        {
+            errorMessage = $"未対応のファイル形式です: {fileName}";
+        }
+
+        if (!success)
+        {
+            errorMessage = $"ファイルの処理に失敗しました: {fileName}";
+        }
+
+        StateHasChanged();
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _currentInstance = this;
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("registerDropArea", "drop-area", _dotNetRef);
         }
 
         if (IsFilesLoaded && DisplayItems.Any())
@@ -1248,5 +1336,11 @@ private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
                 }
             });
         }
+    }
+    [JSInvokable]
+    public void SetDragOver(bool over)
+    {
+        isDragOver = over;
+        StateHasChanged();
     }
 }
