@@ -21,8 +21,8 @@
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                    @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                                                                                    rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
+                                                                                                                                                                                                @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                                rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
                         @onclick="SwitchToFileMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -35,8 +35,8 @@
                     </button>
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                                                    @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                                                                                    rounded-e-lg h-full flex items-center gap-2"
+                                                                                                                                                                                                @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                                rounded-e-lg h-full flex items-center gap-2"
                         @onclick="SwitchToPageMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -720,40 +720,41 @@
         errorMessage = null;
         const long maxFileSize = 52428800; // 50MB
 
-        var fileCount = 0;
         foreach (var file in e.GetMultipleFiles())
         {
-            fileCount++;
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
             try
             {
                 using var stream = file.OpenReadStream(maxFileSize);
                 using var memoryStream = new MemoryStream();
-                var buffer = new byte[8192];
-                long totalBytesRead = 0;
-                int bytesRead;
+                await stream.CopyToAsync(memoryStream);
+                var fileData = memoryStream.ToArray();
 
-                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                if (PdfDataService.SupportedPdfExtensions.Contains(ext))
                 {
-                    await memoryStream.WriteAsync(buffer, 0, bytesRead);
-                    totalBytesRead += bytesRead;
-
-                    progress = (int)((totalBytesRead / (double)file.Size) * 100);
-                    StateHasChanged();
+                    // PDF処理
+                    var success = await PdfDataService.AddPdfFileAsync(file.Name, fileData);
+                    if (!success)
+                    {
+                        errorMessage = $"PDFファイルの処理に失敗しました: {file.Name}";
+                    }
                 }
-
-                var pdfData = memoryStream.ToArray();
-
-                // 統一データサービスを使用してファイルを追加
-                var success = await PdfDataService.AddPdfFileAsync(file.Name, pdfData);
-                if (!success)
+                else if (PdfDataService.SupportedImageExtensions.Contains(ext))
                 {
-                    Console.WriteLine($"Failed to add file {file.Name}");
-                    errorMessage = $"ファイル処理に失敗しました: {file.Name} - PDFファイルが破損しているか、サポートされていない形式の可能性があります。";
+                    // 画像処理
+                    var success = await PdfDataService.AddImageFileAsync(file.Name, fileData);
+                    if (!success)
+                    {
+                        errorMessage = $"画像ファイルの処理に失敗しました: {file.Name}";
+                    }
+                }
+                else
+                {
+                    errorMessage = $"未対応のファイル形式です: {file.Name}";
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing file {file.Name}: {ex.Message}");
                 errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
             }
         }

@@ -24,30 +24,17 @@ public class PdfDataService
     /// </summary>
     public UnifiedPdfModel GetModel() => _model;
 
+
+    // PdfDataService.cs など
+    public static readonly string[] SupportedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" };
+    public static readonly string[] SupportedPdfExtensions = new[] { ".pdf" };
+
     /// <summary>
     /// 表示モードを切り替え
     /// </summary>
     public void SwitchDisplayMode(DisplayMode mode)
     {
         _model.CurrentMode = mode;
-    }
-
-    /// <summary>
-    /// ページアイテムが存在することを確保（読み込み中状態でも即座に表示）
-    /// </summary>
-    private void EnsurePageItemsExist()
-    {
-        // 不要: ファイル追加時にページ数分のPageItemを生成するため、以降は何もしない
-    }
-
-    /// <summary>
-    /// 読み込み中状態のページアイテムを作成
-    /// </summary>
-    private void CreateLoadingPageItems(string fileId, FileMetadata fileMetadata)
-    {
-        // 不要: ファイル追加時にページ数分のPageItemを生成するため、以降は何もしない
-
-        Console.WriteLine($"Created {fileMetadata.PageCount} loading page items for {fileMetadata.FileName}");
     }
 
     /// <summary>
@@ -931,4 +918,64 @@ public class PdfDataService
             _model.Pages = _model.Pages.OrderByDescending(p => p.FileName).ToList();
         OnChange?.Invoke();
     }
+
+    // PdfDataService.cs
+    public async Task<bool> AddImageFileAsync(string fileName, byte[] fileData)
+    {
+        try
+        {
+            var fileId = $"{fileName}_{DateTime.Now.Ticks}";
+            string base64 = Convert.ToBase64String(fileData);
+            string ext = Path.GetExtension(fileName).ToLowerInvariant();
+
+            // サムネイル用データURL生成
+            string mime = ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".webp" => "image/webp",
+                ".svg" => "image/svg+xml",
+                _ => "application/octet-stream"
+            };
+            string dataUrl = $"data:{mime};base64,{base64}";
+
+            // ファイルメタデータ
+            var fileMetadata = new FileMetadata
+            {
+                FileId = fileId,
+                FileName = fileName,
+                FileData = fileData,
+                PageCount = 1,
+                CoverThumbnail = dataUrl,
+                IsFullyLoaded = true
+            };
+            _model.Files[fileId] = fileMetadata;
+
+            // PageItem追加
+            var pageItem = new PageItem
+            {
+                Id = $"{fileId}_p0",
+                FileId = fileId,
+                FileName = fileName,
+                OriginalPageIndex = 0,
+                Thumbnail = dataUrl,
+                PageData = dataUrl, // 画像はそのままデータURL
+                IsLoading = false,
+                HasError = false,
+                ColorHsl = GenerateColorHsl(fileId)
+            };
+            _model.Pages.Add(pageItem);
+
+            await InvokeOnChangeAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding image file {fileName}: {ex.Message}");
+            return false;
+        }
+    }
+
 }
