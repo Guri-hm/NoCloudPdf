@@ -1397,7 +1397,7 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
             }
             else if (PdfDataService.SupportedImageExtensions.Contains(ext))
             {
-                success = await PdfDataService.AddImageFileAsync(file.Name, fileData);
+                success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
             }
             else
             {
@@ -1432,7 +1432,7 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
         }
         else if (PdfDataService.SupportedImageExtensions.Contains(ext))
         {
-            success = await PdfDataService.AddImageFileAsync(fileName, fileData);
+            success = await PdfDataService.AddOrInsertImageFileAsync(fileName, fileData,null);
         }
         else
         {
