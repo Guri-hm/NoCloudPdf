@@ -21,8 +21,8 @@
                 <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                            @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                                                            rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
+                                                                                                                                                                                    @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                    rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
                         @onclick="SwitchToFileMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -35,8 +35,8 @@
                     </button>
                     <button
                         class="px-4 py-1 font-bold focus:outline-none transition
-                                                                                                                                                            @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                                                                                                                                            rounded-e-lg h-full flex items-center gap-2"
+                                                                                                                                                                                    @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
+                                                                                                                                                                                    rounded-e-lg h-full flex items-center gap-2"
                         @onclick="SwitchToPageMode">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                             class="w-5 h-5 mr-1">
@@ -181,26 +181,23 @@
 
                             <!-- サムネイル画像部分 -->
                             <div class="w-24 h-32 flex items-center justify-center">
-                                <div class="@(isMultiPage ? "thumbnail-stack" : "")">
 
-                                    @if (item.IsLoading)
-                                    {
-                                        <div class="page-loading w-24 h-32"></div>
-                                    }
-                                    else if (item.HasError)
-                                    {
-                                        <div class="page-error w-24 h-32">
-                                            読み込み<br />エラー
-                                        </div>
-                                    }
-                                    else if (!string.IsNullOrEmpty(item.Thumbnail))
-                                    {
-                                        <img src="@item.Thumbnail"
-                                            class="max-w-full max-h-full object-contain border border-neutral-300 @(IsPageMode ? "thumbnail-loaded" : "")"
-                                            draggable="false" />
-                                    }
-                                </div>
-
+                                @if (item.IsLoading)
+                                {
+                                    <div class="page-loading w-full h-full"></div>
+                                }
+                                else if (item.HasError)
+                                {
+                                    <div class="page-error w-full h-full">
+                                        読み込み<br />エラー
+                                    </div>
+                                }
+                                else if (!string.IsNullOrEmpty(item.Thumbnail))
+                                {
+                                    <img src="@item.Thumbnail"
+                                        class="max-w-full max-h-full object-contain border border-gray-200 @(IsPageMode ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
+                                        draggable="false" />
+                                }
 
                                 @if (isMultiPage && item.PageInfo.Contains("ページ"))
                                 {

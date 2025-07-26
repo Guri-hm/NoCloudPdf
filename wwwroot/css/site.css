@@ -152,37 +152,14 @@ code {
   position: relative;
   margin-left: 8px;
   margin-right: 8px;
-}
-.thumbnail-stack .stack-layer {
-  position: relative;
-  z-index: 3;
-}
-.thumbnail-stack::before {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: -5px;
-  right: 5px;
-  bottom: 5px;
-  background: #f8f9fa;
-  border: 1px solid #e5e7eb;
-  z-index: -1;
-}
-.thumbnail-stack::after {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: -10px;
-  right: 10px;
-  bottom: 10px;
-  background: #f1f3f4;
-  border: 1px solid #d1d5db;
-  z-index: -2;
+  box-shadow: 11.36px -11.36px 0px 0px #fff,
+        
+        11.36px -11.36px 0px 1px #e5e7eb;
 }
 .page-count-badge {
   position: absolute;
   top: 5px;
-  left: 5px;
+  right: -5px;
   background: #dc2626;
   color: white;
   border-radius: 50%;
@@ -370,7 +347,6 @@ input[type=number] {
     --color-gray-800: oklch(27.8% 0.033 256.848);
     --color-neutral-100: oklch(97% 0 0);
     --color-neutral-200: oklch(92.2% 0 0);
-    --color-neutral-300: oklch(87% 0 0);
     --color-neutral-500: oklch(55.6% 0 0);
     --color-neutral-600: oklch(43.9% 0 0);
     --color-neutral-800: oklch(26.9% 0 0);
@@ -1332,9 +1308,6 @@ input[type=number] {
   }
   .border-gray-500 {
     border-color: var(--color-gray-500);
-  }
-  .border-neutral-300 {
-    border-color: var(--color-neutral-300);
   }
   .border-white {
     border-color: var(--color-white);

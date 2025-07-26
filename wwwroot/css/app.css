@@ -169,57 +169,22 @@ code {
     cursor: move;
 }
 
-/* 複数ページファイル用のスタックエフェクト */
 .thumbnail-stack {
     position: relative;
     margin-left: 8px;
     margin-right: 8px;
     /* バッジのスペースを確保 */
-}
-
-.thumbnail-stack .stack-layer {
-    position: relative;
-    z-index: 3;
-}
-
-/* サムネイルスタックの重なりを左上方向に、同じ幅だけずらす */
-.thumbnail-stack::before {
-    content: '';
-    position: absolute;
-    top: -5px;
-    /* 上に4pxずらす */
-    left: -5px;
-    /* 左に4pxずらす */
-    right: 5px;
-    /* 右端を4px狭める */
-    bottom: 5px;
-    /* 下は少しだけ */
-    background: #f8f9fa;
-    border: 1px solid #e5e7eb;
-    z-index: -1;
-}
-
-.thumbnail-stack::after {
-    content: '';
-    position: absolute;
-    top: -10px;
-    /* 上に8pxずらす */
-    left: -10px;
-    /* 左に8pxずらす */
-    right: 10px;
-    /* 右端を8px狭める */
-    bottom: 10px;
-    /* 下は少しだけ */
-    background: #f1f3f4;
-    border: 1px solid #d1d5db;
-    z-index: -2;
+    box-shadow:
+        11.36px -11.36px 0px 0px #fff,
+        /* 2枚目の白い重なり（左上） */
+        11.36px -11.36px 0px 1px #e5e7eb;
 }
 
 /* ページ数バッジ */
 .page-count-badge {
     position: absolute;
     top: 5px;
-    left: 5px;
+    right: -5px;
     background: #dc2626;
     color: white;
     border-radius: 50%;
