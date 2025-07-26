@@ -83,7 +83,7 @@
                                 @onclick="() => InsertBlankPage(DisplayItems.Count)">空白ページを追加</button>
                             <button
                                 class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg whitespace-nowrap"
-                                @onclick="AddPdfFile">PDFファイルを追加</button>
+                                @onclick="AddPdfFile">ドキュメントを追加</button>
                         </div>
                     }
                 </div>
@@ -718,63 +718,6 @@
         });
     }
 
-    // ファイル選択処理
-    private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
-    {
-        if (e.FileCount == 0)
-        {
-            Console.WriteLine("No files selected");
-            return;
-        }
-
-        isLoading = true;
-        progress = 0;
-        errorMessage = null;
-        const long maxFileSize = 52428800; // 50MB
-
-        foreach (var file in e.GetMultipleFiles())
-        {
-            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
-            try
-            {
-                using var stream = file.OpenReadStream(maxFileSize);
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                var fileData = memoryStream.ToArray();
-
-                if (PdfDataService.SupportedPdfExtensions.Contains(ext))
-                {
-                    // PDF処理
-                    var success = await PdfDataService.AddPdfFileAsync(file.Name, fileData);
-                    if (!success)
-                    {
-                        errorMessage = $"PDFファイルの処理に失敗しました: {file.Name}";
-                    }
-                }
-                else if (PdfDataService.SupportedImageExtensions.Contains(ext))
-                {
-                    // 画像処理
-                    var success = await PdfDataService.AddImageFileAsync(file.Name, fileData);
-                    if (!success)
-                    {
-                        errorMessage = $"画像ファイルの処理に失敗しました: {file.Name}";
-                    }
-                }
-                else
-                {
-                    errorMessage = $"未対応のファイル形式です: {file.Name}";
-                }
-            }
-            catch (Exception ex)
-            {
-                errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
-            }
-        }
-
-        isLoading = false;
-        StateHasChanged();
-    }
-
     // PDF結合処理
     private async Task MergePDFs()
     {
@@ -1157,65 +1100,70 @@
     private int insertPosition = -1;
 
     // 挿入用ファイル選択処理
-    private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
+    private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
 {
-    if (e.FileCount > 0 && insertPosition >= 0)
+    await HandleFileInputAsync(e);
+}
+
+private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
+{
+    if (insertPosition >= 0)
     {
+        await HandleFileInputAsync(e, insertPosition);
+        insertPosition = -1;
+    }
+}
+   private async Task HandleFileInputAsync(InputFileChangeEventArgs e, int? insertPosition = null)
+{
+    if (e.FileCount == 0) return;
+
+    isLoading = true;
+    progress = 0;
+    errorMessage = null;
+    const long maxFileSize = 52428800; // 50MB
+
+    foreach (var file in e.GetMultipleFiles())
+    {
+        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
         try
         {
-            var model = PdfDataService.GetModel();
-            var file = e.GetMultipleFiles().First();
-
-            using var stream = file.OpenReadStream(52428800); // 50MB
+            using var stream = file.OpenReadStream(maxFileSize);
             using var memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
             var fileData = memoryStream.ToArray();
 
-            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
-
-            int pageInsertPosition = insertPosition;
-            if (IsFileMode)
-            {
-                pageInsertPosition = 0;
-                for (int i = 0; i < insertPosition && i < DisplayItems.Count; i++)
-                {
-                    pageInsertPosition += DisplayItems[i].PageCount;
-                }
-            }
-
             bool success = false;
             if (PdfDataService.SupportedPdfExtensions.Contains(ext))
             {
-                // PDFファイル挿入
-                await PdfDataService.InsertPdfFileAsync(pageInsertPosition, file.Name, fileData);
-                success = true;
+                success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, insertPosition);
             }
             else if (PdfDataService.SupportedImageExtensions.Contains(ext))
             {
-                // 画像ファイル挿入
-                await PdfDataService.InsertImageFileAsync(pageInsertPosition, file.Name, fileData);
-                success = true;
+                if (insertPosition.HasValue)
+                    success = await PdfDataService.InsertImageFileAsync(insertPosition.Value, file.Name, fileData);
+                else
+                    success = await PdfDataService.AddImageFileAsync(file.Name, fileData);
             }
             else
             {
                 errorMessage = $"未対応のファイル形式です: {file.Name}";
             }
 
-            if (success)
+            if (!success)
             {
-                StateHasChanged();
+                errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
             }
-
-            insertPosition = -1; // リセット
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error inserting file: {ex.Message}");
-            errorMessage = $"ファイル挿入に失敗しました: {ex.Message}";
-            insertPosition = -1; // リセット
+            errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
         }
     }
+
+    isLoading = false;
+    StateHasChanged();
 }
+
     private Task ReverseOrder()
     {
         isBusy = true;
