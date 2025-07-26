@@ -766,3 +766,21 @@ window.registerOutsideClickForDownloadMenu = function (menuId, dotNetRef) {
         document.addEventListener('mousedown', handler);
     }, 100);
 };
+window.renderPdfPages = async function (pdfUrl, canvasIds) {
+    if (!window.pdfjsLib) {
+        console.error("pdfjsLib is not loaded");
+        return;
+    }
+    const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+    for (let i = 0; i < canvasIds.length; i++) {
+        const page = await pdf.getPage(i + 1);
+        const canvas = document.getElementById(canvasIds[i]);
+        if (!canvas) continue;
+        const context = canvas.getContext('2d');
+        // 元データサイズでviewportを取得
+        const viewport = page.getViewport({ scale: 1 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+    }
+};

@@ -488,16 +488,19 @@
     </div>
 
     <!-- メインエリア -->
-    <div class="h-screen overflow-hidden"  style="height: calc(100vh - 4rem);">
+    <div class="overflow-hidden h-[calc(100vh-4rem)] md:h-[calc(100vh-8rem)]">
         <div class="flex flex-col md:flex-row h-full">
             <!-- PDFプレビュー -->
             <div class="flex-1 h-full bg-neutral-100 overflow-hidden">
-                <iframe src="@mergedPdfUrl"
-                        class="w-full h-full border-none"
-                        style="height: 100%; min-height: 0;">
-                    お使いのブラウザはPDFの表示をサポートしていません。
-                    <a href="@mergedPdfUrl" target="_blank">こちらをクリック</a>してPDFを開いてください。
-                </iframe>
+                <div class="w-full h-full overflow-auto flex flex-col items-center py-8 gap-8">
+                    @for (int i = 0; i < mergedPageCount; i++)
+                    {
+    <canvas id="merged-canvas-@i"
+            class="shadow-lg border border-gray-300 rounded bg-white"
+            style="width:90%; max-width:800px;">
+    </canvas>
+                    }
+                </div>
             </div>
             <!-- 情報パネル（PCのみ表示） -->
             <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
@@ -1514,6 +1517,7 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
 
         StateHasChanged();
     }
+    private bool _renderedMergedPages = false;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -1558,6 +1562,18 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
                     Console.WriteLine($"Error initializing interactions: {ex.Message}");
                 }
             });
+        }
+        if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl) && mergedPageCount > 0 && !_renderedMergedPages)
+        {
+            _renderedMergedPages = true;
+            var canvasIds = Enumerable.Range(0, mergedPageCount)
+                                    .Select(i => $"merged-canvas-{i}")
+                                    .ToArray();
+            await JSRuntime.InvokeVoidAsync("renderPdfPages", mergedPdfUrl, canvasIds);
+        }
+        else if (!showMergedResult)
+        {
+            _renderedMergedPages = false;
         }
     }
     [JSInvokable]
