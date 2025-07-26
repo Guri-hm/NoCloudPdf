@@ -549,17 +549,27 @@
         </div>
     </div>
 }
-<!-- エラーメッセージ表示 -->
-@if (!string.IsNullOrEmpty(errorMessage))
+<!-- メッセージ表示エリア -->
+@if (!string.IsNullOrEmpty(errorMessage) || !string.IsNullOrEmpty(warnMessage))
 {
-    <div class="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow z-50 max-w-md">
-        <div class="flex items-start gap-2">
-            <div class="flex-1">
-                @errorMessage
+    var isError = !string.IsNullOrEmpty(errorMessage);
+    var message = isError ? errorMessage : warnMessage;
+    var barColor = isError ? "bg-red-500" : "bg-yellow-400";
+    var boxColor = isError ? "bg-red-500 text-white" : "bg-yellow-100 text-yellow-900 border border-yellow-400";
+    <div class="fixed top-4 right-4 z-50 max-w-md" style="min-width:180px;">
+        <div class="w-full h-2 rounded-t-lg overflow-hidden bg-gray-300">
+            <div class="@barColor message-bar-anim h-full transition-all" style="width:100%" 
+         @key="message"></div>
+        </div>
+        <div class="px-4 py-2 rounded-b-lg shadow transition-all duration-300 @boxColor">
+            <div class="flex items-start gap-2">
+                <div class="flex-1">
+                    @message
+                </div>
+                <button class="ml-2" @onclick="ClearAllMessages" style="color:inherit;">
+                    ✕
+                </button>
             </div>
-            <button class="text-white hover:text-neutral-200 ml-2" @onclick="ClearErrorMessage">
-                ✕
-            </button>
         </div>
     </div>
 }
@@ -590,6 +600,12 @@
     private int progress = 0;
     private string? mergedPdfUrl;
     private string? errorMessage;
+    private string? warnMessage;
+    private int messageBarPercent = 100;
+    private System.Timers.Timer? messageTimer;
+    private DateTime? messageStartTime;
+    private const int MessageDurationMs = 5000;
+    private const int MessageBarUpdateIntervalMs = 100;
     private bool showSortMenu = false;
     private bool showAddMenu = false;
     // 統一アーキテクチャ対応プロパティ
@@ -787,30 +803,11 @@
             Console.WriteLine($"Error reinitializing JS: {ex.Message}");
         }
 
-        Console.WriteLine($"Switched to File mode. Items count: {DisplayItems.Count}");
     }
-    // PageItem全件をコンソールに出力するテストボタン用メソッド
-    private void PrintAllPageItems()
-    {
-        var model = PdfDataService.GetModel();
-        if (model != null && model.Pages != null)
-        {
-            Console.WriteLine($"=== PageItem一覧 ({model.Pages.Count}) ===");
-            for (int i = 0; i < model.Pages.Count; i++)
-            {
-                var p = model.Pages[i];
-                Console.WriteLine($"[{i}] FileId={p.FileId}, Page={p.OriginalPageNumber}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("PageItemリストが取得できませんでした");
-        }
-    }
+
     private async Task SwitchToPageMode()
     {
         if (IsPageMode) return;
-        Console.WriteLine("Switching to Page mode");
 
         // 即座にページ単位モードに切り替える（読み込み完了を待たない）
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
@@ -838,14 +835,13 @@
         {
             StateHasChanged(); // 読み込み完了時にUIを更新
         });
-                Console.WriteLine("Background page loading completed");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in background page loading: {ex.Message}");
                 await InvokeAsync(() =>
         {
-            errorMessage = $"一部ページの読み込みに失敗しました。問題のあるページは「読み込みエラー」と表示されます。";
+            ShowWarn($"一部ページの読み込みに失敗しました。問題のあるページは「読み込みエラー」と表示されます。");
             StateHasChanged();
         });
             }
@@ -865,27 +861,31 @@
     {
         try
         {
+            isBusy = true;
+            StateHasChanged();
+            await Task.Yield();
+
+            Console.WriteLine("Starting PDF merge process...");
             // 1. PageItemリストを取得
             var mergeItems = PdfDataService.GetModel().Pages;
 
-            // 準備できていないページがある場合はローディング画面を表示して待機
-            var notReady = mergeItems.Any(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
-            if (notReady)
+            // 準備できていないページがある場合は中断
+            var notReadyCount = mergeItems.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            if (notReadyCount > 0)
             {
-                errorMessage = "PDFの読み込みが完了していないページがあります。";
+                Console.WriteLine($"Not ready pages: {notReadyCount}");
+                ShowWarn($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。");
                 return;
             }
 
             if (mergeItems.Count == 0)
             {
-                errorMessage = "結合対象がありません。";
+                ShowError("結合対象がありません。");
                 Console.WriteLine("No items selected.");
                 return;
             }
 
             errorMessage = null;
-            isLoading = true;
-            StateHasChanged();
 
             // 2. JSに渡すためのデータを整形
             var mergeData = mergeItems.Select(item => new MergePageDto
@@ -912,11 +912,11 @@
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            errorMessage = "PDF/画像の結合中にエラーが発生しました。";
+            ShowError("PDF/画像の結合中にエラーが発生しました。");
         }
         finally
         {
-            isLoading = false;
+            isBusy = false;
             StateHasChanged();
         }
     }
@@ -1524,6 +1524,44 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
             StateHasChanged();
         }
     }
+
+private async void ShowError(string msg)
+{
+    errorMessage = msg;
+    warnMessage = null;
+    StateHasChanged();
+    await Task.Delay(5000);
+    if (errorMessage == msg) // 他のメッセージで上書きされていなければ
+    {
+        errorMessage = null;
+        StateHasChanged();
+    }
+}
+
+
+private async void ShowWarn(string msg)
+{
+    Console.WriteLine($"ShowWarn called with message: {msg}");
+    warnMessage = msg;
+    errorMessage = null;
+    StateHasChanged();
+    await Task.Delay(5000);
+    if (warnMessage == msg)
+    {
+        warnMessage = null;
+        StateHasChanged();
+    }
+}
+
+    private void ClearAllMessages()
+    {
+        errorMessage = null;
+        warnMessage = null;
+        messageBarPercent = 100;
+        messageTimer?.Stop();
+        StateHasChanged();
+    }
+
     private async void DownloadMergedPng()
     {
         if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))

@@ -257,7 +257,7 @@ public class PdfDataService
                 {
                     var pageId = $"{fileId}_p{pageIndex}";
                     var existingPageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
-                    if (existingPageItem == null)
+                    if (existingPageItem == null || !_model.Pages.Contains(existingPageItem))
                     {
                         // PageItemが存在しない場合はスキップ（追加はしない）
                         failedPages++;

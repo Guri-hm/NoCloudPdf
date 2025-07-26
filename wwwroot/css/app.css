@@ -382,4 +382,18 @@ input[type=number] {
     -moz-appearance: textfield;
 }
 
+@keyframes message-bar-shrink {
+    from {
+        width: 100%;
+    }
+
+    to {
+        width: 0%;
+    }
+}
+
+.message-bar-anim {
+    animation: message-bar-shrink 5s linear forwards;
+}
+
 @import "tailwindcss";
