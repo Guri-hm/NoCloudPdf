@@ -3,7 +3,6 @@ let sortableMobile = null;
 window.isSorting = false;
 
 window.initializeSortable = function () {
-    // PC用（md以上）
     const pc = document.getElementById('sortable-container');
     if (pc && window.getComputedStyle(pc).display !== 'none' && window.Sortable) {
         // 既存のインスタンスを破棄
@@ -81,54 +80,5 @@ window.initializeSortable = function () {
         sortablePc = null;
     }
 
-    // タブレット・スマホ用（md未満）
-    const mobile = document.getElementById('sortable-list-container');
-    if (mobile && window.getComputedStyle(mobile).display !== 'none' && window.Sortable) {
-        if (sortableMobile) {
-            sortableMobile.destroy();
-            sortableMobile = null;
-        }
-        sortableMobile = new Sortable(mobile, {
-            draggable: '.sortable-list-item',
-            handle: '.drag-handle',
-            animation: 150,
-            ghostClass: 'dragging-ghost',
-            onStart: function () {
-                window.isSorting = true;
-            },
-            onEnd: function (evt) {
-                window.isSorting = false;
-                document.querySelectorAll('.non-sortable').forEach(el => {
-                    el.classList.remove('hide-during-drag');
-                });
-                const container = mobile;
-                const sortableCount = container.querySelectorAll('.sortable-item-container:not(.non-sortable)').length;
-                let adjustedNewIndex = evt.newIndex;
-                if (evt.newIndex >= sortableCount) {
-                    adjustedNewIndex = sortableCount - 1;
-                }
-                const sortableItems = Array.from(container.querySelectorAll('.sortable-item-container:not(.non-sortable)'));
-                sortableItems.sort((a, b) => {
-                    const indexA = parseInt(a.getAttribute('data-index'));
-                    const indexB = parseInt(b.getAttribute('data-index'));
-                    return indexA - indexB;
-                });
-                const nonSortableElements = Array.from(container.querySelectorAll('.non-sortable'));
-                container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
-                const insertPoint = container.querySelector('.non-sortable');
-                sortableItems.forEach(item => {
-                    container.insertBefore(item, insertPoint);
-                });
-                DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, adjustedNewIndex);
-            }
-        });
-    } else if (sortableMobile) {
-        sortableMobile.destroy();
-        sortableMobile = null;
-    }
 };
 
-// ウィンドウリサイズ時にも再初期化
-window.addEventListener('resize', () => {
-    initializeSortable();
-});
