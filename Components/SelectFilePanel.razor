@@ -1,0 +1,50 @@
+<div class="min-h-screen flex items-center justify-center bg-neutral-100 relative">
+    <div id="select-drop-area"
+        class="absolute inset-0 flex flex-col items-center justify-center z-0 cursor-pointer transition"
+        @onclick="OpenFileDialog">
+        <div
+            class="w-[80vw] h-[97vh] border-2 border-dashed border-blue-300 rounded-xl flex flex-col items-center justify-center bg-white/60 hover:bg-blue-100/60 transition-colors duration-200">
+            <span class="text-blue-500 text-xl font-bold select-none mb-8">ここにファイルをドロップ または ペースト</span>
+            <div class="text-center">
+                <div class="mb-1">
+                    <button
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow"
+                        @onclick:stopPropagation="true" @onclick="OpenFileDialog">
+                        ファイルを選択
+                    </button>
+                </div>
+                <div class="mb-4 text-neutral-600 text-base">
+                    PDF，画像ファイルを追加
+                </div>
+                <div class="mb-6 text-neutral-500 text-sm">
+                    サポートされているファイル形式：<br />
+                    <span class="inline-block mt-1 font-mono bg-gray-100 px-2 py-1 rounded">
+                        .pdf, .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg
+                    </span>
+                </div>
+                <div class="text-neutral-600">
+                    <p class="text-sm mt-2">最大ファイルサイズ: 50MB</p>
+                </div>
+                @if (isLoading)
+                {
+                    <div class="mt-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                        <p class="mt-4 text-neutral-600">読み込み中... @progress%</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnOpenFileDialog { get; set; }
+    [Parameter] public bool isLoading { get; set; }
+    [Parameter] public int progress { get; set; }
+
+    private async Task OpenFileDialog()
+    {
+        if (OnOpenFileDialog.HasDelegate)
+            await OnOpenFileDialog.InvokeAsync();
+    }
+}
