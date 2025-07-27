@@ -2035,13 +2035,6 @@ input[type=number] {
     -moz-user-select: none;
          user-select: none;
   }
-  .group-hover\:flex {
-    &:is(:where(.group):hover *) {
-      @media (hover: hover) {
-        display: flex;
-      }
-    }
-  }
   .hover\:bg-blue-50 {
     &:hover {
       @media (hover: hover) {
@@ -2372,9 +2365,9 @@ input[type=number] {
       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     }
   }
-  .md\:transition-all {
+  .md\:transition-opacity {
     @media (width >= 48rem) {
-      transition-property: all;
+      transition-property: opacity;
       transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
       transition-duration: var(--tw-duration, var(--default-transition-duration));
     }
