@@ -15,23 +15,29 @@
 @if (IsFilesLoaded && !showMergedResult)
 {
     <div id="drop-area" class="relative min-h-screen">
-        <div class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(isDragOver ? "opacity-100" : "opacity-0")">
+        <div
+            class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(isDragOver ? "opacity-100" : "opacity-0")">
             <div class="w-full h-full bg-gray-700/70 rounded-xl border-2 border-dashed border-blue-300 flex items-center justify-center transition-all duration-200
-                @(isDragOver ? "scale-100" : "scale-70")">
+                    @(isDragOver ? "scale-100" : "scale-70")">
                 <span class="text-white text-2xl font-bold">ここにファイルをドロップ</span>
             </div>
         </div>
         <!-- 上部固定バー（編集モード） -->
         <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
-            <div class="flex items-center justify-between px-4 py-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+            <div
+                class="flex items-center justify-between px-4 py-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 <div class="flex gap-2 items-center">
                     <!-- 表示切替ボタングループ -->
-                    <div class="inline-flex shadow overflow-hidden border border-gray-500 rounded-lg bg-gray-700 h-10">
-                        <button
-                            class="px-4 py-1 font-bold focus:outline-none transition
-                                @(IsFileMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                rounded-s-lg border-e border-gray-500 h-full flex items-center gap-2"
-                            @onclick="SwitchToFileMode">
+                    <div class="inline-flex rounded-lg overflow-hidden h-10">
+                        <button class="
+                                    px-4 py-1 focus:outline-none transition
+                                    border
+                                    h-full flex items-center gap-2
+                                    @(IsFileMode
+                                                                    ? "bg-blue-100 text-blue-900 font-bold shadow-sm border-blue-400 z-10"
+                                                                    : "bg-white text-gray-500 border-gray-300 hover:bg-gray-100 font-normal")
+                                    rounded-s-lg
+                                " @onclick="SwitchToFileMode">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                                 class="w-5 h-5 mr-1">
                                 <path fill-rule="evenodd"
@@ -40,11 +46,15 @@
                             </svg>
                             <span class="ml-2 hidden xl:inline whitespace-nowrap">ファイル</span>
                         </button>
-                        <button
-                            class="px-4 py-1 font-bold focus:outline-none transition
-                                @(IsPageMode ? "bg-blue-300 text-gray-800 hover:bg-blue-400" : "bg-gray-700 text-gray-200 hover:bg-gray-600")
-                                rounded-e-lg h-full flex items-center gap-2"
-                            @onclick="SwitchToPageMode">
+                        <button class="
+                                    px-4 py-1 focus:outline-none transition
+                                    border
+                                    h-full flex items-center gap-2
+                                    @(IsPageMode
+                                                                    ? "bg-blue-100 text-blue-900 font-bold shadow-sm border-blue-400 z-10"
+                                                                    : "bg-white text-gray-500 border-gray-300 hover:bg-gray-100 font-normal")
+                                    rounded-e-lg
+                                " @onclick="SwitchToPageMode">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"
                                 class="w-5 h-5 mr-1">
                                 <path fill-rule="evenodd"
@@ -62,7 +72,8 @@
                             <i class="fa-solid fa-rotate-left"></i>
                             <span class="ml-2 hidden xl:inline">左</span>
                         </button>
-                        <button class="px-4 py-1 font-bold focus:outline-none transition text-white h-full hover:bg-gray-600"
+                        <button
+                            class="px-4 py-1 font-bold focus:outline-none transition text-white h-full hover:bg-gray-600"
                             @onclick="RotateAllRight" title="右回転">
                             <i class="fa-solid fa-rotate-right"></i>
                             <span class="ml-2 hidden xl:inline">右</span>
@@ -98,7 +109,8 @@
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition text-white h-full bg-gray-700 hover:bg-gray-600 flex items-center"
                             @onclick="ReverseOrder" title="逆順">
-                            <svg width="20" height="20" viewBox="0 0 21 21" fill="none" class="mr-2 inline-block align-middle">
+                            <svg width="20" height="20" viewBox="0 0 21 21" fill="none"
+                                class="mr-2 inline-block align-middle">
                                 <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M4.5 8.5l-4 4 4 4" />
                                     <path d="M12.5 12.5h-12" />
@@ -149,16 +161,11 @@
                 <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-4 md:p-6" id="sortable-container">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
-                        <ThumbnailCard Item="DisplayItems[i]"
-                            Index="i"
-                            DisplayItemsCount="DisplayItems.Count"
-                            IsFileMode="IsFileMode"
-                            IsPageMode="IsPageMode"
+                        <ThumbnailCard Item="DisplayItems[i]" Index="i" DisplayItemsCount="DisplayItems.Count"
+                            IsFileMode="IsFileMode" IsPageMode="IsPageMode"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
-                            OnSwapWithNext="SwapWithNext"
-                            OnReloadPageItem="ReloadPageItem"
-                            OnRemove="RemovePage"
+                            OnSwapWithNext="SwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
                             OnRotate="idx => (IsFileMode ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
                             OnDuplicate="DuplicateItem" />
                     }
@@ -168,7 +175,8 @@
                         data-position="@DisplayItems.Count">
                         <button
                             class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
-                            data-position="@DisplayItems.Count" @onclick="@((e) => HandleInsertButtonClick(DisplayItems.Count, e))">
+                            data-position="@DisplayItems.Count"
+                            @onclick="@((e) => HandleInsertButtonClick(DisplayItems.Count, e))">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
                                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                             </svg>
@@ -184,9 +192,9 @@
                 </div>
             }
         </div>
-        <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4"> 
+        <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
-                    @onclick="MergePDFs">
+                @onclick="MergePDFs">
                 結合
             </button>
         </div>
@@ -194,22 +202,12 @@
 }
 @if (previewIndex >= 0)
 {
-    <PreviewModal
-        IsOpen="@(previewIndex >= 0)"
-        OnCla
-        ose="ClosePreview"
-        IsLoading="isPreviewLoading"
-        ImageUrl="previewImageUrl"
-        PageIndex="CurrentFilePageIndex"
-        PageCount="CurrentFilePageCount"
-        ShowPageInput="IsFileMode && CurrentFilePageCount > 1"
-        OnPageInputChanged="OnPreviewPageInputChanged"
-        OnMovePreview="MovePreview"
-        IsPrevDisabled="@(IsFileMode ? CurrentFilePageIndex == 0 : previewIndex == 0)"
-        IsNextDisabled="@(IsFileMode ? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
-        OnRotateLeft="RotatePreviewLeft"
-        OnRotateRight="RotatePreviewRight"
-        OnRemove="RemoveItemFromPreview" />
+    <PreviewModal IsOpen="@(previewIndex >= 0)" OnCla ose="ClosePreview" IsLoading="isPreviewLoading"
+        ImageUrl="previewImageUrl" PageIndex="CurrentFilePageIndex" PageCount="CurrentFilePageCount"
+        ShowPageInput="IsFileMode && CurrentFilePageCount > 1" OnPageInputChanged="OnPreviewPageInputChanged"
+        OnMovePreview="MovePreview" IsPrevDisabled="@(IsFileMode? CurrentFilePageIndex == 0 : previewIndex == 0)"
+        IsNextDisabled="@(IsFileMode? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
+        OnRotateLeft="RotatePreviewLeft" OnRotateRight="RotatePreviewRight" OnRemove="RemoveItemFromPreview" />
 }
 @if (!IsFilesLoaded && !showMergedResult)
 {
@@ -237,7 +235,8 @@
             <!-- PDFプレビュー -->
             <PdfPreviewCanvas MergedPageCount="mergedPageCount" />
             <!-- 情報パネル（PCのみ表示） -->
-            <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
+            <div
+                class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
                 <div class="flex flex-col items-center gap-4">
                     <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
                         <i class="fa-solid fa-check-circle"></i>
@@ -249,32 +248,36 @@
                     <div class="relative w-full mt-4">
                         <div class="flex w-full">
                             <!-- メインボタン -->
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
-                                    @onclick="DownloadMergedPdf">
+                            <button
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
+                                @onclick="DownloadMergedPdf">
                                 ダウンロード
                             </button>
                             <!-- ドロップダウンボタン -->
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
-                                    @onclick="() => showDownloadMenu = !showDownloadMenu">
+                            <button
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
+                                @onclick="() => showDownloadMenu = !showDownloadMenu">
                                 <i class="fa-solid fa-caret-down"></i>
                             </button>
                         </div>
                         @if (showDownloadMenu)
                         {
-                            <div id="downloadMenu" class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                            <div id="downloadMenu"
+                                class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
-                                        @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
+                                    @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
                                     PDFでダウンロード
                                 </button>
                                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
-                                        @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
+                                    @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
                                     PNG画像でダウンロード
                                 </button>
                             </div>
 
                         }
                     </div>
-                    <button class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                    <button
+                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
                         <i class="fa-solid fa-rotate-right mr-2"></i>
                         新規作成
@@ -284,7 +287,8 @@
         </div>
         <!-- タブレット/スマホ用: 下部スライドアップメニュー -->
         <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
-            <div class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
+            <div
+                class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
                 <div class="flex flex-col items-center gap-4">
                     <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
                         <i class="fa-solid fa-check-circle"></i>
@@ -293,36 +297,39 @@
                     <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
                     <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
                     <div class="text-gray-600 text-sm">ページ数: @mergedPageCount</div>
-<div class="relative w-full mt-4">
-                <div class="flex w-full">
-                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
-                            @onclick="DownloadMergedPdf">
-                        ダウンロード
-                    </button>
-                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
-                            @onclick="() => showDownloadMenu = !showDownloadMenu">
-                        <i class="fa-solid fa-caret-down"></i>
-                    </button>
-                </div>
-                @if (showDownloadMenu)
-                {
-                    <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                        <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
-                                @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
-                            PDFでダウンロード
-                        </button>
-                        <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
-                                @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
-                            PNG画像でダウンロード
-                        </button>
+                    <div class="relative w-full mt-4">
+                        <div class="flex w-full">
+                            <button
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
+                                @onclick="DownloadMergedPdf">
+                                ダウンロード
+                            </button>
+                            <button
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
+                                @onclick="() => showDownloadMenu = !showDownloadMenu">
+                                <i class="fa-solid fa-caret-down"></i>
+                            </button>
+                        </div>
+                        @if (showDownloadMenu)
+                        {
+                            <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
+                                    @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
+                                    PDFでダウンロード
+                                </button>
+                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
+                                    @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
+                                    PNG画像でダウンロード
+                                </button>
+                            </div>
+                        }
                     </div>
-                }
-            </div>
-            <button class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
-                @onclick="StartNew">
-                <i class="fa-solid fa-rotate-right mr-2"></i>
-                新規作成
-            </button>
+                    <button
+                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="StartNew">
+                        <i class="fa-solid fa-rotate-right mr-2"></i>
+                        新規作成
+                    </button>
                 </div>
                 <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
                     <i class="fa-solid fa-xmark"></i>
@@ -354,9 +361,7 @@
 <!-- メッセージ表示エリア -->
 @if (!string.IsNullOrEmpty(errorMessage) || !string.IsNullOrEmpty(warnMessage))
 {
-    <MessageBar Message="@(errorMessage ?? warnMessage)"
-                IsError="@(errorMessage != null)"
-                OnClose="ClearAllMessages" />
+    <MessageBar Message="@(errorMessage ?? warnMessage)" IsError="@(errorMessage != null)" OnClose="ClearAllMessages" />
 }
 
 <!-- ファイル選択用の隠しinput -->
@@ -411,8 +416,8 @@
     private DotNetObjectReference<Merge>? _dotNetRef;
     private bool isDragOver = false;
     private bool isMenuOpen = false;
-    private string mergedFileName = ""; 
-    private string mergedFileSize = ""; 
+    private string mergedFileName = "";
+    private string mergedFileSize = "";
     private int mergedPageCount = 0;
     private bool showDownloadMenu = false;
     private int GetCurrentFilePageIndex()
@@ -1045,68 +1050,68 @@
 
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
-{
-    await HandleFileInputAsync(e);
-}
-
-private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
-{
-    if (insertPosition >= 0)
     {
-        await HandleFileInputAsync(e, insertPosition);
-        insertPosition = -1;
+        await HandleFileInputAsync(e);
     }
-}
-   private async Task HandleFileInputAsync(InputFileChangeEventArgs e, int? insertPosition = null)
-{
-    if (e.FileCount == 0) return;
 
-    isLoading = true;
-    progress = 0;
-    errorMessage = null;
-    const long maxFileSize = 52428800; // 50MB
-
-    foreach (var file in e.GetMultipleFiles())
+    private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
-        try
+        if (insertPosition >= 0)
         {
-            using var stream = file.OpenReadStream(maxFileSize);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            var fileData = memoryStream.ToArray();
+            await HandleFileInputAsync(e, insertPosition);
+            insertPosition = -1;
+        }
+    }
+    private async Task HandleFileInputAsync(InputFileChangeEventArgs e, int? insertPosition = null)
+    {
+        if (e.FileCount == 0) return;
 
-            bool success = false;
-            if (PdfDataService.SupportedPdfExtensions.Contains(ext))
+        isLoading = true;
+        progress = 0;
+        errorMessage = null;
+        const long maxFileSize = 52428800; // 50MB
+
+        foreach (var file in e.GetMultipleFiles())
+        {
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+            try
             {
-                success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, insertPosition);
-            }
-            else if (PdfDataService.SupportedImageExtensions.Contains(ext))
-            {
-                if (insertPosition.HasValue)
-                    success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData, insertPosition);
+                using var stream = file.OpenReadStream(maxFileSize);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var fileData = memoryStream.ToArray();
+
+                bool success = false;
+                if (PdfDataService.SupportedPdfExtensions.Contains(ext))
+                {
+                    success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, insertPosition);
+                }
+                else if (PdfDataService.SupportedImageExtensions.Contains(ext))
+                {
+                    if (insertPosition.HasValue)
+                        success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData, insertPosition);
+                    else
+                        success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
+                }
                 else
-                    success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
-            }
-            else
-            {
-                errorMessage = $"未対応のファイル形式です: {file.Name}";
-            }
+                {
+                    errorMessage = $"未対応のファイル形式です: {file.Name}";
+                }
 
-            if (!success)
+                if (!success)
+                {
+                    errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
+                }
+            }
+            catch (Exception ex)
             {
-                errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
+                errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
             }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
-        }
+
+        isLoading = false;
+        StateHasChanged();
     }
-
-    isLoading = false;
-    StateHasChanged();
-}
 
     private Task ReverseOrder()
     {
@@ -1154,53 +1159,53 @@ private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
 
 
 
-private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
-{
-    isLoading = true;
-    progress = 0;
-    errorMessage = null;
-    const long maxFileSize = 52428800; // 50MB
-
-    foreach (var file in files)
+    private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
     {
-        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
-        try
+        isLoading = true;
+        progress = 0;
+        errorMessage = null;
+        const long maxFileSize = 52428800; // 50MB
+
+        foreach (var file in files)
         {
-            using var stream = file.OpenReadStream(maxFileSize);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            var fileData = memoryStream.ToArray();
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+            try
+            {
+                using var stream = file.OpenReadStream(maxFileSize);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var fileData = memoryStream.ToArray();
 
-            bool success = false;
-            if (PdfDataService.SupportedPdfExtensions.Contains(ext))
-            {
-                success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, null);
-            }
-            else if (PdfDataService.SupportedImageExtensions.Contains(ext))
-            {
-                success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
-            }
-            else
-            {
-                errorMessage = $"未対応のファイル形式です: {file.Name}";
-            }
+                bool success = false;
+                if (PdfDataService.SupportedPdfExtensions.Contains(ext))
+                {
+                    success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, null);
+                }
+                else if (PdfDataService.SupportedImageExtensions.Contains(ext))
+                {
+                    success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
+                }
+                else
+                {
+                    errorMessage = $"未対応のファイル形式です: {file.Name}";
+                }
 
-            if (!success)
+                if (!success)
+                {
+                    errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
+                }
+            }
+            catch (Exception ex)
             {
-                errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
+                errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
             }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
-        }
+
+        isLoading = false;
+        StateHasChanged();
     }
 
-    isLoading = false;
-    StateHasChanged();
-}
-
-[JSInvokable]
+    [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
     {
         var fileData = Convert.FromBase64String(base64Data);
@@ -1213,7 +1218,7 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
         }
         else if (PdfDataService.SupportedImageExtensions.Contains(ext))
         {
-            success = await PdfDataService.AddOrInsertImageFileAsync(fileName, fileData,null);
+            success = await PdfDataService.AddOrInsertImageFileAsync(fileName, fileData, null);
         }
         else
         {
@@ -1243,13 +1248,13 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
         if (showDownloadMenu)
-            {
-                await JSRuntime.InvokeVoidAsync(
-                    "registerOutsideClickForDownloadMenu",
-                    "downloadMenu",
-                    DotNetObjectReference.Create(this)
-                );
-            }
+        {
+            await JSRuntime.InvokeVoidAsync(
+            "registerOutsideClickForDownloadMenu",
+            "downloadMenu",
+            DotNetObjectReference.Create(this)
+            );
+        }
         // drop-areaが表示され、まだ登録していない場合のみ
         if (!_dropAreaRegistered && IsFilesLoaded && DisplayItems.Any())
         {
@@ -1294,8 +1299,8 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
         {
             _renderedMergedPages = true;
             var canvasIds = Enumerable.Range(0, mergedPageCount)
-                                    .Select(i => $"merged-canvas-{i}")
-                                    .ToArray();
+            .Select(i => $"merged-canvas-{i}")
+            .ToArray();
             await JSRuntime.InvokeVoidAsync("renderPdfPages", mergedPdfUrl, canvasIds);
         }
         else if (!showMergedResult)
@@ -1323,10 +1328,10 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
         try
         {
             await JSRuntime.InvokeVoidAsync(
-                "downloadFileFromUrl",
-                mergedPdfUrl,
-                mergedFileName,
-                "application/pdf"
+            "downloadFileFromUrl",
+            mergedPdfUrl,
+            mergedFileName,
+            "application/pdf"
             );
         }
         catch (Exception ex)
@@ -1336,33 +1341,33 @@ private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
         }
     }
 
-private async void ShowError(string msg)
-{
-    errorMessage = msg;
-    warnMessage = null;
-    StateHasChanged();
-    await Task.Delay(5000);
-    if (errorMessage == msg) // 他のメッセージで上書きされていなければ
+    private async void ShowError(string msg)
     {
-        errorMessage = null;
-        StateHasChanged();
-    }
-}
-
-
-private async void ShowWarn(string msg)
-{
-    Console.WriteLine($"ShowWarn called with message: {msg}");
-    warnMessage = msg;
-    errorMessage = null;
-    StateHasChanged();
-    await Task.Delay(5000);
-    if (warnMessage == msg)
-    {
+        errorMessage = msg;
         warnMessage = null;
         StateHasChanged();
+        await Task.Delay(5000);
+        if (errorMessage == msg) // 他のメッセージで上書きされていなければ
+        {
+            errorMessage = null;
+            StateHasChanged();
+        }
     }
-}
+
+
+    private async void ShowWarn(string msg)
+    {
+        Console.WriteLine($"ShowWarn called with message: {msg}");
+        warnMessage = msg;
+        errorMessage = null;
+        StateHasChanged();
+        await Task.Delay(5000);
+        if (warnMessage == msg)
+        {
+            warnMessage = null;
+            StateHasChanged();
+        }
+    }
 
     private void ClearAllMessages()
     {
@@ -1374,16 +1379,16 @@ private async void ShowWarn(string msg)
     private async void DownloadMergedPng()
     {
         if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
-        return;
+            return;
 
         try
         {
             // JSでPNGまたはZIPダウンロードを実行
             await JSRuntime.InvokeVoidAsync(
-                "downloadMergedPngOrZip",
-                mergedPdfUrl,
-                mergedFileName,
-                mergedPageCount // ページ数
+            "downloadMergedPngOrZip",
+            mergedPdfUrl,
+            mergedFileName,
+            mergedPageCount // ページ数
             );
         }
         catch (Exception ex)
@@ -1392,7 +1397,7 @@ private async void ShowWarn(string msg)
             StateHasChanged();
         }
     }
-        private async Task ReloadPageItem(DisplayItem item)
+    private async Task ReloadPageItem(DisplayItem item)
     {
         // ページ単位の場合のみ対応
         if (item.RawData is PageItem pageItem)
