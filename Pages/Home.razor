@@ -1,11 +1,65 @@
 ﻿@page "/"
+@using ClientPdfApp.Pages
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
-<div class="flex divide-x divide-white">
-    <div>One</div>
-    <div>Two</div>
-    <div>Three</div>
-</div>
-Welcome to your new app.
+<section class="max-w-3xl mx-auto space-y-8">
+    <div class="flex flex-col gap-8">
+        <FadeInOnScroll>
+            <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-6">
+                <div class="flex-1">
+                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-600">セキュア</h2>
+                    <p class="text-sm text-black">
+                        プライバシーが心配ですか？PDFの処理はすべてお使いの端末内で完結し、ファイルが外部に送信されることはありません。
+                    </p>
+                </div>
+                <div class="flex-shrink-0 flex justify-center">
+                    <img src="img/cloud-block-2.svg" alt="Secure"
+                        class="min-w-[200px] max-w-[200px] w-full h-auto object-contain text-center" />
+                </div>
+            </div>
+        </FadeInOnScroll>
+        <FadeInOnScroll>
+            <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-6">
+                <div class="flex-1 md:order-2">
+                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-600">シンプル</h2>
+                    <p class="text-sm text-black">
+                        すべての操作は直感的でシンプル。ドラッグ＆ドロップだけで簡単にPDFを扱えます。
+                    </p>
+                </div>
+                <div class="flex-shrink-0 flex justify-center md:order-1">
+                    <img src="img/mouse-261.svg" alt="Secure"
+                        class="min-w-[200px] max-w-[200px] w-full h-auto object-contain text-center" />
+                </div>
+            </div>
+        </FadeInOnScroll>
+        <FadeInOnScroll>
+            <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-6">
+                <div class="flex-1">
+                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-600">ご注意</h2>
+                    <p class="text-sm text-black">
+                        本アプリはすべての処理をお使いのブラウザ上で行うため、大きなPDFや複雑な処理の場合は動作が遅くなったり、端末の性能によっては処理が重く感じられることがあります。あらかじめご了承ください。
+                    </p>
+                </div>
+                <div class="flex-shrink-0 flex justify-center">
+                    <img src="img/browser-98.svg" alt="Secure"
+                        class="min-w-[200px] max-w-[200px] w-full h-auto object-contain text-center" />
+                </div>
+            </div>
+        </FadeInOnScroll>
+        <FadeInOnScroll>
+            <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-6">
+                <div class="flex-1 md:order-2">
+                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-600">ご意見・ご報告のお願い</h2>
+                    <p class="text-sm text-black">
+                        本アプリに関するご感想やバグ報告などがありましたら、ぜひご連絡ください。皆さまのフィードバックをもとに、より使いやすいサービスを目指します。
+                    </p>
+                </div>
+                <div class="flex-shrink-0 flex justify-center md:order-1">
+                    <img src="img/comment-heart-1.svg" alt="Feedback"
+                        class="min-w-[200px] max-w-[200px] w-full h-auto object-contain text-center" />
+                </div>
+            </div>
+        </FadeInOnScroll>
+    </div>
+</section>
