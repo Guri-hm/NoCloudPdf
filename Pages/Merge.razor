@@ -98,8 +98,7 @@
                         <button
                             class="px-4 py-1 font-bold focus:outline-none transition text-white h-full bg-gray-700 hover:bg-gray-600 flex items-center"
                             @onclick="ReverseOrder" title="逆順">
-                            <svg width="20" height="20" viewBox="0 0 21 21" fill="none" class="mr-2"
-                                style="display:inline-block;vertical-align:middle;">
+                            <svg width="20" height="20" viewBox="0 0 21 21" fill="none" class="mr-2 inline-block align-middle">
                                 <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M4.5 8.5l-4 4 4 4" />
                                     <path d="M12.5 12.5h-12" />
@@ -134,8 +133,8 @@
                 </div>
                 <div class="flex-1 flex justify-end min-w-[120px]">
                     <button
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg flex items-center gap-3 min-w-[44px] transition hidden md:flex"
-                        @onclick="MergePDFs" style="height: 44px;">
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg flex items-center gap-3 min-w-[44px] transition hidden md:flex h-[44px]"
+                        @onclick="MergePDFs">
                         <span class="flex-1 text-center hidden xl:inline">結合</span>
                         <i class="fa-solid fa-arrow-right text-xl ml-2"></i>
                     </button>
@@ -221,7 +220,7 @@
 @if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
-    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50" style="height: 4rem;">
+    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
         <div class="flex items-center px-4 py-2 h-16">
             <button
                 class="px-4 py-1 font-bold focus:outline-none transition text-white bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center gap-2"
@@ -240,10 +239,9 @@
                 <div class="w-full h-full overflow-auto flex flex-col items-center py-8 gap-8">
                     @for (int i = 0; i < mergedPageCount; i++)
                     {
-    <canvas id="merged-canvas-@i"
-            class="shadow-lg border border-gray-300 rounded bg-white"
-            style="width:90%; max-width:800px;">
-    </canvas>
+                    <canvas id="merged-canvas-@i"
+                            class="shadow-lg border border-gray-300 rounded bg-white w-[90%] max-w-[800px]">
+                    </canvas>
                     }
                 </div>
             </div>
@@ -295,8 +293,7 @@
         </div>
         <!-- タブレット/スマホ用: 下部スライドアップメニュー -->
         <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
-            <div class="@($"transition-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 { (isMenuOpen ? "translate-y-0" : "translate-y-full") }")"
-                 style="will-change: transform;">
+            <div class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
                 <div class="flex flex-col items-center gap-4">
                     <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
                         <i class="fa-solid fa-check-circle"></i>
@@ -344,8 +341,7 @@
             @if (!isMenuOpen)
             {
                 <button
-                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition"
-                    style="min-width: 260px;"
+                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
                     @onclick="() => isMenuOpen = true">
                     <i class="fa-solid fa-check-circle text-green-600 text-2xl"></i>
                     <span>完了</span>
@@ -356,7 +352,7 @@
         <!-- メニュー展開時はPDFのスクロールを禁止 -->
         @if (isMenuOpen)
         {
-            <div class="fixed inset-0 bg-black/30 z-[199]" style="touch-action:none;" @onclick="() => isMenuOpen = false"></div>
+            <div class="fixed inset-0 bg-black/30 z-[199] touch-none" @onclick="() => isMenuOpen = false"></div>
         }
     </div>
 }
@@ -378,8 +374,8 @@
 }
 
 <!-- ファイル選択用の隠しinput -->
-<InputFile OnChange="HandleFileSelectionAsync" multiple style="display: none;" id="fileInput" />
-<InputFile OnChange="HandleInsertFileSelectionAsync" style="display: none;" id="insertFileInput" />
+<InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
+<InputFile OnChange="HandleInsertFileSelectionAsync" class="hidden" id="insertFileInput" />
 
 
 @code {
