@@ -1,4 +1,4 @@
-﻿@page "/merge"
+﻿@page "/split"
 @implements IDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
@@ -9,7 +9,7 @@
 @using ClientPdfApp.Models
 @using ClientPdfApp.Services
 
-<PageTitle>結合</PageTitle>
+<PageTitle>分割</PageTitle>
 
 @if (IsFilesLoaded && !showMergedResult)
 {
@@ -681,9 +681,13 @@
 
 
 @code {
+
     protected override void OnInitialized()
     {
+        // データ更新のたびに画面も自動更新
         PdfDataService.OnChange += OnServiceChanged;
+        // ページ単位モードを強制
+        PdfDataService.SwitchDisplayMode(DisplayMode.Page);
     }
 
     private void OnServiceChanged()
@@ -724,7 +728,7 @@
     // ファイル単位表示時のファイル内ページ番号（0始まり）
     // プレビュー中のファイル内で、何ページ目を表示しているか
     private int filePageIndex = 0;
-    private DotNetObjectReference<Merge>? _dotNetRef;
+    private DotNetObjectReference<Split>? _dotNetRef;
     private bool isDragOver = false;
     private bool isMenuOpen = false;
     private string mergedFileName = ""; 
@@ -1236,7 +1240,7 @@
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
-    private static Merge? _currentInstance;
+    private static Split? _currentInstance;
 
     // JavaScript から呼び出される並び替えメソッド
     [JSInvokable("UpdateOrder")]
