@@ -19,9 +19,7 @@ main {
 
     .sidebar {
         width: 70px;
-        /* ←ここを狭く */
         min-width: 70px;
-        height: 100vh;
         position: sticky;
         top: 0;
     }
