@@ -336,6 +336,42 @@ input[type=number] {
 .dragging-ghost * {
   visibility: hidden;
 }
+.box-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.box {
+  width: 50px;
+  height: 50px;
+  background: #607d8b;
+  box-shadow: 0px 15px 20px rgba(0, 0, 0, 0.5);
+  animation: ChangeColor 3s;
+  animation-iteration-count: infinite;
+}
+@keyframes ChangeColor {
+  0% {
+    margin-left: 30px;
+    margin-right: 30px;
+    border-radius: 100%;
+  }
+  40% {
+    margin-left: 0px;
+    margin-right: 0px;
+    border-radius: 0%;
+  }
+  60% {
+    margin-left: 0px;
+    margin-right: 0px;
+    border-radius: 0%;
+  }
+  100% {
+    margin-left: 30px;
+    margin-right: 30px;
+    border-radius: 100%;
+  }
+}
 @layer theme, base, components, utilities;
 @layer theme {
   :root, :host {
@@ -658,6 +694,9 @@ input[type=number] {
   }
   .bottom-4 {
     bottom: calc(var(--spacing) * 4);
+  }
+  .bottom-6 {
+    bottom: calc(var(--spacing) * 6);
   }
   .bottom-8 {
     bottom: calc(var(--spacing) * 8);
@@ -1051,6 +1090,9 @@ input[type=number] {
   }
   .h-full {
     height: 100%;
+  }
+  .h-screen {
+    height: 100vh;
   }
   .max-h-\[90vh\] {
     max-height: 90vh;
@@ -1747,9 +1789,9 @@ input[type=number] {
     font-size: var(--text-3xl);
     line-height: var(--tw-leading, var(--text-3xl--line-height));
   }
-  .text-6xl {
-    font-size: var(--text-6xl);
-    line-height: var(--tw-leading, var(--text-6xl--line-height));
+  .text-4xl {
+    font-size: var(--text-4xl);
+    line-height: var(--tw-leading, var(--text-4xl--line-height));
   }
   .text-base {
     font-size: var(--text-base);
@@ -2149,11 +2191,6 @@ input[type=number] {
       flex-direction: row;
     }
   }
-  .md\:flex-row-reverse {
-    @media (width >= 48rem) {
-      flex-direction: row-reverse;
-    }
-  }
   .md\:p-0 {
     @media (width >= 48rem) {
       padding: calc(var(--spacing) * 0);
@@ -2163,6 +2200,12 @@ input[type=number] {
     @media (width >= 48rem) {
       font-size: var(--text-4xl);
       line-height: var(--tw-leading, var(--text-4xl--line-height));
+    }
+  }
+  .md\:text-6xl {
+    @media (width >= 48rem) {
+      font-size: var(--text-6xl);
+      line-height: var(--tw-leading, var(--text-6xl--line-height));
     }
   }
   .xl\:inline {
