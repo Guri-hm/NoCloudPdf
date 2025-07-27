@@ -1134,11 +1134,11 @@ input[type=number] {
   .w-100 {
     width: calc(var(--spacing) * 100);
   }
-  .w-\[80vw\] {
-    width: 80vw;
-  }
   .w-\[90\%\] {
     width: 90%;
+  }
+  .w-\[97\%\] {
+    width: 97%;
   }
   .w-auto {
     width: auto;
