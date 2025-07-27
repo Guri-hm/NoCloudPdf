@@ -1,5 +1,7 @@
 ﻿<div class="bg-gray-800 px-4 py-3 flex items-center justify-between">
-    <a class="text-white text-xl font-bold" href="">ClientPdfApp</a>
+    <a class="text-white" href="">
+        <img src="img/ClientPdf.webp" alt="ClientPdfApp" class="w-8 h-8 object-contain" />
+    </a>
     <button title="Navigation menu" class="text-white focus:outline-none md:hidden" @onclick="ToggleNavMenu">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
             stroke-linecap="round" stroke-linejoin="round">
@@ -8,21 +10,22 @@
     </button>
 </div>
 
-<div class="transition-all duration-300
-            md:block
-            @(collapseNavMenu ? "hidden" : "block")">
-    <nav class="flex flex-col space-y-2 py-4">
-        <NavLink class="px-6 py-2 text-white hover:bg-gray-700 rounded-lg transition font-medium flex items-center"
+<div class="transition-all duration-300 md:block @(collapseNavMenu ? "hidden" : "block") sidebar h-full">
+    <nav class="flex flex-col items-center space-y-4 w-full mt-4">
+        <NavLink class="flex flex-col items-center w-full py-2 text-white hover:bg-gray-700/70 rounded-lg transition"
             href="" Match="NavLinkMatch.All">
-            <span class="fa fa-home mr-2"></span> Home
+            <span class="fa fa-home text-2xl"></span>
+            <span class="text-[10px] mt-1 opacity-80">Home</span>
         </NavLink>
-        <NavLink class="px-6 py-2 text-white hover:bg-gray-700 rounded-lg transition font-medium flex items-center"
+        <NavLink class="flex flex-col items-center w-full py-2 text-white hover:bg-gray-700/70 rounded-lg transition"
             href="counter">
-            <span class="fa fa-plus-square mr-2"></span> Counter
+            <span class="fa fa-plus-square text-2xl"></span>
+            <span class="text-[10px] mt-1 opacity-80">Counter</span>
         </NavLink>
-        <NavLink class="px-6 py-2 text-white hover:bg-gray-700 rounded-lg transition font-medium flex items-center"
+        <NavLink class="flex flex-col items-center w-full py-2 text-white hover:bg-gray-700/70 rounded-lg transition"
             href="merge">
-            <span class="fa fa-list-ul mr-2"></span> Merge
+            <span class="fa fa-list-ul text-2xl"></span>
+            <span class="text-[10px] mt-1 opacity-80">Merge</span>
         </NavLink>
     </nav>
 </div>
