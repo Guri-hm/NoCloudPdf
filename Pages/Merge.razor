@@ -195,64 +195,22 @@
 }
 @if (previewIndex >= 0)
 {
-    <div class="fixed inset-0 flex items-center justify-center z-50 bg-black/70" @onclick="ClosePreview">
-        <button
-            class="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white rounded-full shadow z-10 hover:bg-neutral-200 text-black text-3xl"
-            @onclick="ClosePreview" title="閉じる">
-            &times;
-        </button>
-        @if (isPreviewLoading)
-        {
-            <div class="flex flex-col items-center justify-center">
-                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-                <span class="text-white">プレビュー画像を生成中...</span>
-            </div>
-        }
-        else if (!string.IsNullOrEmpty(previewImageUrl))
-        {
-            <img src="@previewImageUrl" class="max-w-[90vw] max-h-[90vh] object-contain mx-auto"
-                style="width:auto; height:auto;" draggable="false" @onclick:stopPropagation />
-        }
-        <!-- プレビュー下部の操作バー -->
-        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg"
-            @onclick:stopPropagation>
-            <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
-                <button
-                    class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg"
-                    @onclick="() => MovePreview(-1)"
-                    disabled="@(IsFileMode? CurrentFilePageIndex == 0 : previewIndex == 0)">
-                    <i class="text-white fa-solid fa-chevron-left"></i>
-                </button>
-                <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
-                    @if (IsFileMode && CurrentFilePageCount > 1)
-                    {
-                        <input type="number" min="1" max="@CurrentFilePageCount" value="@(CurrentFilePageIndex + 1)"
-                            class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
-                            style="appearance: none; -moz-appearance: textfield;" @onchange="OnPreviewPageInputChanged" />
-                        <span>/ @CurrentFilePageCount</span>
-                    }
-                </div>
-                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="() => MovePreview(1)"
-                    disabled="@(IsFileMode? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))">
-                    <i class="text-white fa-solid fa-chevron-right"></i>
-                </button>
-                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="RotatePreviewLeft">
-                    <i class="text-white fa-solid fa-rotate-left"></i>
-                </button>
-                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="RotatePreviewRight">
-                    <i class="text-white fa-solid fa-rotate-right"></i>
-                </button>
-                <button
-                    class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
-                    @onclick="RemoveItemFromPreview">
-                    <i class="text-white fa-solid fa-trash"></i>
-                </button>
-            </div>
-        </div>
-    </div>
+    <PreviewModal
+        IsOpen="@(previewIndex >= 0)"
+        OnCla
+        ose="ClosePreview"
+        IsLoading="isPreviewLoading"
+        ImageUrl="previewImageUrl"
+        PageIndex="CurrentFilePageIndex"
+        PageCount="CurrentFilePageCount"
+        ShowPageInput="IsFileMode && CurrentFilePageCount > 1"
+        OnPageInputChanged="OnPreviewPageInputChanged"
+        OnMovePreview="MovePreview"
+        IsPrevDisabled="@(IsFileMode ? CurrentFilePageIndex == 0 : previewIndex == 0)"
+        IsNextDisabled="@(IsFileMode ? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
+        OnRotateLeft="RotatePreviewLeft"
+        OnRotateRight="RotatePreviewRight"
+        OnRemove="RemoveItemFromPreview" />
 }
 @if (!IsFilesLoaded && !showMergedResult)
 {

@@ -1,0 +1,76 @@
+@if (IsOpen)
+{
+    <div class="fixed inset-0 flex items-center justify-center z-50 bg-black/70" @onclick="OnClose">
+        <button
+            class="absolute top-8 right-8 w-12 h-12 flex items-center justify-center bg-white rounded-full shadow z-10 hover:bg-neutral-200 text-black text-3xl"
+            @onclick="OnClose" title="閉じる">
+            &times;
+        </button>
+        @if (IsLoading)
+        {
+            <div class="flex flex-col items-center justify-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+                <span class="text-white">プレビュー画像を生成中...</span>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(ImageUrl))
+        {
+            <img src="@ImageUrl" class="max-w-[90vw] max-h-[90vh] object-contain mx-auto" style="width:auto; height:auto;"
+                draggable="false" @onclick:stopPropagation />
+        }
+        <!-- プレビュー下部の操作バー -->
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg"
+            @onclick:stopPropagation>
+            <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
+                <button
+                    class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg"
+                    @onclick="() => OnMovePreview.InvokeAsync(-1)" disabled="@IsPrevDisabled">
+                    <i class="text-white fa-solid fa-chevron-left"></i>
+                </button>
+                <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
+                    @if (ShowPageInput)
+                    {
+                        <input type="number" min="1" max="@PageCount" value="@(PageIndex + 1)"
+                            class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
+                            style="appearance: none; -moz-appearance: textfield;" @onchange="OnPageInputChanged" />
+                        <span>/ @PageCount</span>
+                    }
+                </div>
+                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                    @onclick="() => OnMovePreview.InvokeAsync(1)" disabled="@IsNextDisabled">
+                    <i class="text-white fa-solid fa-chevron-right"></i>
+                </button>
+                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                    @onclick="OnRotateLeft">
+                    <i class="text-white fa-solid fa-rotate-left"></i>
+                </button>
+                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                    @onclick="OnRotateRight">
+                    <i class="text-white fa-solid fa-rotate-right"></i>
+                </button>
+                <button
+                    class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
+                    @onclick="OnRemove">
+                    <i class="text-white fa-solid fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public int PageIndex { get; set; }
+    [Parameter] public int PageCount { get; set; }
+    [Parameter] public bool ShowPageInput { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnPageInputChanged { get; set; }
+    [Parameter] public EventCallback<int> OnMovePreview { get; set; }
+    [Parameter] public bool IsPrevDisabled { get; set; }
+    [Parameter] public bool IsNextDisabled { get; set; }
+    [Parameter] public EventCallback OnRotateLeft { get; set; }
+    [Parameter] public EventCallback OnRotateRight { get; set; }
+    [Parameter] public EventCallback OnRemove { get; set; }
+}
