@@ -455,26 +455,9 @@
 <!-- メッセージ表示エリア -->
 @if (!string.IsNullOrEmpty(errorMessage) || !string.IsNullOrEmpty(warnMessage))
 {
-    var isError = !string.IsNullOrEmpty(errorMessage);
-    var message = isError ? errorMessage : warnMessage;
-    var barColor = isError ? "bg-red-500" : "bg-yellow-400";
-    var boxColor = isError ? "bg-red-500 text-white" : "bg-yellow-100 text-yellow-900 border border-yellow-400";
-    <div class="fixed top-4 right-4 z-50 max-w-md" style="min-width:180px;">
-        <div class="w-full h-2 rounded-t-lg overflow-hidden bg-gray-300">
-            <div class="@barColor message-bar-anim h-full transition-all" style="width:100%" 
-         @key="message"></div>
-        </div>
-        <div class="px-4 py-2 rounded-b-lg shadow transition-all duration-300 @boxColor">
-            <div class="flex items-start gap-2">
-                <div class="flex-1">
-                    @message
-                </div>
-                <button class="ml-2" @onclick="ClearAllMessages" style="color:inherit;">
-                    ✕
-                </button>
-            </div>
-        </div>
-    </div>
+    <MessageBar Message="@(errorMessage ?? warnMessage)"
+                IsError="@(errorMessage != null)"
+                OnClose="ClearAllMessages" />
 }
 
 <!-- ファイル選択用の隠しinput -->
