@@ -349,12 +349,7 @@
 }
 @if (isBusy)
 {
-    <div class="fixed inset-0 flex items-center justify-center z-[100] bg-black/40">
-        <div class="flex flex-col items-center">
-            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
-            <span class="text-white font-bold text-lg">処理中です...</span>
-        </div>
-    </div>
+    <LoadingOverlay Message="処理中です..." />
 }
 <!-- メッセージ表示エリア -->
 @if (!string.IsNullOrEmpty(errorMessage) || !string.IsNullOrEmpty(warnMessage))
