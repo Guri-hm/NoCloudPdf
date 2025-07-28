@@ -19,7 +19,7 @@
             class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(isDragOver ? "opacity-100" : "opacity-0")">
             <div
                 class="w-full h-full bg-gray-700/70 rounded-xl border-2 border-dashed border-blue-300 flex items-center justify-center transition-all duration-200
-                                                                                                    @(isDragOver ? "scale-100" : "scale-70")">
+                                                                                                            @(isDragOver ? "scale-100" : "scale-70")">
                 <span class="text-white text-2xl font-bold">ここにファイルをドロップ</span>
             </div>
         </div>
@@ -42,22 +42,7 @@
                         MenuId="addMenu" MenuItems="addMenuItems" />
 
                     <!-- 逆順ボタン -->
-                    <div class="inline-flex shadow overflow-hidden border border-gray-300 rounded-lg bg-white h-10 ml-2">
-                        <button
-                            class="px-4 py-1 font-bold focus:outline-none transition text-gray-800 h-full bg-white hover:bg-blue-50 flex items-center"
-                            @onclick="ReverseOrder" title="逆順">
-                            <svg width="20" height="20" viewBox="0 0 21 21" fill="none"
-                                class="mr-2 inline-block align-middle">
-                                <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4.5 8.5l-4 4 4 4" />
-                                    <path d="M12.5 12.5h-12" />
-                                    <path d="M8.5.5l4 4-4 4" />
-                                    <path d="M12.5 4.5h-12" />
-                                </g>
-                            </svg>
-                            <span class="hidden xl:inline">逆順</span>
-                        </button>
-                    </div>
+                    <ActionButtonGroup T="string" Actions="reverseActions" />
 
                     <!-- 並び替えボタングループ -->
                     <DropdownButtonGroup T="string" ButtonLabel="並び替え" ButtonClass="bg-white text-gray-800 hover:bg-blue-50"
@@ -1064,6 +1049,19 @@ new DropdownMenuItem
 {
 Label = "名前（降順）",
 OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
+}
+};
+
+    private List<ActionButtonItem> reverseActions => new()
+{
+new ActionButtonItem
+{
+Label = "逆順",
+IconHtml = @"<svg width='20' height='20' viewBox='0 0 21 21' fill='none' class='mr-2 inline-block align-middle'><g
+stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'><path d='M4.5 8.5l-4 4 4 4' /><path d='M12.5
+12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
+Title = "逆順",
+OnClick = EventCallback.Factory.Create(this, ReverseOrder)
 }
 };
 

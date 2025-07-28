@@ -4,8 +4,11 @@
     @for (int i = 0; i < Actions.Count; i++)
     {
         var action = Actions[i];
+        var roundedClass = Actions.Count == 1
+        ? "rounded-lg"
+        : (i == 0 ? "rounded-s-lg" : (i == Actions.Count - 1 ? "rounded-e-lg" : ""));
         <button
-            class="px-4 py-1 font-bold focus:outline-none transition text-gray-800 @(i < Actions.Count - 1 ? "border-e border-gray-300" : "") h-full hover:bg-blue-50 flex items-center"
+            class="px-4 py-1 font-bold focus:outline-none transition text-gray-800 @(i < Actions.Count - 1 ? "border-e border-gray-300" : "") h-full hover:bg-blue-50 flex items-center @roundedClass"
             @onclick="() => action.OnClick.InvokeAsync()" title="@action.Title">
             @if (!string.IsNullOrEmpty(action.IconHtml))
             {
