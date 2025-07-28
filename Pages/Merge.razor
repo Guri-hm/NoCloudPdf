@@ -19,7 +19,7 @@
             class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(isDragOver ? "opacity-100" : "opacity-0")">
             <div
                 class="w-full h-full bg-gray-700/70 rounded-xl border-2 border-dashed border-blue-300 flex items-center justify-center transition-all duration-200
-                                                                                                                        @(isDragOver ? "scale-100" : "scale-70")">
+                                                                                                                            @(isDragOver ? "scale-100" : "scale-70")">
                 <span class="text-white text-2xl font-bold">ここにファイルをドロップ</span>
             </div>
         </div>
@@ -50,14 +50,9 @@
                         DropdownIconHtml="<svg width='16' height='16' viewBox='0 0 20 20' fill='currentColor' class='ml-2'><polygon points='5,8 10,13 15,8' /></svg>"
                         MenuId="sortMenu" MenuItems="sortMenuItems" OnToggle="ToggleSortMenu" />
                 </div>
-                <div class="flex-1 flex justify-end min-w-[120px]">
-                    <button
-                        class="bg-[#1976d2] hover:bg-[#1565c0] text-white font-bold py-2 px-8 rounded-lg flex items-center gap-3 min-w-[44px] transition hidden md:flex h-[44px]"
-                        @onclick="MergePDFs">
-                        <span class="flex-1 text-center hidden xl:inline">結合</span>
-                        <i class="fa-solid fa-arrow-right text-xl ml-2"></i>
-                    </button>
-                </div>
+
+                <ActionButtonGroup T="string" Actions="primaryActions" />
+
             </div>
         </div>
 
@@ -339,6 +334,19 @@
             return 1;
         return DisplayItems[previewIndex].PageCount;
     }
+    
+    private List<ActionButtonItem> primaryActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "結合",
+            IconHtml = "<i class='fa-solid fa-arrow-right text-xl ml-2'></i>",
+            Title = "結合",
+            OnClick = EventCallback.Factory.Create(this, MergePDFs),
+            ButtonClass = "bg-[#1976d2] hover:bg-[#1565c0] text-white font-bold py-2 px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
+            IconPosition = "right"
+        }
+    };
     private async Task ToggleAddMenu()
     {
         showAddMenu = !showAddMenu;
@@ -1069,22 +1077,24 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
 };
 
     private List<ActionButtonItem> rotateActions => new()
-{
-new ActionButtonItem
-{
-Label = "左",
-IconHtml = "<i class='fa-solid fa-rotate-left'></i>",
-Title = "左回転",
-OnClick = EventCallback.Factory.Create(this, RotateAllLeft)
-},
-new ActionButtonItem
-{
-Label = "右",
-IconHtml = "<i class='fa-solid fa-rotate-right'></i>",
-Title = "右回転",
-OnClick = EventCallback.Factory.Create(this, RotateAllRight)
-}
-};
+    {
+        new ActionButtonItem
+        {
+            Label = "左",
+            IconHtml = "<i class='fa-solid fa-rotate-left'></i>",
+            Title = "左回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllLeft),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Label = "右",
+            IconHtml = "<i class='fa-solid fa-rotate-right'></i>",
+            Title = "右回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllRight),
+            IconPosition = "left"
+        }
+    };
 
     private Task ReverseOrder()
     {

@@ -1307,9 +1307,6 @@ input[type=number] {
   .justify-center {
     justify-content: center;
   }
-  .justify-end {
-    justify-content: flex-end;
-  }
   .gap-0 {
     gap: calc(var(--spacing) * 0);
   }

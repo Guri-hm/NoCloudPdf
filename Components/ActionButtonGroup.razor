@@ -1,20 +1,34 @@
 @typeparam T
 
-<div class="inline-flex shadow overflow-hidden border border-gray-300 rounded-lg bg-white h-10">
+<div class="inline-flex shadow overflow-hidden rounded-lg bg-white h-10">
     @for (int i = 0; i < Actions.Count; i++)
     {
         var action = Actions[i];
         var roundedClass = Actions.Count == 1
         ? "rounded-lg"
         : (i == 0 ? "rounded-s-lg" : (i == Actions.Count - 1 ? "rounded-e-lg" : ""));
+        // 枠線は通常ボタンのみ。ButtonClassに"border"が含まれていない場合のみ枠線を追加
+        var borderClass = string.IsNullOrEmpty(action.ButtonClass) && i < Actions.Count - 1 ? "border-e border-gray-300" :
+        "";
         <button
-            class="px-4 py-1 font-bold focus:outline-none transition text-gray-800 @(i < Actions.Count - 1 ? "border-e border-gray-300" : "") h-full hover:bg-blue-50 flex items-center @roundedClass"
+            class="@($"{action.ButtonClass} px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 {roundedClass} {borderClass}")"
             @onclick="() => action.OnClick.InvokeAsync()" title="@action.Title">
-            @if (!string.IsNullOrEmpty(action.IconHtml))
+            @if ((string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "left") &&
+                    !string.IsNullOrEmpty(action.IconHtml))
             {
-                @((MarkupString)action.IconHtml)
+                <span class="@(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
+                    @((MarkupString)action.IconHtml)
+                </span>
             }
-            <span class="ml-2 hidden xl:inline">@action.Label</span>
+            <span class="flex-1 text-center hidden xl:inline @(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
+                @action.Label
+            </span>
+            @if (action.IconPosition == "right" && !string.IsNullOrEmpty(action.IconHtml))
+            {
+                <span class="@(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
+                    @((MarkupString)action.IconHtml)
+                </span>
+            }
         </button>
     }
 </div>
