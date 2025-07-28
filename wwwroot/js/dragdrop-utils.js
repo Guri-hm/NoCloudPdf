@@ -33,7 +33,6 @@ window.registerDropArea = function (elementId, dotNetRef) {
 };
 
 window.registerSelectDropArea = function (dotNetRef) {
-    console.log('registerSelectDropArea called');
     const area = document.getElementById('select-drop-area');
     if (!area) return;
     // 既に登録済みなら一度解除
