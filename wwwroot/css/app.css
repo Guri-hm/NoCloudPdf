@@ -129,33 +129,6 @@ code {
     opacity: 0.8;
 }
 
-/* 隣接サムネイル入れ替えボタン */
-.swap-button {
-    position: absolute;
-    top: 30px;
-    background: #ffc107 !important;
-    color: #212529 !important;
-    border: 1px solid #ffc107 !important;
-    border-radius: 50% !important;
-    width: 24px !important;
-    height: 24px !important;
-    font-size: 10px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer !important;
-    z-index: 20 !important;
-    transition: background 0.2s, border 0.2s !important;
-    padding: 0 !important;
-    opacity: 0.6;
-}
-
-.swap-button:hover {
-    background: #e0a800 !important;
-    border-color: #d39e00 !important;
-    opacity: 1;
-}
-
 .thumbnail-item:hover .menu-overlay {
     display: flex !important;
 }
