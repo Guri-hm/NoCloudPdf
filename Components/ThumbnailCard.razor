@@ -10,20 +10,20 @@
     <!-- 破線（分割の目印） -->
     @if (IsSplitMode && Index > 0)
     {
-        <div class="flex flex-col items-center h-full justify-center">
-            @* 分割の目印（上） *@
-            <div class=@($"h-full opacity-70 border-l-2 {(Item.IsSplitBefore ? "border-solid border-blue-600" : "border-dashed border-blue-500/60")}")></div>
-            <button
-                class=@($"w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 mt-1 mb-1 {(Item.IsSplitBefore ? "bg-blue-600" : "bg-blue-500/60")}")
-                style="aspect-ratio: 1 / 1;"
-                data-position="@Index"
-                @onclick="() => OnCheckChanged.InvokeAsync(Index)">
-                <i class=@($"text-white fa-solid fa-scissors")
-                    style="font-size:16px; transform: rotate(-90deg);"></i>
-            </button>
-            @* 分割の目印（下） *@
-            <div class=@($"h-full opacity-70 border-l-2 {(Item.IsSplitBefore ? "border-solid border-blue-600" : "border-dashed border-blue-500/60")}")></div>
-        </div>
+    <div class="flex flex-col items-center h-full justify-center">
+        @* 分割の目印（上） *@
+        <div class="h-full opacity-70 border-l-2 @(Item.IsSplitBefore ? "border-solid border-blue-600" : "border-dashed border-blue-500/60")"></div>
+        <button
+            class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 mt-1 mb-1 @(Item.IsSplitBefore ? "bg-blue-600" : "bg-blue-500/60")"
+            style="aspect-ratio:1/1;opacity:@(Item.IsSplitBefore ? "1" : "0.5");"
+            data-position="@Index"
+            @onclick="() => OnCheckChanged.InvokeAsync(Index)">
+            <i class="text-white fa-solid fa-scissors"
+            style="font-size:16px; transform: rotate(-90deg); "></i>
+        </button>
+        @* 分割の目印（下） *@
+        <div class="h-full opacity-70 border-l-2 @(Item.IsSplitBefore ? "border-solid border-blue-600" : "border-dashed border-blue-500/60")"></div>
+    </div>
     }
     <!-- ＋ボタン（PCのみ表示） -->
         @if (IsFileMode || IsPageMode)
