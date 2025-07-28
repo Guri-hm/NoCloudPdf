@@ -1522,14 +1522,14 @@ input[type=number] {
   .border-gray-400 {
     border-color: var(--color-gray-400);
   }
-  .border-gray-500 {
-    border-color: var(--color-gray-500);
-  }
   .border-white {
     border-color: var(--color-white);
   }
   .border-yellow-400 {
     border-color: var(--color-yellow-400);
+  }
+  .bg-\[\#1976d2\] {
+    background-color: #1976d2;
   }
   .bg-black {
     background-color: var(--color-black);
@@ -2037,6 +2037,13 @@ input[type=number] {
     -webkit-user-select: none;
     -moz-user-select: none;
          user-select: none;
+  }
+  .hover\:bg-\[\#1565c0\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: #1565c0;
+      }
+    }
   }
   .hover\:bg-blue-50 {
     &:hover {
