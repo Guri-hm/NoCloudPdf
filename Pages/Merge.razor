@@ -18,7 +18,7 @@
         <div
             class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(isDragOver ? "opacity-100" : "opacity-0")">
             <div class="w-full h-full bg-gray-700/70 rounded-xl border-2 border-dashed border-blue-300 flex items-center justify-center transition-all duration-200
-                                                                @(isDragOver ? "scale-100" : "scale-70")">
+                                                                                @(isDragOver ? "scale-100" : "scale-70")">
                 <span class="text-white text-2xl font-bold">ここにファイルをドロップ</span>
             </div>
         </div>
@@ -31,21 +31,8 @@
                     <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="CurrentDisplayModeString"
                         OnClick="OnToggleMode" />
 
-                    <!-- 回転ボタングループ -->
-                    <div class="inline-flex shadow overflow-hidden border border-gray-300 rounded-lg bg-white h-10">
-                        <button
-                            class="px-4 py-1 font-bold focus:outline-none transition text-gray-800 border-e border-gray-300 h-full hover:bg-blue-50 flex items-center"
-                            @onclick="RotateAllLeft" title="左回転">
-                            <i class="fa-solid fa-rotate-left"></i>
-                            <span class="ml-2 hidden xl:inline">左</span>
-                        </button>
-                        <button
-                            class="px-4 py-1 font-bold focus:outline-none transition text-gray-800 h-full hover:bg-blue-50 flex items-center"
-                            @onclick="RotateAllRight" title="右回転">
-                            <i class="fa-solid fa-rotate-right"></i>
-                            <span class="ml-2 hidden xl:inline">右</span>
-                        </button>
-                    </div>
+                    <ActionButtonGroup T="string" Actions="rotateActions" />
+
                     <!-- 追加ボタングループ -->
                     <div class="inline-flex shadow border border-gray-300 rounded-lg bg-white h-10 ml-2 relative">
                         <button
@@ -1090,6 +1077,24 @@
         isLoading = false;
         StateHasChanged();
     }
+
+    private List<ActionButtonItem> rotateActions => new()
+{
+new ActionButtonItem
+{
+Label = "左",
+IconHtml = "<i class='fa-solid fa-rotate-left'></i>",
+Title = "左回転",
+OnClick = EventCallback.Factory.Create(this, RotateAllLeft)
+},
+new ActionButtonItem
+{
+Label = "右",
+IconHtml = "<i class='fa-solid fa-rotate-right'></i>",
+Title = "右回転",
+OnClick = EventCallback.Factory.Create(this, RotateAllRight)
+}
+};
 
     private Task ReverseOrder()
     {

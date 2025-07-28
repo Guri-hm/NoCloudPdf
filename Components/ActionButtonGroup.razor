@@ -1,0 +1,22 @@
+@typeparam T
+
+<div class="inline-flex shadow overflow-hidden border border-gray-300 rounded-lg bg-white h-10">
+    @for (int i = 0; i < Actions.Count; i++)
+    {
+        var action = Actions[i];
+        <button
+            class="px-4 py-1 font-bold focus:outline-none transition text-gray-800 @(i < Actions.Count - 1 ? "border-e border-gray-300" : "") h-full hover:bg-blue-50 flex items-center"
+            @onclick="() => action.OnClick.InvokeAsync()" title="@action.Title">
+            @if (!string.IsNullOrEmpty(action.IconHtml))
+            {
+                @((MarkupString)action.IconHtml)
+            }
+            <span class="ml-2 hidden xl:inline">@action.Label</span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<ActionButtonItem> Actions { get; set; } = new();
+}
