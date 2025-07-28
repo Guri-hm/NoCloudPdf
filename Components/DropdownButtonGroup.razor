@@ -1,0 +1,54 @@
+@typeparam T
+
+<div class="inline-flex shadow border border-gray-300 rounded-lg bg-white h-10 ml-2 relative">
+    <button
+        class="@($"{ButtonClass} flex items-center px-4 py-1 h-full rounded-lg font-bold transition focus:outline-none")"
+        @onclick="ToggleMenu" title="@ButtonLabel">
+        @if (!string.IsNullOrEmpty(ButtonIconHtml))
+        {
+            @((MarkupString)ButtonIconHtml)
+        }
+        <span class="hidden xl:inline">@ButtonLabel</span>
+        @if (!string.IsNullOrEmpty(DropdownIconHtml))
+        {
+            @((MarkupString)DropdownIconHtml)
+        }
+    </button>
+    @if (ShowMenu)
+    {
+        <div id="@MenuId"
+            class="absolute top-full left-0 mt-1 min-w-[120px] bg-white rounded-lg shadow-lg z-50 border border-gray-300">
+            @foreach (var item in MenuItems)
+            {
+                <button
+                    class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 whitespace-nowrap"
+                    @onclick="item.OnClick">
+                    @if (!string.IsNullOrEmpty(item.IconHtml))
+                    {
+                        @((MarkupString)item.IconHtml)
+                    }
+                    <span>@item.Label</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string ButtonLabel { get; set; } = "追加";
+    [Parameter] public string ButtonClass { get; set; } = "bg-white text-gray-800 hover:bg-blue-50";
+    [Parameter] public string ButtonIconHtml { get; set; } = "";
+    [Parameter] public string DropdownIconHtml { get; set; } = "";
+    [Parameter] public string MenuId { get; set; } = "dropdownMenu";
+    [Parameter] public List<DropdownMenuItem> MenuItems { get; set; } = new();
+
+    [Parameter] public EventCallback OnToggle { get; set; }
+
+    private bool ShowMenu { get; set; } = false;
+
+    private void ToggleMenu()
+    {
+        ShowMenu = !ShowMenu;
+        OnToggle.InvokeAsync();
+    }
+}
