@@ -1491,9 +1491,17 @@ input[type=number] {
     border-left-style: var(--tw-border-style);
     border-left-width: 1px;
   }
+  .border-l-2 {
+    border-left-style: var(--tw-border-style);
+    border-left-width: 2px;
+  }
   .border-dashed {
     --tw-border-style: dashed;
     border-style: dashed;
+  }
+  .border-solid {
+    --tw-border-style: solid;
+    border-style: solid;
   }
   .border-black {
     border-color: var(--color-black);
@@ -1503,6 +1511,12 @@ input[type=number] {
   }
   .border-blue-400 {
     border-color: var(--color-blue-400);
+  }
+  .border-blue-500\/60 {
+    border-color: color-mix(in srgb, oklch(62.3% 0.214 259.815) 60%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-blue-500) 60%, transparent);
+    }
   }
   .border-blue-600 {
     border-color: var(--color-blue-600);
@@ -1939,6 +1953,9 @@ input[type=number] {
   }
   .opacity-50 {
     opacity: 50%;
+  }
+  .opacity-70 {
+    opacity: 70%;
   }
   .opacity-75 {
     opacity: 75%;
