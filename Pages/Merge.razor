@@ -490,8 +490,6 @@
     {
         if (IsFileMode) return;
         PdfDataService.SwitchDisplayMode(DisplayMode.File);
-        StateHasChanged();
-        await Task.Delay(100); // DOM更新待ち
 
         // JavaScript再初期化
         try
@@ -510,10 +508,8 @@
     {
         if (IsPageMode) return;
 
-        // 即座にページ単位モードに切り替える（読み込み完了を待たない）
+        // 即座にページ単位モードに切り替える
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
-        StateHasChanged();
-        await Task.Delay(100); // DOM更新待ち
 
         // JavaScript再初期化
         try
@@ -629,7 +625,6 @@
         try
         {
             PdfDataService.RemoveItem(index);
-            StateHasChanged();
         }
         catch (Exception ex)
         {
@@ -689,7 +684,6 @@
 
                 // 統一データサービスを使用して入れ替え
                 PdfDataService.SwapItems(index, nextIndex);
-                StateHasChanged();
 
                 Console.WriteLine($"Swap completed successfully");
             }
@@ -713,7 +707,6 @@
             try
             {
                 await PdfDataService.RotateItemAsync(index, angle);
-                StateHasChanged();
             }
             catch (Exception ex)
             {
@@ -726,7 +719,6 @@
     private async Task RotateFile(string fileId)
     {
         await PdfDataService.RotateFileAsync(fileId, 90);
-        StateHasChanged();
     }
 
     private Task RotateAllLeft() => RotateAll(-90);
@@ -820,7 +812,6 @@
             var pageItem = DisplayItems[index];
             await PdfDataService.DuplicateItemAsync(pageItem.Id, false, index + 1);
         }
-        StateHasChanged();
     }
 
     // 挿入ボタンクリック処理
@@ -909,7 +900,6 @@
         }
 
         await PdfDataService.InsertBlankPageAsync(insertPosition);
-        StateHasChanged();
     }
 
     // PDF挿入
@@ -1060,11 +1050,12 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         }
     };
 
-    private Task ReverseOrder()
+    private async Task ReverseOrder()
     {
         isBusy = true;
         StateHasChanged();
-
+        await Task.Yield();
+        
         if (IsFileMode)
         {
             // ファイル単位：ファイルごと逆順
@@ -1078,18 +1069,21 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
             PdfDataService.ReversePages();
         }
 
-        StateHasChanged();
         isBusy = false;
-        return Task.CompletedTask;
+        StateHasChanged();
     }
 
-    private void SelectSort(bool ascending)
+    private async Task SelectSort(bool ascending)
     {
         showSortMenu = false;
-        SortByName(ascending);
+        await SortByName(ascending);
     }
-    private void SortByName(bool ascending)
+    private async Task SortByName(bool ascending)
     {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
         if (IsFileMode)
         {
             var sorted = ascending
@@ -1101,6 +1095,8 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         {
             PdfDataService.SortPagesByName(ascending);
         }
+        
+        isBusy = false;
         StateHasChanged();
     }
 
@@ -1323,13 +1319,13 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     {
         errorMessage = msg;
         warnMessage = null;
-        StateHasChanged();
         await Task.Delay(5000);
         if (errorMessage == msg) // 他のメッセージで上書きされていなければ
         {
             errorMessage = null;
-            StateHasChanged();
         }
+        StateHasChanged();
+
     }
 
 
@@ -1338,20 +1334,20 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         Console.WriteLine($"ShowWarn called with message: {msg}");
         warnMessage = msg;
         errorMessage = null;
-        StateHasChanged();
         await Task.Delay(5000);
         if (warnMessage == msg)
         {
             warnMessage = null;
-            StateHasChanged();
         }
+
+        StateHasChanged();
+
     }
 
     private void ClearAllMessages()
     {
         errorMessage = null;
         warnMessage = null;
-        StateHasChanged();
     }
 
     private async void DownloadMergedPng()
@@ -1382,12 +1378,9 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         {
             pageItem.IsLoading = true;
             pageItem.HasError = false;
-            StateHasChanged();
 
             // ページ再読み込み（ファイルIDとページインデックスで再実行）
             await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
-
-            StateHasChanged();
         }
     }
 }
