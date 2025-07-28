@@ -5,14 +5,9 @@
     {
         var item = Items[i];
         var isActive = EqualityComparer<T>.Default.Equals(item.Value, ActiveValue);
-        <button class="
-                    px-4 py-1 focus:outline-none transition border h-full flex items-center gap-2
-                    @(isActive
-                                                ? "bg-blue-100 text-blue-900 font-bold shadow-sm border-blue-400 z-10"
-                                                : "bg-white text-gray-500 border-gray-300 hover:bg-gray-100 font-normal")
-                    @(i == 0 ? "rounded-s-lg" : (i == Items.Count - 1 ? "rounded-e-lg" : "")
-                                            )
-                " @onclick="() => OnClick.InvokeAsync(item.Value)">
+        <button
+            class="px-4 py-1 focus:outline-none transition border h-full flex items-center gap-2 @(isActive ? "bg-blue-100 text-blue-900 font-bold shadow-sm border-blue-400 z-10" : "bg-white text-gray-500 border-gray-300 hover:bg-gray-100 font-normal") @(i == 0 ? "rounded-s-lg" : (i == Items.Count - 1 ? "rounded-e-lg" : ""))"
+            @onclick="() => OnClick.InvokeAsync(item.Value)">
             @if (!string.IsNullOrEmpty(item.IconSvg))
             {
                 @((MarkupString)item.IconSvg)

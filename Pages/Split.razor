@@ -22,7 +22,7 @@
                 class="flex items-center justify-between px-4 py-2 h-16 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 <div class="flex gap-2 items-center">
 
-                    <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="CurrentDisplayModeString"
+                    <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="CurrentModeString"
                         OnClick="OnToggleMode" />
 
                     <!-- 回転ボタングループ -->
@@ -1186,32 +1186,45 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
 {
 new ToggleButtonItem<string>
 {
-Value = "File",
-Label = "ファイル",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='currentColor' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path
-fill-rule='evenodd' d='M2 2.002h14v2h2l4 4v14H8v-2H2zm1 17h5v-2H5v-1h3v-2H5v-1h3v-2H5v-1h3v-6h7v-1H3zm6
-0v2h12v-12h-4v-4H9zm9-11V5.417l2.586 2.585zm-7 4h8v1h-8zm8 3h-8v1h8zm-2 3h-6v1h6z'></path></svg>"
+Value = "Split",
+Label = "分割",
+IconSvg = @"<i class=""fa-solid fa-scissors""></i>"
 },
 new ToggleButtonItem<string>
 {
-Value = "Page",
-Label = "ページ",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='currentColor' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path
-fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7h5zm-6-1v9h7v-9zm10 1h5v7h-5zm-1
-8v-9h7v9z' clip-rule='evenodd'></path></svg>"
+Value = "Extract",
+Label = "抽出",
+IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path fill='currentColor' fill-rule='evenodd' d='M14 4h5v6h-5zm-1-1h7v8h-7zm7 10h-7v8h7zm-10 1H5v6h5zm-5-1H4v8h7v-8zm6-10H4v8h7z' clip-rule='evenodd'></path></svg>"
 }
 };
 
-    private string CurrentDisplayModeString => IsFileMode ? "File" : "Page";
+    private string CurrentModeString => IsSplitMode ? "Split" : "Extract";
 
     private async Task OnToggleMode(string mode)
     {
-        if (mode == "File")
-            await SwitchToFileMode();
-        else if (mode == "Page")
-            await SwitchToPageMode();
+        if (mode == "Split")
+            await SwitchToSplitMode();
+        else if (mode == "Extract")
+            await SwitchToExtractMode();
+    }
+    // モード判定プロパティ
+    private bool IsSplitMode => CurrentDisplayMode == DisplayMode.File;
+    private bool IsExtractMode => CurrentDisplayMode == DisplayMode.Page;
+
+    // モード切り替えメソッド例
+    private async Task SwitchToSplitMode()
+    {
+        Console.WriteLine("Switching to Split mode");
+        await Task.CompletedTask;
+        // 分割モードへの切り替え処理
     }
 
+    private async Task SwitchToExtractMode()
+    {
+        Console.WriteLine("Switching to Extract mode");
+        await Task.CompletedTask;
+        // 抽出モードへの切り替え処理
+    }
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
 
