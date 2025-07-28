@@ -847,27 +847,10 @@
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
-    private static Merge? _currentInstance;
-
-    // JavaScript から呼び出される並び替えメソッド
-    [JSInvokable("UpdateOrder")]
-    public static async Task UpdateOrder(int oldIndex, int newIndex)
-    {
-        Console.WriteLine($"UpdateOrder called with oldIndex: {oldIndex}, newIndex: {newIndex}");
-
-        if (_currentInstance != null)
-        {
-            Console.WriteLine($"Current instance found, calling UpdateOrderInternal");
-            await _currentInstance.UpdateOrderInternal(oldIndex, newIndex);
-        }
-        else
-        {
-            Console.WriteLine($"ERROR: Current instance is null!");
-        }
-    }
+    public static Merge? _currentInstance;
 
     // 実際の並び替え処理
-    private async Task UpdateOrderInternal(int oldIndex, int newIndex)
+    public async Task UpdateOrderInternal(string pageType, int oldIndex, int newIndex)
     {
         try
         {
@@ -902,20 +885,8 @@
         }
     }
 
-    // JavaScript から呼び出される空白ページ挿入メソッド
-    [JSInvokable("InsertBlankPageFromJS")]
-    public static Task InsertBlankPageFromJS(int position)
-    {
-        // インスタンス参照が必要なら、staticフィールドで管理
-        if (_currentInstance != null)
-        {
-            return _currentInstance.InsertBlankPage(position);
-        }
-        return Task.CompletedTask;
-    }
-
     // JavaScript から呼び出されるPDF挿入メソッド
-    [JSInvokable("InsertPdfAtPositionFromJS")]
+    [JSInvokable("Merge_InsertPdfAtPositionFromJS")]
     public static async Task InsertPdfAtPositionFromJS(int position)
     {
         if (_currentInstance != null)
@@ -925,7 +896,7 @@
     }
 
     // 空白ページを挿入
-    private async Task InsertBlankPage(int position)
+    public async Task InsertBlankPage(int position)
     {
         showAddMenu = false;
 
@@ -949,7 +920,7 @@
     }
 
     // PDF挿入
-    private async Task InsertPdfAtPosition(int position)
+    public async Task InsertPdfAtPosition(int position)
     {
         try
         {

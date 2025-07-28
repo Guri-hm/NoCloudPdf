@@ -67,13 +67,15 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
         display: block;
     `;
 
+    const pageType = getPageType();
+
     // メニューボタンを作成
     const blankPageBtn = document.createElement('button');
     blankPageBtn.innerHTML = '空白ページを追加';
     blankPageBtn.className = 'w-full px-4 py-2 text-left hover:bg-gray-100 border-b border-gray-200';
     blankPageBtn.style.cssText = 'border: none; background: none; cursor: pointer;';
     blankPageBtn.onclick = () => {
-        window.DotNet.invokeMethodAsync('ClientPdfApp', 'InsertBlankPageFromJS', position);
+        window.DotNet.invokeMethodAsync('ClientPdfApp', 'InsertBlankPageFromJS', pageType, position);
         window.hideAllInsertMenus();
     };
 
@@ -82,7 +84,7 @@ window.showInsertMenuAtExactPosition = function (position, clickX, clickY) {
     insertPdfBtn.className = 'w-full px-4 py-2 text-left hover:bg-gray-100';
     insertPdfBtn.style.cssText = 'border: none; background: none; cursor: pointer;';
     insertPdfBtn.onclick = () => {
-        window.DotNet.invokeMethodAsync('ClientPdfApp', 'InsertPdfAtPositionFromJS', position);
+        window.DotNet.invokeMethodAsync('ClientPdfApp', 'InsertPdfAtPositionFromJS', pageType, position);
         window.hideAllInsertMenus();
     };
 

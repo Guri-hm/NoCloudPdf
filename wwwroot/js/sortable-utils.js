@@ -50,6 +50,11 @@ window.initializeSortable = function () {
                 return true;
             },
             onEnd: function (evt) {
+                function getPageType() {
+                    if (window.location.pathname.includes("/split")) return "split";
+                    if (window.location.pathname.includes("/merge")) return "merge";
+                    return "unknown";
+                }
                 window.isSorting = false;
                 document.querySelectorAll('.non-sortable').forEach(el => {
                     el.classList.remove('hide-during-drag');
@@ -66,13 +71,20 @@ window.initializeSortable = function () {
                     const indexB = parseInt(b.getAttribute('data-index'));
                     return indexA - indexB;
                 });
-                const nonSortableElements = Array.from(container.querySelectorAll('.non-sortable'));
+                ;
                 container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
                 const insertPoint = container.querySelector('.non-sortable');
                 sortableItems.forEach(item => {
                     container.insertBefore(item, insertPoint);
                 });
-                DotNet.invokeMethodAsync('ClientPdfApp', 'UpdateOrder', evt.oldIndex, adjustedNewIndex);
+
+                DotNet.invokeMethodAsync(
+                    'ClientPdfApp',
+                    'UpdateOrder',
+                    getPageType(),
+                    evt.oldIndex,
+                    adjustedNewIndex
+                );
             }
         });
     } else if (sortablePc) {
