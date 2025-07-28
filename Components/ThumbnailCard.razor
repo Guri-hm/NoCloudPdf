@@ -10,6 +10,20 @@
     <!-- ＋ボタン（PCのみ表示） -->
     <div class="hidden md:flex items-center relative insert-button-container mr-2" data-position="@Index"
         style="flex-direction: column; align-items: center;">
+        @if (IsSplitMode && Index > 0)
+        {
+            <!-- 分割モード時はチェックボックスアイコン -->
+            <button
+                class="w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200"
+                style="background:@(Item.IsSplitBefore  ? "#2563eb" : "#e0f2fe");"
+                data-position="@Index"
+                @onclick="() => OnCheckChanged.InvokeAsync(Index)">
+                <i class="fa-solid fa-scissors"
+                style="color:@(Item.IsSplitBefore  ? "white" : "#2563eb"); font-size:16px;"></i>
+            </button>
+        }
+        @if (IsFileMode || IsPageMode)
+        {
         <button
             class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
             data-position="@Index" @onclick="@((e) => OnInsertButtonClick.InvokeAsync((Index, e)))">
@@ -17,6 +31,7 @@
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
             </svg>
         </button>
+        }
         @if (Index > 0 && Index < DisplayItemsCount)
         {
             <button class="swap-button px-2 py-1 bg-yellow-400 hover:bg-yellow-500 text-black rounded-lg"
@@ -143,4 +158,6 @@
     [Parameter] public EventCallback<(int position, MouseEventArgs e)> OnInsertButtonClick { get; set; }
     [Parameter] public EventCallback<int> OnSwapWithNext { get; set; }
     [Parameter] public EventCallback<DisplayItem> OnReloadPageItem { get; set; }
+    [Parameter] public bool IsSplitMode { get; set; }
+    [Parameter] public EventCallback<int> OnCheckChanged { get; set; }
 }

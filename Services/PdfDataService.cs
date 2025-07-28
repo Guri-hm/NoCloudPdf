@@ -76,6 +76,8 @@ public class PdfDataService
         {
             DisplayMode.File => GetFileDisplayItems(),
             DisplayMode.Page => GetPageDisplayItems(),
+            DisplayMode.Split => GetPageDisplayItems(),
+            DisplayMode.Extract => GetPageDisplayItems(),
             _ => new List<DisplayItem>()
         };
     }
@@ -153,6 +155,8 @@ public class PdfDataService
             PageCount = 1,
             ColorHsl = page.ColorHsl,
             RotateAngle = page.RotateAngle,
+            IsSplitBefore = page.IsSplitBefore,
+            IsSelectedForExtract = page.IsSelectedForExtract
         }).ToList();
     }
 
@@ -927,5 +931,14 @@ public class PdfDataService
             Console.WriteLine($"Error adding/inserting image file {fileName}: {ex.Message}");
             return false;
         }
+    }
+
+    public void ToggleSplitBefore(int pageIndex)
+    {
+        if (pageIndex < 0 || pageIndex >= _model.Pages.Count) return;
+        var pageItem = _model.Pages[pageIndex];
+        pageItem.IsSplitBefore = !pageItem.IsSplitBefore;
+        Console.WriteLine($"Page {pageIndex} split before toggled to {pageItem.IsSplitBefore}");
+        OnChange?.Invoke();
     }
 }

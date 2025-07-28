@@ -58,6 +58,8 @@
                     {
                         <ThumbnailCard Item="DisplayItems[i]" Index="i" DisplayItemsCount="DisplayItems.Count"
                             IsFileMode="IsFileMode" IsPageMode="IsPageMode"
+                            IsSplitMode="IsSplitMode"
+                            OnCheckChanged="HandleCheckChanged"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
                             OnSwapWithNext="SwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
@@ -329,7 +331,7 @@
             return 1;
         return DisplayItems[previewIndex].PageCount;
     }
-    
+
     private List<ActionButtonItem> primaryActions => new()
     {
         new ActionButtonItem
@@ -486,69 +488,6 @@
     {
         previewIndex = -1;
         StateHasChanged();
-    }
-    // 表示モード切り替えメソッド
-    private async Task SwitchToFileMode()
-    {
-        if (IsFileMode) return;
-        PdfDataService.SwitchDisplayMode(DisplayMode.File);
-        StateHasChanged();
-        await Task.Delay(100); // DOM更新待ち
-
-        // JavaScript再初期化
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("initializeDragDrop");
-            await JSRuntime.InvokeVoidAsync("initializeSortable");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error reinitializing JS: {ex.Message}");
-        }
-
-    }
-
-    private async Task SwitchToPageMode()
-    {
-        if (IsPageMode) return;
-
-        // 即座にページ単位モードに切り替える（読み込み完了を待たない）
-        PdfDataService.SwitchDisplayMode(DisplayMode.Page);
-        StateHasChanged();
-        await Task.Delay(100); // DOM更新待ち
-
-        // JavaScript再初期化
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("initializeDragDrop");
-            await JSRuntime.InvokeVoidAsync("initializeSortable");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error reinitializing JS: {ex.Message}");
-        }
-
-        // バックグラウンドで残りのページ読み込みを継続（UI をブロックしない）
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await PdfDataService.EnsureAllPagesLoadedAsync();
-                await InvokeAsync(() =>
-        {
-            StateHasChanged(); // 読み込み完了時にUIを更新
-        });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in background page loading: {ex.Message}");
-                await InvokeAsync(() =>
-        {
-            ShowWarn($"一部ページの読み込みに失敗しました。問題のあるページは「読み込みエラー」と表示されます。");
-            StateHasChanged();
-        });
-            }
-        });
     }
 
     public class MergePageDto
@@ -1208,22 +1147,27 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             await SwitchToExtractMode();
     }
     // モード判定プロパティ
-    private bool IsSplitMode => CurrentDisplayMode == DisplayMode.File;
-    private bool IsExtractMode => CurrentDisplayMode == DisplayMode.Page;
+    private bool IsSplitMode => CurrentDisplayMode == DisplayMode.Split;
+    private bool IsExtractMode => CurrentDisplayMode == DisplayMode.Extract;
 
     // モード切り替えメソッド例
     private async Task SwitchToSplitMode()
     {
         Console.WriteLine("Switching to Split mode");
-        await Task.CompletedTask;
-        // 分割モードへの切り替え処理
+        if (IsSplitMode) return;
+        PdfDataService.SwitchDisplayMode(DisplayMode.Split);
+        StateHasChanged();
+        Console.WriteLine("Switching to Split mode");
+        await Task.Delay(100);
     }
 
     private async Task SwitchToExtractMode()
     {
+        if (IsExtractMode) return;
+        PdfDataService.SwitchDisplayMode(DisplayMode.Extract);
+        StateHasChanged();
         Console.WriteLine("Switching to Extract mode");
-        await Task.CompletedTask;
-        // 抽出モードへの切り替え処理
+        await Task.Delay(100);
     }
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
@@ -1403,6 +1347,13 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
 
             StateHasChanged();
+        }
+    }
+    private void HandleCheckChanged(int index)
+    {
+        if (index > 0 && index < DisplayItems.Count)
+        {
+            PdfDataService.ToggleSplitBefore(index);
         }
     }
 }

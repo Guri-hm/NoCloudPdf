@@ -38,6 +38,8 @@ public class PageItem
     public DateTime CreatedAt { get; set; } = DateTime.Now; // 作成日時（並び替えの参考用）
     public string ColorHsl { get; set; } = ""; // 色（HSL形式） - ファイルIDから生成
     public int RotateAngle { get; set; } = 0; // 0, 90, 180, 270
+    public bool IsSplitBefore { get; set; } = false; // このページの前で分割
+    public bool IsSelectedForExtract { get; set; } = false; // このページを抽出
 }
 
 /// <summary>
@@ -60,7 +62,9 @@ public class FileMetadata
 public enum DisplayMode
 {
     File, // ファイル単位表示
-    Page  // ページ単位表示
+    Page,  // ページ単位表示
+    Split, // 分割モード
+    Extract // 抽出モード
 }
 
 /// <summary>
@@ -79,4 +83,6 @@ public class DisplayItem
     public int PageCount { get; set; }// ファイル単位表示時のページ数
     public string ColorHsl { get; set; } = ""; // 色（HSL形式） - ファイルIDから生成
     public int RotateAngle { get; set; } = 0;
+    public bool IsSplitBefore { get; set; } = false; // このページの前で分割
+    public bool IsSelectedForExtract { get; set; } = false; // このページを抽出
 }
