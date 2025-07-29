@@ -1,0 +1,47 @@
+<div class="relative w-full mt-4">
+    <div class="flex w-full">
+        <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
+            @onclick="OnPrimaryClick">
+            @PrimaryLabel
+        </button>
+        <button
+            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
+            @onclick="ToggleMenu">
+            <i class="fa-solid fa-caret-down"></i>
+        </button>
+    </div>
+    @if (ShowMenu)
+    {
+        <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+            @foreach (var item in MenuItems)
+            {
+                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800"
+                    @onclick="() => OnMenuItemClick(item)">
+                    @item.Label
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string PrimaryLabel { get; set; } = "ダウンロード";
+    [Parameter] public EventCallback OnPrimaryClick { get; set; }
+    [Parameter] public List<MenuActionItem> MenuItems { get; set; } = new();
+
+    private bool ShowMenu { get; set; }
+
+    private void ToggleMenu() => ShowMenu = !ShowMenu;
+
+    private async Task OnMenuItemClick(MenuActionItem item)
+    {
+        ShowMenu = false;
+        if (item.OnClick.HasDelegate)
+            await item.OnClick.InvokeAsync(null);
+    }
+    public class MenuActionItem
+    {
+        public string Label { get; set; } = "";
+        public EventCallback OnClick { get; set; }
+    }
+}
