@@ -1152,11 +1152,9 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
     // モード切り替えメソッド例
     private async Task SwitchToSplitMode()
     {
-        Console.WriteLine("Switching to Split mode");
         if (IsSplitMode) return;
         PdfDataService.SwitchDisplayMode(DisplayMode.Split);
         StateHasChanged();
-        Console.WriteLine("Switching to Split mode");
         await Task.Delay(100);
     }
 
@@ -1165,7 +1163,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         if (IsExtractMode) return;
         PdfDataService.SwitchDisplayMode(DisplayMode.Extract);
         StateHasChanged();
-        Console.WriteLine("Switching to Extract mode");
         await Task.Delay(100);
     }
     private bool _renderedMergedPages = false;
@@ -1360,12 +1357,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
     {
         if (index >= 0 && index < DisplayItems.Count)
         {
-            Console.WriteLine($"Item selected: {DisplayItems[index].DisplayName}");
-            if (DisplayItems[index].RawData is PageItem pageItem)
-            {
-                pageItem.IsSelectedForExtract = true;
-                StateHasChanged();
-            }
+            PdfDataService.ToggleExtractSelection(index);
         }
     }
 }

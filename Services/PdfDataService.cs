@@ -938,7 +938,14 @@ public class PdfDataService
         if (pageIndex < 0 || pageIndex >= _model.Pages.Count) return;
         var pageItem = _model.Pages[pageIndex];
         pageItem.IsSplitBefore = !pageItem.IsSplitBefore;
-        Console.WriteLine($"Page {pageIndex} split before toggled to {pageItem.IsSplitBefore}");
+        OnChange?.Invoke();
+    }
+
+    public void ToggleExtractSelection(int pageIndex)
+    {
+        if (pageIndex < 0 || pageIndex >= _model.Pages.Count) return;
+        var pageItem = _model.Pages[pageIndex];
+        pageItem.IsSelectedForExtract = !pageItem.IsSelectedForExtract;
         OnChange?.Invoke();
     }
 }
