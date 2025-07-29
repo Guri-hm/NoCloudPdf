@@ -58,13 +58,14 @@
                     {
                         <ThumbnailCard Item="DisplayItems[i]" Index="i" DisplayItemsCount="DisplayItems.Count"
                             IsFileMode="IsFileMode" IsPageMode="IsPageMode"
-                            IsSplitMode="IsSplitMode"
+                            IsSplitMode="IsSplitMode" IsExtractMode="IsExtractMode"
                             OnCheckChanged="HandleCheckChanged"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
                             OnSwapWithNext="SwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
                             OnRotate="idx => (IsFileMode ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
-                            OnDuplicate="DuplicateItem" />
+                            OnDuplicate="DuplicateItem" 
+                            OnSelectChanged="HandleSelectChanged" />
                     }
 
                     <!-- 追加エリアは別divとして配置 -->
@@ -476,8 +477,6 @@
             // 失敗時はサムネイル表示
             previewImageUrl = DisplayItems[fileIndex].Thumbnail;
         }
-
-        Console.WriteLine($"Preview image URL: {previewImageUrl}");
 
         isPreviewLoading = false;
         StateHasChanged();
@@ -1354,6 +1353,19 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         if (index > 0 && index < DisplayItems.Count)
         {
             PdfDataService.ToggleSplitBefore(index);
+        }
+    }
+
+    private void HandleSelectChanged(int index)
+    {
+        if (index >= 0 && index < DisplayItems.Count)
+        {
+            Console.WriteLine($"Item selected: {DisplayItems[index].DisplayName}");
+            if (DisplayItems[index].RawData is PageItem pageItem)
+            {
+                pageItem.IsSelectedForExtract = true;
+                StateHasChanged();
+            }
         }
     }
 }

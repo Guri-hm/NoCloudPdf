@@ -66,7 +66,16 @@
             style="touch-action: none;">
             <i class="fa-solid fa-grip-vertical text-xl"></i>
         </span>
-
+        @* サムネイル左上にチェックボックス *@
+        @if (IsExtractMode)
+        {
+            <div class="absolute top-2 left-2 z-10">
+                <input type="checkbox"
+                    checked="@(Item.IsSelectedForExtract)"
+                    @onclick="() => OnSelectChanged.InvokeAsync(Index)"
+                    class="form-checkbox h-5 w-5 text-blue-600" />
+            </div>
+        }
         <!-- サムネイル＋ページ情報 -->
         <div class="flex flex-row md:flex-col flex-1 items-center md:items-stretch">
             <!-- サムネイル -->
@@ -182,5 +191,7 @@
     [Parameter] public EventCallback<int> OnSwapWithNext { get; set; }
     [Parameter] public EventCallback<DisplayItem> OnReloadPageItem { get; set; }
     [Parameter] public bool IsSplitMode { get; set; }
+    [Parameter] public bool IsExtractMode { get; set; }
     [Parameter] public EventCallback<int> OnCheckChanged { get; set; }
+    [Parameter] public EventCallback<int> OnSelectChanged { get; set; }
 }
