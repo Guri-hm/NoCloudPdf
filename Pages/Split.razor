@@ -58,7 +58,7 @@
                     {
                         <ThumbnailCard Item="DisplayItems[i]" Index="i" DisplayItemsCount="DisplayItems.Count"
                             IsFileMode="IsFileMode" IsPageMode="IsPageMode"
-                            IsSplitMode="IsSplitMode" IsExtractMode="IsExtractMode"
+                            OperationMode="CurrentOperationMode"
                             OnCheckChanged="HandleCheckChanged"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
@@ -300,6 +300,10 @@
     private bool IsFilesLoaded => DisplayItems.Any();
     private bool IsFileMode => CurrentDisplayMode == DisplayMode.File;
     private bool IsPageMode => CurrentDisplayMode == DisplayMode.Page;
+
+    private OperationMode CurrentOperationMode = OperationMode.Split;
+    private bool IsSplitMode => CurrentOperationMode == OperationMode.Split;
+    private bool IsExtractMode => CurrentOperationMode == OperationMode.Extract;
 
     private int previewIndex = -1;
 
@@ -1141,30 +1145,14 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
     private async Task OnToggleMode(string mode)
     {
         if (mode == "Split")
-            await SwitchToSplitMode();
+            CurrentOperationMode = OperationMode.Split;
         else if (mode == "Extract")
-            await SwitchToExtractMode();
-    }
-    // モード判定プロパティ
-    private bool IsSplitMode => CurrentDisplayMode == DisplayMode.Split;
-    private bool IsExtractMode => CurrentDisplayMode == DisplayMode.Extract;
+            CurrentOperationMode = OperationMode.Extract;
 
-    // モード切り替えメソッド例
-    private async Task SwitchToSplitMode()
-    {
-        if (IsSplitMode) return;
-        PdfDataService.SwitchDisplayMode(DisplayMode.Split);
         StateHasChanged();
         await Task.Delay(100);
     }
 
-    private async Task SwitchToExtractMode()
-    {
-        if (IsExtractMode) return;
-        PdfDataService.SwitchDisplayMode(DisplayMode.Extract);
-        StateHasChanged();
-        await Task.Delay(100);
-    }
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
 

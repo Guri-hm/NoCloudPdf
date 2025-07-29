@@ -63,7 +63,12 @@ public enum DisplayMode
 {
     File, // ファイル単位表示
     Page,  // ページ単位表示
-    Split, // 分割モード
+}
+
+public enum OperationMode
+{
+    Normal, // 通常モード
+    Split,  // 分割モード
     Extract // 抽出モード
 }
 

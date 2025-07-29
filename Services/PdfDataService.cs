@@ -76,8 +76,6 @@ public class PdfDataService
         {
             DisplayMode.File => GetFileDisplayItems(),
             DisplayMode.Page => GetPageDisplayItems(),
-            DisplayMode.Split => GetPageDisplayItems(),
-            DisplayMode.Extract => GetPageDisplayItems(),
             _ => new List<DisplayItem>()
         };
     }

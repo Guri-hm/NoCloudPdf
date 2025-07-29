@@ -5,7 +5,7 @@
 
     <div class="items-center relative insert-button-container mr-2 flex flex-row md:flex-col h-full justify-center w-full md:w-auto" data-position="@Index">
         <!-- 破線（分割の目印） -->
-        @if (IsSplitMode && Index > 0)
+        @if (OperationMode == OperationMode.Split && Index > 0)
         {
             @* 分割の目印（左/上） *@
             <div class="h-full w-full md:w-auto md:h-full opacity-70 border-l-2 md:border-l-2 border-t-2 md:border-t-0 @(Item.IsSplitBefore ? "border-solid border-blue-600" : "border-dashed border-blue-500/60")"></div>
@@ -21,7 +21,7 @@
             <div class="h-full w-full md:w-auto md:h-full opacity-70 border-l-2 md:border-l-2 border-t-2 md:border-t-0 @(Item.IsSplitBefore ? "border-solid border-blue-600" : "border-dashed border-blue-500/60")"></div>
         }
         <!-- ＋ボタン（PCのみ表示） -->
-        @if (IsFileMode || IsPageMode)
+        @if ((OperationMode != OperationMode.Split))
         {
             <button
                 class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
@@ -67,7 +67,7 @@
             <i class="fa-solid fa-grip-vertical text-xl"></i>
         </span>
         @* サムネイル左上にチェックボックス *@
-        @if (IsExtractMode)
+        @if (OperationMode == OperationMode.Extract)
         {
             <div class="absolute top-2 left-2 z-10">
                 <input type="checkbox"
@@ -183,6 +183,7 @@
     [Parameter] public int DisplayItemsCount { get; set; }
     [Parameter] public bool IsFileMode { get; set; }
     [Parameter] public bool IsPageMode { get; set; }
+    [Parameter] public OperationMode OperationMode { get; set; }
     [Parameter] public EventCallback<int> OnDuplicate { get; set; }
     [Parameter] public EventCallback<int> OnRotate { get; set; }
     [Parameter] public EventCallback<(int fileIndex, int pageIndex)> OnShowPreview { get; set; }
@@ -190,8 +191,6 @@
     [Parameter] public EventCallback<(int position, MouseEventArgs e)> OnInsertButtonClick { get; set; }
     [Parameter] public EventCallback<int> OnSwapWithNext { get; set; }
     [Parameter] public EventCallback<DisplayItem> OnReloadPageItem { get; set; }
-    [Parameter] public bool IsSplitMode { get; set; }
-    [Parameter] public bool IsExtractMode { get; set; }
     [Parameter] public EventCallback<int> OnCheckChanged { get; set; }
     [Parameter] public EventCallback<int> OnSelectChanged { get; set; }
 }
