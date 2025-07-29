@@ -111,30 +111,8 @@ code {
     text-align: start;
 }
 
-/* Sortable.js styles */
-.sortable-item {
-    cursor: move;
-    transition: all 0.3s ease;
-}
-
-.sortable-item:hover {
-    transform: scale(1.05);
-}
-
-.sortable-ghost {
-    opacity: 0.4;
-}
-
-.sortable-drag {
-    opacity: 0.8;
-}
-
 .thumbnail-item:hover .menu-overlay {
     display: flex !important;
-}
-
-.sortable-item-container {
-    cursor: move;
 }
 
 .thumbnail-stack {
@@ -276,10 +254,25 @@ code {
     margin-top: 1px;
 }
 
+/* Sortable.js styles */
+.sortable-item {
+    transition: all 0.3s ease;
+}
+
+.sortable-item:hover {
+    transform: scale(1.05);
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+.sortable-drag {
+    opacity: 0.8;
+}
 
 /* ドラッグ&ドロップ用のコンテナ修正 */
 .sortable-item-container {
-    cursor: move;
     user-select: none;
     position: relative;
 }
@@ -363,7 +356,13 @@ input[type=number] {
     visibility: hidden;
 }
 
+.touch-drag-handle:active {
+    cursor: grabbing;
+}
 
+.drag-handle:hover {
+    cursor: move !important;
+}
 
 .box-container {
     display: flex;

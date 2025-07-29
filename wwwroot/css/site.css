@@ -100,24 +100,8 @@ code {
 .form-floating>.form-control:focus::placeholder {
   text-align: start;
 }
-.sortable-item {
-  cursor: move;
-  transition: all 0.3s ease;
-}
-.sortable-item:hover {
-  transform: scale(1.05);
-}
-.sortable-ghost {
-  opacity: 0.4;
-}
-.sortable-drag {
-  opacity: 0.8;
-}
 .thumbnail-item:hover .menu-overlay {
   display: flex !important;
-}
-.sortable-item-container {
-  cursor: move;
 }
 .thumbnail-stack {
   position: relative;
@@ -229,8 +213,19 @@ code {
   line-height: 1.1;
   margin-top: 1px;
 }
+.sortable-item {
+  transition: all 0.3s ease;
+}
+.sortable-item:hover {
+  transform: scale(1.05);
+}
+.sortable-ghost {
+  opacity: 0.4;
+}
+.sortable-drag {
+  opacity: 0.8;
+}
 .sortable-item-container {
-  cursor: move;
   -webkit-user-select: none;
      -moz-user-select: none;
           user-select: none;
@@ -292,6 +287,12 @@ input[type=number] {
 }
 .dragging-ghost * {
   visibility: hidden;
+}
+.touch-drag-handle:active {
+  cursor: grabbing;
+}
+.drag-handle:hover {
+  cursor: move !important;
 }
 .box-container {
   display: flex;

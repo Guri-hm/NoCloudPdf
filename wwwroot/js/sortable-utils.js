@@ -3,6 +3,10 @@ let sortableMobile = null;
 window.isSorting = false;
 
 window.initializeSortable = function () {
+    function isPcSize() {
+        return window.matchMedia('(min-width: 768px)').matches;
+    }
+
     const pc = document.getElementById('sortable-container');
     if (pc && window.getComputedStyle(pc).display !== 'none' && window.Sortable) {
         // 既存のインスタンスを破棄
@@ -11,7 +15,8 @@ window.initializeSortable = function () {
             sortablePc = null;
         }
         sortablePc = new Sortable(pc, {
-            draggable: '.sortable-item-container',
+            draggable: '.sortable-item-container', //並び替え対象
+            handle: isPcSize() ? '.drag-handle' : '.touch-drag-handle', // ドラッグ可能対象
             filter: '.non-sortable',
             animation: 150,
             ghostClass: 'dragging-ghost',
