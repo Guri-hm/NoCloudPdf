@@ -58,14 +58,14 @@
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         <ThumbnailCard Item="DisplayItems[i]" Index="i" DisplayItemsCount="DisplayItems.Count"
-                            IsFileMode="IsFileMode" IsPageMode="IsPageMode"
+                            Mode="CurrentDisplayMode"
                             SplitPositions="PdfDataService.SplitInfo.SplitPositions" 
                             OperationMode="CurrentOperationMode"
                             OnCheckChanged="HandleCheckChanged"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
                             OnSwapWithNext="SwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
-                            OnRotate="idx => (IsFileMode ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
+                            OnRotate="idx => (CurrentDisplayMode == DisplayMode.File ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
                             OnDuplicate="DuplicateItem" 
                             OnSelectChanged="HandleSelectChanged" />
                     }
@@ -104,9 +104,9 @@
 {
     <PreviewModal IsOpen="@(previewIndex >= 0)" OnClose="ClosePreview" IsLoading="isPreviewLoading"
         ImageUrl="@previewImageUrl" PageIndex="@CurrentFilePageIndex" PageCount="@CurrentFilePageCount"
-        ShowPageInput="@(IsFileMode && CurrentFilePageCount > 1)" OnPageInputChanged="OnPreviewPageInputChanged"
-        OnMovePreview="MovePreview" IsPrevDisabled="@(IsFileMode? CurrentFilePageIndex == 0 : previewIndex == 0)"
-        IsNextDisabled="@(IsFileMode? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
+        ShowPageInput="@(CurrentDisplayMode == DisplayMode.File && CurrentFilePageCount > 1)" OnPageInputChanged="OnPreviewPageInputChanged"
+        OnMovePreview="MovePreview" IsPrevDisabled="@(CurrentDisplayMode == DisplayMode.File? CurrentFilePageIndex == 0 : previewIndex == 0)"
+        IsNextDisabled="@(CurrentDisplayMode == DisplayMode.File ? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
         OnRotateLeft="RotatePreviewLeft" OnRotateRight="RotatePreviewRight" OnRemove="RemoveItemFromPreview" />
 }
 @if (!IsFilesLoaded && !showSplitResult)
@@ -298,8 +298,6 @@
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
     private bool IsFilesLoaded => DisplayItems.Any();
-    private bool IsFileMode => CurrentDisplayMode == DisplayMode.File;
-    private bool IsPageMode => CurrentDisplayMode == DisplayMode.Page;
 
     private OperationMode CurrentOperationMode = OperationMode.Split;
     private bool IsSplitMode => CurrentOperationMode == OperationMode.Split;
@@ -323,13 +321,13 @@
     private bool showDownloadMenu = false;
     private int GetCurrentFilePageIndex()
     {
-        if (!IsFileMode || previewIndex < 0 || previewIndex >= DisplayItems.Count)
+        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
             return 0;
         return filePageIndex;
     }
     private int GetCurrentFilePageCount()
     {
-        if (!IsFileMode || previewIndex < 0 || previewIndex >= DisplayItems.Count)
+        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
             return 1;
         return DisplayItems[previewIndex].PageCount;
     }
@@ -400,7 +398,7 @@
     }
     private async Task MovePreview(int direction)
     {
-        if (IsFileMode)
+        if (CurrentDisplayMode == DisplayMode.File)
         {
             var pageCount = DisplayItems[previewIndex].PageCount;
             var nextPage = filePageIndex + direction;
@@ -421,7 +419,7 @@
     }
     private async Task OnPreviewPageInputChanged(ChangeEventArgs e)
     {
-        if (!IsFileMode) return;
+        if (CurrentDisplayMode == DisplayMode.Page) return;
 
         if (int.TryParse(e.Value?.ToString(), out int inputPage))
         {
@@ -462,7 +460,7 @@
 
         try
         {
-            if (IsFileMode)
+            if (CurrentDisplayMode == DisplayMode.File)
             {
                 // 修正: 残っているページリストからOriginalPageIndexを取得して渡す
                 var fileId = DisplayItems[fileIndex].Id;
@@ -725,7 +723,7 @@
         isBusy = true;
         StateHasChanged();
 
-        if (IsFileMode)
+        if (CurrentDisplayMode == DisplayMode.File)
         {
             foreach (var file in DisplayItems)
             {
@@ -746,7 +744,7 @@
 
     private async void RemoveItemFromPreview()
     {
-        if (IsFileMode)
+        if (CurrentDisplayMode == DisplayMode.File)
         {
             var fileId = DisplayItems[previewIndex].Id;
             int removedPageIndex = filePageIndex;
@@ -799,12 +797,12 @@
     }
     private async Task DuplicateItem(int index)
     {
-        if (IsFileMode)
+        if (CurrentDisplayMode == DisplayMode.File)
         {
             var fileItem = DisplayItems[index];
             await PdfDataService.DuplicateItemAsync(fileItem.Id, true, index + 1);
         }
-        else if (IsPageMode)
+        else if (CurrentDisplayMode == DisplayMode.Page)
         {
             var pageItem = DisplayItems[index];
             await PdfDataService.DuplicateItemAsync(pageItem.Id, false, index + 1);
@@ -883,7 +881,7 @@
         showAddMenu = false;
 
         int insertPosition;
-        if (IsFileMode)
+        if (CurrentDisplayMode == DisplayMode.File)
         {
             int pageInsertPosition = 0;
             for (int i = 0; i < position && i < DisplayItems.Count; i++)
@@ -1054,14 +1052,14 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         isBusy = true;
         StateHasChanged();
 
-        if (IsFileMode)
+        if (CurrentDisplayMode == DisplayMode.File)
         {
             // ファイル単位：ファイルごと逆順
             var model = PdfDataService.GetModel();
             var fileIds = DisplayItems.Select(x => x.Id).Reverse().ToList();
             PdfDataService.ReorderFiles(fileIds);
         }
-        else if (IsPageMode)
+        else if (CurrentDisplayMode == DisplayMode.Page)
         {
             // ページ単位：ページごと逆順
             PdfDataService.ReversePages();
@@ -1079,14 +1077,14 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
     }
     private void SortByName(bool ascending)
     {
-        if (IsFileMode)
+        if (CurrentDisplayMode == DisplayMode.File)
         {
             var sorted = ascending
             ? DisplayItems.OrderBy(x => x.DisplayName).Select(x => x.Id).ToList()
             : DisplayItems.OrderByDescending(x => x.DisplayName).Select(x => x.Id).ToList();
             PdfDataService.ReorderFiles(sorted);
         }
-        else if (IsPageMode)
+        else if (CurrentDisplayMode == DisplayMode.Page)
         {
             PdfDataService.SortPagesByName(ascending);
         }

@@ -70,7 +70,7 @@
             <div class="w-24 h-32 flex items-center justify-center md:w-24 md:h-32 w-10 h-14 mr-2 md:mr-0 scale-90 md:scale-100 transition-transform duration-200"
                 @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
                 @{
-                    var isMultiPage = IsFileMode && Item.PageInfo?.Contains("ページ") == true;
+                    var isMultiPage = Mode == DisplayMode.File && Item.PageInfo?.Contains("ページ") == true;
                     int angle = Item.RotateAngle % 360;
                     double scale = (angle == 90 || angle == 270)
                         ? Math.Min(96.0 / 128.0, 128.0 / 96.0)
@@ -96,7 +96,7 @@
                 else if (!string.IsNullOrEmpty(Item.Thumbnail))
                 {
                     <canvas id="thumb-@Item.Id"
-                            class="w-full h-full object-contain border border-gray-200 bg-white @(IsPageMode ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
+                            class="w-full h-full object-contain border border-gray-200 bg-white @(Mode == DisplayMode.Page ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
                             draggable="false"
                             width="96" height="128"
                             tabindex="-1"
@@ -124,13 +124,13 @@
                         style="background:@(Item.RawData is PageItem pi ? pi.ColorHsl : Item.ColorHsl); margin: 2px 0;">
                         @Item.DisplayName
                     </div>
-                    @if (IsPageMode && !string.IsNullOrEmpty(Item.PageInfo))
+                    @if (Mode == DisplayMode.Page && !string.IsNullOrEmpty(Item.PageInfo))
                     {
                         <div class="page-number text-[10px] font-normal mt-1">
                             @Item.PageInfo
                         </div>
                     }
-                    @if (IsFileMode && Item.PageCount > 1)
+                    @if (Mode == DisplayMode.File && Item.PageCount > 1)
                     {
                         <div class="text-[10px] text-gray-500">全 @Item.PageCount ページ</div>
                     }
@@ -165,8 +165,7 @@
     [Parameter] public DisplayItem Item { get; set; } = default!;
     [Parameter] public int Index { get; set; }
     [Parameter] public int DisplayItemsCount { get; set; }
-    [Parameter] public bool IsFileMode { get; set; }
-    [Parameter] public bool IsPageMode { get; set; }
+    [Parameter] public DisplayMode Mode { get; set; }
     [Parameter] public OperationMode OperationMode { get; set; }
     [Parameter] public EventCallback<int> OnDuplicate { get; set; }
     [Parameter] public EventCallback<int> OnRotate { get; set; }
