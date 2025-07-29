@@ -150,14 +150,7 @@
             <!-- 情報パネル（PCのみ表示） -->
             <div
                 class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
-                <div class="flex flex-col items-center gap-4">
-                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
-                        <i class="fa-solid fa-check-circle"></i>
-                        <span>完了</span>
-                    </div>
-                    @* <div class="text-gray-800 font-semibold truncate w-full text-center">@splitFileName</div> *@
-                    @* <div class="text-gray-600 text-sm">サイズ: @splitFileSize</div> *@
-                    @* <div class="text-gray-600 text-sm">ページ数: @splitPageCount</div> *@
+                <InfoPanel Title="完了" FileName="() => {}" FileSize="() => {}" PageCount="0">
                     <div class="relative w-full mt-4">
                         <div class="flex w-full">
                             <!-- メインボタン -->
@@ -195,7 +188,7 @@
                         <i class="fa-solid fa-rotate-right mr-2"></i>
                         新規作成
                     </button>
-                </div>
+                </InfoPanel>
             </div>
         </div>
         <!-- 下部スライドアップメニュー（タブレット以下のサイズのみ） -->
