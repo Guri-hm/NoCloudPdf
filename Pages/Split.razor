@@ -12,7 +12,7 @@
 
 <PageTitle>分割</PageTitle>
 
-@if (IsFilesLoaded && !showMergedResult)
+@if (IsFilesLoaded && !showSplitResult)
 {
     <div id="drop-area" class="relative min-h-screen">
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
@@ -93,8 +93,8 @@
         </div>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
-                @onclick="MergePDFs">
-                結合
+                @onclick="SplitPDFs">
+                分割
             </button>
         </div>
     </div>
@@ -108,13 +108,13 @@
         IsNextDisabled="@(IsFileMode? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
         OnRotateLeft="RotatePreviewLeft" OnRotateRight="RotatePreviewRight" OnRemove="RemoveItemFromPreview" />
 }
-@if (!IsFilesLoaded && !showMergedResult)
+@if (!IsFilesLoaded && !showSplitResult)
 {
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog" isLoading="isLoading" progress="progress" />
 }
 
-@if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
+@if (showSplitResult && !string.IsNullOrEmpty(splitPdfUrl))
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -132,7 +132,7 @@
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
             <!-- PDFプレビュー -->
-            <PdfPreviewCanvas MergedPageCount="mergedPageCount" />
+            <PdfPreviewCanvas MergedPageCount="splitPageCount" />
             <!-- 情報パネル（PCのみ表示） -->
             <div
                 class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
@@ -141,15 +141,15 @@
                         <i class="fa-solid fa-check-circle"></i>
                         <span>完了</span>
                     </div>
-                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
-                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
-                    <div class="text-gray-600 text-sm">ページ数: @mergedPageCount</div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@splitFileName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @splitFileSize</div>
+                    <div class="text-gray-600 text-sm">ページ数: @splitPageCount</div>
                     <div class="relative w-full mt-4">
                         <div class="flex w-full">
                             <!-- メインボタン -->
                             <button
                                 class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
-                                @onclick="DownloadMergedPdf">
+                                @onclick="DownloadSplitPdfs">
                                 ダウンロード
                             </button>
                             <!-- ドロップダウンボタン -->
@@ -164,11 +164,11 @@
                             <div id="downloadMenu"
                                 class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
-                                    @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
+                                    @onclick="() => { DownloadSplitPdfs(); showDownloadMenu = false; }">
                                     PDFでダウンロード
                                 </button>
                                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
-                                    @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
+                                    @onclick="() => { DownloadSplitPngs(); showDownloadMenu = false; }">
                                     PNG画像でダウンロード
                                 </button>
                             </div>
@@ -193,14 +193,14 @@
                         <i class="fa-solid fa-check-circle"></i>
                         <span>完了</span>
                     </div>
-                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
-                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
-                    <div class="text-gray-600 text-sm">ページ数: @mergedPageCount</div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@splitFileName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @splitFileSize</div>
+                    <div class="text-gray-600 text-sm">ページ数: @splitPageCount</div>
                     <div class="relative w-full mt-4">
                         <div class="flex w-full">
                             <button
                                 class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
-                                @onclick="DownloadMergedPdf">
+                                @onclick="DownloadSplitPdfs">
                                 ダウンロード
                             </button>
                             <button
@@ -213,11 +213,11 @@
                         {
                             <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
-                                    @onclick="() => { DownloadMergedPdf(); showDownloadMenu = false; }">
+                                    @onclick="() => { DownloadSplitPdfs(); showDownloadMenu = false; }">
                                     PDFでダウンロード
                                 </button>
                                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
-                                    @onclick="() => { DownloadMergedPng(); showDownloadMenu = false; }">
+                                    @onclick="() => { DownloadSplitPngs(); showDownloadMenu = false; }">
                                     PNG画像でダウンロード
                                 </button>
                             </div>
@@ -286,10 +286,8 @@
         PdfDataService.OnChange -= OnServiceChanged;
     }
     private bool isLoading = false;
-    private bool showMergedResult = false;
     private bool isBusy = false;
     private int progress = 0;
-    private string? mergedPdfUrl;
     private string? errorMessage;
     private string? warnMessage;
     private const int MessageDurationMs = 5000;
@@ -321,9 +319,6 @@
     private DotNetObjectReference<Split>? _dotNetRef;
     private bool isDragOver = false;
     private bool isMenuOpen = false;
-    private string mergedFileName = "";
-    private string mergedFileSize = "";
-    private int mergedPageCount = 0;
     private bool showDownloadMenu = false;
     private int GetCurrentFilePageIndex()
     {
@@ -342,14 +337,26 @@
     {
         new ActionButtonItem
         {
-            Label = "完了",
+            Label = GetPrimaryActionLabel(),
             IconHtml = "<i class='fa-solid fa-arrow-right text-xl ml-2'></i>",
-            Title = "完了",
-            OnClick = EventCallback.Factory.Create(this, MergePDFs),
+            Title = GetPrimaryActionLabel(),
+            OnClick = EventCallback.Factory.Create(this, SplitPDFs),
             ButtonClass = "bg-[#1976d2] hover:bg-[#1565c0] text-white font-bold py-2 px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
             IconPosition = "right"
         }
     };
+
+    private string GetPrimaryActionLabel()
+    {
+        // PageItemのIsSplitBeforeがtrueの個数をカウント
+        var splitCount = PdfDataService.GetModel().Pages.Count(p => p.IsSplitBefore);
+        if (splitCount > 0)
+        {
+            return $"{splitCount + 1}ファイルに分割";
+        }
+        return "完了";
+    }
+
     private async Task ToggleAddMenu()
     {
         showAddMenu = !showAddMenu;
@@ -502,63 +509,101 @@
         public bool IsPdf { get; set; }
         public int RotateAngle { get; set; }
     }
-    // PDF結合処理
-    private async Task MergePDFs()
+    
+    private bool showSplitResult = false;
+    private string? splitPdfUrl;
+    private string splitFileName = "";
+    private string splitFileSize = "";
+    private int splitPageCount = 0;
+    
+    private async Task SplitPDFs()
     {
         try
         {
             isBusy = true;
             StateHasChanged();
             await Task.Yield();
-
-            Console.WriteLine("Starting PDF merge process...");
-            // 1. PageItemリストを取得
-            var mergeItems = PdfDataService.GetModel().Pages;
-
+    
+            var allPages = PdfDataService.GetModel().Pages;
+    
             // 準備できていないページがある場合は中断
-            var notReadyCount = mergeItems.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
             {
-                Console.WriteLine($"Not ready pages: {notReadyCount}");
                 ShowWarn($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。");
                 return;
             }
-
-            if (mergeItems.Count == 0)
+            if (allPages.Count == 0)
             {
-                ShowError("結合対象がありません。");
-                Console.WriteLine("No items selected.");
+                ShowError("分割対象がありません。");
                 return;
             }
-
+    
             errorMessage = null;
-
-            // 2. JSに渡すためのデータを整形
-            var mergeData = mergeItems.Select(item => new MergePageDto
+    
+            // IsSplitBeforeで分割
+            var splitGroups = new List<List<PageItem>>();
+            var currentGroup = new List<PageItem>();
+            foreach (var page in allPages)
             {
-                FileId = item.FileId,
-                FileName = item.FileName,
-                PageData = item.PageData,
-                IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
-                RotateAngle = item.RotateAngle % 360
-            }).ToList();
-
-            // 3. JSで結合処理
-            mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-
-            if (!string.IsNullOrEmpty(mergedPdfUrl))
+                if (currentGroup.Count > 0 && page.IsSplitBefore)
+                {
+                    splitGroups.Add(currentGroup);
+                    currentGroup = new List<PageItem>();
+                }
+                currentGroup.Add(page);
+            }
+            if (currentGroup.Count > 0)
+                splitGroups.Add(currentGroup);
+    
+            var splitUrls = new List<string>();
+            var splitNames = new List<string>();
+            var splitSizes = new List<string>();
+            var splitCounts = new List<int>();
+    
+            int groupIndex = 1;
+            foreach (var group in splitGroups)
             {
-                mergedFileName = $"merge_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                mergedFileSize = await JSRuntime.InvokeAsync<string>("getPdfFileSize", mergedPdfUrl);
-                mergedPageCount = mergeItems.Count;
-
-                showMergedResult = true;
+                var mergeData = group.Select(item => new MergePageDto
+                {
+                    FileId = item.FileId,
+                    FileName = item.FileName,
+                    PageData = item.PageData,
+                    IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
+                    RotateAngle = item.RotateAngle % 360
+                }).ToList();
+    
+                var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+                if (!string.IsNullOrEmpty(url))
+                {
+                    splitUrls.Add(url);
+                    splitNames.Add($"split_{groupIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf");
+                    splitCounts.Add(group.Count);
+                    var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                    splitSizes.Add(size);
+                }
+                groupIndex++;
+            }
+    
+            // 生成したPDFのURLや情報を保存・表示（ここでは最初のPDFのみプレビュー）
+            if (splitUrls.Count > 0)
+            {
+                splitPdfUrl = splitUrls[0];
+                splitFileName = splitNames[0];
+                splitFileSize = splitSizes[0];
+                splitPageCount = splitCounts[0];
+                showSplitResult = true;
+                // 複数ファイルダウンロードUIを作る場合は splitUrls/splitNames/splitSizes/splitCounts をリストで管理
+            }
+            else
+            {
+                ShowError("分割PDFの生成に失敗しました。");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            ShowError("PDF/画像の結合中にエラーが発生しました。");
+            ShowError("PDFの分割中にエラーが発生しました。");
         }
         finally
         {
@@ -601,15 +646,15 @@
     // その他のメソッド
     private void BackToEdit()
     {
-        showMergedResult = false;
+        showSplitResult = false;
         StateHasChanged();
     }
 
     private void StartNew()
     {
         PdfDataService.Clear();
-        showMergedResult = false;
-        mergedPdfUrl = null;
+        showSplitResult = false;
+        splitPdfUrl = null;
         errorMessage = null;
         StateHasChanged();
     }
@@ -1165,7 +1210,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             _dotNetRef = DotNetObjectReference.Create(this);
         }
         // 初期画面のときのみ登録
-        if (!IsFilesLoaded && !showMergedResult)
+        if (!IsFilesLoaded && !showSplitResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
@@ -1217,15 +1262,15 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
                 }
             });
         }
-        if (showMergedResult && !string.IsNullOrEmpty(mergedPdfUrl) && mergedPageCount > 0 && !_renderedMergedPages)
+        if (showSplitResult && !string.IsNullOrEmpty(splitPdfUrl) && splitPageCount > 0 && !_renderedMergedPages)
         {
             _renderedMergedPages = true;
-            var canvasIds = Enumerable.Range(0, mergedPageCount)
-            .Select(i => $"merged-canvas-{i}")
+            var canvasIds = Enumerable.Range(0, splitPageCount)
+            .Select(i => $"split-canvas-{i}")
             .ToArray();
-            await JSRuntime.InvokeVoidAsync("renderPdfPages", mergedPdfUrl, canvasIds);
+            await JSRuntime.InvokeVoidAsync("renderPdfPages", splitPdfUrl, canvasIds);
         }
-        else if (!showMergedResult)
+        else if (!showSplitResult)
         {
             _renderedMergedPages = false;
         }
@@ -1242,17 +1287,17 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         showDownloadMenu = false;
         StateHasChanged();
     }
-    private async void DownloadMergedPdf()
+    private async void DownloadSplitPdfs()
     {
-        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
+        if (string.IsNullOrEmpty(splitPdfUrl) || string.IsNullOrEmpty(splitFileName))
             return;
 
         try
         {
             await JSRuntime.InvokeVoidAsync(
             "downloadFileFromUrl",
-            mergedPdfUrl,
-            mergedFileName,
+            splitPdfUrl,
+            splitFileName,
             "application/pdf"
             );
         }
@@ -1298,26 +1343,26 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         StateHasChanged();
     }
 
-    private async void DownloadMergedPng()
+    private async void DownloadSplitPngs()
     {
-        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
-            return;
-
-        try
-        {
-            // JSでPNGまたはZIPダウンロードを実行
-            await JSRuntime.InvokeVoidAsync(
-            "downloadMergedPngOrZip",
-            mergedPdfUrl,
-            mergedFileName,
-            mergedPageCount // ページ数
-            );
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
-            StateHasChanged();
-        }
+     //   if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
+     //       return;
+//
+     //   try
+     //   {
+     //       // JSでPNGまたはZIPダウンロードを実行
+     //       await JSRuntime.InvokeVoidAsync(
+     //       "downloadMergedPngOrZip",
+     //       mergedPdfUrl,
+     //       mergedFileName,
+     //       mergedPageCount // ページ数
+     //       );
+     //   }
+     //   catch (Exception ex)
+     //   {
+     //       errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
+     //       StateHasChanged();
+     //   }
     }
     private async Task ReloadPageItem(DisplayItem item)
     {
