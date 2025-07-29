@@ -133,23 +133,20 @@
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
             <!-- PDFプレビュー -->
-            @if (splitPdfInfos.Any())
-            {
-                <div class="grid md:grid-cols-2 gap-4">
-                    @foreach (var info in splitPdfInfos)
-                    {
-                        <div class="bg-white rounded shadow p-4 flex flex-col items-center">
-                            <div class="font-bold text-lg mb-2">@info.Name</div>
-                            <div class="text-gray-600 text-sm mb-1">サイズ: @info.Size</div>
-                            <div class="text-gray-600 text-sm mb-2">ページ数: @info.PageCount</div>
-                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                                    @onclick="() => DownloadSplitPdf(info)">
-                                ダウンロード
-                            </button>
-                        </div>
-                    }
-                </div>
-            }
+            <div class="flex flex-col flex-1 gap-4 overflow-y-auto pr-4">
+                @foreach (var info in splitPdfInfos)
+                {
+                    <div class="bg-white rounded shadow p-4 flex flex-col items-center mb-2">
+                        <div class="font-bold text-lg mb-2">@info.Name</div>
+                        <div class="text-gray-600 text-sm mb-1">サイズ: @info.Size</div>
+                        <div class="text-gray-600 text-sm mb-2">ページ数: @info.PageCount</div>
+                        <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                                @onclick="() => DownloadSplitPdf(info)">
+                            ダウンロード
+                        </button>
+                    </div>
+                }
+            </div>
             <!-- 情報パネル（PCのみ表示） -->
             <div
                 class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
