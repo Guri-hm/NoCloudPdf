@@ -59,6 +59,7 @@
                     {
                         <ThumbnailCard Item="DisplayItems[i]" Index="i" DisplayItemsCount="DisplayItems.Count"
                             IsFileMode="IsFileMode" IsPageMode="IsPageMode"
+                            SplitPositions="PdfDataService.SplitInfo.SplitPositions" 
                             OperationMode="CurrentOperationMode"
                             OnCheckChanged="HandleCheckChanged"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
@@ -348,8 +349,7 @@
 
     private string GetPrimaryActionLabel()
     {
-        // PageItemのIsSplitBeforeがtrueの個数をカウント
-        var splitCount = PdfDataService.GetModel().Pages.Count(p => p.IsSplitBefore);
+        var splitCount = PdfDataService.SplitInfo?.SplitPositions.Count ?? 0;
         if (splitCount > 0)
         {
             return $"{splitCount + 1}ファイルに分割";
@@ -541,12 +541,11 @@
     
             errorMessage = null;
     
-            // IsSplitBeforeで分割
             var splitGroups = new List<List<PageItem>>();
             var currentGroup = new List<PageItem>();
             foreach (var page in allPages)
             {
-                if (currentGroup.Count > 0 && page.IsSplitBefore)
+                if (currentGroup.Count > 0 && PdfDataService.SplitInfo.SplitPositions.Contains(page.OriginalPageIndex))
                 {
                     splitGroups.Add(currentGroup);
                     currentGroup = new List<PageItem>();

@@ -24,6 +24,7 @@ public class PdfDataService
     /// </summary>
     public UnifiedPdfModel GetModel() => _model;
 
+    public SplitInfo SplitInfo { get; private set; } = new SplitInfo();
 
     // PdfDataService.cs など
     public static readonly string[] SupportedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" };
@@ -153,7 +154,6 @@ public class PdfDataService
             PageCount = 1,
             ColorHsl = page.ColorHsl,
             RotateAngle = page.RotateAngle,
-            IsSplitBefore = page.IsSplitBefore,
             IsSelectedForExtract = page.IsSelectedForExtract
         }).ToList();
     }
@@ -934,8 +934,15 @@ public class PdfDataService
     public void ToggleSplitBefore(int pageIndex)
     {
         if (pageIndex < 0 || pageIndex >= _model.Pages.Count) return;
-        var pageItem = _model.Pages[pageIndex];
-        pageItem.IsSplitBefore = !pageItem.IsSplitBefore;
+        // すでに分割位置に含まれていれば削除、なければ追加
+        if (SplitInfo.SplitPositions.Contains(pageIndex))
+        {
+            SplitInfo.SplitPositions.Remove(pageIndex);
+        }
+        else
+        {
+            SplitInfo.SplitPositions.Add(pageIndex);
+        }
         OnChange?.Invoke();
     }
 
