@@ -119,12 +119,7 @@
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
         <div class="flex items-center px-4 py-2 h-16">
-            <button
-                class="px-4 py-1 font-bold focus:outline-none transition text-white bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center gap-2"
-                @onclick="BackToEdit">
-                <i class="fa-solid fa-arrow-left"></i>
-                編集に戻る
-            </button>
+            <ActionButtonGroup T="string" Actions="backToEditActions" />
         </div>
     </div>
 
@@ -154,8 +149,8 @@
                         PrimaryLabel="ダウンロード"
                         OnPrimaryClick="DownloadSplitPdfs"
                         MenuItems="@splitDownloadMenuItems" />
-                    <button
-                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                   <button
+                        class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
                         <i class="fa-solid fa-rotate-right mr-2"></i>
                         新規作成
@@ -301,6 +296,17 @@
             OnClick = EventCallback.Factory.Create(this, SplitPDFs),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
             IconPosition = "right"
+        }
+    };
+
+    private List<ActionButtonItem> backToEditActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "編集に戻る",
+            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Title = "編集に戻る",
+            OnClick = EventCallback.Factory.Create(this, BackToEdit),
         }
     };
 

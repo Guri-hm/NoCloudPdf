@@ -114,12 +114,7 @@
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
         <div class="flex items-center px-4 py-2 h-16">
-            <button
-                class="px-4 py-1 font-bold focus:outline-none transition text-white bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center gap-2"
-                @onclick="BackToEdit">
-                <i class="fa-solid fa-arrow-left"></i>
-                編集に戻る
-            </button>
+            <ActionButtonGroup T="string" Actions="backToEditActions" />
         </div>
     </div>
 
@@ -136,7 +131,7 @@
                         OnPrimaryClick="DownloadMergedPdf"
                         MenuItems="@downloadMenuItems" />
                     <button
-                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
                         <i class="fa-solid fa-rotate-right mr-2"></i>
                         新規作成
@@ -973,17 +968,28 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
 };
 
     private List<ActionButtonItem> reverseActions => new()
-{
-new ActionButtonItem
-{
-Label = "逆順",
-IconHtml = @"<svg width='20' height='20' viewBox='0 0 21 21' fill='none' class='mr-2 inline-block align-middle'><g
-stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'><path d='M4.5 8.5l-4 4 4 4' /><path d='M12.5
-12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
-Title = "逆順",
-OnClick = EventCallback.Factory.Create(this, ReverseOrder)
-}
-};
+    {
+        new ActionButtonItem
+        {
+        Label = "逆順",
+        IconHtml = @"<svg width='20' height='20' viewBox='0 0 21 21' fill='none' class='mr-2 inline-block align-middle'><g
+        stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'><path d='M4.5 8.5l-4 4 4 4' /><path d='M12.5
+        12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
+        Title = "逆順",
+        OnClick = EventCallback.Factory.Create(this, ReverseOrder)
+        }
+    };
+
+    private List<ActionButtonItem> backToEditActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "編集に戻る",
+            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Title = "編集に戻る",
+            OnClick = EventCallback.Factory.Create(this, BackToEdit),
+        }
+    };
 
     private List<ActionButtonItem> rotateActions => new()
     {
