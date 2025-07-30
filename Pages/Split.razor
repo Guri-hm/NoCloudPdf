@@ -69,25 +69,11 @@
                             OnSelectChanged="HandleSelectChanged" />
                     }
 
-                    <!-- 追加エリアは別divとして配置 -->
-                    <div class="hidden md:flex items-center relative insert-button-container non-sortable"
-                        data-position="@DisplayItems.Count">
-                        <button
-                            class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
-                            data-position="@DisplayItems.Count"
-                            @onclick="@((e) => HandleInsertButtonClick(DisplayItems.Count, e))">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
-                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="w-full md:w-24 h-full flex items-center justify-center border-2 border-dashed border-blue-400 rounded-lg cursor-pointer hover:bg-blue-50 transition non-sortable"
-                        @onclick="OpenFileDialog">
-                        <div class="flex flex-col items-center justify-center text-blue-500 p-4">
-                            <i class="fa-thin fa-plus text-3xl mb-2"></i>
-                            <span class="text-sm font-semibold">PDF，画像ファイルを追加</span>
-                        </div>
-                    </div>
+                    <!-- 追加エリア -->
+                    <FileAddArea
+                        Position="@DisplayItems.Count"
+                        OnInsertButtonClick="@(args => HandleInsertButtonClick(args.Position, args.E))"
+                        OnAddFileClick="OpenFileDialog" />
                 </div>
             }
         </div>
@@ -216,7 +202,6 @@
 
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
-<InputFile OnChange="HandleInsertFileSelectionAsync" class="hidden" id="insertFileInput" />
 
 @code {
     protected override void OnInitialized()
@@ -925,17 +910,12 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        await HandleFileInputAsync(e);
+        // insertPositionが有効なら使い、使い終わったらリセット
+        int? position = insertPosition >= 0 ? insertPosition : null;
+        await HandleFileInputAsync(e, position);
+        insertPosition = -1;
     }
-
-    private async Task HandleInsertFileSelectionAsync(InputFileChangeEventArgs e)
-    {
-        if (insertPosition >= 0)
-        {
-            await HandleFileInputAsync(e, insertPosition);
-            insertPosition = -1;
-        }
-    }
+    
     private async Task HandleFileInputAsync(InputFileChangeEventArgs e, int? insertPosition = null)
     {
         if (e.FileCount == 0) return;
