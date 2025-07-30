@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
+@inject CompletionStateService CompletionState
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
@@ -12,7 +13,7 @@
 
 <PageTitle>分割</PageTitle>
 
-@if (IsFilesLoaded && !showSplitResult)
+@if (IsFilesLoaded && !CompletionState.ShowSplitResult)
 {
     <div id="drop-area" class="relative min-h-screen">
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
@@ -107,13 +108,13 @@
         IsNextDisabled="@(CurrentDisplayMode == DisplayMode.File ? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
         OnRotateLeft="RotatePreviewLeft" OnRotateRight="RotatePreviewRight" OnRemove="RemoveItemFromPreview" />
 }
-@if (!IsFilesLoaded && !showSplitResult)
+@if (!IsFilesLoaded && !CompletionState.ShowSplitResult)
 {
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog" isLoading="isLoading" progress="progress" />
 }
 
-@if (showSplitResult)
+@if (CompletionState.ShowSplitResult)
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -480,7 +481,6 @@
         public int RotateAngle { get; set; }
     }
     
-    private bool showSplitResult = false;
     
     public class SplitPdfInfo
     {
@@ -573,7 +573,8 @@
                 splitZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, splitZipName);
                 splitZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", splitZipUrl);
                 splitTotalPageCount = splitPdfInfos.Sum(x => x.PageCount);
-                showSplitResult = true;
+                CompletionState.SetCompletion(CompletionStateService.CompletionType.Split);
+
             }
             else
             {
@@ -626,17 +627,28 @@
     // その他のメソッド
     private void BackToEdit()
     {
-        showSplitResult = false;
+        CompletionState.ResetAll();
         StateHasChanged();
     }
 
     private void StartNew()
     {
-        PdfDataService.Clear();
-        showSplitResult = false;
-        splitPdfInfos.Clear();
-        errorMessage = null;
-        StateHasChanged();
+        CompletionState.ResetAll();
+
+        AppResetHelper.ResetPage(
+            PdfDataService,
+            () => { /* ページ固有の状態リセット */ },
+            () => { 
+
+                    splitPdfInfos.Clear();
+                    splitZipUrl = "";
+                    splitZipName = "";
+                    splitZipSize = "";
+                    splitTotalPageCount = 0;    
+            },
+            msg => errorMessage = msg,
+            StateHasChanged
+        );
     }
 
     private void ClearErrorMessage()
@@ -1190,7 +1202,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             _dotNetRef = DotNetObjectReference.Create(this);
         }
         // 初期画面のときのみ登録
-        if (!IsFilesLoaded && !showSplitResult)
+        if (!IsFilesLoaded && !CompletionState.ShowSplitResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
