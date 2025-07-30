@@ -34,21 +34,42 @@ window.registerDropArea = function (elementId, dotNetRef) {
 
 window.registerSelectDropArea = function (dotNetRef) {
     const area = document.getElementById('select-drop-area');
-    if (!area) return;
+    if (!area || !area.firstElementChild) return;
 
+    const child = area.firstElementChild;
     // 再登録
     area.ondragover = e => {
         console.log("ondragover")
-        e.preventDefault(); area.classList.add('bg-blue-400');
+        e.preventDefault();
+        child.classList.remove('bg-white/60');
+        child.classList.add(
+            'bg-blue-400',
+            'ring-offset-2',
+            'ring-4',
+            'ring-blue-500',
+            'border-solid');
     };
     area.ondragleave = e => {
         console.log("ondragleave")
-        area.classList.remove('bg-blue-400');
+        child.classList.remove(
+            'bg-blue-400',
+            'ring-offset-2',
+            'ring-4',
+            'ring-blue-500',
+            'border-solid');
+        child.classList.add('bg-white/60');
     };
     area.ondrop = e => {
         console.log("ondrop")
         e.preventDefault();
-        area.classList.remove('bg-blue-400');
+        child.classList.remove(
+            'bg-blue-400',
+            'ring-offset-2',
+            'ring-4',
+            'ring-blue-500',
+            'border-solid'
+        );
+        child.classList.add('bg-white/60');
         if (e.dataTransfer && e.dataTransfer.files.length > 0) {
             // Blazor InputFileを使わず、JSからbase64で渡す場合
             Array.from(e.dataTransfer.files).forEach(file => {
