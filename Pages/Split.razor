@@ -149,37 +149,10 @@
             <div
                 class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
                 <InfoPanel Title="完了" FileName="@splitZipName" FileSize="@splitZipSize" PageCount="@splitTotalPageCount">
-                    <div class="relative w-full mt-4">
-                        <div class="flex w-full">
-                            <!-- メインボタン -->
-                            <button
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
-                                @onclick="DownloadSplitPdfs">
-                                ダウンロード
-                            </button>
-                            <!-- ドロップダウンボタン -->
-                            <button
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
-                                @onclick="() => showDownloadMenu = !showDownloadMenu">
-                                <i class="fa-solid fa-caret-down"></i>
-                            </button>
-                        </div>
-                        @if (showDownloadMenu)
-                        {
-                            <div id="downloadMenu"
-                                class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
-                                    @onclick="() => { DownloadSplitPdfs(); showDownloadMenu = false; }">
-                                    PDFでダウンロード
-                                </button>
-                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
-                                    @onclick="() => { DownloadSplitPngs(); showDownloadMenu = false; }">
-                                    PNG画像でダウンロード
-                                </button>
-                            </div>
-
-                        }
-                    </div>
+                    <SplitButton
+                        PrimaryLabel="ダウンロード"
+                        OnPrimaryClick="DownloadSplitPdfs"
+                        MenuItems="@splitDownloadMenuItems" />
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
@@ -201,33 +174,10 @@
                     <div class="text-gray-800 font-semibold truncate w-full text-center">@splitZipName</div>
                     <div class="text-gray-600 text-sm">サイズ: @splitZipSize</div>
                     <div class="text-gray-600 text-sm">総ページ数: @splitTotalPageCount</div>
-                    <div class="relative w-full mt-4">
-                        <div class="flex w-full">
-                            <button
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
-                                @onclick="DownloadSplitPdfs">
-                                ダウンロード
-                            </button>
-                            <button
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded-r-lg border-l border-blue-700 flex items-center transition"
-                                @onclick="() => showDownloadMenu = !showDownloadMenu">
-                                <i class="fa-solid fa-caret-down"></i>
-                            </button>
-                        </div>
-                        @if (showDownloadMenu)
-                        {
-                            <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-t-lg"
-                                    @onclick="() => { DownloadSplitPdfs(); showDownloadMenu = false; }">
-                                    PDFでダウンロード
-                                </button>
-                                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 rounded-b-lg"
-                                    @onclick="() => { DownloadSplitPngs(); showDownloadMenu = false; }">
-                                    PNG画像でダウンロード
-                                </button>
-                            </div>
-                        }
-                    </div>
+                    <SplitButton
+                        PrimaryLabel="ダウンロード"
+                        OnPrimaryClick="DownloadSplitPdfs"
+                        MenuItems="@splitDownloadMenuItems" />
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
@@ -351,6 +301,20 @@
             OnClick = EventCallback.Factory.Create(this, SplitPDFs),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
             IconPosition = "right"
+        }
+    };
+
+    private List<SplitButton.MenuActionItem> splitDownloadMenuItems => new()
+    {
+        new SplitButton.MenuActionItem
+        {
+            Label = "PDFでダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadSplitPdfs)
+        },
+        new SplitButton.MenuActionItem
+        {
+            Label = "PNG画像でダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadSplitPngs)
         }
     };
 
