@@ -2,6 +2,7 @@ using ClientPdfApp.Models;
 using Microsoft.JSInterop;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace ClientPdfApp.Services;
 
@@ -952,5 +953,60 @@ public class PdfDataService
         var pageItem = _model.Pages[pageIndex];
         pageItem.IsSelectedForExtract = !pageItem.IsSelectedForExtract;
         OnChange?.Invoke();
+    }
+
+    public async Task HandleFileInputAsync(
+    InputFileChangeEventArgs e,
+    int? insertPosition = null,
+    Action<string>? setErrorMessage = null,
+    Action? setIsLoading = null,
+    Action? setIsLoaded = null)
+    {
+        if (e.FileCount == 0) return;
+
+        setIsLoading?.Invoke();
+        setErrorMessage?.Invoke(null);
+
+        const long maxFileSize = 52428800; // 50MB
+
+        foreach (var file in e.GetMultipleFiles())
+        {
+            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+            try
+            {
+                using var stream = file.OpenReadStream(maxFileSize);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var fileData = memoryStream.ToArray();
+
+                bool success = false;
+                if (SupportedPdfExtensions.Contains(ext))
+                {
+                    success = await AddOrInsertPdfFileAsync(file.Name, fileData, insertPosition);
+                }
+                else if (SupportedImageExtensions.Contains(ext))
+                {
+                    if (insertPosition.HasValue)
+                        success = await AddOrInsertImageFileAsync(file.Name, fileData, insertPosition);
+                    else
+                        success = await AddOrInsertImageFileAsync(file.Name, fileData);
+                }
+                else
+                {
+                    setErrorMessage?.Invoke($"未対応のファイル形式です: {file.Name}");
+                }
+
+                if (!success)
+                {
+                    setErrorMessage?.Invoke($"ファイルの処理に失敗しました: {file.Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                setErrorMessage?.Invoke($"ファイル処理エラー: {file.Name} - {ex.Message}");
+            }
+        }
+
+        setIsLoaded?.Invoke();
     }
 }

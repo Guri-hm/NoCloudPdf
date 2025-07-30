@@ -3,7 +3,6 @@
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
 @inject CompletionStateService CompletionState
-@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @using System.IO
@@ -910,60 +909,14 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        // insertPositionが有効なら使い、使い終わったらリセット
-        int? position = insertPosition >= 0 ? insertPosition : null;
-        await HandleFileInputAsync(e, position);
+        await PdfDataService.HandleFileInputAsync(
+            e,
+            insertPosition >= 0 ? insertPosition : null,
+            msg => errorMessage = msg,
+            () => isLoading = true,
+            () => isLoading = false
+        );
         insertPosition = -1;
-    }
-    
-    private async Task HandleFileInputAsync(InputFileChangeEventArgs e, int? insertPosition = null)
-    {
-        if (e.FileCount == 0) return;
-
-        isLoading = true;
-        progress = 0;
-        errorMessage = null;
-        const long maxFileSize = 52428800; // 50MB
-
-        foreach (var file in e.GetMultipleFiles())
-        {
-            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
-            try
-            {
-                using var stream = file.OpenReadStream(maxFileSize);
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                var fileData = memoryStream.ToArray();
-
-                bool success = false;
-                if (PdfDataService.SupportedPdfExtensions.Contains(ext))
-                {
-                    success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, insertPosition);
-                }
-                else if (PdfDataService.SupportedImageExtensions.Contains(ext))
-                {
-                    if (insertPosition.HasValue)
-                        success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData, insertPosition);
-                    else
-                        success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
-                }
-                else
-                {
-                    errorMessage = $"未対応のファイル形式です: {file.Name}";
-                }
-
-                if (!success)
-                {
-                    errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
-                }
-            }
-            catch (Exception ex)
-            {
-                errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
-            }
-        }
-
-        isLoading = false;
         StateHasChanged();
     }
 
