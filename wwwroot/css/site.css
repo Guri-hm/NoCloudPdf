@@ -1573,6 +1573,9 @@ input[type=number] {
   .bg-blue-100 {
     background-color: var(--color-blue-100);
   }
+  .bg-blue-400 {
+    background-color: var(--color-blue-400);
+  }
   .bg-blue-500\/60 {
     background-color: color-mix(in srgb, oklch(62.3% 0.214 259.815) 60%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1590,9 +1593,6 @@ input[type=number] {
   }
   .bg-gray-300 {
     background-color: var(--color-gray-300);
-  }
-  .bg-gray-700 {
-    background-color: var(--color-gray-700);
   }
   .bg-gray-700\/70 {
     background-color: color-mix(in srgb, oklch(37.3% 0.034 259.733) 70%, transparent);
@@ -2000,9 +2000,6 @@ input[type=number] {
     --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
-  .ring-blue-400 {
-    --tw-ring-color: var(--color-blue-400);
-  }
   .outline {
     outline-style: var(--tw-outline-style);
     outline-width: 1px;
@@ -2111,13 +2108,6 @@ input[type=number] {
     &:hover {
       @media (hover: hover) {
         background-color: var(--color-gray-100);
-      }
-    }
-  }
-  .hover\:bg-gray-600 {
-    &:hover {
-      @media (hover: hover) {
-        background-color: var(--color-gray-600);
       }
     }
   }
