@@ -693,73 +693,7 @@ window.downloadFileFromUrl = function (url, filename, mimeType) {
     link.click();
     document.body.removeChild(link);
 };
-window.downloadMergedPngOrZip = async function (pdfUrl, baseFileName, pageCount) {
-    async function ensureJsZipLoaded() {
-        if (!window.JSZip) {
-            await new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        }
-    }
-    await ensureJsZipLoaded();
-    // PDF.jsとJSZipが必要です
-    const pdfjsLib = window['pdfjs-dist/build/pdf'];
-    if (!pdfjsLib) {
-        alert('PDF.jsがロードされていません');
-        return;
-    }
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
-    const response = await fetch(pdfUrl);
-    const arrayBuffer = await response.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    if (pageCount <= 1) {
-        // 1ページのみPNGでダウンロード
-        const page = await pdf.getPage(1);
-        const canvas = document.createElement('canvas');
-        const viewport = page.getViewport({ scale: 2 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-        canvas.toBlob(blob => {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = baseFileName.replace(/\.pdf$/i, '.png');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }, 'image/png');
-    } else {
-        // 複数ページ: ZIPでダウンロード
-        if (!window.JSZip) {
-            alert('JSZipがロードされていません');
-            return;
-        }
-        const zip = new window.JSZip();
-        for (let i = 1; i <= pageCount; i++) {
-            const page = await pdf.getPage(i);
-            const canvas = document.createElement('canvas');
-            const viewport = page.getViewport({ scale: 2 });
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-            const dataUrl = canvas.toDataURL('image/png');
-            zip.file(`page${i}.png`, dataUrl.split(',')[1], { base64: true });
-        }
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(zipBlob);
-        link.download = baseFileName.replace(/\.pdf$/i, '.zip');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-};
 window.registerOutsideClickForDownloadMenu = function (menuId, dotNetRef) {
     function handler(e) {
         const menu = document.getElementById(menuId);

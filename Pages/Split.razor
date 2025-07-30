@@ -148,7 +148,7 @@
             <!-- 情報パネル（PCのみ表示） -->
             <div
                 class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
-                <InfoPanel Title="完了" FileName="() => {}" FileSize="() => {}" PageCount="0">
+                <InfoPanel Title="完了" FileName="@splitZipName" FileSize="@splitZipSize" PageCount="@splitTotalPageCount">
                     <div class="relative w-full mt-4">
                         <div class="flex w-full">
                             <!-- メインボタン -->
@@ -198,9 +198,9 @@
                         <i class="fa-solid fa-check-circle"></i>
                         <span>完了</span>
                     </div>
-                    @* <div class="text-gray-800 font-semibold truncate w-full text-center">@splitFileName</div> *@
-                    @* <div class="text-gray-600 text-sm">サイズ: @splitFileSize</div> *@
-                    @* <div class="text-gray-600 text-sm">ページ数: @splitPageCount</div> *@
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@splitZipName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @splitZipSize</div>
+                    <div class="text-gray-600 text-sm">総ページ数: @splitTotalPageCount</div>
                     <div class="relative w-full mt-4">
                         <div class="flex w-full">
                             <button
@@ -323,6 +323,11 @@
     private bool isDragOver = false;
     private bool isMenuOpen = false;
     private bool showDownloadMenu = false;
+    private string splitZipUrl = "";
+    private string splitZipName = "";
+    private string splitZipSize = "";
+    private int splitTotalPageCount = 0;
+
     private int GetCurrentFilePageIndex()
     {
         if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
@@ -595,10 +600,16 @@
                 }
                 groupIndex++;
             }
-    
-            // 生成したPDFのURLや情報を保存・表示（ここでは最初のPDFのみプレビュー）
+
+            // zip作成
             if (splitPdfInfos.Count > 0)
             {
+                splitZipName = $"split_{DateTime.Now:yyyyMMddHHmm}.zip";
+                var pdfUrls = splitPdfInfos.Select(x => x.Url).ToList();
+                var pdfNames = splitPdfInfos.Select(x => x.Name).ToList();
+                splitZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, splitZipName);
+                splitZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", splitZipUrl);
+                splitTotalPageCount = splitPdfInfos.Sum(x => x.PageCount);
                 showSplitResult = true;
             }
             else
@@ -1295,23 +1306,23 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
     }
     private async void DownloadSplitPdfs()
     {
-        //if (string.IsNullOrEmpty(splitPdfUrl) || string.IsNullOrEmpty(splitFileName))
-        //    return;
-//
-        //try
-        //{
-        //    await JSRuntime.InvokeVoidAsync(
-        //    "downloadFileFromUrl",
-        //    splitPdfUrl,
-        //    splitFileName,
-        //    "application/pdf"
-        //    );
-        //}
-        //catch (Exception ex)
-        //{
-        //    errorMessage = $"PDFのダウンロードに失敗しました: {ex.Message}";
-        //    StateHasChanged();
-        //}
+        if (string.IsNullOrEmpty(splitZipUrl) || string.IsNullOrEmpty(splitZipName))
+            return;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync(
+                "downloadFileFromUrl",
+                splitZipUrl,
+                splitZipName,
+                "application/zip"
+            );
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"ZIPのダウンロードに失敗しました: {ex.Message}";
+            StateHasChanged();
+        }
     }
 
     private async void ShowError(string msg)
@@ -1352,26 +1363,31 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
     {
         await JSRuntime.InvokeVoidAsync("downloadFileFromUrl", info.Url, info.Name, "application/pdf");
     }
+
     private async void DownloadSplitPngs()
     {
-     //   if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
-     //       return;
-//
-     //   try
-     //   {
-     //       // JSでPNGまたはZIPダウンロードを実行
-     //       await JSRuntime.InvokeVoidAsync(
-     //       "downloadMergedPngOrZip",
-     //       mergedPdfUrl,
-     //       mergedFileName,
-     //       mergedPageCount // ページ数
-     //       );
-     //   }
-     //   catch (Exception ex)
-     //   {
-     //       errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
-     //       StateHasChanged();
-     //   }
+        if (splitPdfInfos == null || splitPdfInfos.Count == 0)
+            return;
+
+        try
+        {
+            // 各PDFごとにPNG変換し、まとめてZIPでダウンロード
+            var pdfUrls = splitPdfInfos.Select(x => x.Url).ToList();
+            var pdfNames = splitPdfInfos.Select(x => x.Name).ToList();
+            var zipName = Path.GetFileNameWithoutExtension(splitZipName) + "_png.zip";
+
+            await JSRuntime.InvokeVoidAsync(
+                "downloadAllPdfsAsPngZip",
+                pdfUrls,
+                pdfNames,
+                zipName
+            );
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
+            StateHasChanged();
+        }
     }
     private async Task ReloadPageItem(DisplayItem item)
     {

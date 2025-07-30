@@ -536,15 +536,12 @@
             StateHasChanged();
             await Task.Yield();
 
-            Console.WriteLine("Starting PDF merge process...");
-            // 1. PageItemリストを取得
             var mergeItems = PdfDataService.GetModel().Pages;
 
             // 準備できていないページがある場合は中断
             var notReadyCount = mergeItems.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
             {
-                Console.WriteLine($"Not ready pages: {notReadyCount}");
                 ShowWarn($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。");
                 return;
             }
@@ -552,13 +549,12 @@
             if (mergeItems.Count == 0)
             {
                 ShowError("結合対象がありません。");
-                Console.WriteLine("No items selected.");
                 return;
             }
 
             errorMessage = null;
 
-            // 2. JSに渡すためのデータを整形
+            // JSに渡すためのデータを整形
             var mergeData = mergeItems.Select(item => new MergePageDto
             {
                 FileId = item.FileId,
@@ -568,7 +564,7 @@
                 RotateAngle = item.RotateAngle % 360
             }).ToList();
 
-            // 3. JSで結合処理
+            //  JSで結合処理
             mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
 
             if (!string.IsNullOrEmpty(mergedPdfUrl))
@@ -1329,14 +1325,18 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
             return;
 
+        var pdfUrls = new List<string> { mergedPdfUrl };
+        var pdfNames = new List<string> { mergedFileName };
+        var zipName = Path.ChangeExtension(mergedFileName, ".zip");
+
         try
         {
             // JSでPNGまたはZIPダウンロードを実行
             await JSRuntime.InvokeVoidAsync(
-            "downloadMergedPngOrZip",
-            mergedPdfUrl,
-            mergedFileName,
-            mergedPageCount // ページ数
+            "downloadAllPdfsAsPngZip",
+            pdfUrls,
+            pdfNames,
+            zipName
             );
         }
         catch (Exception ex)
