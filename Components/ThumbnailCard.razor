@@ -57,31 +57,14 @@
         <!-- サムネイル＋ページ情報 -->
         <div class="flex flex-row md:flex-col flex-1 items-center md:items-stretch relative @(Item.IsSelectedForExtract ? "ring-4 ring-blue-400 bg-blue-100/60" : "")">
             @* サムネイル左上にチェックボックス *@
-            @{
-
-            }
             @if (OperationMode == OperationMode.Extract)
             {
-                
                 <div class="absolute top-2 left-2 z-10">
-                    @if(Item.IsSelectedForExtract){
-                        @* <input type="checkbox"
-                            checked="true"
-                            @onchange="() => OnSelectChanged.InvokeAsync(Index)"
-                            class="form-checkbox h-6 w-6 accent-blue-500" /> *@
-                    }else{
-                        @* <input type="checkbox"
-                            @onchange="() => OnSelectChanged.InvokeAsync(Index)"
-                            class="form-checkbox h-6 w-6 accent-blue-500" /> *@
-                    }
-                    <input type="checkbox"
+                    <input type="checkbox"                            
                             checked="@Item.IsSelectedForExtract"
                             @onchange="() => OnSelectChanged.InvokeAsync(Index)"
                             class="form-checkbox h-6 w-6 accent-blue-500" />
-                            @Item.IsSelectedForExtract
                 </div>
-                <div class="flex items-center me-4">
-            </div>
             }
             <!-- サムネイル -->
             <div class="w-24 h-32 flex items-center justify-center md:w-24 md:h-32 w-10 h-14 mr-2 md:mr-0 scale-90 md:scale-100 transition-transform duration-200"
