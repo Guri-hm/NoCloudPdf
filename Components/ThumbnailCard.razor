@@ -65,16 +65,20 @@
                 
                 <div class="absolute top-2 left-2 z-10">
                     @if(Item.IsSelectedForExtract){
-                        <input type="checkbox"
+                        @* <input type="checkbox"
                             checked="true"
                             @onchange="() => OnSelectChanged.InvokeAsync(Index)"
-                            class="form-checkbox h-6 w-6 accent-blue-500" />
+                            class="form-checkbox h-6 w-6 accent-blue-500" /> *@
                     }else{
-                        <input type="checkbox"
+                        @* <input type="checkbox"
+                            @onchange="() => OnSelectChanged.InvokeAsync(Index)"
+                            class="form-checkbox h-6 w-6 accent-blue-500" /> *@
+                    }
+                    <input type="checkbox"
+                            checked="@Item.IsSelectedForExtract"
                             @onchange="() => OnSelectChanged.InvokeAsync(Index)"
                             class="form-checkbox h-6 w-6 accent-blue-500" />
-                    }
-
+                            @Item.IsSelectedForExtract
                 </div>
                 <div class="flex items-center me-4">
             </div>
