@@ -62,7 +62,7 @@
                             OnCheckChanged="HandleCheckChanged"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
-                            OnSwapWithNext="SwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
+                            OnSwapWithNext="OnSwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
                             OnRotate="idx => (CurrentDisplayMode == DisplayMode.File ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
                             OnDuplicate="DuplicateItem" 
                             OnSelectChanged="HandleSelectChanged" />
@@ -647,6 +647,13 @@
         StateHasChanged();
     }
 
+    private async Task OnSwapWithNext(int index)
+    {
+        await InvokeAsync(StateHasChanged); 
+        await Task.Yield(); 
+        SwapWithNext(index);
+    }
+
     // 隣接サムネイルとの入れ替え機能
     private void SwapWithNext(int index)
     {
@@ -657,13 +664,25 @@
             if (index >= 0 && index < currentCount - 1)
             {
                 var nextIndex = index + 1;
-                Console.WriteLine($"Swapping {index} with {nextIndex}");
+
+                var pages = PdfDataService.GetModel().Pages;
+                Console.WriteLine($"--------before---------------");
+                for (int i = 0; i < pages.Count; i++)
+                {
+                    Console.WriteLine($"Index {i}: Id={pages[i].Id}, IsSelectedForExtract={pages[i].IsSelectedForExtract}");
+                }
 
                 // 統一データサービスを使用して入れ替え
                 PdfDataService.SwapItems(index, nextIndex);
                 StateHasChanged();
 
-                Console.WriteLine($"Swap completed successfully");
+               // --- 追加: 入れ替え後の状態を出力 ---
+                pages = PdfDataService.GetModel().Pages;
+                Console.WriteLine($"--------after---------------");
+                for (int i = 0; i < pages.Count; i++)
+                {
+                    Console.WriteLine($"Index {i}: Id={pages[i].Id}, IsSelectedForExtract={pages[i].IsSelectedForExtract}");
+                }
             }
             else
             {

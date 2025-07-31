@@ -546,6 +546,7 @@ public class PdfDataService
             var item = pages[fromIndex];
             pages.RemoveAt(fromIndex);
             pages.Insert(toIndex, item);
+            Console.WriteLine($"Swapped pages {fromIndex} and {toIndex}");
         }
     }
 

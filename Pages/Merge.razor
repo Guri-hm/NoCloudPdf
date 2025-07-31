@@ -58,7 +58,7 @@
                             Mode="CurrentDisplayMode"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
-                            OnSwapWithNext="SwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
+                            OnSwapWithNext="OnSwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
                             OnRotate="idx => (CurrentDisplayMode == DisplayMode.File ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
                             OnDuplicate="DuplicateItem" />
                     }
@@ -602,8 +602,14 @@
         StateHasChanged();
     }
 
+    private async Task OnSwapWithNext(int index)
+    {
+        await InvokeAsync(StateHasChanged); // 状態を確実に反映
+        await Task.Yield(); // 必要なら
+        SwapWithNext(index);
+    }
     // 隣接サムネイルとの入れ替え機能
-    private void SwapWithNext(int index)
+    private async Task SwapWithNext(int index)
     {
         try
         {
