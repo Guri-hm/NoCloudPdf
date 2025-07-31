@@ -43,19 +43,13 @@ window.registerSelectDropArea = function (dotNetRef) {
         e.preventDefault();
         child.classList.remove('bg-white/60');
         child.classList.add(
-            'bg-blue-400',
-            'ring-offset-2',
-            'ring-4',
-            'ring-blue-500',
+            'bg-blue-100/60',
             'border-solid');
     };
     area.ondragleave = e => {
         console.log("ondragleave")
         child.classList.remove(
-            'bg-blue-400',
-            'ring-offset-2',
-            'ring-4',
-            'ring-blue-500',
+            'bg-blue-100/60',
             'border-solid');
         child.classList.add('bg-white/60');
     };
@@ -63,10 +57,7 @@ window.registerSelectDropArea = function (dotNetRef) {
         console.log("ondrop")
         e.preventDefault();
         child.classList.remove(
-            'bg-blue-400',
-            'ring-offset-2',
-            'ring-4',
-            'ring-blue-500',
+            'bg-blue-100/60',
             'border-solid'
         );
         child.classList.add('bg-white/60');
