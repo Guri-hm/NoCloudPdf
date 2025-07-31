@@ -707,21 +707,9 @@
     {
         isBusy = true;
         StateHasChanged();
+        await Task.Yield();
 
-        if (CurrentDisplayMode == DisplayMode.File)
-        {
-            foreach (var file in DisplayItems)
-            {
-                await PdfDataService.RotateFileAsync(file.Id, angle);
-            }
-        }
-        else
-        {
-            for (int i = 0; i < DisplayItems.Count; i++)
-            {
-                await PdfDataService.RotateItemAsync(i, angle);
-            }
-        }
+        await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
 
         isBusy = false;
         StateHasChanged();

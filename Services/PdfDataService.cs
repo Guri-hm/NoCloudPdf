@@ -1043,5 +1043,24 @@ public class PdfDataService
 
         return success;
     }
+
+    public async Task RotateAllAsync(DisplayMode mode, IList<DisplayItem> displayItems, int angle)
+    {
+        if (mode == DisplayMode.File)
+        {
+            foreach (var file in displayItems)
+            {
+                await RotateFileAsync(file.Id, angle);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < displayItems.Count; i++)
+            {
+                await RotateItemAsync(i, angle);
+            }
+        }
+    }
+
 }
 
