@@ -21,7 +21,7 @@
                     @((MarkupString)action.IconHtml)
                 </span>
             }
-            <span class="flex-1 text-center hidden xl:inline @(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
+            <span class="flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "") @(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
                 @action.Label
             </span>
             @if (action.IconPosition == "right" && !string.IsNullOrEmpty(action.IconHtml))
@@ -37,4 +37,6 @@
 @code {
     [Parameter]
     public List<ActionButtonItem> Actions { get; set; } = new();
+    [Parameter]
+    public bool HideLabelOnNarrow { get; set; } = true;
 }
