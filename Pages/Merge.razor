@@ -992,53 +992,6 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         StateHasChanged();
     }
 
-
-    private async Task HandleDroppedFilesAsync(IReadOnlyList<IBrowserFile> files)
-    {
-        isLoading = true;
-        progress = 0;
-        errorMessage = null;
-        const long maxFileSize = 52428800; // 50MB
-
-        foreach (var file in files)
-        {
-            var ext = Path.GetExtension(file.Name).ToLowerInvariant();
-            try
-            {
-                using var stream = file.OpenReadStream(maxFileSize);
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                var fileData = memoryStream.ToArray();
-
-                bool success = false;
-                if (PdfDataService.SupportedPdfExtensions.Contains(ext))
-                {
-                    success = await PdfDataService.AddOrInsertPdfFileAsync(file.Name, fileData, null);
-                }
-                else if (PdfDataService.SupportedImageExtensions.Contains(ext))
-                {
-                    success = await PdfDataService.AddOrInsertImageFileAsync(file.Name, fileData);
-                }
-                else
-                {
-                    errorMessage = $"未対応のファイル形式です: {file.Name}";
-                }
-
-                if (!success)
-                {
-                    errorMessage = $"ファイルの処理に失敗しました: {file.Name}";
-                }
-            }
-            catch (Exception ex)
-            {
-                errorMessage = $"ファイル処理エラー: {file.Name} - {ex.Message}";
-            }
-        }
-
-        //isLoading = false;
-        StateHasChanged();
-    }
-
     [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
     {
