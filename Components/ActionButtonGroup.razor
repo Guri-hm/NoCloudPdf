@@ -12,7 +12,8 @@
         "";
         <button
             class="@($"{action.ButtonClass} px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 {roundedClass} {borderClass}")"
-            @onclick="() => action.OnClick.InvokeAsync()" title="@action.Title">
+            @onclick="() => action.OnClick.InvokeAsync()"
+            @onclick:stopPropagation="action.StopPropagation" title="@action.Title">
             @if ((string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "left") &&
                     !string.IsNullOrEmpty(action.IconHtml))
             {

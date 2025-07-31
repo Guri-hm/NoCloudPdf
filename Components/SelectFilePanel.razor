@@ -7,11 +7,7 @@
             <span class="text-blue-500 text-xl font-bold select-none mb-8">ここにファイルをドロップ または ペースト</span>
             <div class="text-center">
                 <div class="mb-1">
-                    <button
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow"
-                        @onclick:stopPropagation="true" @onclick="OpenFileDialog">
-                        ファイルを選択
-                    </button>
+                    <ActionButtonGroup T="string" Actions="selectFileActions" />
                 </div>
                 <div class="mb-4 text-neutral-600 text-base">
                     PDF，画像ファイルを追加
@@ -41,6 +37,18 @@
     [Parameter] public EventCallback OnOpenFileDialog { get; set; }
     [Parameter] public bool isLoading { get; set; }
     [Parameter] public int progress { get; set; }
+
+    private List<ActionButtonItem> selectFileActions => new()
+{
+new ActionButtonItem
+{
+Label = "ファイルを選択",
+Title = "ファイルを選択",
+OnClick = EventCallback.Factory.Create(this, OpenFileDialog),
+ButtonClass = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow",
+StopPropagation = true
+}
+};
 
     private async Task OpenFileDialog()
     {
