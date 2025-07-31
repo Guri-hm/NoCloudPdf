@@ -1009,4 +1009,39 @@ public class PdfDataService
 
         setIsLoaded?.Invoke();
     }
+
+    public async Task<bool> HandleDroppedFileAsync(
+        string fileName,
+        string base64Data,
+        Action<string>? setErrorMessage = null,
+        Func<string, byte[], Task<bool>>? onPdf = null,
+        Func<string, byte[], Task<bool>>? onImage = null)
+    {
+        var fileData = Convert.FromBase64String(base64Data);
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        bool success = false;
+
+        if (SupportedPdfExtensions.Contains(ext))
+        {
+            if (onPdf != null)
+                success = await onPdf(fileName, fileData);
+        }
+        else if (SupportedImageExtensions.Contains(ext))
+        {
+            if (onImage != null)
+                success = await onImage(fileName, fileData);
+        }
+        else
+        {
+            setErrorMessage?.Invoke($"未対応のファイル形式です: {fileName}");
+        }
+
+        if (!success)
+        {
+            setErrorMessage?.Invoke($"ファイルの処理に失敗しました: {fileName}");
+        }
+
+        return success;
+    }
 }
+

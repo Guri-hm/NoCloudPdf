@@ -1073,32 +1073,28 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         StateHasChanged();
     }
 
-    [JSInvokable]
+   [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
     {
-        var fileData = Convert.FromBase64String(base64Data);
-
-        bool success = false;
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        if (PdfDataService.SupportedPdfExtensions.Contains(ext))
-        {
-            success = await PdfDataService.AddOrInsertPdfFileAsync(fileName, fileData, null);
-        }
-        else if (PdfDataService.SupportedImageExtensions.Contains(ext))
-        {
-            success = await PdfDataService.AddOrInsertImageFileAsync(fileName, fileData, null);
-        }
-        else
-        {
-            errorMessage = $"未対応のファイル形式です: {fileName}";
-        }
-
-        if (!success)
-        {
-            errorMessage = $"ファイルの処理に失敗しました: {fileName}";
-        }
-
+        isBusy = true;
         StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await PdfDataService.HandleDroppedFileAsync(
+                fileName,
+                base64Data,
+                msg => errorMessage = msg,
+                async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
+                async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
+            );
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
     }
 
     private List<ToggleButtonItem<string>> toggleItems = new()
