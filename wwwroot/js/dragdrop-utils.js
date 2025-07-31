@@ -37,24 +37,28 @@ window.registerSelectDropArea = function (dotNetRef) {
     if (!area || !area.firstElementChild) return;
 
     const child = area.firstElementChild;
-    // 再登録
-    area.ondragover = e => {
-        console.log("ondragover")
-        e.preventDefault();
+    let dragCounter = 0;
+
+    area.ondragenter = e => {
+        dragCounter++;
         child.classList.remove('bg-white/60');
-        child.classList.add(
-            'bg-blue-100/60',
-            'border-solid');
+        child.classList.add('bg-blue-100/60', 'border-solid');
+    };
+    area.ondragover = e => {
+        e.preventDefault();
     };
     area.ondragleave = e => {
-        console.log("ondragleave")
-        child.classList.remove(
-            'bg-blue-100/60',
-            'border-solid');
-        child.classList.add('bg-white/60');
+        dragCounter--;
+        if (dragCounter <= 0) {
+            console.log("ondragleave")
+            dragCounter = 0;
+            child.classList.remove(
+                'bg-blue-100/60',
+                'border-solid');
+            child.classList.add('bg-white/60');
+        }
     };
     area.ondrop = e => {
-        console.log("ondrop")
         e.preventDefault();
         child.classList.remove(
             'bg-blue-100/60',
