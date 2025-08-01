@@ -81,7 +81,7 @@
                             Item="@item" Index="@i" DisplayItemsCount="DisplayItems.Count"
                             Mode="CurrentDisplayMode"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
-                            OnInsertButtonClick="args => HandleInsertButtonClick(args.position, args.e)"
+                            OnInsertBlankPage="InsertBlankPage"
                             OnSwapWithNext="OnSwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
                             OnRotate="idx => (CurrentDisplayMode == DisplayMode.File ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
                             OnDuplicate="DuplicateItem" />
@@ -811,24 +811,15 @@
     // 空白ページを挿入
     public async Task InsertBlankPage(int position)
     {
-        showAddMenu = false;
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
 
-        int insertPosition;
-        if (CurrentDisplayMode == DisplayMode.File)
-        {
-            int pageInsertPosition = 0;
-            for (int i = 0; i < position && i < DisplayItems.Count; i++)
-            {
-                pageInsertPosition += DisplayItems[i].PageCount;
-            }
-            insertPosition = pageInsertPosition;
-        }
-        else
-        {
-            insertPosition = position;
-        }
-
-        await PdfDataService.InsertBlankPageAsync(insertPosition);
+        await PdfDataService.InsertBlankPageWithDisplayModeAsync(
+            CurrentDisplayMode, DisplayItems, position);
+        
+        isBusy = false;
+        StateHasChanged();
     }
 
     // PDF挿入

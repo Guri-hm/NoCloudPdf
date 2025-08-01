@@ -550,6 +550,28 @@ public class PdfDataService
         }
     }
 
+    public async Task InsertBlankPageWithDisplayModeAsync(
+        DisplayMode mode,
+        IReadOnlyList<DisplayItem> displayItems,
+        int position)
+    {
+        int insertPosition;
+        if (mode == DisplayMode.File)
+        {
+            int pageInsertPosition = 0;
+            for (int i = 0; i < position && i < displayItems.Count; i++)
+            {
+                pageInsertPosition += displayItems[i].PageCount;
+            }
+            insertPosition = pageInsertPosition;
+        }
+        else
+        {
+            insertPosition = position;
+        }
+
+        await InsertBlankPageAsync(insertPosition);
+    }
     /// <summary>
     /// 空白ページを挿入
     /// </summary>
