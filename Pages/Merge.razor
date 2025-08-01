@@ -612,31 +612,17 @@
         await Task.Yield(); // 必要なら
         SwapWithNext(index);
     }
+    
     // 隣接サムネイルとの入れ替え機能
     private async Task SwapWithNext(int index)
     {
         try
         {
-            var currentCount = DisplayItems.Count;
-
-            if (index >= 0 && index < currentCount - 1)
-            {
-                var nextIndex = index + 1;
-                Console.WriteLine($"Swapping {index} with {nextIndex}");
-
-                // 統一データサービスを使用して入れ替え
-                PdfDataService.SwapItems(index, nextIndex);
-
-                Console.WriteLine($"Swap completed successfully");
-            }
-            else
-            {
-                Console.WriteLine($"Invalid swap: index={index}, count={currentCount}");
-            }
+            PdfDataService.SwapWithNext(index);
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in SwapWithNext: {ex.Message}");
             errorMessage = $"サムネイルの入れ替えに失敗しました: {ex.Message}";
         }
     }

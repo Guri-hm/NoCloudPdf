@@ -587,6 +587,17 @@ public class PdfDataService
             Console.WriteLine($"Swapped pages {fromIndex} and {toIndex}");
         }
     }
+    /// <summary>
+    /// 指定インデックスのアイテムと次のアイテムを入れ替える
+    /// </summary>
+    public void SwapWithNext(int index)
+    {
+        var items = GetDisplayItems();
+        if (index >= 0 && index < items.Count - 1)
+        {
+            SwapItems(index, index + 1);
+        }
+    }
 
     public async Task InsertBlankPageWithDisplayModeAsync(
         DisplayMode mode,

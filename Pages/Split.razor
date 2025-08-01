@@ -659,43 +659,15 @@
     }
 
     // 隣接サムネイルとの入れ替え機能
-    private void SwapWithNext(int index)
+    private async Task SwapWithNext(int index)
     {
         try
         {
-            var currentCount = DisplayItems.Count;
-
-            if (index >= 0 && index < currentCount - 1)
-            {
-                var nextIndex = index + 1;
-
-                var pages = PdfDataService.GetModel().Pages;
-                Console.WriteLine($"--------before---------------");
-                for (int i = 0; i < pages.Count; i++)
-                {
-                    Console.WriteLine($"Index {i}: Id={pages[i].Id}, IsSelectedForExtract={pages[i].IsSelectedForExtract}");
-                }
-
-                // 統一データサービスを使用して入れ替え
-                PdfDataService.SwapItems(index, nextIndex);
-                StateHasChanged();
-
-                // --- 追加: 入れ替え後の状態を出力 ---
-                pages = PdfDataService.GetModel().Pages;
-                Console.WriteLine($"--------after---------------");
-                for (int i = 0; i < pages.Count; i++)
-                {
-                    Console.WriteLine($"Index {i}: Id={pages[i].Id}, IsSelectedForExtract={pages[i].IsSelectedForExtract}");
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Invalid swap: index={index}, count={currentCount}");
-            }
+            PdfDataService.SwapWithNext(index);
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in SwapWithNext: {ex.Message}");
             errorMessage = $"サムネイルの入れ替えに失敗しました: {ex.Message}";
         }
     }
@@ -1139,18 +1111,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
                 }
             });
         }
-       // if (showSplitResult && !string.IsNullOrEmpty(splitPdfUrl) && splitPageCount > 0 && !_renderedMergedPages)
-       // {
-       //     _renderedMergedPages = true;
-       //     var canvasIds = Enumerable.Range(0, splitPageCount)
-       //     .Select(i => $"split-canvas-{i}")
-       //     .ToArray();
-       //     await JSRuntime.InvokeVoidAsync("renderPdfPages", splitPdfUrl, canvasIds);
-       // }
-       // else if (!showSplitResult)
-       // {
-       //     _renderedMergedPages = false;
-       // }
     }
     [JSInvokable]
     public void SetDragOver(bool over)
@@ -1201,7 +1161,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
 
     private async void ShowWarn(string msg)
     {
-        Console.WriteLine($"ShowWarn called with message: {msg}");
         warnMessage = msg;
         errorMessage = null;
         StateHasChanged();
