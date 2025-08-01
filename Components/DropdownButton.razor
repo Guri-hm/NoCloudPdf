@@ -7,16 +7,6 @@
             @Trigger
         </span>
     }
-    else
-    {
-        <button @onclick="ToggleMenu" class="@ButtonClass" title="@ButtonLabel">
-            @if (!string.IsNullOrEmpty(ButtonIconHtml))
-            {
-                @((MarkupString)ButtonIconHtml)
-            }
-            <span>@ButtonLabel</span>
-        </button>
-    }
     @if (ShowMenu)
     {
         <div class="fixed inset-0 z-40" @onclick="CloseMenu" style="background:transparent;"></div>
@@ -39,9 +29,6 @@
 </div>
 
 @code {
-    [Parameter] public string ButtonLabel { get; set; } = "";
-    [Parameter] public string ButtonClass { get; set; } = "";
-    [Parameter] public string ButtonIconHtml { get; set; } = "";
     [Parameter] public string MenuId { get; set; } = "dropdownMenu";
     [Parameter] public List<DropdownMenuItem> MenuItems { get; set; } = new();
     [Parameter] public EventCallback OnToggle { get; set; }
