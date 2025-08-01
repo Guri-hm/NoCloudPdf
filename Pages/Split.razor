@@ -316,7 +316,7 @@
             Label = GetPrimaryActionLabel(),
             IconHtml = "<i class='fa-solid fa-arrow-right text-xl ml-2'></i>",
             Title = GetPrimaryActionLabel(),
-            OnClick = EventCallback.Factory.Create(this, SplitPDFs),
+            OnClick = EventCallback.Factory.Create(this, ProcessPdfs),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
             IconPosition = "right"
         }
@@ -349,10 +349,21 @@
 
     private string GetPrimaryActionLabel()
     {
-        var splitCount = PdfDataService.SplitInfo?.SplitPositions.Count ?? 0;
-        if (CurrentOperationMode == OperationMode.Split && splitCount > 0)
+        if (CurrentOperationMode == OperationMode.Split)
         {
-            return $"{splitCount + 1}ファイルに分割";
+            var splitCount = PdfDataService.SplitInfo?.SplitPositions.Count ?? 0;
+            if (splitCount > 0)
+            {
+                return $"{splitCount + 1}ファイルに分割";
+            }
+        }
+        if (CurrentOperationMode == OperationMode.Extract)
+        {
+            var extractCount = DisplayItems.Count(x => x.IsSelectedForExtract);
+            if (extractCount > 0)
+            {
+                return $"{extractCount}ページ抽出";
+            }
         }
         return "完了";
     }
@@ -479,7 +490,18 @@
     }
     private List<SplitPdfInfo> splitPdfInfos = new();
 
-    private async Task SplitPDFs()
+    private async Task ProcessPdfs()
+    {
+        if (CurrentOperationMode == OperationMode.Split)
+        {
+            await ProcessSplit();
+        }
+        else if (CurrentOperationMode == OperationMode.Extract)
+        {
+            await ProcessExtract();
+        }
+    }
+    private async Task ProcessSplit()
     {
         try
         {
@@ -573,6 +595,84 @@
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
             ShowError("PDFの分割中にエラーが発生しました。");
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ProcessExtract()
+    {
+        try
+        {
+            isBusy = true;
+            StateHasChanged();
+            await Task.Yield();
+
+            var selectedPages = PdfDataService.GetModel().Pages
+                .Where(p => p.IsSelectedForExtract)
+                .ToList();
+
+            if (selectedPages.Count == 0)
+            {
+                ShowWarn("抽出対象が選択されていません。");
+                return;
+            }
+
+            splitPdfInfos.Clear();
+            int pageIndex = 1;
+            foreach (var page in selectedPages)
+            {
+                var mergeData = new List<MergePageDto>
+                {
+                    new MergePageDto
+                    {
+                        FileId = page.FileId,
+                        FileName = page.FileName,
+                        PageData = page.PageData,
+                        IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
+                        RotateAngle = page.RotateAngle % 360
+                    }
+                };
+
+                var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+                if (!string.IsNullOrEmpty(url))
+                {
+                    var name = $"extract_{pageIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
+                    var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                    splitPdfInfos.Add(new SplitPdfInfo
+                    {
+                        Url = url,
+                        Name = name,
+                        Size = size,
+                        PageCount = 1
+                    });
+                }
+                pageIndex++;
+            }
+
+            // ZIP作成などSplitと同様の後処理
+            if (splitPdfInfos.Count > 0)
+            {
+                splitZipName = $"extract_{DateTime.Now:yyyyMMddHHmm}.zip";
+                var pdfUrls = splitPdfInfos.Select(x => x.Url).ToList();
+                var pdfNames = splitPdfInfos.Select(x => x.Name).ToList();
+                splitZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, splitZipName);
+                splitZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", splitZipUrl);
+                splitTotalPageCount = splitPdfInfos.Sum(x => x.PageCount);
+                CompletionState.SetCompletion(CompletionStateService.CompletionType.Extract);
+            }
+            else
+            {
+                ShowError("抽出PDFの生成に失敗しました。");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            ShowError("PDFの抽出中にエラーが発生しました。");
         }
         finally
         {
