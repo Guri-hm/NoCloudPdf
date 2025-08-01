@@ -16,8 +16,10 @@
     </button>
     @if (ShowMenu)
     {
+        <div class="fixed inset-0 z-40" @onclick="CloseMenu" style="background:transparent;"></div>
         <div id="@MenuId"
-            class="absolute top-full left-0 mt-1 min-w-[120px] bg-white rounded-lg shadow-lg z-50 border border-gray-300">
+            class="absolute top-full left-0 mt-1 min-w-[120px] bg-white rounded-lg shadow-lg z-50 border border-gray-300"
+            @onclick:stopPropagation>
             @foreach (var item in MenuItems)
             {
                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 whitespace-nowrap"
@@ -56,19 +58,12 @@
     {
         ShowMenu = !ShowMenu;
         await OnToggle.InvokeAsync();
-
-        if (ShowMenu)
-        {
-            dotNetRef ??= DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("registerOutsideClick", MenuId, dotNetRef, "CloseMenu");
-        }
     }
 
     [JSInvokable]
     public void CloseMenu()
     {
         ShowMenu = false;
-        StateHasChanged();
     }
 
     public void Dispose()
