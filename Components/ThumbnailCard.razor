@@ -192,12 +192,12 @@
         new DropdownMenuItem
         {
             Label = "空白ページを追加",
-            OnClick = EventCallback.Factory.Create(this, () => OnInsertBlankPage.InvokeAsync(index + 1))
+            OnClick = EventCallback.Factory.Create(this, () => OnInsertBlankPage.InvokeAsync(index))
         },
         new DropdownMenuItem
         {
             Label = "PDFを挿入",
-            OnClick = EventCallback.Factory.Create(this, () => OnInsertPdfAtPosition.InvokeAsync(index + 1))
+            OnClick = EventCallback.Factory.Create(this, () => OnInsertPdfAtPosition.InvokeAsync(index))
         }
     };
 }

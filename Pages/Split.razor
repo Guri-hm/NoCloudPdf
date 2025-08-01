@@ -232,14 +232,14 @@
 
 @code {
     private void OnTest(){
-    var pages = PdfDataService.GetModel().Pages;
-    Console.WriteLine("=== 現在のPageItems ===");
-    for (int i = 0; i < pages.Count; i++)
-    {
-        var p = pages[i];
-        Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}, IsSelectedForExtract: {p.IsSelectedForExtract}");
-    }
-    StateHasChanged();
+        var pages = PdfDataService.GetModel().Pages;
+        Console.WriteLine("=== 現在のPageItems ===");
+        for (int i = 0; i < pages.Count; i++)
+        {
+            var p = pages[i];
+            Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}, IsSelectedForExtract: {p.IsSelectedForExtract}");
+        }
+        StateHasChanged();
     }
 
     protected override void OnInitialized()
@@ -478,8 +478,8 @@
         public bool IsPdf { get; set; }
         public int RotateAngle { get; set; }
     }
-    
-    
+
+
     public class SplitPdfInfo
     {
         public string Url { get; set; } = "";
@@ -496,9 +496,9 @@
             isBusy = true;
             StateHasChanged();
             await Task.Yield();
-    
+
             var allPages = PdfDataService.GetModel().Pages;
-    
+
             // 準備できていないページがある場合は中断
             var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
@@ -511,9 +511,9 @@
                 ShowError("分割対象がありません。");
                 return;
             }
-    
+
             errorMessage = null;
-    
+
             var splitGroups = new List<List<PageItem>>();
             var currentGroup = new List<PageItem>();
             foreach (var page in allPages)
@@ -527,7 +527,7 @@
             }
             if (currentGroup.Count > 0)
                 splitGroups.Add(currentGroup);
-    
+
             splitPdfInfos.Clear();
             int groupIndex = 1;
             foreach (var group in splitGroups)
@@ -540,7 +540,7 @@
                     IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
                     RotateAngle = item.RotateAngle % 360
                 }).ToList();
-    
+
                 var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
                 if (!string.IsNullOrEmpty(url))
                 {
@@ -638,11 +638,11 @@
             () => { /* ページ固有の状態リセット */ },
             () => { 
 
-                    splitPdfInfos.Clear();
-                    splitZipUrl = "";
-                    splitZipName = "";
-                    splitZipSize = "";
-                    splitTotalPageCount = 0;    
+                splitPdfInfos.Clear();
+                splitZipUrl = "";
+                splitZipName = "";
+                splitZipSize = "";
+                splitTotalPageCount = 0;    
             },
             msg => errorMessage = msg,
             StateHasChanged
@@ -684,7 +684,7 @@
                 PdfDataService.SwapItems(index, nextIndex);
                 StateHasChanged();
 
-               // --- 追加: 入れ替え後の状態を出力 ---
+                // --- 追加: 入れ替え後の状態を出力 ---
                 pages = PdfDataService.GetModel().Pages;
                 Console.WriteLine($"--------after---------------");
                 for (int i = 0; i < pages.Count; i++)
@@ -881,6 +881,8 @@
         isBusy = true;
         StateHasChanged();
         await Task.Yield();
+
+        Console.WriteLine(position);
 
         await PdfDataService.InsertBlankPageWithDisplayModeAsync(
             CurrentDisplayMode, DisplayItems, position);
