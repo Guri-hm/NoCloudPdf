@@ -347,6 +347,44 @@ public class PdfDataService
         }
     }
 
+    /// <summary>
+    /// PDF挿入用ダイアログを開き、挿入位置を保存
+    /// </summary>
+    public async Task<bool> OpenInsertPdfDialogAsync(
+    DisplayMode mode,
+    IReadOnlyList<DisplayItem> displayItems,
+    int position,
+    Action<int> setInsertPosition,
+    Action<string>? setErrorMessage = null)
+    {
+        try
+        {
+            int insertPosition;
+            if (mode == DisplayMode.File)
+            {
+                int pageInsertPosition = 0;
+                for (int i = 0; i < position && i < displayItems.Count; i++)
+                {
+                    pageInsertPosition += displayItems[i].PageCount;
+                }
+                insertPosition = pageInsertPosition;
+            }
+            else
+            {
+                insertPosition = position;
+            }
+
+            await _jsRuntime.InvokeVoidAsync("openInsertFileDialog", "fileInput");
+            setInsertPosition(insertPosition);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            setErrorMessage?.Invoke($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}");
+            return false;
+        }
+    }
+
     public async Task ReloadPageAsync(string fileId, int pageIndex)
     {
         if (!_model.Files.TryGetValue(fileId, out var fileMetadata))

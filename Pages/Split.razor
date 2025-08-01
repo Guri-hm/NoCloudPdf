@@ -356,11 +356,6 @@
         return "完了";
     }
 
-    private async Task AddPdfFile()
-    {
-        await OpenFileDialog();
-    }
-
     [JSInvokable]
     public void CloseSortMenu()
     {
@@ -882,8 +877,6 @@
         StateHasChanged();
         await Task.Yield();
 
-        Console.WriteLine(position);
-
         await PdfDataService.InsertBlankPageWithDisplayModeAsync(
             CurrentDisplayMode, DisplayItems, position);
         
@@ -894,21 +887,13 @@
     // PDF挿入
     public async Task InsertPdfAtPosition(int position)
     {
-        try
-        {
-            Console.WriteLine($"Opening file dialog for PDF insertion at position {position}");
-
-            // JavaScriptでファイルダイアログを開く
-            await JSRuntime.InvokeVoidAsync("openInsertFileDialog", "insertFileInput");
-
-            // 挿入位置を保存（ファイル選択後に使用）
-            insertPosition = position;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error opening insert file dialog: {ex.Message}");
-            errorMessage = $"ファイル選択ダイアログの表示に失敗しました: {ex.Message}";
-        }
+        await PdfDataService.OpenInsertPdfDialogAsync(
+            CurrentDisplayMode,
+            DisplayItems,
+            position,
+            pos => insertPosition = pos,
+            msg => errorMessage = msg
+        );
     }
 
     private int insertPosition = -1;
@@ -916,6 +901,10 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
         await PdfDataService.HandleFileInputAsync(
             e,
             insertPosition >= 0 ? insertPosition : null,
@@ -924,6 +913,7 @@
             () => isLoading = false
         );
         insertPosition = -1;
+        isBusy = false;
         StateHasChanged();
     }
 
@@ -937,7 +927,7 @@ OnClick = EventCallback.Factory.Create(this, () => InsertBlankPage(DisplayItems.
 new DropdownMenuItem
 {
 Label = "ドキュメントを追加",
-OnClick = EventCallback.Factory.Create(this, AddPdfFile)
+OnClick = EventCallback.Factory.Create(this, () => InsertPdfAtPosition(DisplayItems.Count))
 }
 };
 

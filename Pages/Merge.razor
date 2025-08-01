@@ -29,7 +29,7 @@
                     <ActionButtonGroup T="string" Actions="rotateActions" />
 
                     <!-- 追加ボタングループ -->
-                    <DropdownButton T="string" MenuId="sortMenu" MenuItems="sortMenuItems">
+                    <DropdownButton T="string" MenuId="addMenu" MenuItems="addMenuItems">
                         <Trigger>
                             <button
     class="px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 h-10 shadow"
@@ -825,21 +825,13 @@
     // PDF挿入
     public async Task InsertPdfAtPosition(int position)
     {
-        try
-        {
-            Console.WriteLine($"Opening file dialog for PDF insertion at position {position}");
-
-            // JavaScriptでファイルダイアログを開く
-            await JSRuntime.InvokeVoidAsync("openInsertFileDialog", "fileInput");
-
-            // 挿入位置を保存（ファイル選択後に使用）
-            insertPosition = position;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error opening insert file dialog: {ex.Message}");
-            errorMessage = $"ファイル選択ダイアログの表示に失敗しました: {ex.Message}";
-        }
+        await PdfDataService.OpenInsertPdfDialogAsync(
+            CurrentDisplayMode,
+            DisplayItems,
+            position,
+            pos => insertPosition = pos,
+            msg => errorMessage = msg
+        );
     }
 
     private int insertPosition = -1;
@@ -847,6 +839,10 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
         await PdfDataService.HandleFileInputAsync(
             e,
             insertPosition >= 0 ? insertPosition : null,
@@ -855,6 +851,7 @@
             () => isLoading = false
         );
         insertPosition = -1;
+        isBusy = false;
         StateHasChanged();
     }
 
