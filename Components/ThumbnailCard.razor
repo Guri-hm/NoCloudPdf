@@ -46,7 +46,6 @@
                     </svg>
                 </button>
             }
-            @Index
     }
     </div>
     <div style="cursor: move;" class="drag-handle group flex flex-row bg-white md:bg-transparent w-full md:w-auto">
@@ -61,7 +60,7 @@
             @if (OperationMode == OperationMode.Extract)
             {
                 <div class="absolute top-2 left-2 z-10">
-                    <input type="checkbox"                            
+                    <input  type="checkbox"                            
                             checked="@Item.IsSelectedForExtract"
                             @onchange="() => OnSelectChanged.InvokeAsync(Index)"
                             class="form-checkbox h-6 w-6 accent-blue-500" />

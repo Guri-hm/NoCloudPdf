@@ -40,6 +40,7 @@
                     <DropdownButton T="string" ButtonLabel="並び替え" ButtonClass="bg-white text-gray-800 hover:bg-blue-50"
                         ButtonIconHtml="<i class='fa-solid fa-arrow-down-a-z'></i><svg width='14' height='14' viewBox='0 0 20 20' fill='currentColor' class='ml-2'></svg>"
                         MenuId="sortMenu" MenuItems="sortMenuItems" OnToggle="ToggleSortMenu" />
+                    <button @onclick="OnTest" class="bg-white text-gray-800 hover:bg-blue-50">テスト</button>
                 </div>
 
                 <ActionButtonGroup T="string" Actions="primaryActions" />
@@ -55,9 +56,10 @@
                 <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-4 md:p-6" id="sortable-container">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
+                        var item = DisplayItems[i];
                         <ThumbnailCard 
-                            @key="@(DisplayItems[i].Id)"
-                            Item="DisplayItems[i]" Index="i" DisplayItemsCount="DisplayItems.Count"
+                            @key="item.Id"
+                            Item="@item" Index="@i" DisplayItemsCount="DisplayItems.Count"
                             Mode="CurrentDisplayMode"
                             SplitPositions="PdfDataService.SplitInfo.SplitPositions" 
                             OperationMode="CurrentOperationMode"
@@ -205,6 +207,17 @@
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
 
 @code {
+    private void OnTest(){
+    var pages = PdfDataService.GetModel().Pages;
+    Console.WriteLine("=== 現在のPageItems ===");
+    for (int i = 0; i < pages.Count; i++)
+    {
+        var p = pages[i];
+        Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}, IsSelectedForExtract: {p.IsSelectedForExtract}");
+    }
+    StateHasChanged();
+    }
+
     protected override void OnInitialized()
     {
         PdfDataService.OnChange += OnServiceChanged;
