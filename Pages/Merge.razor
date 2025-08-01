@@ -308,12 +308,6 @@
         await OpenFileDialog();
     }
 
-    [JSInvokable]
-    public void CloseSortMenu()
-    {
-        showSortMenu = false;
-        StateHasChanged();
-    }
     private async Task MovePreview(int direction)
     {
         if (CurrentDisplayMode == DisplayMode.File)

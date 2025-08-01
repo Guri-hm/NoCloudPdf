@@ -350,19 +350,13 @@
     private string GetPrimaryActionLabel()
     {
         var splitCount = PdfDataService.SplitInfo?.SplitPositions.Count ?? 0;
-        if (splitCount > 0)
+        if (CurrentOperationMode == OperationMode.Split && splitCount > 0)
         {
             return $"{splitCount + 1}ファイルに分割";
         }
         return "完了";
     }
 
-    [JSInvokable]
-    public void CloseSortMenu()
-    {
-        showSortMenu = false;
-        StateHasChanged();
-    }
     private async Task MovePreview(int direction)
     {
         if (CurrentDisplayMode == DisplayMode.File)
