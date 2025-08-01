@@ -90,6 +90,7 @@
                             OnCheckChanged="HandleCheckChanged"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertBlankPage="InsertBlankPage"
+                            OnInsertPdfAtPosition="InsertPdfAtPosition"
                             OnSwapWithNext="OnSwapWithNext" OnReloadPageItem="ReloadPageItem" OnRemove="RemovePage"
                             OnRotate="idx => (CurrentDisplayMode == DisplayMode.File ? RotateFile(DisplayItems[idx].Id) : RotatePage(idx))"
                             OnDuplicate="DuplicateItem" 
