@@ -39,7 +39,7 @@
                     <!-- 並び替えボタングループ -->
                     <DropdownButton T="string" ButtonLabel="並び替え" ButtonClass="bg-white text-gray-800 hover:bg-blue-50"
                         ButtonIconHtml="<i class='fa-solid fa-arrow-down-a-z'></i><svg width='14' height='14' viewBox='0 0 20 20' fill='currentColor' class='ml-2'></svg>"
-                        MenuId="sortMenu" MenuItems="sortMenuItems" OnToggle="ToggleSortMenu" />
+                        MenuId="sortMenu" MenuItems="sortMenuItems" />
                     <button @onclick="OnTest" class="bg-white text-gray-800 hover:bg-blue-50">テスト</button>
                 </div>
 
@@ -333,17 +333,6 @@
         return "完了";
     }
 
-    private async Task ToggleAddMenu()
-    {
-        showAddMenu = !showAddMenu;
-        if (showAddMenu)
-        {
-            showSortMenu = false;
-            StateHasChanged();
-            await Task.Yield();
-            await JSRuntime.InvokeVoidAsync("registerOutsideClick", "addMenu", DotNetObjectReference.Create(this));
-        }
-    }
     [JSInvokable]
     public void CloseAddMenu()
     {
@@ -355,17 +344,6 @@
     {
         showAddMenu = false;
         await OpenFileDialog();
-    }
-    private async Task ToggleSortMenu()
-    {
-        showSortMenu = !showSortMenu;
-        if (showSortMenu)
-        {
-            showAddMenu = false;
-            StateHasChanged();
-            await Task.Yield();
-            await JSRuntime.InvokeVoidAsync("registerOutsideClick", "sortMenu", DotNetObjectReference.Create(this));
-        }
     }
 
     [JSInvokable]

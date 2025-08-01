@@ -272,17 +272,7 @@
             IconPosition = "right"
         }
     };
-    private async Task ToggleAddMenu()
-    {
-        showAddMenu = !showAddMenu;
-        if (showAddMenu)
-        {
-            showSortMenu = false;
-            StateHasChanged();
-            await Task.Yield();
-            await JSRuntime.InvokeVoidAsync("registerOutsideClick", "addMenu", DotNetObjectReference.Create(this));
-        }
-    }
+
     [JSInvokable]
     public void CloseAddMenu()
     {

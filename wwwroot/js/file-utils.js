@@ -191,18 +191,19 @@ if (document.readyState === 'loading') {
     window.setupMenuProtection();
 }
 
-window.registerOutsideClick = (elementId, dotnetHelper) => {
-    function handler(event) {
-        const el = document.getElementById(elementId);
-        if (el && !el.contains(event.target)) {
-            dotnetHelper.invokeMethodAsync(
-                elementId === "addMenu" ? "CloseAddMenu" : "CloseSortMenu"
-            );
-            document.removeEventListener('mousedown', handler);
-        }
-    }
-    document.addEventListener('mousedown', handler);
-};
+// window.registerOutsideClick = (elementId, dotnetHelper) => {
+//     function handler(event) {
+//         const el = document.getElementById(elementId);
+//         if (el && !el.contains(event.target)) {
+//             dotnetHelper.invokeMethodAsync(
+//                 elementId === "addMenu" ? "CloseAddMenu" : "CloseSortMenu"
+//             );
+//             document.removeEventListener('mousedown', handler);
+//         }
+//     }
+//     document.addEventListener('mousedown', handler);
+// };
+
 
 window.createZipFromUrls = async function (urls, names) {
     await ensureJsZipLoaded();

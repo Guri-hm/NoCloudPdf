@@ -1,4 +1,5 @@
 @typeparam T
+@inject IJSRuntime JS
 
 <div class="inline-flex shadow border border-gray-300 rounded-lg bg-white h-10 ml-2 relative">
     <button
@@ -20,7 +21,7 @@
             @foreach (var item in MenuItems)
             {
                 <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 whitespace-nowrap"
-                    @onclick="item.OnClick">
+                    @onclick="() => OnMenuItemClick(item)">
                     @if (!string.IsNullOrEmpty(item.IconHtml))
                     {
                         @((MarkupString)item.IconHtml)
@@ -41,11 +42,37 @@
 
     [Parameter] public EventCallback OnToggle { get; set; }
 
+    private DotNetObjectReference<DropdownButton<T>>? dotNetRef;
+
     private bool ShowMenu { get; set; } = false;
 
-    private void ToggleMenu()
+    private async Task OnMenuItemClick(DropdownMenuItem item)
+    {
+        ShowMenu = false;
+        await item.OnClick.InvokeAsync();
+    }
+
+    private async Task ToggleMenu()
     {
         ShowMenu = !ShowMenu;
-        OnToggle.InvokeAsync();
+        await OnToggle.InvokeAsync();
+
+        if (ShowMenu)
+        {
+            dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerOutsideClick", MenuId, dotNetRef, "CloseMenu");
+        }
+    }
+
+    [JSInvokable]
+    public void CloseMenu()
+    {
+        ShowMenu = false;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        dotNetRef?.Dispose();
     }
 }
