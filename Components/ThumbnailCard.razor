@@ -25,13 +25,19 @@
         <!-- ＋ボタン（PCのみ表示） -->
         @if ((OperationMode != OperationMode.Split))
         {
-            <button
-                class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
-                data-position="@Index" @onclick="@((e) => OnInsertButtonClick.InvokeAsync((Index, e)))">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                </svg>
-            </button>
+            <DropdownButton T="string"
+                MenuId="@($"addMenu-{Index}")"
+                MenuItems="@GetAddMenuItems(Index)">
+                <Trigger>
+                    <button
+                        class="w-6 h-6 bg-blue-500/60 hover:bg-blue-600 hover:bg-opacity-100 text-white rounded-full flex items-center justify-center insert-button transition-all duration-200"
+                        data-position="@Index">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                        </svg>
+                    </button>
+                </Trigger>
+            </DropdownButton>
             @if (Index > 0 && Index < DisplayItemsCount)
             {
                 <button class="absolute top-[30px] bg-amber-400 hover:bg-amber-500
@@ -177,5 +183,23 @@
     [Parameter] public EventCallback<int> OnCheckChanged { get; set; }
     [Parameter] public EventCallback<int> OnSelectChanged { get; set; }
     [Parameter] public IReadOnlyCollection<int> SplitPositions { get; set; } = Array.Empty<int>();
+[Parameter] public EventCallback<int> OnInsertBlankPage { get; set; }
+[Parameter] public EventCallback<int> OnInsertPdfAtPosition { get; set; }
 
+    private List<DropdownMenuItem> GetAddMenuItems(int index)
+{
+    return new List<DropdownMenuItem>
+    {
+        new DropdownMenuItem
+        {
+            Label = "空白ページを追加",
+            OnClick = EventCallback.Factory.Create(this, () => OnInsertBlankPage.InvokeAsync(index + 1))
+        },
+        new DropdownMenuItem
+        {
+            Label = "PDFを挿入",
+            OnClick = EventCallback.Factory.Create(this, () => OnInsertPdfAtPosition.InvokeAsync(index + 1))
+        }
+    };
+}
 }

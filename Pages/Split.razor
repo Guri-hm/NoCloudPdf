@@ -29,17 +29,23 @@
                     <ActionButtonGroup T="string" Actions="rotateActions" />
 
                     <!-- 追加ボタングループ -->
-                    <DropdownButton T="string" ButtonLabel="追加" ButtonClass="bg-white text-gray-800 hover:bg-blue-50"
-                        ButtonIconHtml="<svg width='18' height='18' viewBox='0 0 24 24' fill='currentColor' class='mr-2'><path d='M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z' /></svg>"
-                        MenuId="addMenu" MenuItems="addMenuItems" />
+                    <DropdownButton T="string"
+    ButtonLabel="追加"
+    ButtonClass="bg-white text-gray-800 hover:bg-blue-50 flex items-center px-4 py-2 rounded transition"
+    ButtonIconHtml="<svg width='18' height='18' viewBox='0 0 24 24' fill='currentColor' class='mr-2'><path d='M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z' /></svg>"
+    MenuId="addMenu"
+    MenuItems="addMenuItems" />
 
                     <!-- 逆順ボタン -->
                     <ActionButtonGroup T="string" Actions="reverseActions" />
 
                     <!-- 並び替えボタングループ -->
-                    <DropdownButton T="string" ButtonLabel="並び替え" ButtonClass="bg-white text-gray-800 hover:bg-blue-50"
-                        ButtonIconHtml="<i class='fa-solid fa-arrow-down-a-z'></i><svg width='14' height='14' viewBox='0 0 20 20' fill='currentColor' class='ml-2'></svg>"
-                        MenuId="sortMenu" MenuItems="sortMenuItems" />
+                   <DropdownButton T="string"
+    ButtonLabel="並び替え"
+    ButtonClass="bg-white text-gray-800 hover:bg-blue-50 flex items-center px-4 py-2 rounded transition"
+    ButtonIconHtml="<i class='fa-solid fa-arrow-down-a-z'></i><svg width='14' height='14' viewBox='0 0 20 20' fill='currentColor' class='ml-2'></svg>"
+    MenuId="sortMenu"
+    MenuItems="sortMenuItems" />
                     <button @onclick="OnTest" class="bg-white text-gray-800 hover:bg-blue-50">テスト</button>
                 </div>
 
