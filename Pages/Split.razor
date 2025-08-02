@@ -759,15 +759,8 @@
         StateHasChanged();
     }
 
-    private async Task OnSwapWithNext(int index)
-    {
-        await InvokeAsync(StateHasChanged); 
-        await Task.Yield(); 
-        SwapWithNext(index);
-    }
-
     // 隣接サムネイルとの入れ替え機能
-    private async Task SwapWithNext(int index)
+    private async Task OnSwapWithNext(int index)
     {
         try
         {
@@ -910,8 +903,6 @@
     {
         try
         {
-            Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
-
             if (oldIndex >= 0 && oldIndex < DisplayItems.Count &&
             newIndex >= 0 && newIndex < DisplayItems.Count &&
             oldIndex != newIndex)

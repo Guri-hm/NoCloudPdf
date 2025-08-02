@@ -600,14 +600,6 @@
 
     private async Task OnSwapWithNext(int index)
     {
-        await InvokeAsync(StateHasChanged); // 状態を確実に反映
-        await Task.Yield(); // 必要なら
-        SwapWithNext(index);
-    }
-    
-    // 隣接サムネイルとの入れ替え機能
-    private async Task SwapWithNext(int index)
-    {
         try
         {
             PdfDataService.SwapWithNext(index);
@@ -746,8 +738,6 @@
     {
         try
         {
-            Console.WriteLine($"UpdateOrderInternal called: {oldIndex} -> {newIndex}");
-
             if (oldIndex >= 0 && oldIndex < DisplayItems.Count &&
             newIndex >= 0 && newIndex < DisplayItems.Count &&
             oldIndex != newIndex)
