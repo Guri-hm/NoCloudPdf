@@ -116,9 +116,12 @@ public class PdfDataService
                 ? GenerateColorHsl(fileId)
                 : firstPage.ColorHsl;
 
+            // ページ単位表示の時と同じIDはKey設定時にエラーが発生
+            var uniqueId = $"{firstPage.Id}_file";
+
             var item = new DisplayItem
             {
-                Id = fileId,
+                Id = uniqueId,
                 DisplayName = TruncateFileName(fileName),
                 FullFileName = fileName,
                 Thumbnail = thumbnail,
