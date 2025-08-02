@@ -57,13 +57,6 @@ window.initializeSortable = function () {
                 return true;
             },
             onEnd: function (evt) {
-                function getPageType() {
-                    if (window.location.pathname.includes("/split")) return "split";
-                    if (window.location.pathname.includes("/merge")) return "merge";
-                    return "unknown";
-                }
-                window.isSorting = false;
-                container.classList.remove('is-sorting');
 
                 const sortableCount = container.querySelectorAll('.sortable-item-container:not(.non-sortable)').length;
 
@@ -72,23 +65,6 @@ window.initializeSortable = function () {
                 if (evt.newIndex >= sortableCount) {
                     adjustedNewIndex = sortableCount - 1;
                 }
-
-                // 並び替え可能な要素をdata-index順にソート
-                const sortableItems = Array.from(container.querySelectorAll('.sortable-item-container:not(.non-sortable)'));
-                sortableItems.sort((a, b) => {
-                    const indexA = parseInt(a.getAttribute('data-index'));
-                    const indexB = parseInt(b.getAttribute('data-index'));
-                    return indexA - indexB;
-                });
-
-                // 一度全ての並び替え可能要素をcontainerから削除
-                container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
-
-                // .non-sortable要素の直前に並び替え可能要素を再挿入
-                const insertPoint = container.querySelector('.non-sortable');
-                sortableItems.forEach(item => {
-                    container.insertBefore(item, insertPoint);
-                });
 
                 DotNet.invokeMethodAsync(
                     'ClientPdfApp',

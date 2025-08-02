@@ -907,21 +907,25 @@
             newIndex >= 0 && newIndex < DisplayItems.Count &&
             oldIndex != newIndex)
             {
+                Console.WriteLine($"Move item from {oldIndex} to {newIndex}");
+
                 // 統一データサービスを使用して並び替え
-                PdfDataService.MoveItem(oldIndex, newIndex);
+                //PdfDataService.MoveItem(oldIndex, newIndex);
+                PdfDataService.MoveItem(0, 0 + 1);
 
                 Console.WriteLine($"Successfully moved item from {oldIndex} to {newIndex}");
 
                 // DOM更新
                 await InvokeAsync(async () =>
                 {
-                    StateHasChanged();
-                    await Task.Delay(100);
+                    await InvokeAsync(StateHasChanged);
                     await JSRuntime.InvokeVoidAsync("initializeSortable");
                 });
             }
             else
             {
+                PdfDataService.MoveItem(0, 0 + 1);
+
                 Console.WriteLine($"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={DisplayItems.Count}");
             }
         }
