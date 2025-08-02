@@ -12,7 +12,7 @@
 
 <PageTitle>分割</PageTitle>
 
-@if (IsFilesLoaded && !CompletionState.ShowSplitResult)
+@if (IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
 {
     <div id="drop-area" class="relative min-h-screen">
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
@@ -107,7 +107,7 @@
         </div>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
-                @onclick="SplitPDFs">
+                @onclick="ProcessPdfs">
                 分割
             </button>
         </div>
@@ -122,13 +122,13 @@
         IsNextDisabled="@(CurrentDisplayMode == DisplayMode.File ? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
         OnRotateLeft="RotatePreviewLeft" OnRotateRight="RotatePreviewRight" OnRemove="RemoveItemFromPreview" />
 }
-@if (!IsFilesLoaded && !CompletionState.ShowSplitResult)
+@if (!IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
 {
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog" isLoading="isLoading" progress="progress" />
 }
 
-@if (CompletionState.ShowSplitResult)
+@if (CompletionState.ShowSplitOrExtractResult)
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -142,14 +142,14 @@
         <div class="flex flex-col md:flex-row h-full">
             <!-- PDFプレビュー -->
             <div class="flex flex-col flex-1 gap-4 overflow-y-auto pr-4">
-                @foreach (var info in splitPdfInfos)
+                @foreach (var info in resultPdfInfos)
                 {
                     <div class="bg-white rounded shadow p-4 flex flex-col items-center mb-2">
                         <div class="font-bold text-lg mb-2">@info.Name</div>
                         <div class="text-gray-600 text-sm mb-1">サイズ: @info.Size</div>
                         <div class="text-gray-600 text-sm mb-2">ページ数: @info.PageCount</div>
                         <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                                @onclick="() => DownloadSplitPdf(info)">
+                                @onclick="() => DownloadResultPdf(info)">
                             ダウンロード
                         </button>
                     </div>
@@ -158,11 +158,11 @@
             <!-- 情報パネル（PCのみ表示） -->
             <div
                 class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
-                <InfoPanel Title="完了" FileName="@splitZipName" FileSize="@splitZipSize" PageCount="@splitTotalPageCount">
+                <InfoPanel Title="完了" FileName="@resultZipName" FileSize="@resultZipSize" PageCount="@resultTotalPageCount">
                     <SplitButton
                         PrimaryLabel="ダウンロード"
-                        OnPrimaryClick="DownloadSplitPdfs"
-                        MenuItems="@splitDownloadMenuItems" />
+                        OnPrimaryClick="DownloadResultPdfs"
+                        MenuItems="@resultDownloadMenuItems" />
                    <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
@@ -181,13 +181,13 @@
                         <i class="fa-solid fa-check-circle"></i>
                         <span>完了</span>
                     </div>
-                    <div class="text-gray-800 font-semibold truncate w-full text-center">@splitZipName</div>
-                    <div class="text-gray-600 text-sm">サイズ: @splitZipSize</div>
-                    <div class="text-gray-600 text-sm">総ページ数: @splitTotalPageCount</div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@resultZipName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @resultZipSize</div>
+                    <div class="text-gray-600 text-sm">総ページ数: @resultTotalPageCount</div>
                     <SplitButton
                         PrimaryLabel="ダウンロード"
-                        OnPrimaryClick="DownloadSplitPdfs"
-                        MenuItems="@splitDownloadMenuItems" />
+                        OnPrimaryClick="DownloadResultPdfs"
+                        MenuItems="@resultDownloadMenuItems" />
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
@@ -291,10 +291,10 @@
     private bool isDragOver = false;
     private bool isMenuOpen = false;
     private bool showDownloadMenu = false;
-    private string splitZipUrl = "";
-    private string splitZipName = "";
-    private string splitZipSize = "";
-    private int splitTotalPageCount = 0;
+    private string resultZipUrl = "";
+    private string resultZipName = "";
+    private string resultZipSize = "";
+    private int resultTotalPageCount = 0;
 
     private int GetCurrentFilePageIndex()
     {
@@ -333,17 +333,17 @@
         }
     };
 
-    private List<SplitButton.MenuActionItem> splitDownloadMenuItems => new()
+    private List<SplitButton.MenuActionItem> resultDownloadMenuItems => new()
     {
         new SplitButton.MenuActionItem
         {
             Label = "PDFでダウンロード",
-            OnClick = EventCallback.Factory.Create(this, DownloadSplitPdfs)
+            OnClick = EventCallback.Factory.Create(this, DownloadResultPdfs)
         },
         new SplitButton.MenuActionItem
         {
             Label = "PNG画像でダウンロード",
-            OnClick = EventCallback.Factory.Create(this, DownloadSplitPngs)
+            OnClick = EventCallback.Factory.Create(this, DownloadResultPngs)
         }
     };
 
@@ -481,14 +481,14 @@
     }
 
 
-    public class SplitPdfInfo
+    public class ResultPdfInfo
     {
         public string Url { get; set; } = "";
         public string Name { get; set; } = "";
         public string Size { get; set; } = "";
         public int PageCount { get; set; }
     }
-    private List<SplitPdfInfo> splitPdfInfos = new();
+    private List<ResultPdfInfo> resultPdfInfos = new();
 
     private async Task ProcessPdfs()
     {
@@ -540,7 +540,7 @@
             if (currentGroup.Count > 0)
                 splitGroups.Add(currentGroup);
 
-            splitPdfInfos.Clear();
+            resultPdfInfos.Clear();
             int groupIndex = 1;
             foreach (var group in splitGroups)
             {
@@ -558,7 +558,7 @@
                 {
                     var name = $"split_{groupIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
                     var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                    splitPdfInfos.Add(new SplitPdfInfo
+                    resultPdfInfos.Add(new ResultPdfInfo
                     {
                         Url = url,
                         Name = name,
@@ -575,15 +575,15 @@
             }
 
             // zip作成
-            if (splitPdfInfos.Count > 0)
+            if (resultPdfInfos.Count > 0)
             {
-                splitZipName = $"split_{DateTime.Now:yyyyMMddHHmm}.zip";
-                var pdfUrls = splitPdfInfos.Select(x => x.Url).ToList();
-                var pdfNames = splitPdfInfos.Select(x => x.Name).ToList();
-                splitZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, splitZipName);
-                splitZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", splitZipUrl);
-                splitTotalPageCount = splitPdfInfos.Sum(x => x.PageCount);
-                CompletionState.SetCompletion(CompletionStateService.CompletionType.Split);
+                resultZipName = $"split_{DateTime.Now:yyyyMMddHHmm}.zip";
+                var pdfUrls = resultPdfInfos.Select(x => x.Url).ToList();
+                var pdfNames = resultPdfInfos.Select(x => x.Name).ToList();
+                resultZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames,  resultZipName);
+                resultZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", resultZipUrl);
+                resultTotalPageCount = resultPdfInfos.Sum(x => x.PageCount);
+                CompletionState.SetCompletion(CompletionStateService.CompletionType.SplitOrExtract );
 
             }
             else
@@ -621,7 +621,7 @@
                 return;
             }
 
-            splitPdfInfos.Clear();
+            resultPdfInfos.Clear();
             int pageIndex = 1;
             foreach (var page in selectedPages)
             {
@@ -642,7 +642,7 @@
                 {
                     var name = $"extract_{pageIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
                     var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                    splitPdfInfos.Add(new SplitPdfInfo
+                    resultPdfInfos.Add(new ResultPdfInfo
                     {
                         Url = url,
                         Name = name,
@@ -654,15 +654,15 @@
             }
 
             // ZIP作成などSplitと同様の後処理
-            if (splitPdfInfos.Count > 0)
+            if (resultPdfInfos.Count > 0)
             {
-                splitZipName = $"extract_{DateTime.Now:yyyyMMddHHmm}.zip";
-                var pdfUrls = splitPdfInfos.Select(x => x.Url).ToList();
-                var pdfNames = splitPdfInfos.Select(x => x.Name).ToList();
-                splitZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, splitZipName);
-                splitZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", splitZipUrl);
-                splitTotalPageCount = splitPdfInfos.Sum(x => x.PageCount);
-                CompletionState.SetCompletion(CompletionStateService.CompletionType.Extract);
+                resultZipName = $"extract_{DateTime.Now:yyyyMMddHHmm}.zip";
+                var pdfUrls = resultPdfInfos.Select(x => x.Url).ToList();
+                var pdfNames = resultPdfInfos.Select(x => x.Name).ToList();
+                resultZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, resultZipName);
+                resultZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", resultZipUrl);
+                resultTotalPageCount = resultPdfInfos.Sum(x => x.PageCount);
+                CompletionState.SetCompletion(CompletionStateService.CompletionType.SplitOrExtract  );
             }
             else
             {
@@ -728,11 +728,11 @@
             () => { /* ページ固有の状態リセット */ },
             () => { 
 
-                splitPdfInfos.Clear();
-                splitZipUrl = "";
-                splitZipName = "";
-                splitZipSize = "";
-                splitTotalPageCount = 0;    
+                resultPdfInfos.Clear();
+                resultZipUrl = "";
+                resultZipName = "";
+                resultZipSize = "";
+                resultTotalPageCount = 0;
             },
             msg => errorMessage = msg,
             StateHasChanged
@@ -1153,7 +1153,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             _dotNetRef = DotNetObjectReference.Create(this);
         }
         // 初期画面のときのみ登録
-        if (!IsFilesLoaded && !CompletionState.ShowSplitResult)
+        if (!IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
@@ -1218,17 +1218,17 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         showDownloadMenu = false;
         StateHasChanged();
     }
-    private async void DownloadSplitPdfs()
+    private async void DownloadResultPdfs()
     {
-        if (string.IsNullOrEmpty(splitZipUrl) || string.IsNullOrEmpty(splitZipName))
+        if (string.IsNullOrEmpty(resultZipUrl) || string.IsNullOrEmpty(resultZipName))
             return;
 
         try
         {
             await JSRuntime.InvokeVoidAsync(
                 "downloadFileFromUrl",
-                splitZipUrl,
-                splitZipName,
+                resultZipUrl,
+                resultZipName,
                 "application/zip"
             );
         }
@@ -1272,22 +1272,22 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         warnMessage = null;
         StateHasChanged();
     }
-    private async Task DownloadSplitPdf(SplitPdfInfo info)
+    private async Task DownloadResultPdf(ResultPdfInfo info)
     {
         await JSRuntime.InvokeVoidAsync("downloadFileFromUrl", info.Url, info.Name, "application/pdf");
     }
 
-    private async void DownloadSplitPngs()
+    private async void DownloadResultPngs()
     {
-        if (splitPdfInfos == null || splitPdfInfos.Count == 0)
+        if (resultPdfInfos == null || resultPdfInfos.Count == 0)
             return;
 
         try
         {
             // 各PDFごとにPNG変換し、まとめてZIPでダウンロード
-            var pdfUrls = splitPdfInfos.Select(x => x.Url).ToList();
-            var pdfNames = splitPdfInfos.Select(x => x.Name).ToList();
-            var zipName = Path.GetFileNameWithoutExtension(splitZipName) + "_png.zip";
+            var pdfUrls = resultPdfInfos.Select(x => x.Url).ToList();
+            var pdfNames = resultPdfInfos.Select(x => x.Name).ToList();
+            var zipName = Path.GetFileNameWithoutExtension(resultZipName) + "_png.zip";
 
             await JSRuntime.InvokeVoidAsync(
                 "downloadAllPdfsAsPngZip",

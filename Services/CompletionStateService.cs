@@ -1,13 +1,13 @@
 public class CompletionStateService
 {
-    public bool ShowSplitResult { get; set; }
+    public bool ShowSplitOrExtractResult { get; set; }
     public bool ShowMergedResult { get; set; }
 
     public enum CompletionType
     {
         None,
-        Split,
-        Merged
+        SplitOrExtract,
+        Merged,
     }
 
     public CompletionType Current { get; private set; } = CompletionType.None;
@@ -15,14 +15,14 @@ public class CompletionStateService
     public void SetCompletion(CompletionType type)
     {
         // すべてfalseに
-        ShowSplitResult = false;
+        ShowSplitOrExtractResult = false;
         ShowMergedResult = false;
 
         // 指定されたものだけtrueに
         switch (type)
         {
-            case CompletionType.Split:
-                ShowSplitResult = true;
+            case CompletionType.SplitOrExtract:
+                ShowSplitOrExtractResult = true;
                 break;
             case CompletionType.Merged:
                 ShowMergedResult = true;
@@ -36,7 +36,7 @@ public class CompletionStateService
 
     public void ResetAll()
     {
-        ShowSplitResult = false;
+        ShowSplitOrExtractResult = false;
         ShowMergedResult = false;
     }
 }
