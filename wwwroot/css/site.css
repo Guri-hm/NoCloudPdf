@@ -2,7 +2,12 @@
 @layer properties;
 html,
 body {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "Helvetica Neue",
+        Arial,
+        "Hiragino Kaku Gothic ProN",
+        "Hiragino Sans",
+        Meiryo,
+        sans-serif;
 }
 h1:focus {
   outline: none;
@@ -331,10 +336,10 @@ input[type=number] {
   }
 }
 .material-symbols-outlined {
-  font-variation-settings: 'FILL'0,
-        'wght'400,
-        'GRAD'0,
-        'opsz'24;
+  font-variation-settings: 'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24;
   vertical-align: middle;
 }
 @layer theme, base, components, utilities;
@@ -708,6 +713,9 @@ input[type=number] {
   }
   .z-20 {
     z-index: 20;
+  }
+  .z-40 {
+    z-index: 40;
   }
   .z-50 {
     z-index: 50;
