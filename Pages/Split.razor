@@ -115,6 +115,7 @@
 }
 @if (previewIndex >= 0)
 {
+    <!-- 編集中のPDFプレビュー -->
     <PreviewModal IsOpen="@(previewIndex >= 0)" OnClose="ClosePreview" IsLoading="isPreviewLoading"
         ImageUrl="@previewImageUrl" PageIndex="@CurrentFilePageIndex" PageCount="@CurrentFilePageCount"
         ShowPageInput="@(CurrentDisplayMode == DisplayMode.File && CurrentFilePageCount > 1)" OnPageInputChanged="OnPreviewPageInputChanged"
@@ -140,7 +141,7 @@
     <!-- メインエリア -->
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
-            <!-- PDFプレビュー -->
+            <!-- PDF結果プレビュー -->
             <div class="flex flex-col flex-1 gap-4 overflow-y-auto pr-4 items-center">
                 @foreach (var info in resultPdfInfos)
                 {
