@@ -27,15 +27,18 @@
                     @onclick="() => OnMovePreview.InvokeAsync(-1)" disabled="@IsPrevDisabled">
                     <i class="text-white fa-solid fa-chevron-left"></i>
                 </button>
-                <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
-                    @if (ShowPageInput)
-                    {
-                        <input type="number" min="1" max="@PageCount" value="@(PageIndex + 1)"
-                            class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
-                            style="appearance: none; -moz-appearance: textfield;" @onchange="OnPageInputChanged" />
-                        <span>/ @PageCount</span>
-                    }
-                </div>
+                @if (PageCount > 1)
+                {
+                    <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
+                        @if (ShowPageInput)
+                        {
+                            <input type="number" min="1" max="@PageCount" value="@(PageIndex + 1)"
+                                class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
+                                style="appearance: none; -moz-appearance: textfield;" @onchange="OnPageInputChanged" />
+                            <span>/ @PageCount</span>
+                        }
+                    </div>
+                }
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
                     @onclick="() => OnMovePreview.InvokeAsync(1)" disabled="@IsNextDisabled">
                     <i class="text-white fa-solid fa-chevron-right"></i>
