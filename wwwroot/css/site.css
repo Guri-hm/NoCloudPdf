@@ -282,9 +282,6 @@ input[type=number] {
 .is-sorting .non-sortable {
   visibility: hidden !important;
 }
-.dragging-chosen .non-sortable {
-  visibility: hidden !important;
-}
 .dragging-chosen {
   background-color: #e0f7fa;
   color: #00796b;
@@ -292,6 +289,9 @@ input[type=number] {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transform: scale(1.05);
   transition: all 0.2s ease;
+}
+.dragging-chosen .non-sortable {
+  visibility: hidden !important;
 }
 .dragging-ghost {
   background-color: #e8f2ff;
@@ -309,20 +309,6 @@ input[type=number] {
 }
 .drag-handle:hover {
   cursor: move !important;
-}
-.box-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
-.box {
-  width: 50px;
-  height: 50px;
-  background: #607d8b;
-  box-shadow: 0px 15px 20px rgba(0, 0, 0, 0.5);
-  animation: ChangeColor 3s;
-  animation-iteration-count: infinite;
 }
 @keyframes ChangeColor {
   0% {
@@ -383,6 +369,7 @@ input[type=number] {
     --color-purple-500: oklch(62.7% 0.265 303.9);
     --color-purple-700: oklch(49.6% 0.265 301.924);
     --color-purple-800: oklch(43.8% 0.218 303.724);
+    --color-slate-600: oklch(44.6% 0.043 257.281);
     --color-gray-100: oklch(96.7% 0.003 264.542);
     --color-gray-200: oklch(92.8% 0.006 264.531);
     --color-gray-300: oklch(87.2% 0.01 258.338);
@@ -1089,6 +1076,9 @@ input[type=number] {
   .h-\[44px\] {
     height: 44px;
   }
+  .h-\[50px\] {
+    height: 50px;
+  }
   .h-\[97vh\] {
     height: 97vh;
   }
@@ -1148,6 +1138,9 @@ input[type=number] {
   }
   .w-100 {
     width: calc(var(--spacing) * 100);
+  }
+  .w-\[50px\] {
+    width: 50px;
   }
   .w-\[90\%\] {
     width: 90%;
@@ -1275,6 +1268,9 @@ input[type=number] {
   }
   .transform {
     transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
+  }
+  .animate-\[ChangeColor_3s_infinite\] {
+    animation: ChangeColor 3s infinite;
   }
   .animate-spin {
     animation: var(--animate-spin);
@@ -1644,6 +1640,9 @@ input[type=number] {
   .bg-red-600 {
     background-color: var(--color-red-600);
   }
+  .bg-slate-600 {
+    background-color: var(--color-slate-600);
+  }
   .bg-transparent {
     background-color: transparent;
   }
@@ -2010,6 +2009,10 @@ input[type=number] {
   }
   .shadow {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-\[0_15px_20px_rgba\(0\,0\,0\,0\.5\)\] {
+    --tw-shadow: 0 15px 20px var(--tw-shadow-color, rgba(0,0,0,0.5));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .shadow-lg {
