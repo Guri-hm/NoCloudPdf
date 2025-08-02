@@ -61,7 +61,7 @@
             <i class="fa-solid fa-grip-vertical text-xl"></i>
         </span>
         <!-- サムネイル＋ページ情報 -->
-        <div class="flex flex-row md:flex-col flex-1 items-center md:items-stretch relative @(Item.IsSelectedForExtract ? "ring-4 ring-blue-400 bg-blue-100/60" : "")">
+        <div class="flex flex-row md:flex-col flex-1 items-center md:items-stretch relative @(OperationMode == OperationMode.Extract && Item.IsSelectedForExtract ? "ring-4 ring-blue-400 bg-blue-100/60" : "")">
             @* サムネイル左上にチェックボックス *@
             @if (OperationMode == OperationMode.Extract)
             {
