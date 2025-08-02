@@ -65,6 +65,14 @@
                         </Trigger>
                     </DropdownButton>
                     <button @onclick="OnTest" class="bg-white text-gray-800 hover:bg-blue-50">テスト</button>
+                    @if (IsExtractMode)
+                    {
+                        <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
+                            <input type="checkbox" class="form-checkbox h-5 w-5 accent-blue-500"
+                                @onchange="ToggleAllExtractSelection" />
+                            すべて選択
+                        </label>
+                    }
                 </div>
 
                 <ActionButtonGroup T="string" Actions="primaryActions" />
@@ -1141,6 +1149,27 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
 
     private bool _dropAreaRegistered = false;
 
+    private void ToggleAllExtractSelection(ChangeEventArgs e)
+    {
+        bool check = e.Value is bool b && b;
+        foreach (var item in DisplayItems)
+        {
+            if (item.IsSelectedForExtract != check)
+            {
+                PdfDataService.SetExtractSelection(item, check);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void HandleSelectChanged(int index)
+    {
+        if (index >= 0 && index < DisplayItems.Count)
+        {
+            PdfDataService.ToggleExtractSelection(index);
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -1335,11 +1364,5 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
     }
 
-    private void HandleSelectChanged(int index)
-    {
-        if (index >= 0 && index < DisplayItems.Count)
-        {
-            PdfDataService.ToggleExtractSelection(index);
-        }
-    }
+
 }

@@ -1005,6 +1005,15 @@ public class PdfDataService
         OnChange?.Invoke();
     }
 
+    public void SetExtractSelection(DisplayItem item, bool selected)
+    {
+        if (item.RawData is PageItem page)
+        {
+            page.IsSelectedForExtract = selected;
+            OnChange?.Invoke();
+        }
+    }
+
     public async Task HandleFileInputAsync(
     InputFileChangeEventArgs e,
     int? insertPosition = null,
