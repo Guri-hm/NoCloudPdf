@@ -75,7 +75,7 @@ window.initializeSortable = function () {
                 );
             }
         });
-    } else if (sortableInstance) {
+    } else if (sortableInstance && sortableInstance.el) {
         sortableInstance.destroy();
         sortableInstance = null;
     }
