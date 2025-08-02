@@ -1,5 +1,4 @@
-let sortablePc = null;
-let sortableMobile = null;
+let sortableInstance = null;
 window.isSorting = false;
 
 window.initializeSortable = function () {
@@ -7,27 +6,24 @@ window.initializeSortable = function () {
         return window.matchMedia('(min-width: 768px)').matches;
     }
 
-    const pc = document.getElementById('sortable-container');
-    if (pc && window.getComputedStyle(pc).display !== 'none' && window.Sortable) {
+    const container = document.getElementById('sortable-container');
+    if (container && window.getComputedStyle(container).display !== 'none' && window.Sortable) {
         // 既存のインスタンスを破棄
-        if (sortablePc) {
-            sortablePc.destroy();
-            sortablePc = null;
+        if (sortableInstance) {
+            sortableInstance.destroy();
+            sortableInstance = null;
         }
-        sortablePc = new Sortable(pc, {
-            draggable: '.sortable-item-container', //並び替え対象
-            handle: isPcSize() ? '.drag-handle' : '.touch-drag-handle', // ドラッグ可能対象
+        sortableInstance = new Sortable(container, {
+            draggable: '.sortable-item-container',
+            handle: isPcSize() ? '.drag-handle' : '.touch-drag-handle',
             filter: '.non-sortable',
             animation: 150,
             ghostClass: 'dragging-ghost',
             onStart: function (evt) {
-                document.querySelectorAll('.non-sortable').forEach(el => {
-                    el.classList.add('hide-during-drag');
-                });
+                container.classList.add('is-sorting');
                 window.isSorting = true;
             },
             onMove: function (evt) {
-                const container = pc;
                 const related = evt.related;
                 const dragged = evt.dragged;
                 if (related && related.classList.contains('non-sortable')) {
@@ -61,10 +57,8 @@ window.initializeSortable = function () {
                     return "unknown";
                 }
                 window.isSorting = false;
-                document.querySelectorAll('.non-sortable').forEach(el => {
-                    el.classList.remove('hide-during-drag');
-                });
-                const container = pc;
+                container.classList.remove('is-sorting');
+
                 const sortableCount = container.querySelectorAll('.sortable-item-container:not(.non-sortable)').length;
                 let adjustedNewIndex = evt.newIndex;
                 if (evt.newIndex >= sortableCount) {
@@ -76,7 +70,6 @@ window.initializeSortable = function () {
                     const indexB = parseInt(b.getAttribute('data-index'));
                     return indexA - indexB;
                 });
-                ;
                 container.querySelectorAll('.sortable-item-container:not(.non-sortable)').forEach(item => item.remove());
                 const insertPoint = container.querySelector('.non-sortable');
                 sortableItems.forEach(item => {
@@ -92,10 +85,8 @@ window.initializeSortable = function () {
                 );
             }
         });
-    } else if (sortablePc) {
-        sortablePc.destroy();
-        sortablePc = null;
+    } else if (sortableInstance) {
+        sortableInstance.destroy();
+        sortableInstance = null;
     }
-
 };
-

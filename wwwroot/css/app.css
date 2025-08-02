@@ -344,6 +344,10 @@ input[type=number] {
     animation: message-bar-shrink 5s linear forwards;
 }
 
+.is-sorting .non-sortable {
+    visibility: hidden !important;
+}
+
 .hide-during-drag {
     visibility: hidden;
 }
