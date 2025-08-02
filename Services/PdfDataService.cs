@@ -441,27 +441,26 @@ public class PdfDataService
     /// </summary>
     public void MoveItem(int fromIndex, int toIndex)
     {
-        var displayItems = GetDisplayItems();
-        if (fromIndex < 0 || fromIndex >= displayItems.Count ||
-            toIndex < 0 || toIndex >= displayItems.Count ||
-            fromIndex == toIndex)
-        {
-            return;
-        }
 
-        Console.WriteLine($"[MoveItem] {fromIndex} → {toIndex} モード: {_model.CurrentMode}");
-
-        if (_model.CurrentMode == DisplayMode.Page)
+        if (_model.CurrentMode == DisplayMode.File)
         {
-            // ページ単位表示：Pages内で直接移動
-            var item = _model.Pages[fromIndex];
-            _model.Pages.RemoveAt(fromIndex);
-            _model.Pages.Insert(toIndex, item);
+            // ファイル単位表示：ファイルグループごと入れ替え
+            MoveFileBlock(fromIndex, toIndex);
         }
         else
         {
-            // ファイル単位表示：ファイルごとのページブロックを移動
-            MoveFileBlock(fromIndex, toIndex);
+            Console.WriteLine($"[MoveItem] {fromIndex} → {toIndex} モード: {_model.CurrentMode}");
+            // ページ単位表示：Pages内で直接移動
+            var pages = _model.Pages;
+            if (fromIndex < 0 || fromIndex >= pages.Count ||
+                toIndex < 0 || toIndex >= pages.Count ||
+                fromIndex == toIndex)
+            {
+                return;
+            }
+            var item = pages[fromIndex];
+            pages.RemoveAt(fromIndex);
+            pages.Insert(toIndex, item);
         }
     }
 
@@ -563,32 +562,7 @@ public class PdfDataService
             }
         }
     }
-    /// <summary>
-    /// アイテムを入れ替え
-    /// </summary>
-    public void SwapItems(int fromIndex, int toIndex)
-    {
-        if (_model.CurrentMode == DisplayMode.File)
-        {
-            // ファイル単位表示：ファイルグループごと入れ替え
-            MoveFileBlock(fromIndex, toIndex);
-        }
-        else
-        {
-            // ページ単位表示：ページ単位で入れ替え
-            var pages = _model.Pages;
-            if (fromIndex < 0 || fromIndex >= pages.Count ||
-                toIndex < 0 || toIndex >= pages.Count ||
-                fromIndex == toIndex)
-            {
-                return;
-            }
-            var item = pages[fromIndex];
-            pages.RemoveAt(fromIndex);
-            pages.Insert(toIndex, item);
-            Console.WriteLine($"Swapped pages {fromIndex} and {toIndex}");
-        }
-    }
+
     /// <summary>
     /// 指定インデックスのアイテムと次のアイテムを入れ替える
     /// </summary>
@@ -597,7 +571,7 @@ public class PdfDataService
         var items = GetDisplayItems();
         if (index >= 0 && index < items.Count - 1)
         {
-            SwapItems(index, index + 1);
+            MoveItem(index, index + 1);
         }
     }
 
