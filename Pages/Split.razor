@@ -916,11 +916,6 @@
                     await JSRuntime.InvokeVoidAsync("initializeSortable");
                 });
             }
-            else
-            {
-                throw new ArgumentOutOfRangeException(
-        $"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={DisplayItems.Count}");
-            }
         }
         catch (Exception ex)
         {
