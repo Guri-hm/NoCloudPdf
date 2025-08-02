@@ -907,13 +907,8 @@
             newIndex >= 0 && newIndex < DisplayItems.Count &&
             oldIndex != newIndex)
             {
-                Console.WriteLine($"Move item from {oldIndex} to {newIndex}");
-
                 // 統一データサービスを使用して並び替え
-                //PdfDataService.MoveItem(oldIndex, newIndex);
-                PdfDataService.MoveItem(0, 0 + 1);
-
-                Console.WriteLine($"Successfully moved item from {oldIndex} to {newIndex}");
+                PdfDataService.MoveItem(oldIndex, newIndex);
 
                 // DOM更新
                 await InvokeAsync(async () =>
@@ -924,9 +919,8 @@
             }
             else
             {
-                PdfDataService.MoveItem(0, 0 + 1);
-
-                Console.WriteLine($"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={DisplayItems.Count}");
+                throw new ArgumentOutOfRangeException(
+        $"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={DisplayItems.Count}");
             }
         }
         catch (Exception ex)

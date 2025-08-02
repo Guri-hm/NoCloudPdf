@@ -449,7 +449,6 @@ public class PdfDataService
         }
         else
         {
-            Console.WriteLine($"[MoveItem] {fromIndex} → {toIndex} モード: {_model.CurrentMode}");
             // ページ単位表示：Pages内で直接移動
             var pages = _model.Pages;
             if (fromIndex < 0 || fromIndex >= pages.Count ||
