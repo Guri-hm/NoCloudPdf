@@ -1012,7 +1012,7 @@ public class PdfDataService
         if (e.FileCount == 0) return;
 
         setIsLoading?.Invoke();
-        setErrorMessage?.Invoke(null);
+        setErrorMessage?.Invoke("");
 
         const long maxFileSize = 52428800; // 50MB
 

@@ -278,7 +278,6 @@
     private string? errorMessage;
     private string? warnMessage;
     private const int MessageDurationMs = 5000;
-    private bool showSortMenu = false;
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
@@ -1073,7 +1072,6 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
 
     private void SelectSort(bool ascending)
     {
-        showSortMenu = false;
         SortByName(ascending);
     }
     private void SortByName(bool ascending)
@@ -1145,7 +1143,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         await Task.Delay(100);
     }
 
-    private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

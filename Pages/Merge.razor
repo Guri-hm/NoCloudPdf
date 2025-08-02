@@ -229,8 +229,6 @@
     private string? errorMessage;
     private string? warnMessage;
     private const int MessageDurationMs = 5000;
-    private bool showSortMenu = false;
-    private bool showAddMenu = false;
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
@@ -295,16 +293,8 @@
         }
     };
 
-    [JSInvokable]
-    public void CloseAddMenu()
-    {
-        showAddMenu = false;
-        StateHasChanged();
-    }
-
     private async Task AddPdfFile()
     {
-        showAddMenu = false;
         await OpenFileDialog();
     }
 
@@ -919,7 +909,6 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
 
     private async Task SelectSort(bool ascending)
     {
-        showSortMenu = false;
         await SortByName(ascending);
     }
     private async Task SortByName(bool ascending)
