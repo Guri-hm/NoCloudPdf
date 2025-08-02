@@ -419,7 +419,6 @@
         // JavaScript再初期化
         try
         {
-            await JSRuntime.InvokeVoidAsync("initializeDragDrop");
             await JSRuntime.InvokeVoidAsync("initializeSortable");
         }
         catch (Exception ex)
@@ -439,7 +438,6 @@
         // JavaScript再初期化
         try
         {
-            await JSRuntime.InvokeVoidAsync("initializeDragDrop");
             await JSRuntime.InvokeVoidAsync("initializeSortable");
         }
         catch (Exception ex)
@@ -1066,7 +1064,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
                 try
                 {
                     await Task.Delay(50); // DOM更新完了を待つ
-                    await JSRuntime.InvokeVoidAsync("initializeDragDrop");
                     await JSRuntime.InvokeVoidAsync("initializeSortable");
                 }
                 catch (Exception ex)

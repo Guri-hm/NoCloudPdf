@@ -1210,7 +1210,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
                 try
                 {
                     await Task.Delay(50); // DOM更新完了を待つ
-                    await JSRuntime.InvokeVoidAsync("initializeDragDrop");
                     await JSRuntime.InvokeVoidAsync("initializeSortable");
                 }
                 catch (Exception ex)
