@@ -141,17 +141,30 @@
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
             <!-- PDFプレビュー -->
-            <div class="flex flex-col flex-1 gap-4 overflow-y-auto pr-4">
+            <div class="flex flex-col flex-1 gap-4 overflow-y-auto pr-4 items-center">
                 @foreach (var info in resultPdfInfos)
                 {
-                    <div class="bg-white rounded shadow p-4 flex flex-col items-center mb-2">
-                        <div class="font-bold text-lg mb-2">@info.Name</div>
-                        <div class="text-gray-600 text-sm mb-1">サイズ: @info.Size</div>
-                        <div class="text-gray-600 text-sm mb-2">ページ数: @info.PageCount</div>
-                        <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                                @onclick="() => DownloadResultPdf(info)">
-                            ダウンロード
-                        </button>
+                    <div class="flex flex-row items-center bg-white rounded shadow p-3 mb-2 w-full max-w-lg">
+                        @if (!string.IsNullOrEmpty(info.ThumbnailUrl))
+                        {
+                            <img src="@info.ThumbnailUrl" alt="サムネイル"
+                                class="w-16 h-20 object-contain ml-4 border border-gray-300" />
+                        }
+                        else
+                        {
+                            <div class="w-16 h-20 ml-4 flex items-center justify-center text-gray-400 bg-gray-100 border border-gray-300">
+                                <i class="fa-solid fa-file-pdf text-2xl"></i>
+                            </div>
+                        }
+                        <div class="flex flex-col flex-1 items-center">
+                            <div class="font-bold text-lg mb-2">@info.Name</div>
+                            <div class="text-gray-600 text-sm mb-1">サイズ: @info.Size</div>
+                            <div class="text-gray-600 text-sm mb-2">ページ数: @info.PageCount</div>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                                    @onclick="() => DownloadResultPdf(info)">
+                                ダウンロード
+                            </button>
+                        </div>
                     </div>
                 }
             </div>
@@ -487,6 +500,7 @@
         public string Name { get; set; } = "";
         public string Size { get; set; } = "";
         public int PageCount { get; set; }
+        public string? ThumbnailUrl { get; set; } // ←追加
     }
     private List<ResultPdfInfo> resultPdfInfos = new();
 
@@ -1205,6 +1219,21 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
                 }
             });
         }
+
+        // サムネイル未取得のPDFだけ順次取得
+        foreach (var info in resultPdfInfos)
+        {
+            if (string.IsNullOrEmpty(info.ThumbnailUrl))
+            {
+                // 例: JSでPDFの1ページ目サムネイルを取得する場合
+                info.ThumbnailUrl = await JSRuntime.InvokeAsync<string>(
+                    "getPdfThumbnailUrl", info.Url);
+
+                StateHasChanged(); // 取得ごとに再描画
+                await Task.Delay(50); // 負荷軽減のため少し待つ
+            }
+        }
+
     }
     [JSInvokable]
     public void SetDragOver(bool over)
