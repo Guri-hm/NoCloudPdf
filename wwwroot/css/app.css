@@ -344,14 +344,23 @@ input[type=number] {
     animation: message-bar-shrink 5s linear forwards;
 }
 
+/* ドラッグ中の要素のスタイル */
 .is-sorting .non-sortable {
     visibility: hidden !important;
 }
 
-.hide-during-drag {
-    visibility: hidden;
+.dragging-chosen {
+    background-color: #e0f7fa;
+    color: #00796b;
+    border: 2px solid #004d40;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: scale(1.05);
+    transition: all 0.2s ease;
 }
 
+.dragging-chosen .non-sortable {
+    visibility: hidden !important;
+}
 
 .dragging-ghost {
     background-color: #e8f2ff;
