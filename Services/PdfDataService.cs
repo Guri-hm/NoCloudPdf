@@ -196,7 +196,8 @@ public class PdfDataService
             };
             _model.Files[fileId] = fileMetadata;
 
-            // まずローディング中PageItemを即座に追加
+            // ページ分のItemを準備
+            // 先頭ページのItemはサムネイルを優先処理
             int baseIndex = insertPosition ?? _model.Pages.Count;
             for (int i = 0; i < pageCount; i++)
             {
@@ -215,7 +216,7 @@ public class PdfDataService
                 _model.Pages.Insert(baseIndex + i, loadingItem);
             }
 
-            // バックグラウンドで全ページの読み込みを開始
+            // バックグラウンドで全ページのPageData読み込みを開始
             _ = Task.Run(async () =>
             {
                 try
