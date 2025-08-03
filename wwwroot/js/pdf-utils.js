@@ -142,9 +142,9 @@ window.renderFirstPDFPage = async function (pdfData) {
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.min.js';
         } else if (pdfjsLib.workerSrc) {
-            pdfjsLib.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+            pdfjsLib.workerSrc = '/lib/pdf.worker.min.js';
         }
 
         if (uint8Array.length < 1024) {
@@ -366,7 +366,7 @@ window.getPDFPageCount = async function (pdfData) {
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.min.js';
         }
 
         const loadingTask = pdfjsLib.getDocument({
