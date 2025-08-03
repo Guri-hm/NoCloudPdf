@@ -76,38 +76,6 @@ window.mergePDFPages = async function (pdfPageDataList) {
     return URL.createObjectURL(blob);
 };
 
-window.renderPDFPages = async function (pdfData) {
-    const pdfjsLib = window['pdfjs-dist/build/pdf'];
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
-
-    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
-    const pdf = await loadingTask.promise;
-    const pageImages = [];
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-
-        const viewport = page.getViewport({ scale: 1 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-
-        const context = canvas.getContext('2d');
-        const renderContext = {
-            canvasContext: context,
-            viewport: viewport,
-        };
-
-        await page.render(renderContext).promise;
-
-        // Canvasを画像データとして取征E
-        const imageData = canvas.toDataURL('image/png');
-        pageImages.push(imageData);
-    }
-
-    return pageImages;
-};
-
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
 window.renderFirstPDFPage = async function (pdfData) {
     try {
