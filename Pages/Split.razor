@@ -90,8 +90,8 @@
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var item = DisplayItems[i];
-                        #pragma warning disable CS0162
-                        Console.WriteLine($"Rendering item {i}: Id={item.Id}, PageCount={item.PageCount}, Index={i}");
+                        //#pragma warning disable CS0162
+                        //Console.WriteLine($"Rendering item {i}: Id={item.Id}, PageCount={item.PageCount}, Index={i}");
 
                         <ThumbnailCard 
                             @key="item.Id"
