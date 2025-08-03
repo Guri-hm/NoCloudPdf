@@ -67,10 +67,18 @@
                     <button @onclick="OnTest" class="bg-white text-gray-800 hover:bg-blue-50">テスト</button>
                     @if (IsExtractMode)
                     {
-                        <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
-                            <input type="checkbox" class="form-checkbox h-5 w-5 accent-blue-500"
-                                @onchange="ToggleAllExtractSelection" />
-                            すべて選択
+                            <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
+                                <input type="checkbox" class="form-checkbox h-5 w-5 accent-blue-500"
+                                    checked="@IsAllSelected"
+                                    @onchange="ToggleAllExtractSelection" />
+                                すべて選択
+                            </label>
+                            <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none ml-2">
+                            <input type="checkbox"
+                                class="form-checkbox h-5 w-5 accent-blue-500"
+                                @bind="IsExtractSplit"
+                                disabled="@(ExtractSelectedCount < 2)" />
+                            分割する
                         </label>
                     }
                 </div>
@@ -286,7 +294,7 @@
     private int progress = 0;
     private string? errorMessage;
     private string? warnMessage;
-    private const int MessageDurationMs = 5000;
+
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
@@ -317,6 +325,9 @@
     private string resultZipSize = "";
     private int resultTotalPageCount = 0;
 
+    private bool IsExtractSplit { get; set; } = true; // デフォルトは分割出力
+    private int ExtractSelectedCount => DisplayItems.Count(x => x.IsSelectedForExtract);
+    private bool IsAllSelected => DisplayItems.Count > 0 && DisplayItems.All(x => x.IsSelectedForExtract);
     private int GetCurrentFilePageIndex()
     {
         if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
@@ -643,36 +654,73 @@
                 return;
             }
 
-            resultPdfInfos.Clear();
-            int pageIndex = 1;
-            foreach (var page in selectedPages)
+            var notReadyCount = selectedPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            if (notReadyCount > 0)
             {
-                var mergeData = new List<MergePageDto>
+                ShowWarn($"抽出対象に読み込み未完了またはエラーのページが {notReadyCount} ページあります。");
+                return;
+            }
+
+            resultPdfInfos.Clear();
+
+            if (IsExtractSplit)
+            {
+                int pageIndex = 1;
+                foreach (var page in selectedPages)
                 {
-                    new MergePageDto
+                    var mergeData = new List<MergePageDto>
                     {
-                        FileId = page.FileId,
-                        FileName = page.FileName,
-                        PageData = page.PageData,
-                        IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
-                        RotateAngle = page.RotateAngle % 360
+                        new MergePageDto
+                        {
+                            FileId = page.FileId,
+                            FileName = page.FileName,
+                            PageData = page.PageData,
+                            IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
+                            RotateAngle = page.RotateAngle % 360
+                        }
+                    };
+
+                    var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        var name = $"extract_{pageIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
+                        var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                        resultPdfInfos.Add(new ResultPdfInfo
+                        {
+                            Url = url,
+                            Name = name,
+                            Size = size,
+                            PageCount = 1
+                        });
                     }
-                };
+                    pageIndex++;
+                }
+            }
+            else
+            {
+                // 結合して1つのPDFとして出力
+                var mergeData = selectedPages.Select(page => new MergePageDto
+                {
+                    FileId = page.FileId,
+                    FileName = page.FileName,
+                    PageData = page.PageData,
+                    IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
+                    RotateAngle = page.RotateAngle % 360
+                }).ToList();
 
                 var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
                 if (!string.IsNullOrEmpty(url))
                 {
-                    var name = $"extract_{pageIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
+                    var name = $"extract_merged_{DateTime.Now:yyyyMMddHHmm}.pdf";
                     var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
                     resultPdfInfos.Add(new ResultPdfInfo
                     {
                         Url = url,
                         Name = name,
                         Size = size,
-                        PageCount = 1
+                        PageCount = selectedPages.Count
                     });
                 }
-                pageIndex++;
             }
 
             // ZIP作成などSplitと同様の後処理
