@@ -58,6 +58,9 @@ window.initializeSortable = function () {
             },
             onEnd: function (evt) {
 
+                container.classList.remove('is-sorting');
+                window.isSorting = false;
+
                 const sortableCount = container.querySelectorAll('.sortable-item-container:not(.non-sortable)').length;
 
                 // newIndexが範囲外の場合は修正
