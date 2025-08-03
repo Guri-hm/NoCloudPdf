@@ -445,7 +445,6 @@ public class PdfDataService
     /// </summary>
     public void MoveItem(int fromIndex, int toIndex)
     {
-
         if (_model.CurrentMode == DisplayMode.File)
         {
             // ファイル単位表示：ファイルグループごと入れ替え

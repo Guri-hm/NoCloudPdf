@@ -63,7 +63,7 @@
         <div class="md:p-0 p-3">
             @if (DisplayItems != null && DisplayItems.Any())
             {
-                <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-4 md:p-6" id="sortable-container">
+                <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-4 md:p-6" id="sortable-container" @key="sortVersion">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                      var item = DisplayItems[i];
@@ -713,6 +713,8 @@
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
     public static Merge? _currentInstance;
 
+    // 並び替え時に@keyとして使い、Blazorの仮想DOMキャッシュをリセットしてサムネイルリストを強制的に再生成するためのバージョン番号
+    private int sortVersion = 0;
     // 実際の並び替え処理
     public async Task UpdateOrderInternal(string pageType, int oldIndex, int newIndex)
     {
@@ -724,13 +726,8 @@
             {
                 // 統一データサービスを使用して並び替え
                 PdfDataService.MoveItem(oldIndex, newIndex);
-
-                // DOM更新
-                await InvokeAsync(async () =>
-                {
-                    await InvokeAsync(StateHasChanged);
-                    await JSRuntime.InvokeVoidAsync("initializeSortable");
-                });
+                sortVersion++; 
+                await InvokeAsync(StateHasChanged);
             }
             else
             {

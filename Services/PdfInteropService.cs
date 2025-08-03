@@ -21,7 +21,7 @@ namespace ClientPdfApp.Services
                 await Split._currentInstance.UpdateOrderInternal(pageType, oldIndex, newIndex);
             }
             else if (pageType == "merge" && Merge._currentInstance != null)
-        {
+            {
                 await Merge._currentInstance.UpdateOrderInternal(pageType, oldIndex, newIndex);
             }
         }
