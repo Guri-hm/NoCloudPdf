@@ -112,7 +112,7 @@
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
                 @onclick="ProcessPdfs">
-                分割
+                @GetPrimaryActionLabel()
             </button>
         </div>
     </div>
@@ -207,7 +207,7 @@
                         OnPrimaryClick="DownloadResultPdfs"
                         MenuItems="@resultDownloadMenuItems" />
                     <button
-                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-2"
                         @onclick="StartNew">
                         <i class="fa-solid fa-rotate-right mr-2"></i>
                         新規作成
