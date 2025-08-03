@@ -1033,6 +1033,7 @@ public class PdfDataService
             var ext = Path.GetExtension(file.Name).ToLowerInvariant();
             try
             {
+                // 許容する最大メモリを引数で指定
                 using var stream = file.OpenReadStream(maxFileSize);
                 using var memoryStream = new MemoryStream();
                 await stream.CopyToAsync(memoryStream);
