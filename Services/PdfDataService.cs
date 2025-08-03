@@ -196,7 +196,7 @@ public class PdfDataService
             };
             _model.Files[fileId] = fileMetadata;
 
-            // 1. まずローディング中PageItemを即座に追加
+            // まずローディング中PageItemを即座に追加
             int baseIndex = insertPosition ?? _model.Pages.Count;
             for (int i = 0; i < pageCount; i++)
             {

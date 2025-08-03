@@ -130,7 +130,7 @@
 @if (!IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
 {
     <!-- 初期画面：ファイル選択 -->
-    <SelectFilePanel OnOpenFileDialog="OpenFileDialog" isLoading="isLoading" progress="progress" />
+    <SelectFilePanel OnOpenFileDialog="OpenFileDialog" isLoading="isLoading"/>
 }
 
 @if (CompletionState.ShowSplitOrExtractResult)
@@ -271,7 +271,6 @@
     }
     private bool isLoading = false;
     private bool isBusy = false;
-    private int progress = 0;
     private string? errorMessage;
     private string? warnMessage;
 
