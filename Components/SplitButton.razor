@@ -12,14 +12,19 @@
     </div>
     @if (ShowMenu)
     {
-        <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-            @foreach (var item in MenuItems)
-            {
-                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800"
-                    @onclick="() => OnMenuItemClick(item)">
-                    @item.Label
-                </button>
-            }
+        <div>
+            <!-- 透明カバー（最前面・全画面） -->
+            <div class="fixed inset-0 z-40" @onclick="CloseMenu" style="background:transparent;"></div>
+            <!-- メニュー本体 -->
+            <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                @foreach (var item in MenuItems)
+                {
+                    <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800"
+                        @onclick="() => OnMenuItemClick(item)">
+                        @item.Label
+                    </button>
+                }
+            </div>
         </div>
     }
 </div>
@@ -32,6 +37,7 @@
     private bool ShowMenu { get; set; }
 
     private void ToggleMenu() => ShowMenu = !ShowMenu;
+    private void CloseMenu() => ShowMenu = false;
 
     private async Task OnMenuItemClick(MenuActionItem item)
     {
