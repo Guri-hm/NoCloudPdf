@@ -303,7 +303,7 @@
     private string resultZipSize = "";
     private int resultTotalPageCount = 0;
 
-    private bool IsExtractSplit { get; set; } = true; // デフォルトは分割出力
+    private bool IsExtractSplit { get; set; } = false;
     private int ExtractSelectedCount => DisplayItems.Count(x => x.IsSelectedForExtract);
     private bool IsAllSelected => DisplayItems.Count > 0 && DisplayItems.All(x => x.IsSelectedForExtract);
     private int GetCurrentFilePageIndex()
