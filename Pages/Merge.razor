@@ -244,7 +244,6 @@
     private string mergedFileName = "";
     private string mergedFileSize = "";
     private int mergedPageCount = 0;
-    private bool showDownloadMenu = false;
     private int GetCurrentFilePageIndex()
     {
         if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
@@ -994,14 +993,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
-        if (showDownloadMenu)
-        {
-            await JSRuntime.InvokeVoidAsync(
-            "registerOutsideClickForDownloadMenu",
-            "downloadMenu",
-            DotNetObjectReference.Create(this)
-            );
-        }
+
         // drop-areaが表示され、まだ登録していない場合のみ
         if (!_dropAreaRegistered && IsFilesLoaded && DisplayItems.Any())
         {
@@ -1060,12 +1052,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         isDragOver = over;
         StateHasChanged();
     }
-    [JSInvokable]
-    public void CloseDownloadMenu()
-    {
-        showDownloadMenu = false;
-        StateHasChanged();
-    }
+
     private async void DownloadMergedPdf()
     {
         if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))

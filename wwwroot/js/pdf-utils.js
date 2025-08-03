@@ -694,18 +694,6 @@ window.downloadFileFromUrl = function (url, filename, mimeType) {
     document.body.removeChild(link);
 };
 
-window.registerOutsideClickForDownloadMenu = function (menuId, dotNetRef) {
-    function handler(e) {
-        const menu = document.getElementById(menuId);
-        if (menu && !menu.contains(e.target)) {
-            dotNetRef.invokeMethodAsync('CloseDownloadMenu');
-            document.removeEventListener('mousedown', handler);
-        }
-    }
-    setTimeout(() => { // メニュー表示直後のクリックを防ぐ
-        document.addEventListener('mousedown', handler);
-    }, 100);
-};
 window.renderPdfPages = async function (pdfUrl, canvasIds) {
     if (!window.pdfjsLib) {
         console.error("pdfjsLib is not loaded");
@@ -725,6 +713,10 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
     }
 };
 
+
+// 結果画面のサムネイル描画（PDF→canvas）
+// 結果画面はPDFの各ページデータがまだないので、
+// PDFの先頭ページをcanvasに描画する関数を用意
 window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
     if (!window.pdfjsLib) {
         throw new Error("pdfjsLib is not loaded.");
@@ -742,4 +734,27 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 
     await page.render({ canvasContext: context, viewport: viewport }).promise;
     return true;
+};
+
+// 編集画面のサムネイル描画（画像→canvas）
+// 編集画面は各ページデータには画像URLがあるので、
+// 画像をcanvasに描画する関数を用意
+window.drawImageToCanvas = function (canvasId, imageUrl) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const img = new window.Image();
+    img.onload = function () {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 枠いっぱいにアスペクト比を保って描画
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const drawWidth = img.width * scale;
+        const drawHeight = img.height * scale;
+        ctx.drawImage(img,
+            (canvas.width - drawWidth) / 2,
+            (canvas.height - drawHeight) / 2,
+            drawWidth, drawHeight);
+    };
+    img.src = imageUrl;
 };

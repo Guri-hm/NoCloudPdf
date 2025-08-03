@@ -299,7 +299,6 @@
     private DotNetObjectReference<Split>? _dotNetRef;
     private bool isDragOver = false;
     private bool isMenuOpen = false;
-    private bool showDownloadMenu = false;
     private string resultZipUrl = "";
     private string resultZipName = "";
     private string resultZipSize = "";
@@ -1211,25 +1210,20 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
-        if (showDownloadMenu)
-        {
-            await JSRuntime.InvokeVoidAsync(
-            "registerOutsideClickForDownloadMenu",
-            "downloadMenu",
-            DotNetObjectReference.Create(this)
-            );
-        }
+
         // drop-areaが表示され、まだ登録していない場合のみ
         if (!_dropAreaRegistered && IsFilesLoaded && DisplayItems.Any())
         {
             await JSRuntime.InvokeVoidAsync("registerDropArea", "drop-area", _dotNetRef);
             _dropAreaRegistered = true;
         }
+
         else if (_dropAreaRegistered && (!IsFilesLoaded || !DisplayItems.Any()))
         {
             // drop-areaが消えたらフラグを戻す（必要ならJSでunregisterも）
             _dropAreaRegistered = false;
         }
+
         if (IsFilesLoaded && DisplayItems.Any())
         {
             foreach (var item in DisplayItems)
@@ -1279,12 +1273,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         isDragOver = over;
         StateHasChanged();
     }
-    [JSInvokable]
-    public void CloseDownloadMenu()
-    {
-        showDownloadMenu = false;
-        StateHasChanged();
-    }
+
     private async void DownloadResultPdfs()
     {
         if (string.IsNullOrEmpty(resultZipUrl) || string.IsNullOrEmpty(resultZipName))
