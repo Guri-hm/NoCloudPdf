@@ -462,8 +462,17 @@ public class PdfDataService
                 return;
             }
             var item = pages[fromIndex];
+            // Console.WriteLine($"Moving item from index {fromIndex} to {toIndex}: {item.Id}");
             pages.RemoveAt(fromIndex);
             pages.Insert(toIndex, item);
+
+            // ここで全PageItemsを出力
+            // Console.WriteLine("=== After MoveItem ===");
+            // for (int i = 0; i < pages.Count; i++)
+            // {
+            //     var p = pages[i];
+            //     Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}");
+            // }
         }
     }
 
@@ -1135,6 +1144,8 @@ public class PdfDataService
             var p = pages[i];
             Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}, IsSelectedForExtract: {p.IsSelectedForExtract}");
         }
+
+        OnChange?.Invoke();
     }
 }
 

@@ -89,6 +89,9 @@
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var item = DisplayItems[i];
+                        #pragma warning disable CS0162
+                        Console.WriteLine($"Rendering item {i}: Id={item.Id}, PageCount={item.PageCount}, Index={i}");
+
                         <ThumbnailCard 
                             @key="item.Id"
                             Item="@item" Index="@i" DisplayItemsCount="DisplayItems.Count"
@@ -804,7 +807,17 @@
         try
         {
             PdfDataService.SwapWithNext(index);
+
+            // ここで全PageItemsを出力
+        var pages = PdfDataService.GetModel().Pages;
+        Console.WriteLine("=== After OnSwapWithNext ===");
+        for (int i = 0; i < pages.Count; i++)
+        {
+            var p = pages[i];
+            Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}");
+        }
             await InvokeAsync(StateHasChanged);
+
         }
         catch (Exception ex)
         {
@@ -948,13 +961,7 @@
             {
                 // 統一データサービスを使用して並び替え
                 PdfDataService.MoveItem(oldIndex, newIndex);
-
-                // DOM更新
-                await InvokeAsync(async () =>
-                {
-                    await InvokeAsync(StateHasChanged);
-                    await JSRuntime.InvokeVoidAsync("initializeSortable");
-                });
+                await InvokeAsync(StateHasChanged);
             }
         }
         catch (Exception ex)
