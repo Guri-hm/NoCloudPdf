@@ -1376,14 +1376,24 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         // ページ単位の場合のみ対応
         if (item.RawData is PageItem pageItem)
         {
+            if (pageItem.HasPageDataError)
+            {
+                ShowError("ページデータの取得に失敗しました。このページは再読み込みできません。");
+                return;
+            }
+
             pageItem.IsLoading = true;
-            pageItem.HasError = false;
             StateHasChanged();
-
-            // ページ再読み込み（ファイルIDとページインデックスで再実行）
-            await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
+            await Task.Yield();
+            
+            var errorMsg = await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
 
             StateHasChanged();
+            
+            if (!string.IsNullOrEmpty(errorMsg))
+            {
+                ShowError(errorMsg);
+            }
         }
     }
     private void HandleCheckChanged(int index)
@@ -1393,6 +1403,4 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             PdfDataService.ToggleSplitBefore(index);
         }
     }
-
-
 }

@@ -210,7 +210,8 @@ public class PdfDataService
                     Thumbnail = i == 0 ? coverThumbnail : "", // 1ページ目は表紙
                     PageData = "",
                     IsLoading = true,
-                    HasError = false,
+                    HasThumbnailError = false,
+                    HasPageDataError = false,
                     ColorHsl = GenerateColorHsl(fileId)
                 };
                 _model.Pages.Insert(baseIndex + i, loadingItem);
@@ -238,6 +239,11 @@ public class PdfDataService
         }
     }
 
+    public class RenderResult
+    {
+        public string thumbnail { get; set; } = "";
+        public bool isError { get; set; }
+    }
     /// <summary>
     /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示用）
     /// </summary>
@@ -263,8 +269,8 @@ public class PdfDataService
                 try
                 {
                     var pageId = $"{fileId}_p{pageIndex}";
-                    var existingPageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
-                    if (existingPageItem == null || !_model.Pages.Contains(existingPageItem))
+                    var pageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
+                    if (pageItem == null || !_model.Pages.Contains(pageItem))
                     {
                         // PageItemが存在しない場合はスキップ（追加はしない）
                         failedPages++;
@@ -272,39 +278,49 @@ public class PdfDataService
                         continue;
                     }
 
-                    string thumbnail;
-                    string pageData;
+                    string thumbnail = "";
+                    string pageData = "";
+                    bool thumbError = false;
+                    bool dataError = false;
 
                     if (pageIndex == 0)
                     {
                         thumbnail = fileMetadata.CoverThumbnail;
                         pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", fileMetadata.FileData, pageIndex);
+                        thumbError = string.IsNullOrEmpty(thumbnail);
+                        dataError = string.IsNullOrEmpty(pageData);
                     }
                     else
                     {
                         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                         try
                         {
-                            thumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                            var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
+                                "renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                            thumbnail = renderResult.thumbnail;
+                            thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
                             pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                            dataError = string.IsNullOrEmpty(pageData);
                         }
                         catch (OperationCanceledException)
                         {
                             Console.WriteLine($"Timeout loading page {pageIndex + 1} of {fileMetadata.FileName}");
                             thumbnail = "";
-                            pageData = "";
+                            thumbError = true;
+                            dataError = false;
                         }
                     }
 
-                    existingPageItem.Thumbnail = thumbnail;
-                    existingPageItem.PageData = pageData;
-                    existingPageItem.IsLoading = false;
-                    existingPageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
+                    pageItem.Thumbnail = thumbnail;
+                    pageItem.PageData = pageData;
+                    pageItem.IsLoading = false;
+                    pageItem.HasThumbnailError = thumbError;
+                    pageItem.HasPageDataError = dataError;
 
                     // UI更新イベント発火
                     await InvokeOnChangeAsync();
 
-                    if (!string.IsNullOrEmpty(thumbnail) && !string.IsNullOrEmpty(pageData))
+                    if (!thumbError && !dataError)
                     {
                         successfulPages++;
                     }
@@ -320,13 +336,14 @@ public class PdfDataService
                     Console.WriteLine($"Error loading page {pageIndex + 1} of {fileMetadata.FileName}: {pageEx.Message}");
 
                     var pageId = $"{fileId}_p{pageIndex}";
-                    var existingPageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
-                    if (existingPageItem != null)
+                    var pageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
+                    if (pageItem != null)
                     {
-                        existingPageItem.IsLoading = false;
-                        existingPageItem.HasError = true;
-                        existingPageItem.Thumbnail = "";
-                        existingPageItem.PageData = "";
+                        pageItem.IsLoading = false;
+                        pageItem.HasThumbnailError = true;
+                        pageItem.HasPageDataError = true;
+                        pageItem.Thumbnail = "";
+                        pageItem.PageData = "";
                         // エラー時もUI更新イベント発火
                         await InvokeOnChangeAsync();
                     }
@@ -345,8 +362,10 @@ public class PdfDataService
             foreach (var item in existingPageItems)
             {
                 item.IsLoading = false;
-                item.HasError = true;
+                item.HasThumbnailError = true;
+                item.HasPageDataError = true;
                 item.Thumbnail = "";
+                item.PageData = "";
             }
         }
     }
@@ -389,54 +408,83 @@ public class PdfDataService
         }
     }
 
-    public async Task ReloadPageAsync(string fileId, int pageIndex)
+    public async Task<string?> ReloadPageAsync(string fileId, int pageIndex)
     {
         if (!_model.Files.TryGetValue(fileId, out var fileMetadata))
-            return;
+            return "ファイル情報が見つかりませんでした。";
 
         var pageId = $"{fileId}_p{pageIndex}";
         var pageItem = _model.Pages.FirstOrDefault(p => p.Id == pageId);
         if (pageItem == null)
-            return;
+            return "ページ情報が見つかりませんでした。";
 
         try
         {
             pageItem.IsLoading = true;
-            pageItem.HasError = false;
+            pageItem.HasThumbnailError = false;
+            pageItem.HasPageDataError = false;
             pageItem.Thumbnail = "";
             pageItem.PageData = "";
             await InvokeOnChangeAsync();
 
             string thumbnail = "";
             string pageData = "";
+            bool thumbError = false;
+            bool dataError = false;
 
             if (pageIndex == 0)
             {
                 thumbnail = fileMetadata.CoverThumbnail;
                 pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", fileMetadata.FileData, pageIndex);
+                thumbError = string.IsNullOrEmpty(thumbnail);
+                dataError = string.IsNullOrEmpty(pageData);
             }
             else
             {
                 var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                thumbnail = await _jsRuntime.InvokeAsync<string>("renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
-                pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                try
+                {
+                    var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                    thumbnail = renderResult.thumbnail;
+                    thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
+
+                    pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                    dataError = string.IsNullOrEmpty(pageData);
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine($"Timeout reloading page {pageIndex + 1} of {fileMetadata.FileName}");
+                    thumbnail = "";
+                    thumbError = true;
+                    dataError = false;
+                }
             }
 
             pageItem.Thumbnail = thumbnail;
             pageItem.PageData = pageData;
             pageItem.IsLoading = false;
-            pageItem.HasError = string.IsNullOrEmpty(thumbnail) || string.IsNullOrEmpty(pageData);
+            pageItem.HasThumbnailError = thumbError;
+            pageItem.HasPageDataError = dataError;
 
             await InvokeOnChangeAsync();
+
+            if (pageItem.HasPageDataError)
+                return "ページデータの取得に失敗しました。このページは再読み込みできません。";
+            if (pageItem.HasThumbnailError)
+                return "サムネイルの取得に失敗しました。";
+
+            return null;
         }
         catch (Exception ex)
         {
             pageItem.IsLoading = false;
-            pageItem.HasError = true;
+            pageItem.HasThumbnailError = true;
+            pageItem.HasPageDataError = true;
             pageItem.Thumbnail = "";
             pageItem.PageData = "";
             await InvokeOnChangeAsync();
             Console.WriteLine($"Error reloading page {pageIndex + 1} of {fileMetadata.FileName}: {ex.Message}");
+            return "ページの再読み込み中にエラーが発生しました。";
         }
     }
 
@@ -648,7 +696,8 @@ public class PdfDataService
                 Thumbnail = blankThumbnail,
                 PageData = blankPageData,
                 IsLoading = false,
-                HasError = false
+                HasThumbnailError = false,
+                HasPageDataError = false,
             };
 
             // 指定位置に挿入
@@ -736,7 +785,8 @@ public class PdfDataService
                     Thumbnail = page.Thumbnail,
                     PageData = page.PageData,
                     IsLoading = false,
-                    HasError = false,
+                    HasThumbnailError = false,
+                    HasPageDataError = false,
                     ColorHsl = GenerateColorHsl(newFileId)
                 };
                 _model.Pages.Insert(pageInsertIndex++, copy);
@@ -757,7 +807,8 @@ public class PdfDataService
                 Thumbnail = page.Thumbnail,
                 PageData = page.PageData,
                 IsLoading = false,
-                HasError = false,
+                HasThumbnailError = false,
+                HasPageDataError = false,
                 ColorHsl = page.ColorHsl
             };
             int pageIndex = _model.Pages.FindIndex(p => p.Id == id);
@@ -967,7 +1018,8 @@ public class PdfDataService
                 Thumbnail = dataUrl,
                 PageData = pdfBase64,
                 IsLoading = false,
-                HasError = false,
+                HasThumbnailError = false,
+                HasPageDataError = false,
                 ColorHsl = GenerateColorHsl(fileId)
             };
 

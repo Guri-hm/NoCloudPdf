@@ -1135,11 +1135,24 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         // ページ単位の場合のみ対応
         if (item.RawData is PageItem pageItem)
         {
-            pageItem.IsLoading = true;
-            pageItem.HasError = false;
+            if (pageItem.HasPageDataError)
+            {
+                ShowError("ページデータの取得に失敗しました。このページは再読み込みできません。");
+                return;
+            }
 
-            // ページ再読み込み（ファイルIDとページインデックスで再実行）
-            await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
+            pageItem.IsLoading = true;
+            StateHasChanged();
+            await Task.Yield();
+            
+            var errorMsg = await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
+
+            StateHasChanged();
+            
+            if (!string.IsNullOrEmpty(errorMsg))
+            {
+                ShowError(errorMsg);
+            }
         }
     }
 }

@@ -34,7 +34,9 @@ public class PageItem
     public string Thumbnail { get; set; } = ""; // サムネイル画像データ
     public string PageData { get; set; } = ""; // PDFページデータ
     public bool IsLoading { get; set; } = true; // ローディング中フラグ
-    public bool HasError { get; set; } = false; // エラー状態フラグ
+    public bool HasThumbnailError { get; set; }
+    public bool HasPageDataError { get; set; }
+    public bool HasError => HasThumbnailError || HasPageDataError; // エラーフラグ
     public DateTime CreatedAt { get; set; } = DateTime.Now; // 作成日時（並び替えの参考用）
     public string ColorHsl { get; set; } = ""; // 色（HSL形式） - ファイルIDから生成
     public int RotateAngle { get; set; } = 0; // 0, 90, 180, 270

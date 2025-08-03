@@ -242,7 +242,7 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
         }
 
         const loadingOptions = [
@@ -314,31 +314,11 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
         });
 
         await Promise.race([renderTask.promise, timeoutPromise]);
-        return canvas.toDataURL('image/png');
+        return { thumbnail: canvas.toDataURL('image/png'), isError: false };
 
     } catch (error) {
         console.error(`Error rendering PDF page ${pageIndex}:`, error);
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 200;
-            canvas.height = 280;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#dc2626';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('読み込みエラー', canvas.width / 2, canvas.height / 2 - 10);
-            ctx.font = '10px Arial';
-            ctx.fillText(`ページ ${pageIndex + 1}`, canvas.width / 2, canvas.height / 2 + 10);
-            ctx.strokeStyle = '#fca5a5';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-            return canvas.toDataURL('image/png');
-        } catch (fallbackError) {
-            console.error('Error creating fallback image:', fallbackError);
-            return '';
-        }
+        return { thumbnail: '', isError: true };
     }
 };
 
