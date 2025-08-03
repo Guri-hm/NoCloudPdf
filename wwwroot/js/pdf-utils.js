@@ -582,13 +582,17 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
     if (!window.pdfjsLib) {
         throw new Error("pdfjsLib is not loaded.");
     }
+
     const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
     const viewport = page.getViewport({ scale: 0.2 });
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return false;
+    if (!canvas) {
+        console.warn("canvas not found:", canvasId);
+        return false;
+    }
     const context = canvas.getContext('2d');
     canvas.width = viewport.width;
     canvas.height = viewport.height;

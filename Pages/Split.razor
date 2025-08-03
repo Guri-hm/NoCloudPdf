@@ -566,18 +566,20 @@
 
             var splitGroups = new List<List<PageItem>>();
             var currentGroup = new List<PageItem>();
-            foreach (var page in allPages)
+            for (int i = 0; i < allPages.Count; i++)
             {
-                if (currentGroup.Count > 0 && PdfDataService.SplitInfo.SplitPositions.Contains(page.OriginalPageIndex))
+                if (i > 0 && PdfDataService.SplitInfo.SplitPositions.Contains(i))
                 {
                     splitGroups.Add(currentGroup);
                     currentGroup = new List<PageItem>();
                 }
-                currentGroup.Add(page);
+                currentGroup.Add(allPages[i]);
             }
+
             if (currentGroup.Count > 0)
                 splitGroups.Add(currentGroup);
 
+            resultPdfInfos.Clear();
             resultPdfInfos.Clear();
             int groupIndex = 1;
             foreach (var group in splitGroups)
@@ -828,13 +830,13 @@
             PdfDataService.SwapWithNext(index);
 
             // ここで全PageItemsを出力
-        var pages = PdfDataService.GetModel().Pages;
-        Console.WriteLine("=== After OnSwapWithNext ===");
-        for (int i = 0; i < pages.Count; i++)
-        {
-            var p = pages[i];
-            Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}");
-        }
+            var pages = PdfDataService.GetModel().Pages;
+            Console.WriteLine("=== After OnSwapWithNext ===");
+            for (int i = 0; i < pages.Count; i++)
+            {
+                var p = pages[i];
+                Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}");
+            }
             await InvokeAsync(StateHasChanged);
 
         }
@@ -1012,7 +1014,7 @@
 
         await PdfDataService.InsertBlankPageWithDisplayModeAsync(
             CurrentDisplayMode, DisplayItems, position);
-        
+
         isBusy = false;
         StateHasChanged();
     }
@@ -1154,7 +1156,7 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         StateHasChanged();
     }
 
-   [JSInvokable]
+    [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
     {
         isBusy = true;
@@ -1289,6 +1291,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         foreach (var info in resultPdfInfos)
         {
             var canvasId = $"thumb_{info.Id}";
+            Console.WriteLine($"Thumbnail Info: {info.ThumbnailLoaded}");
             if (!info.ThumbnailLoaded)
             {
                 // 同キャンバスへの多重描画が発生するので先にtrueにする
