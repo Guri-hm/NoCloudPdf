@@ -31,18 +31,12 @@
                     <!-- 追加ボタングループ -->
                     <DropdownButton T="string" MenuId="addMenu" MenuItems="addMenuItems">
                         <Trigger>
-                            <button
-    class="px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 h-10 shadow"
->
+                            <DropdownTriggerButton>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                                 </svg>
-                                <span>追加</span>
-                                <!-- ▼アイコン -->
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                                    <polygon points="5,8 10,13 15,8" />
-                                </svg>
-                            </button>
+                                <span class="hidden md:inline">追加</span>
+                            </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
 
@@ -52,16 +46,10 @@
                     <!-- 並び替えボタングループ -->
                   <DropdownButton T="string" MenuId="sortMenu" MenuItems="sortMenuItems">
                         <Trigger>
-                            <button
-    class="px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 h-10 shadow"
->
+                            <DropdownTriggerButton>
                                 <i class="fa-solid fa-arrow-down-a-z"></i>
-                                <span>並び替え</span>
-                                <!-- ▼アイコン -->
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                                    <polygon points="5,8 10,13 15,8" />
-                                </svg>
-                            </button>
+                                <span class="hidden md:inline">並び替え</span>
+                            </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
                     @if (IsExtractMode)
