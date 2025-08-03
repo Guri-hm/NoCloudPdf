@@ -286,8 +286,6 @@ input[type=number] {
   background-color: #e0f7fa;
   border: 2px solid #004d40;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transform: scale(1.05);
-  transition: all 0.2s ease;
 }
 .dragging-chosen .non-sortable {
   visibility: hidden !important;
@@ -308,6 +306,15 @@ input[type=number] {
 }
 .drag-handle:hover {
   cursor: move !important;
+}
+.sortable-item-container,
+.drag-handle,
+.touch-drag-handle {
+  touch-action: none !important;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+       user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 @keyframes ChangeColor {
   0% {
