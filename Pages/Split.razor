@@ -1288,7 +1288,8 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
 
         // サムネイル未取得のPDFだけ順次取得
-        foreach (var info in resultPdfInfos)
+        // 再描画時でresultPdfInfosが変更されたときに呼ばれるとエラーが生じるので，ToListでコピーを渡しておく
+        foreach (var info in resultPdfInfos.ToList())
         {
             var canvasId = $"thumb_{info.Id}";
             Console.WriteLine($"Thumbnail Info: {info.ThumbnailLoaded}");
