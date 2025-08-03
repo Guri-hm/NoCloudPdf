@@ -83,6 +83,16 @@
 
         <!-- サムネイル編集エリア -->
         <div class="md:p-0 p-3">
+            @if (HasAnyThumbnailError)
+            {
+                <div class="w-full flex justify-center my-2">
+                    <button class="px-4 py-2 border-2 border-yellow-400 text-yellow-700 bg-white rounded hover:bg-yellow-50 transition font-bold"
+                            @onclick="ReloadAllThumbnailsAsync">
+                        <i class="fa-solid fa-rotate-right mr-2"></i>
+                        画像エラーを一括で再読み込み
+                    </button>
+                </div>
+            }
             @if (DisplayItems != null && DisplayItems.Any())
             {
                 <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-4 md:p-6" id="sortable-container" @key="sortVersion">
@@ -1369,6 +1379,19 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         {
             errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
             StateHasChanged();
+        }
+    }
+
+    private bool HasAnyThumbnailError => DisplayItems.Any(item =>
+        item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError);
+    private async Task ReloadAllThumbnailsAsync()
+    {
+        foreach (var item in DisplayItems)
+        {
+            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+            {
+                await ReloadPageItem(item);
+            }
         }
     }
     private async Task ReloadPageItem(DisplayItem item)
