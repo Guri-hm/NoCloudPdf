@@ -1121,5 +1121,18 @@ public class PdfDataService
         }
     }
 
+    /// <summary>
+    /// デバッグ用：現在のページアイテムをコンソールに出力      
+    /// </summary>
+    public void DebugPrintPages()
+    {
+        var pages = GetModel().Pages;
+        Console.WriteLine("=== 現在のPageItems ===");
+        for (int i = 0; i < pages.Count; i++)
+        {
+            var p = pages[i];
+            Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}, IsSelectedForExtract: {p.IsSelectedForExtract}");
+        }
+    }
 }
 

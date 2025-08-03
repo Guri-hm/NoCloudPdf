@@ -64,7 +64,6 @@
                             </button>
                         </Trigger>
                     </DropdownButton>
-                    <button @onclick="OnTest" class="bg-white text-gray-800 hover:bg-blue-50">テスト</button>
                     @if (IsExtractMode)
                     {
                             <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
@@ -262,16 +261,6 @@
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
 
 @code {
-    private void OnTest(){
-        var pages = PdfDataService.GetModel().Pages;
-        Console.WriteLine("=== 現在のPageItems ===");
-        for (int i = 0; i < pages.Count; i++)
-        {
-            var p = pages[i];
-            Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}, IsSelectedForExtract: {p.IsSelectedForExtract}");
-        }
-        StateHasChanged();
-    }
 
     protected override void OnInitialized()
     {
