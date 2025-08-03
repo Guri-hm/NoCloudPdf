@@ -282,11 +282,6 @@ input[type=number] {
 .is-sorting .non-sortable {
   visibility: hidden !important;
 }
-.dragging-chosen {
-  background-color: #e0f7fa;
-  border: 2px solid #004d40;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
 .dragging-chosen .non-sortable {
   visibility: hidden !important;
 }
