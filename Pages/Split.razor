@@ -1291,10 +1291,20 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             var canvasId = $"thumb_{info.Id}";
             if (!info.ThumbnailLoaded)
             {
+                // 同キャンバスへの多重描画が発生するので先にtrueにする
+                info.ThumbnailLoaded = true; 
+            try
+            {
                 await JSRuntime.InvokeVoidAsync("renderPdfThumbnailToCanvas", info.Url, canvasId);
-                info.ThumbnailLoaded = true;
-                StateHasChanged();
-                await Task.Delay(50);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rendering thumbnail for {canvasId}: {ex.Message}");
+                 // 失敗時はfalseに戻す
+                info.ThumbnailLoaded = false;
+            }
+            StateHasChanged();
+            await Task.Delay(50);
             }
         }
 
