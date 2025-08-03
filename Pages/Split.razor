@@ -146,10 +146,10 @@
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
             <!-- PDF結果プレビュー -->
-            <div class="flex flex-col flex-1 gap-4 overflow-y-auto pr-4 items-center">
+            <div class="flex flex-col flex-1 gap-1 overflow-y-auto items-center">
                 @foreach (var info in resultPdfInfos)
                 {
-                    <div class="flex flex-row items-center bg-white rounded shadow p-3 mb-2 w-full max-w-lg">
+                    <div class="flex flex-row items-center bg-white rounded shadow p-3 my-2 w-full max-w-lg">
                         @if (!string.IsNullOrEmpty(info.ThumbnailUrl))
                         {
                             <img src="@info.ThumbnailUrl" alt="サムネイル"
