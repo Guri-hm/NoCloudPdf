@@ -330,7 +330,7 @@ window.renderPDFPage = async function (pdfData, pageIndex) {
             ctx.textAlign = 'center';
             ctx.fillText('読み込みエラー', canvas.width / 2, canvas.height / 2 - 10);
             ctx.font = '10px Arial';
-            ctx.fillText(`ペーEジ ${pageIndex + 1}`, canvas.width / 2, canvas.height / 2 + 10);
+            ctx.fillText(`ページ ${pageIndex + 1}`, canvas.width / 2, canvas.height / 2 + 10);
             ctx.strokeStyle = '#fca5a5';
             ctx.lineWidth = 2;
             ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
