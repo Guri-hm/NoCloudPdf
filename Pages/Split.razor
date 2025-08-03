@@ -150,10 +150,12 @@
                 @foreach (var info in resultPdfInfos)
                 {
                     <div class="flex flex-row items-center bg-white rounded shadow p-3 my-2 w-full max-w-lg">
-                        @if (!string.IsNullOrEmpty(info.ThumbnailUrl))
+                        @if (info.ThumbnailLoaded)
                         {
-                            <img src="@info.ThumbnailUrl" alt="サムネイル"
-                                class="w-16 h-20 object-contain ml-4 border border-gray-300" />
+                            <canvas id="thumb_@info.Id"
+                    width="64"
+                    height="80"
+                    class="w-16 h-20 object-contain ml-4 border border-gray-300 @(info.PageCount > 1 ? "thumbnail-stack" : "")"></canvas>
                         }
                         else
                         {
@@ -493,11 +495,12 @@
 
     public class ResultPdfInfo
     {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Url { get; set; } = "";
         public string Name { get; set; } = "";
         public string Size { get; set; } = "";
         public int PageCount { get; set; }
-        public string? ThumbnailUrl { get; set; } // ←追加
+        public bool ThumbnailLoaded { get; set; } = false;
     }
     private List<ResultPdfInfo> resultPdfInfos = new();
 
@@ -1259,14 +1262,13 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         // サムネイル未取得のPDFだけ順次取得
         foreach (var info in resultPdfInfos)
         {
-            if (string.IsNullOrEmpty(info.ThumbnailUrl))
+            var canvasId = $"thumb_{info.Id}";
+            if (!info.ThumbnailLoaded)
             {
-                // 例: JSでPDFの1ページ目サムネイルを取得する場合
-                info.ThumbnailUrl = await JSRuntime.InvokeAsync<string>(
-                    "getPdfThumbnailUrl", info.Url);
-
-                StateHasChanged(); // 取得ごとに再描画
-                await Task.Delay(50); // 負荷軽減のため少し待つ
+                await JSRuntime.InvokeVoidAsync("renderPdfThumbnailToCanvas", info.Url, canvasId);
+                info.ThumbnailLoaded = true;
+                StateHasChanged();
+                await Task.Delay(50);
             }
         }
 

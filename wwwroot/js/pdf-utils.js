@@ -725,27 +725,21 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
     }
 };
 
-window.getPdfThumbnailUrl = async function (pdfUrl) {
-    // PDF.jsのグローバルオブジェクトが必要
+window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
     if (!window.pdfjsLib) {
         throw new Error("pdfjsLib is not loaded.");
     }
-
-    // PDFを取得
     const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
-    // サムネイル用canvasを作成
-    const viewport = page.getViewport({ scale: 0.2 }); // サムネイル用に縮小
-    const canvas = document.createElement('canvas');
+    const viewport = page.getViewport({ scale: 0.2 });
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return false;
     const context = canvas.getContext('2d');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
 
-    // ページをcanvasに描画
     await page.render({ canvasContext: context, viewport: viewport }).promise;
-
-    // DataURLとして返す
-    return canvas.toDataURL('image/png');
+    return true;
 };
