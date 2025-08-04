@@ -1425,12 +1425,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         // ページ単位の場合のみ対応
         if (item.RawData is PageItem pageItem)
         {
-            if (pageItem.HasPageDataError)
-            {
-                ShowError("ページデータの取得に失敗しました。このページは再読み込みできません。");
-                return;
-            }
-
             pageItem.IsLoading = true;
             StateHasChanged();
             await Task.Yield();
