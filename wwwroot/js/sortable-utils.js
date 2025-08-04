@@ -12,7 +12,20 @@ window.initializeSortable = function () {
         if (sortableInstance) {
             sortableInstance.destroy();
             sortableInstance = null;
+            container.classList.remove('is-sorting');
+            window.isSorting = false;
         }
+
+        // グローバルなマウス・タッチイベントで強制解除
+        function forceRemoveSortingClass() {
+            container.classList.remove('is-sorting');
+            window.isSorting = false;
+        }
+        window.removeEventListener('mouseup', forceRemoveSortingClass);
+        window.removeEventListener('touchend', forceRemoveSortingClass);
+        window.addEventListener('mouseup', forceRemoveSortingClass);
+        window.addEventListener('touchend', forceRemoveSortingClass);
+
         sortableInstance = new Sortable(container, {
             draggable: '.sortable-item-container',
             handle: isPcSize() ? '.drag-handle' : '.touch-drag-handle',
@@ -57,9 +70,7 @@ window.initializeSortable = function () {
                 return true;
             },
             onEnd: function (evt) {
-
-                container.classList.remove('is-sorting');
-                window.isSorting = false;
+                forceRemoveSortingClass();
 
                 const sortableCount = container.querySelectorAll('.sortable-item-container:not(.non-sortable)').length;
 
@@ -81,5 +92,7 @@ window.initializeSortable = function () {
     } else if (sortableInstance && sortableInstance.el) {
         sortableInstance.destroy();
         sortableInstance = null;
+        container.classList.remove('is-sorting');
+        window.isSorting = false;
     }
 };
