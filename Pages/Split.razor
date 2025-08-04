@@ -176,21 +176,21 @@
             <div class="flex flex-col flex-1 gap-1 overflow-y-auto items-center">
                 @foreach (var info in resultPdfInfos)
                 {
-                    <div class="flex flex-row items-center bg-white rounded shadow p-3 my-2 w-full max-w-lg">
-                        <div class="relative w-16 h-20 ml-4">
+                    <div class="flex flex-row items-center bg-white rounded shadow p-4 my-2 w-full max-w-lg">
+                        <div class="relative w-24 h-auto ml-4 @(info.ThumbnailLoading ? "page-loading" : "")">
                             <canvas id="thumb_@info.Id"
                                 width="64"
                                 height="80"
-                                class="w-16 h-20 object-contain  border border-gray-300 @(info.PageCount > 1 ? "thumbnail-stack" : "")"></canvas>
+                                class="w-full h-auto object-contain  border border-gray-300 @(info.PageCount > 1 && !info.ThumbnailLoading ? "thumbnail-stack" : "")"></canvas>
                             @if (info.ThumbnailLoading)
                             {
-                                <div class="absolute inset-0 flex items-center justify-center z-10">
+                                <div class="w-full h-auto absolute inset-0 flex items-center justify-center z-10">
                                     <span class="text-gray-500 text-xs">読み込み中...</span>
                                 </div>
                             }
                             else if (info.ThumbnailError)
                             {
-                                <div class="absolute inset-0 flex flex-col items-center justify-center z-10 overflow-visible">
+                                <div class="w-full h-auto absolute inset-0 flex flex-col items-center justify-center z-10 overflow-visible">
                                     <ErrorPdfIcon class="mb-1 w-8 h-8" />
                                     <div class="text-red-700 font-bold text-xs mb-1">表示に失敗しました</div>
                                 </div>

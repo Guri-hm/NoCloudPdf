@@ -181,6 +181,8 @@ code {
     border-top: 3px solid #3b82f6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    position: absolute;
+    z-index: 10;
 }
 
 .page-error {
