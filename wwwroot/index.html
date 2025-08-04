@@ -12,6 +12,24 @@
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <link rel="stylesheet" href="css/site.css" />
+    <script>
+        // pdf.jsの警告を一時的に抑制
+        const originalWarn = console.warn;
+        console.warn = function (msg, ...args) {
+            if (
+                typeof msg === "string" &&
+                (
+                    msg.includes("getPathGenerator") ||
+                    msg.includes("Error during font loading") ||
+                    msg.includes("fetchBuiltInCMap")
+                )
+            ) {
+                // 無視
+                return;
+            }
+            originalWarn.apply(console, [msg, ...args]);
+        };
+    </script>
 </head>
 
 <body>
