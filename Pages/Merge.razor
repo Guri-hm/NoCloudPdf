@@ -370,13 +370,19 @@
         previewImageUrl = null;
         isPreviewLoading = true;
         StateHasChanged();
-
         try
         {
             if (CurrentDisplayMode == DisplayMode.File)
             {
-                // 修正: 残っているページリストからOriginalPageIndexを取得して渡す
-                var fileId = DisplayItems[fileIndex].Id;
+                var fileMeta = DisplayItems[fileIndex].RawData as FileMetadata;
+                if (fileMeta == null)
+                {
+                    previewImageUrl = null;
+                    return;
+                }
+                // Idが「ファイル名+_file」になっているのでRawDataからIdを取得
+                var fileId = fileMeta.FileId;
+
                 var model = PdfDataService.GetModel();
                 var filePages = model.Pages.Where(p => p.FileId == fileId).OrderBy(p => p.OriginalPageIndex).ToList();
                 if (pageIndex >= 0 && pageIndex < filePages.Count)
