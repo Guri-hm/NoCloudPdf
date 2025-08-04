@@ -597,14 +597,22 @@ public class PdfDataService
         else
         {
             // ファイル単位表示：ファイル全体を削除
-            var pagesToRemove = _model.Pages.Where(p => p.FileId == item.Id).ToList();
-            foreach (var page in pagesToRemove)
+            if (item.RawData is FileMetadata file)
             {
-                _model.Pages.Remove(page);
+                var fileId = file.FileId;
+                var pagesToRemove = _model.Pages.Where(p => p.FileId == fileId).ToList();
+                foreach (var page in pagesToRemove)
+                {
+                    Console.WriteLine($"Removing page: {page.FileName}, Index: {page.OriginalPageIndex}");
+                    _model.Pages.Remove(page);
+                }
+                _model.Files.Remove(item.Id);
             }
-            _model.Files.Remove(item.Id);
         }
     }
+
+
+
     public void RemovePageFromFile(string fileId, int pageIndex)
     {
         // fileIdで絞った残っているページリストを取得
@@ -1197,6 +1205,17 @@ public class PdfDataService
         }
 
         OnChange?.Invoke();
+    }
+    /// <summary>
+    /// デバッグ用：_model.Pages の FileId 一覧をコンソールに出力
+    /// </summary>
+    public void DebugPrintFileIds()
+    {
+        Console.WriteLine("=== _model.Pages の FileId 一覧 ===");
+        foreach (var page in _model.Pages)
+        {
+            Console.WriteLine(page.FileId);
+        }
     }
 }
 
