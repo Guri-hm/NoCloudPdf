@@ -282,7 +282,7 @@ input[type=number] {
   animation: message-bar-shrink 5s linear forwards;
 }
 .is-sorting .non-sortable {
-  visibility: hidden !important;
+  display: none !important;
 }
 .dragging-chosen .non-sortable {
   visibility: hidden !important;
@@ -1506,6 +1506,9 @@ input[type=number] {
   }
   .text-red-500 {
     color: var(--color-red-500);
+  }
+  .text-red-600 {
+    color: var(--color-red-600);
   }
   .text-red-700 {
     color: var(--color-red-700);

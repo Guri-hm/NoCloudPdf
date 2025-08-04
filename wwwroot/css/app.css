@@ -348,7 +348,7 @@ input[type=number] {
 
 /* ドラッグ中の要素のスタイル */
 .is-sorting .non-sortable {
-    visibility: hidden !important;
+    display: none !important;
 }
 
 .dragging-chosen .non-sortable {
