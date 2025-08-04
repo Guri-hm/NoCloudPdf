@@ -8,9 +8,12 @@ window.registerDropArea = function (elementId, dotNetRef) {
         window.unregisterDropArea(elementId);
     }
 
+    let dragCounter = 0;
+
     area._dropHandlers = {
         dragenter: function (e) {
             if (window.isSorting) return;
+            dragCounter++;
             dotNetRef.invokeMethodAsync('SetDragOver', true);
         },
         dragover: function (e) {
@@ -19,11 +22,16 @@ window.registerDropArea = function (elementId, dotNetRef) {
         },
         dragleave: function (e) {
             if (window.isSorting) return;
-            dotNetRef.invokeMethodAsync('SetDragOver', false);
+            dragCounter--;
+            if (dragCounter <= 0) {
+                dragCounter = 0;
+                dotNetRef.invokeMethodAsync('SetDragOver', false);
+            }
         },
         drop: function (e) {
             if (window.isSorting) return;
             e.preventDefault();
+            dragCounter = 0;
             dotNetRef.invokeMethodAsync('SetDragOver', false);
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 const files = Array.from(e.dataTransfer.files);
