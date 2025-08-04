@@ -409,7 +409,6 @@ window.extractPDFPage = async function (pdfData, pageIndex) {
                 binary += String.fromCharCode(pdfBytes[j]);
             }
 
-            console.log(`Created blank PDF for failed page ${pageIndex}`);
             return btoa(binary);
         } catch (fallbackError) {
             console.error('Error creating fallback blank PDF:', fallbackError);
