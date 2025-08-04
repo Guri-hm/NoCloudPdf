@@ -191,7 +191,7 @@
                             else if (info.ThumbnailError)
                             {
                                 <div class="w-full h-auto absolute inset-0 flex flex-col items-center justify-center z-10 overflow-visible">
-                                    <ErrorPdfIcon class="mb-1 w-8 h-8" />
+                                    <ErrorThumbnailIcon class="mb-1 w-8 h-8" />
                                     <div class="text-red-700 font-bold text-xs mb-1">表示に失敗しました</div>
                                 </div>
                             }
@@ -482,27 +482,7 @@
 
         try
         {
-            if (CurrentDisplayMode == DisplayMode.File)
-            {
-                // 修正: 残っているページリストからOriginalPageIndexを取得して渡す
-                var fileId = DisplayItems[fileIndex].Id;
-                var model = PdfDataService.GetModel();
-                var filePages = model.Pages.Where(p => p.FileId == fileId).OrderBy(p => p.OriginalPageIndex).ToList();
-                if (pageIndex >= 0 && pageIndex < filePages.Count)
-                {
-                    var page = filePages[pageIndex];
-                    previewImageUrl = await PdfDataService.GetPreviewImageAsync(fileId, page.OriginalPageIndex);
-                }
-                else
-                {
-                    previewImageUrl = null;
-                }
-            }
-            else
-            {
-                // ページ単位表示時は従来通り
-                previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
-            }
+            previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
         }
         catch
         {
