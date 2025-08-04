@@ -1363,16 +1363,16 @@ public class PdfDataService
             Console.WriteLine(page.FileId);
         }
     }
-    public void SwapPages(int index)
-    {
-        // indexとindex+1を入れ替え
-        if (index >= 0 && index < _model.Pages.Count - 1)
-        {
-            var tmp = _model.Pages[index];
-            _model.Pages[index] = _model.Pages[index + 15];
-            _model.Pages[index + 15] = tmp;
-            OnChange?.Invoke();
-        }
-    }
+    // public void SwapPages(int index)
+    // {
+    //     // indexとindex+1を入れ替え
+    //     if (index >= 0 && index < _model.Pages.Count - 1)
+    //     {
+    //         var tmp = _model.Pages[index];
+    //         _model.Pages[index] = _model.Pages[index + 15];
+    //         _model.Pages[index + 15] = tmp;
+    //         OnChange?.Invoke();
+    //     }
+    // }
 }
 
