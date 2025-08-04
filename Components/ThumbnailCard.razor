@@ -207,19 +207,19 @@
 [Parameter] public EventCallback<int> OnInsertPdfAtPosition { get; set; }
 
     private List<DropdownMenuItem> GetAddMenuItems(int index)
-{
-    return new List<DropdownMenuItem>
     {
-        new DropdownMenuItem
+        return new List<DropdownMenuItem>
         {
-            Label = "空白ページを追加",
-            OnClick = EventCallback.Factory.Create(this, () => OnInsertBlankPage.InvokeAsync(index))
-        },
-        new DropdownMenuItem
-        {
-            Label = "PDFを挿入",
-            OnClick = EventCallback.Factory.Create(this, () => OnInsertPdfAtPosition.InvokeAsync(index))
-        }
-    };
-}
+            new DropdownMenuItem
+            {
+                Label = "空白ページを追加",
+                OnClick = EventCallback.Factory.Create(this, () => OnInsertBlankPage.InvokeAsync(index))
+            },
+            new DropdownMenuItem
+            {
+                Label = "PDFを挿入",
+                OnClick = EventCallback.Factory.Create(this, () => OnInsertPdfAtPosition.InvokeAsync(index))
+            }
+        };
+    }
 }

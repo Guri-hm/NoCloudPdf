@@ -130,7 +130,8 @@
                     <!-- 追加エリア -->
                     <FileAddArea
                         Position="@DisplayItems.Count"
-                        OnInsertButtonClick="@(args => HandleInsertButtonClick(args.Position, args.E))"
+                        OnInsertBlankPage="InsertBlankPage"
+                        OnInsertPdfAtPosition="InsertPdfAtPosition"
                         OnAddFileClick="OpenFileDialog" />
                 </div>
             }
@@ -965,22 +966,6 @@
             await PdfDataService.DuplicateItemAsync(pageItem.Id, false, index + 1);
         }
         StateHasChanged();
-    }
-
-    // 挿入ボタンクリック処理
-    private async Task HandleInsertButtonClick(int position, MouseEventArgs e)
-    {
-
-        try
-        {
-            // JavaScriptの挿入メニューを表示
-            await JSRuntime.InvokeVoidAsync("showInsertMenuAtExactPosition", position, e.ClientX, e.ClientY);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error showing insert menu: {ex.Message}");
-            errorMessage = $"メニュー表示に失敗しました: {ex.Message}";
-        }
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
