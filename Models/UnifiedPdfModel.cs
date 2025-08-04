@@ -53,7 +53,7 @@ public class FileMetadata
     public byte[] FileData { get; set; } = Array.Empty<byte>(); // 元ファイルデータ
     public int PageCount { get; set; } = 0; // 総ページ数
     public string CoverThumbnail { get; set; } = ""; // 表紙サムネイル
-    public bool IsFullyLoaded { get; set; } = false; // 全ページ読み込み完了フラグ
+    public bool IsFullyLoaded { get; set; } = false; // 全ページのPageDataとサムネイルの読み込み完了フラグ
     public DateTime CreatedAt { get; set; } = DateTime.Now; // ファイル追加日時
 }
 

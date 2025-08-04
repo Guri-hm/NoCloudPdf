@@ -421,28 +421,6 @@
     {
         if (CurrentDisplayMode == DisplayMode.Page) return;
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
-
-        // バックグラウンドで残りのページ読み込みを継続（UI をブロックしない）
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await PdfDataService.EnsureAllPagesLoadedAsync();
-                await InvokeAsync(() =>
-        {
-            StateHasChanged(); // 読み込み完了時にUIを更新
-        });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error in background page loading: {ex.Message}");
-                await InvokeAsync(() =>
-        {
-            ShowWarn($"一部ページの読み込みに失敗しました。問題のあるページは「読み込みエラー」と表示されます。");
-            StateHasChanged();
-        });
-            }
-        });
     }
 
     public class MergePageDto

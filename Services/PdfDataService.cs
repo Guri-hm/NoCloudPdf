@@ -14,7 +14,8 @@ public class PdfDataService
     private readonly IJSRuntime _jsRuntime;
     private UnifiedPdfModel _model = new();
     public event Action? OnChange;
-
+    // キャンセル用トークン管理
+    private Dictionary<string, CancellationTokenSource> _loadingTokens = new();
     public PdfDataService(IJSRuntime jsRuntime)
     {
         _jsRuntime = jsRuntime;
@@ -37,35 +38,22 @@ public class PdfDataService
     public void SwitchDisplayMode(DisplayMode mode)
     {
         _model.CurrentMode = mode;
-    }
-
-    /// <summary>
-    /// バックグラウンド読み込みが必要なファイルをチェック
-    /// </summary>
-    public async Task EnsureAllPagesLoadedAsync()
-    {
-        var pendingFiles = _model.Files.Where(f => !f.Value.IsFullyLoaded).ToList();
-
-        if (pendingFiles.Any())
+        // ファイル単位→ページ単位に切り替えたとき
+        if (mode == DisplayMode.Page)
         {
-            Console.WriteLine($"Found {pendingFiles.Count} files with pending background loading");
-
-            foreach (var file in pendingFiles)
+            // 全ファイルの読み込みタスクをキャンセル
+            foreach (var cts in _loadingTokens.Values)
             {
-                try
-                {
-                    Console.WriteLine($"Loading remaining pages for: {file.Value.FileName}");
-                    await LoadAllPagesForFileAsync(file.Key);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error loading pages for {file.Value.FileName}: {ex.Message}");
-                }
+                cts.Cancel();
+                // cts.Dispose();
             }
-        }
-        else
-        {
-            Console.WriteLine("All files already have background loading completed");
+            _loadingTokens.Clear();
+
+            // 必要なファイルで再度LoadAllPagesForFileAsyncをサムネイル取得ありで呼び出す
+            foreach (var fileId in _model.Files.Keys)
+            {
+                _ = LoadAllPagesForFileAsync(fileId, loadThumbnails: true);
+            }
         }
     }
 
@@ -222,7 +210,9 @@ public class PdfDataService
             {
                 try
                 {
-                    await LoadAllPagesForFileAsync(fileId);
+                    // 現在の表示モードに応じてサムネイル取得有無を切り替え
+                    bool loadThumbnails = _model.CurrentMode == DisplayMode.Page;
+                    await LoadAllPagesForFileAsync(fileId, loadThumbnails: loadThumbnails);
                 }
                 catch (Exception ex)
                 {
@@ -245,129 +235,194 @@ public class PdfDataService
         public bool isError { get; set; }
     }
     /// <summary>
-    /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示用）
+    /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示，ファイル単位表示で処理切り分け）
+    /// モード切替時に処理をキャンセル
     /// </summary>
-    public async Task LoadAllPagesForFileAsync(string fileId)
+    public async Task LoadAllPagesForFileAsync(string fileId, bool loadThumbnails = true)
     {
-        if (!_model.Files.TryGetValue(fileId, out var fileMetadata) || fileMetadata.IsFullyLoaded)
+        // 既存の読み込みタスクがあればキャンセル
+        if (_loadingTokens.TryGetValue(fileId, out var oldCts))
         {
-            Console.WriteLine($"Skipping load for {fileId}: already loaded or not found");
+            oldCts.Cancel();
+            // oldCts.Dispose();
+        }
+
+        // 新しいキャンセルトークンを作成
+        var cts = new CancellationTokenSource();
+        _loadingTokens[fileId] = cts;
+
+        if (!_model.Files.TryGetValue(fileId, out var fileMetadata))
+        {
+            Console.WriteLine($"Skipping load for {fileId}: not found");
             return;
+        }
+
+        if (loadThumbnails)
+        {
+            // サムネイル未生成ページだけを抽出
+            var pagesToUpdate = _model.Pages
+                .Where(p => p.FileId == fileId && (string.IsNullOrEmpty(p.Thumbnail) || p.HasThumbnailError))
+                .ToList();
+
+            // すべてのサムネイルが揃っていればスキップ
+            if (pagesToUpdate.Count == 0 && fileMetadata.IsFullyLoaded)
+            {
+                return;
+            }
+        }
+        else
+        {
+            // ファイル単位表示時は従来通りにPageDataのみ管理
+            if (fileMetadata.IsFullyLoaded)
+            {
+                return;
+            }
         }
 
         try
         {
-
             // 既存のページアイテムを取得
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
-
             int successfulPages = 0;
             int failedPages = 0;
 
             for (int pageIndex = 0; pageIndex < fileMetadata.PageCount; pageIndex++)
             {
-                try
+                if (cts.Token.IsCancellationRequested)
                 {
-                    var pageId = $"{fileId}_p{pageIndex}";
-                    var pageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
-                    if (pageItem == null || !_model.Pages.Contains(pageItem))
+                    Console.WriteLine($"Loading for {fileId} was cancelled.");
+                    return;
+                }
+
+                var pageId = $"{fileId}_p{pageIndex}";
+                var pageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
+                if (pageItem == null || !_model.Pages.Contains(pageItem))
+                {
+                    // PageItemが存在しない場合はスキップ（追加はしない）
+                    failedPages++;
+                    Console.WriteLine($"Warning: PageItem not found for {pageId}, skipping update.");
+                    continue;
+                }
+
+                // ページ単位表示時：PageDataがあり、サムネイルもあり、エラーもなければ何もしない
+                if (loadThumbnails)
+                {
+                    if (!string.IsNullOrEmpty(pageItem.PageData) &&
+                        !string.IsNullOrEmpty(pageItem.Thumbnail) &&
+                        !pageItem.HasThumbnailError && !pageItem.HasPageDataError)
                     {
-                        // PageItemが存在しない場合はスキップ（追加はしない）
-                        failedPages++;
-                        Console.WriteLine($"Warning: PageItem not found for {pageId}, skipping update.");
                         continue;
                     }
-
-                    string thumbnail = "";
-                    string pageData = "";
-                    bool thumbError = false;
-                    bool dataError = false;
-
-                    if (pageIndex == 0)
+                }
+                else
+                {
+                    // ファイル単位表示時：PageDataがあり、サムネイル（先頭のみ）があれば何もしない
+                    if (!string.IsNullOrEmpty(pageItem.PageData) &&
+                        (pageIndex != 0 || !string.IsNullOrEmpty(pageItem.Thumbnail)) &&
+                        !pageItem.HasPageDataError)
                     {
-                        thumbnail = fileMetadata.CoverThumbnail;
-                        // すでにPageDataがあれば再取得しない
-                        if (!string.IsNullOrEmpty(pageItem.PageData))
+                        continue;
+                    }
+                }
+
+                string thumbnail = "";
+                string pageData = "";
+                bool thumbError = false;
+                bool dataError = false;
+
+                if (pageIndex == 0)
+                {
+                    thumbnail = fileMetadata.CoverThumbnail;
+                    // すでにPageDataがあれば再取得しない
+                    if (!string.IsNullOrEmpty(pageItem.PageData))
+                    {
+                        pageData = pageItem.PageData;
+                    }
+                    else
+                    {
+                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
+                    }
+                    thumbError = string.IsNullOrEmpty(thumbnail);
+                    dataError = string.IsNullOrEmpty(pageData);
+                }
+                else
+                {
+                    if (loadThumbnails)
+                    {
+                        // サムネイルが未生成またはエラーの場合のみ生成
+                        if (string.IsNullOrEmpty(pageItem.Thumbnail) || pageItem.HasThumbnailError)
                         {
-                            pageData = pageItem.PageData;
+                            // サムネイルも取得
+                            var renderCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                            try
+                            {
+                                var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
+                                    "renderPdfPage", renderCts.Token, fileMetadata.FileData, pageIndex);
+                                thumbnail = renderResult.thumbnail;
+                                thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                Console.WriteLine($"Timeout loading page {pageIndex + 1} of {fileMetadata.FileName}");
+                                thumbnail = "";
+                                thumbError = true;
+                            }
                         }
                         else
                         {
-                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
+                            thumbnail = pageItem.Thumbnail;
+                            thumbError = false;
                         }
-                        thumbError = string.IsNullOrEmpty(thumbnail);
-                        dataError = string.IsNullOrEmpty(pageData);
+                    }
+
+                    // PageDataは常に取得（既にあれば再取得しない）
+                    if (!string.IsNullOrEmpty(pageItem.PageData))
+                    {
+                        pageData = pageItem.PageData;
                     }
                     else
                     {
-                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                        var dataCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                         try
                         {
-                            var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
-                                "renderPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
-                            thumbnail = renderResult.thumbnail;
-                            thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
-
-                            // すでにPageDataがあれば再取得しない
-                            if (!string.IsNullOrEmpty(pageItem.PageData))
-                            {
-                                pageData = pageItem.PageData;
-                            }
-                            else
-                            {
-                                pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
-                            }
-                            dataError = string.IsNullOrEmpty(pageData);
+                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", dataCts.Token, fileMetadata.FileData, pageIndex);
                         }
                         catch (OperationCanceledException)
                         {
-                            Console.WriteLine($"Timeout loading page {pageIndex + 1} of {fileMetadata.FileName}");
-                            thumbnail = "";
-                            thumbError = true;
-                            dataError = false;
+                            Console.WriteLine($"Timeout extracting pageData for page {pageIndex + 1} of {fileMetadata.FileName}");
+                            pageData = "";
                         }
                     }
-
-                    pageItem.Thumbnail = thumbnail;
-                    pageItem.PageData = pageData;
-                    pageItem.IsLoading = false;
-                    pageItem.HasThumbnailError = thumbError;
-                    pageItem.HasPageDataError = dataError;
-
-                    // UI更新イベント発火
-                    await InvokeOnChangeAsync();
-
-                    if (!thumbError && !dataError)
-                    {
-                        successfulPages++;
-                    }
-                    else
-                    {
-                        failedPages++;
-                        Console.WriteLine($"Warning: Page {pageIndex + 1} of {fileMetadata.FileName} failed to load properly");
-                    }
+                    dataError = string.IsNullOrEmpty(pageData);
                 }
-                catch (Exception pageEx)
+
+                pageItem.Thumbnail = thumbnail;
+                pageItem.PageData = pageData;
+                pageItem.IsLoading = false;
+                pageItem.HasThumbnailError = thumbError;
+                pageItem.HasPageDataError = dataError;
+
+                // UI更新イベント発火
+                await InvokeOnChangeAsync();
+
+                if (!thumbError && !dataError)
+                {
+                    successfulPages++;
+                }
+                else
                 {
                     failedPages++;
-                    Console.WriteLine($"Error loading page {pageIndex + 1} of {fileMetadata.FileName}: {pageEx.Message}");
-
-                    var pageId = $"{fileId}_p{pageIndex}";
-                    var pageItem = existingPageItems.FirstOrDefault(p => p.Id == pageId);
-                    if (pageItem != null)
-                    {
-                        pageItem.IsLoading = false;
-                        pageItem.HasThumbnailError = true;
-                        pageItem.HasPageDataError = true;
-                        pageItem.Thumbnail = "";
-                        pageItem.PageData = "";
-                        // エラー時もUI更新イベント発火
-                        await InvokeOnChangeAsync();
-                    }
+                    Console.WriteLine($"Warning: Page {pageIndex + 1} of {fileMetadata.FileName} failed to load properly");
                 }
+
             }
 
-            fileMetadata.IsFullyLoaded = true;
+            // 全ページのPageDataとサムネイルが揃っている場合のみIsFullyLoadedをtrueに
+            var allPages = _model.Pages.Where(p => p.FileId == fileId).ToList();
+            bool allPageDataReady = allPages.All(p => !string.IsNullOrEmpty(p.PageData));
+            bool allThumbnailsReadyFinal = allPages.All(p => !string.IsNullOrEmpty(p.Thumbnail));
+            fileMetadata.IsFullyLoaded = allPageDataReady && allThumbnailsReadyFinal;
+
             Console.WriteLine($"Background loading completed: {successfulPages}/{fileMetadata.PageCount} pages successfully for {fileMetadata.FileName} ({failedPages} failed)");
         }
         catch (Exception ex)
