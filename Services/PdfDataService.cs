@@ -286,7 +286,15 @@ public class PdfDataService
                     if (pageIndex == 0)
                     {
                         thumbnail = fileMetadata.CoverThumbnail;
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
+                        // すでにPageDataがあれば再取得しない
+                        if (!string.IsNullOrEmpty(pageItem.PageData))
+                        {
+                            pageData = pageItem.PageData;
+                        }
+                        else
+                        {
+                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
+                        }
                         thumbError = string.IsNullOrEmpty(thumbnail);
                         dataError = string.IsNullOrEmpty(pageData);
                     }
@@ -299,7 +307,16 @@ public class PdfDataService
                                 "renderPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
                             thumbnail = renderResult.thumbnail;
                             thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
-                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
+
+                            // すでにPageDataがあれば再取得しない
+                            if (!string.IsNullOrEmpty(pageItem.PageData))
+                            {
+                                pageData = pageItem.PageData;
+                            }
+                            else
+                            {
+                                pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
+                            }
                             dataError = string.IsNullOrEmpty(pageData);
                         }
                         catch (OperationCanceledException)
