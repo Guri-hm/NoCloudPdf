@@ -7,6 +7,19 @@ window.initializeSortable = function () {
     }
 
     const container = document.getElementById('sortable-container');
+
+    // グローバルなマウス・タッチイベントで強制解除
+    function forceRemoveSortingClass() {
+        if (container) {
+            container.classList.remove('is-sorting');
+        }
+        window.isSorting = false;
+    }
+
+    // 既存のイベントを一度解除
+    window.removeEventListener('mouseup', forceRemoveSortingClass);
+    window.removeEventListener('touchend', forceRemoveSortingClass);
+
     if (container && window.getComputedStyle(container).display !== 'none' && window.Sortable) {
         // 既存のインスタンスを破棄
         if (sortableInstance) {
@@ -16,13 +29,7 @@ window.initializeSortable = function () {
             window.isSorting = false;
         }
 
-        // グローバルなマウス・タッチイベントで強制解除
-        function forceRemoveSortingClass() {
-            container.classList.remove('is-sorting');
-            window.isSorting = false;
-        }
-        window.removeEventListener('mouseup', forceRemoveSortingClass);
-        window.removeEventListener('touchend', forceRemoveSortingClass);
+        // 新たにイベントを登録
         window.addEventListener('mouseup', forceRemoveSortingClass);
         window.addEventListener('touchend', forceRemoveSortingClass);
 
@@ -90,9 +97,14 @@ window.initializeSortable = function () {
             }
         });
     } else if (sortableInstance && sortableInstance.el) {
-        sortableInstance.destroy();
-        sortableInstance = null;
-        container.classList.remove('is-sorting');
+        // containerがない場合やSortableが使えない場合
+        if (sortableInstance && sortableInstance.el) {
+            sortableInstance.destroy();
+            sortableInstance = null;
+        }
+        if (container) {
+            container.classList.remove('is-sorting');
+        }
         window.isSorting = false;
     }
 };
