@@ -6,12 +6,20 @@ window.initializeSortable = function () {
         return window.matchMedia('(min-width: 768px)').matches;
     }
 
-    const container = document.getElementById('sortable-container');
+    // containerは毎回取得する
+    function getContainer() {
+        return document.getElementById('sortable-container');
+    }
 
     // グローバルなマウス・タッチイベントで強制解除
     function forceRemoveSortingClass() {
+        const container = getContainer();
         if (container) {
-            container.classList.remove('is-sorting');
+            container.classList.remove('is-sorting', 'dragging-chosen', 'dragging-ghost');
+            // 念のため全ての子要素からも除去
+            container.querySelectorAll('.dragging-chosen, .dragging-ghost').forEach(el => {
+                el.classList.remove('dragging-chosen', 'dragging-ghost');
+            });
         }
         window.isSorting = false;
     }
@@ -19,6 +27,8 @@ window.initializeSortable = function () {
     // 既存のイベントを一度解除
     window.removeEventListener('mouseup', forceRemoveSortingClass);
     window.removeEventListener('touchend', forceRemoveSortingClass);
+
+    const container = getContainer();
 
     if (container && window.getComputedStyle(container).display !== 'none' && window.Sortable) {
         // 既存のインスタンスを破棄
@@ -97,14 +107,8 @@ window.initializeSortable = function () {
             }
         });
     } else if (sortableInstance && sortableInstance.el) {
-        // containerがない場合やSortableが使えない場合
-        if (sortableInstance && sortableInstance.el) {
-            sortableInstance.destroy();
-            sortableInstance = null;
-        }
-        if (container) {
-            container.classList.remove('is-sorting');
-        }
-        window.isSorting = false;
+        sortableInstance.destroy();
+        sortableInstance = null;
+        forceRemoveSortingClass();
     }
 };
