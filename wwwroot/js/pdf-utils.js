@@ -444,7 +444,7 @@ window.createBlankPage = async function () {
 window.renderSinglePDFPage = async function (pdfData) {
     try {
         const pdfjsLib = window['pdfjs-dist/build/pdf'];
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.min.js';
 
         // base64文字列をUint8Arrayに変換
         const binaryString = atob(pdfData);
