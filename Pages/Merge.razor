@@ -86,7 +86,7 @@
             }
             @if (DisplayItems != null && DisplayItems.Any())
             {
-                <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-2 md:p-6" id="sortable-container" @key="sortVersion">
+                <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-3 md:p-6" id="sortable-container" @key="sortVersion">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                      var item = DisplayItems[i];
