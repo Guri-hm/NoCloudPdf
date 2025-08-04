@@ -100,6 +100,14 @@ public class PdfDataService
             // 代表ページのサムネイルではなく、グループ先頭ページのサムネイルを使う
             var thumbnail = firstPage.Thumbnail;
 
+            // サムネイル未生成かつエラーでない場合はローディング扱い
+            bool isThumbnailLoading = false;
+            if (string.IsNullOrEmpty(thumbnail) && !firstPage.HasThumbnailError)
+            {
+                // サムネイル生成はLoadAllPagesForFileAsyncがバックグランドでおこなう(一度でもページ単位表示にすると実行される)
+                isThumbnailLoading = true;
+            }
+
             var colorHsl = string.IsNullOrEmpty(firstPage.ColorHsl)
                 ? GenerateColorHsl(fileId)
                 : firstPage.ColorHsl;
@@ -114,7 +122,7 @@ public class PdfDataService
                 FullFileName = fileName,
                 Thumbnail = thumbnail,
                 PageInfo = count > 1 ? $"{count}ページ" : "",
-                IsLoading = isLoading,
+                IsLoading = isLoading || isThumbnailLoading,
                 HasError = hasError,
                 RawData = fileMetadata ?? new FileMetadata(), // nullの場合は空のFileMetadataを代入
                 PageCount = count,
@@ -237,6 +245,7 @@ public class PdfDataService
     /// <summary>
     /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示，ファイル単位表示で処理切り分け）
     /// モード切替時に処理をキャンセル
+    /// ファイル単位は先頭ページを優先取得
     /// </summary>
     public async Task LoadAllPagesForFileAsync(string fileId, bool loadThumbnails = true)
     {
@@ -244,7 +253,6 @@ public class PdfDataService
         if (_loadingTokens.TryGetValue(fileId, out var oldCts))
         {
             oldCts.Cancel();
-            // oldCts.Dispose();
         }
 
         // 新しいキャンセルトークンを作成
@@ -257,28 +265,76 @@ public class PdfDataService
             return;
         }
 
-        if (loadThumbnails)
+        // ファイル単位表示時は「束」ごとに先頭ページのサムネイル生成を意識する
+        // 現状ではページ単位表示からファイル単位表示に切り替えたときに，
+        // この関数は動かないので直下の処理はされないが今後のことも考えて残す
+        if (!loadThumbnails)
         {
-            // サムネイル未生成ページだけを抽出
-            var pagesToUpdate = _model.Pages
-                .Where(p => p.FileId == fileId && (string.IsNullOrEmpty(p.Thumbnail) || p.HasThumbnailError))
+            // ファイルIDで該当ページを抽出
+            var filePages = _model.Pages
+                .Select((p, idx) => new { Page = p, Index = idx })
+                .Where(x => x.Page.FileId == fileId)
                 .ToList();
 
-            // すべてのサムネイルが揃っていればスキップ
-            if (pagesToUpdate.Count == 0 && fileMetadata.IsFullyLoaded)
+            // 束の先頭ページを特定
+            int? lastIndex = null;
+            foreach (var x in filePages)
             {
-                return;
+                // 先頭 or 直前のページが別ファイルなら「束」の先頭
+                if (lastIndex == null || x.Index != lastIndex + 1)
+                {
+                    var pageItem = x.Page;
+                    // サムネイル未生成なら生成
+                    if (string.IsNullOrEmpty(pageItem.Thumbnail) && !pageItem.HasThumbnailError)
+                    {
+                        try
+                        {
+                            Console.WriteLine($"[サムネイル生成開始] FileName: {pageItem.FileName}, FileId: {pageItem.FileId}, PageIndex: {pageItem.OriginalPageIndex}");
+
+                            var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
+                                "renderPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex);
+                            pageItem.Thumbnail = renderResult.thumbnail;
+                            pageItem.HasThumbnailError = renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail);
+                            pageItem.IsLoading = false;
+                            Console.WriteLine($"[サムネイル生成完了] FileName: {pageItem.FileName}, FileId: {pageItem.FileId}, PageIndex: {pageItem.OriginalPageIndex}, Success: {!pageItem.HasThumbnailError}");
+                            await InvokeOnChangeAsync();
+                        }
+                        catch
+                        {
+                            pageItem.HasThumbnailError = true;
+                            pageItem.Thumbnail = "";
+                            pageItem.IsLoading = false;
+                        }
+                    }
+                }
+                lastIndex = x.Index;
             }
-        }
-        else
-        {
-            // ファイル単位表示時は従来通りにPageDataのみ管理
-            if (fileMetadata.IsFullyLoaded)
+
+            // PageData取得（従来通り）
+            var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
+            foreach (var pageItem in existingPageItems)
             {
-                return;
+                if (!string.IsNullOrEmpty(pageItem.PageData) && !pageItem.HasPageDataError)
+                    continue;
+
+                try
+                {
+                    pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex);
+                    pageItem.HasPageDataError = string.IsNullOrEmpty(pageItem.PageData);
+                    pageItem.IsLoading = false;
+                    await InvokeOnChangeAsync();
+                }
+                catch
+                {
+                    pageItem.HasPageDataError = true;
+                    pageItem.PageData = "";
+                    pageItem.IsLoading = false;
+                }
             }
+            return;
         }
 
+        // ページ単位表示時（サムネイルも全ページ分取得）
         try
         {
             // 既存のページアイテムを取得
@@ -1287,6 +1343,17 @@ public class PdfDataService
         foreach (var page in _model.Pages)
         {
             Console.WriteLine(page.FileId);
+        }
+    }
+    public void SwapPages(int index)
+    {
+        // indexとindex+1を入れ替え
+        if (index >= 0 && index < _model.Pages.Count - 1)
+        {
+            var tmp = _model.Pages[index];
+            _model.Pages[index] = _model.Pages[index + 15];
+            _model.Pages[index + 15] = tmp;
+            OnChange?.Invoke();
         }
     }
 }
