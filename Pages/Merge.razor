@@ -690,8 +690,7 @@
             }
             else
             {
-                throw new ArgumentOutOfRangeException(
-        $"Invalid move operation: oldIndex={oldIndex}, newIndex={newIndex}, count={DisplayItems.Count}");
+                return;
             }
         }
         catch (Exception ex)

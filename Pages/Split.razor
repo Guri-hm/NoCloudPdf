@@ -987,6 +987,10 @@
                 sortVersion++; 
                 await InvokeAsync(StateHasChanged);
             }
+            else
+            {
+                return;
+            }
         }
         catch (Exception ex)
         {
