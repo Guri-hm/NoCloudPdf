@@ -728,13 +728,31 @@ public class PdfDataService
             if (item.RawData is FileMetadata file)
             {
                 var fileId = file.FileId;
-                var pagesToRemove = _model.Pages.Where(p => p.FileId == fileId).ToList();
-                foreach (var page in pagesToRemove)
+
+                //    DisplayItem.Idは $"{firstPage.Id}_file" なので、firstPage.Idを復元
+                var firstPageId = item.Id.Replace("_file", "");
+                var startIndex = _model.Pages.FindIndex(p => p.Id == firstPageId);
+
+                if (startIndex == -1)
+                    return;
+
+                // 連続する同じFileIdの範囲を特定
+                int endIndex = startIndex;
+                while (endIndex + 1 < _model.Pages.Count && _model.Pages[endIndex + 1].FileId == fileId)
                 {
-                    Console.WriteLine($"Removing page: {page.FileName}, Index: {page.OriginalPageIndex}");
-                    _model.Pages.Remove(page);
+                    endIndex++;
                 }
-                _model.Files.Remove(item.Id);
+
+                for (int i = endIndex; i >= startIndex; i--)
+                {
+                    _model.Pages.RemoveAt(i);
+                }
+
+                // そのFileIdのページが0になったらファイルメタデータも削除
+                if (!_model.Pages.Any(p => p.FileId == fileId))
+                {
+                    _model.Files.Remove(fileId);
+                }
             }
         }
     }
