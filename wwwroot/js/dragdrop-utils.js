@@ -3,33 +3,58 @@ window.registerDropArea = function (elementId, dotNetRef) {
     const area = document.getElementById(elementId);
     if (!area) return;
 
-    area.addEventListener('dragenter', function (e) {
-        if (window.isSorting) return;
-        dotNetRef.invokeMethodAsync('SetDragOver', true);
-    });
-    area.addEventListener('dragover', function (e) {
-        if (window.isSorting) return;
-        e.preventDefault();
-    });
-    area.addEventListener('dragleave', function (e) {
-        if (window.isSorting) return;
-        dotNetRef.invokeMethodAsync('SetDragOver', false);
-    });
-    area.addEventListener('drop', function (e) {
-        if (window.isSorting) return;
-        e.preventDefault();
-        dotNetRef.invokeMethodAsync('SetDragOver', false);
-        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const files = Array.from(e.dataTransfer.files);
-            files.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function (evt) {
-                    dotNetRef.invokeMethodAsync('OnJsFileDropped', file.name, file.type, evt.target.result.split(',')[1]);
-                };
-                reader.readAsDataURL(file);
-            });
+    // すでに登録済みなら一度解除
+    if (area._dropHandlers) {
+        window.unregisterDropArea(elementId);
+    }
+
+    area._dropHandlers = {
+        dragenter: function (e) {
+            if (window.isSorting) return;
+            dotNetRef.invokeMethodAsync('SetDragOver', true);
+        },
+        dragover: function (e) {
+            if (window.isSorting) return;
+            e.preventDefault();
+        },
+        dragleave: function (e) {
+            if (window.isSorting) return;
+            dotNetRef.invokeMethodAsync('SetDragOver', false);
+        },
+        drop: function (e) {
+            if (window.isSorting) return;
+            e.preventDefault();
+            dotNetRef.invokeMethodAsync('SetDragOver', false);
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const files = Array.from(e.dataTransfer.files);
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function (evt) {
+                        dotNetRef.invokeMethodAsync('OnJsFileDropped', file.name, file.type, evt.target.result.split(',')[1]);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
         }
-    });
+    };
+
+    area.addEventListener('dragenter', area._dropHandlers.dragenter);
+    area.addEventListener('dragover', area._dropHandlers.dragover);
+    area.addEventListener('dragleave', area._dropHandlers.dragleave);
+    area.addEventListener('drop', area._dropHandlers.drop);
+};
+
+window.unregisterDropArea = function (elementId) {
+    const area = document.getElementById(elementId);
+    if (!area || !area._dropHandlers) return;
+
+    // すべてのイベントを解除
+    area.removeEventListener('dragenter', area._dropHandlers.dragenter);
+    area.removeEventListener('dragover', area._dropHandlers.dragover);
+    area.removeEventListener('dragleave', area._dropHandlers.dragleave);
+    area.removeEventListener('drop', area._dropHandlers.drop);
+
+    delete area._dropHandlers;
 };
 
 window.registerSelectDropArea = function (dotNetRef) {

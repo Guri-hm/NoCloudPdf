@@ -301,6 +301,12 @@
     {
         PdfDataService.OnChange -= OnServiceChanged;
         _dotNetRef?.Dispose();
+
+        if (_dropAreaRegistered)
+        {
+            JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
+            _dropAreaRegistered = false;
+        }
     }
     private bool isLoading = false;
     private bool isBusy = false;
