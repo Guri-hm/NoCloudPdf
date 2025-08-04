@@ -232,6 +232,7 @@
     public void Dispose()
     {
         PdfDataService.OnChange -= OnServiceChanged;
+        _dotNetRef?.Dispose();
     }
     private bool isLoading = false;
     private bool isBusy = false;
@@ -1186,4 +1187,5 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             }
         }
     }
+
 }

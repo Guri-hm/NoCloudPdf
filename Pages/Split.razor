@@ -300,6 +300,7 @@
     public void Dispose()
     {
         PdfDataService.OnChange -= OnServiceChanged;
+        _dotNetRef?.Dispose();
     }
     private bool isLoading = false;
     private bool isBusy = false;
@@ -1476,4 +1477,5 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             PdfDataService.ToggleSplitBefore(index);
         }
     }
+
 }
