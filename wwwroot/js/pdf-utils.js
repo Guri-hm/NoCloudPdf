@@ -574,7 +574,12 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
     }
 };
 
+// renderPdfThumbnailToCanvas実行前にcanvasがレンダリングされているか確認
+window.checkCanvasExists = function (canvasId) {
+    return !!document.getElementById(canvasId);
+};
 
+window._canvasRendering = window._canvasRendering || {};
 // 結果画面のサムネイル描画（PDF→canvas）
 // 結果画面はPDFの各ページデータがまだないので、
 // PDFの先頭ページをcanvasに描画する関数を用意
@@ -582,23 +587,35 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
     if (!window.pdfjsLib) {
         throw new Error("pdfjsLib is not loaded.");
     }
-
-    const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
-    const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1);
-
-    const viewport = page.getViewport({ scale: 0.2 });
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) {
-        console.warn("canvas not found:", canvasId);
+    if (window._canvasRendering[canvasId]) {
+        console.warn("render in progress, skipping:", canvasId);
         return false;
     }
-    const context = canvas.getContext('2d');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+    window._canvasRendering[canvasId] = true;
+    try {
+        const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
 
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
-    return true;
+        const viewport = page.getViewport({ scale: 0.2 });
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.warn("canvas not found:", canvasId);
+            return false;
+        }
+        const context = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        return true;
+    } catch (e) {
+        console.error("renderPdfThumbnailToCanvas error", e, pdfUrl, canvasId);
+        return false;
+    } finally {
+        window._canvasRendering[canvasId] = false;
+    }
 };
 
 // 編集画面のサムネイル描画（画像→canvas）
