@@ -331,7 +331,7 @@ window.getPDFPageCount = async function (pdfData) {
 };
 
 // 個別のPDFデータとして抽出する関数
-window.extractPDFPage = async function (pdfData, pageIndex) {
+window.extractPdfPage = async function (pdfData, pageIndex) {
     try {
 
         const { PDFDocument } = PDFLib;

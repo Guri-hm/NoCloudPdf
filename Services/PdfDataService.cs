@@ -286,7 +286,7 @@ public class PdfDataService
                     if (pageIndex == 0)
                     {
                         thumbnail = fileMetadata.CoverThumbnail;
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", fileMetadata.FileData, pageIndex);
+                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
                         thumbError = string.IsNullOrEmpty(thumbnail);
                         dataError = string.IsNullOrEmpty(pageData);
                     }
@@ -435,7 +435,7 @@ public class PdfDataService
             if (pageIndex == 0)
             {
                 thumbnail = fileMetadata.CoverThumbnail;
-                pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", fileMetadata.FileData, pageIndex);
+                pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
                 thumbError = string.IsNullOrEmpty(thumbnail);
                 dataError = string.IsNullOrEmpty(pageData);
             }
@@ -444,11 +444,11 @@ public class PdfDataService
                 var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 try
                 {
-                    var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                    var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
                     thumbnail = renderResult.thumbnail;
                     thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
 
-                    pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                    pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
                     dataError = string.IsNullOrEmpty(pageData);
                 }
                 catch (OperationCanceledException)
