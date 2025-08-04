@@ -296,10 +296,10 @@ public class PdfDataService
                         try
                         {
                             var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
-                                "renderPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                                "renderPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
                             thumbnail = renderResult.thumbnail;
                             thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
-                            pageData = await _jsRuntime.InvokeAsync<string>("extractPDFPage", cts.Token, fileMetadata.FileData, pageIndex);
+                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
                             dataError = string.IsNullOrEmpty(pageData);
                         }
                         catch (OperationCanceledException)

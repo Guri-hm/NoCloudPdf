@@ -187,7 +187,7 @@ window.renderFirstPDFPage = async function (pdfData) {
 };
 
 // 指定したページのサムネイルを生成
-window.renderPDFPage = async function (pdfData, pageIndex) {
+window.renderPdfPage = async function (pdfData, pageIndex) {
     try {
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
