@@ -78,7 +78,7 @@ window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
         alert('PDF.jsがロードされていません');
         return;
     }
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
 
     const zip = new window.JSZip();
 
