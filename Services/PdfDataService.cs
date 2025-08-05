@@ -1325,7 +1325,6 @@ public class PdfDataService
                 continue;
             }
 
-            Console.WriteLine(ext);
             try
             {
                 // 許容する最大メモリを引数で指定
