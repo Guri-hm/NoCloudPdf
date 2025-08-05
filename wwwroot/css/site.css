@@ -347,13 +347,6 @@ input[type=number] {
 .rotate-270 {
   transform: rotate(270deg);
 }
-.material-symbols-outlined {
-  font-variation-settings: 'FILL' 0,
-        'wght' 400,
-        'GRAD' 0,
-        'opsz' 24;
-  vertical-align: middle;
-}
 @layer theme, base, components, utilities;
 @layer theme {
   :root, :host {
@@ -362,6 +355,7 @@ input[type=number] {
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
     --color-red-100: oklch(93.6% 0.032 17.717);
+    --color-red-400: oklch(70.4% 0.191 22.216);
     --color-red-500: oklch(63.7% 0.237 25.331);
     --color-red-600: oklch(57.7% 0.245 27.325);
     --color-red-700: oklch(50.5% 0.213 27.518);
@@ -1314,6 +1308,9 @@ input[type=number] {
   }
   .bg-pink-600 {
     background-color: var(--color-pink-600);
+  }
+  .bg-red-400 {
+    background-color: var(--color-red-400);
   }
   .bg-red-500 {
     background-color: var(--color-red-500);

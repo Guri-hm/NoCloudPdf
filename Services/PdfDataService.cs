@@ -20,6 +20,7 @@ public class PdfDataService
     {
         _jsRuntime = jsRuntime;
     }
+    public long TotalFileSize => _model.Files.Values.Sum(f => f.FileData?.LongLength ?? 0);
 
     /// <summary>
     /// 現在のデータモデルを取得
@@ -1233,6 +1234,7 @@ public class PdfDataService
     InputFileChangeEventArgs e,
     int? insertPosition = null,
     Action<string>? setErrorMessage = null,
+    Action<string>? setWarnMessage = null,
     Action? setIsLoading = null,
     Action? setIsLoaded = null)
     {
@@ -1240,12 +1242,31 @@ public class PdfDataService
 
         setIsLoading?.Invoke();
         setErrorMessage?.Invoke("");
+        setWarnMessage?.Invoke("");
 
         const long maxFileSize = 52428800; // 50MB
+        const long maxTotalSize = 200 * 1024 * 1024; // 200MB
+
+        // 合計サイズチェック
+        long newFilesSize = e.GetMultipleFiles().Sum(f => f.Size);
+        if (TotalFileSize + newFilesSize > maxTotalSize)
+        {
+            setWarnMessage?.Invoke($"合計ファイルサイズが上限（{maxTotalSize / 1024 / 1024}MB）を超えています。");
+            setIsLoaded?.Invoke();
+            return;
+        }
 
         foreach (var file in e.GetMultipleFiles())
         {
             var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+
+            // 1ファイルごとのサイズチェック
+            if (file.Size > maxFileSize)
+            {
+                setErrorMessage?.Invoke($"ファイル「{file.Name}」は最大サイズ（{maxFileSize / 1024 / 1024}MB）を超えています。");
+                continue;
+            }
+
             try
             {
                 // 許容する最大メモリを引数で指定
@@ -1268,7 +1289,7 @@ public class PdfDataService
                 }
                 else
                 {
-                    setErrorMessage?.Invoke($"未対応のファイル形式です: {file.Name}");
+                    setWarnMessage?.Invoke($"未対応のファイル形式です: {file.Name}");
                 }
 
                 if (!success)

@@ -24,7 +24,7 @@
     [Parameter] public int? AutoCloseMs { get; set; }
 
     private string BarColor => IsError ? "bg-red-500" : "bg-yellow-400";
-    private string BoxColor => IsError ? "bg-red-500 text-white" : "bg-yellow-100 text-yellow-900 border border-yellow-400";
+    private string BoxColor => IsError ? "bg-red-400 text-white" : "bg-yellow-100 text-yellow-900 border border-yellow-400";
 
     protected override async Task OnParametersSetAsync()
     {

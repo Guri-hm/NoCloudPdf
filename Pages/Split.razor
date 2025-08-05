@@ -278,7 +278,7 @@
 <!-- メッセージ表示エリア -->
 @if (!string.IsNullOrEmpty(errorMessage) || !string.IsNullOrEmpty(warnMessage))
 {
-    <MessageBar Message="@(errorMessage ?? warnMessage)" IsError="@(errorMessage != null)" OnClose="ClearAllMessages" />
+    <MessageBar Message="@(errorMessage ?? warnMessage)" IsError="@(errorMessage != null)" OnClose="ClearAllMessages"  AutoCloseMs="5000" />
 }
 
 <!-- ファイル選択用の隠しinput -->
@@ -1027,7 +1027,8 @@
         await PdfDataService.HandleFileInputAsync(
             e,
             insertPosition >= 0 ? insertPosition : null,
-            msg => errorMessage = msg,
+            msg => { errorMessage = msg; warnMessage = null; StateHasChanged(); },
+            msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); },
             () => isLoading = true,
             () => isLoading = false
         );
