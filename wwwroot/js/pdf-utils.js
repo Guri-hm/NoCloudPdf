@@ -77,7 +77,7 @@ window.mergePDFPages = async function (pdfPageDataList) {
 };
 
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
-window.renderFirstPDFPage = async function (pdfData) {
+window.renderFirstPDFPage = async function (pdfData, password) {
     try {
         // BlazorからのデータがUint8Arrayかどうかチェック
         let uint8Array;
@@ -104,90 +104,123 @@ window.renderFirstPDFPage = async function (pdfData) {
             throw new Error(`Invalid PDF header: ${header}`);
         }
 
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        const pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) {
             throw new Error('PDF.js library not loaded');
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
         } else if (pdfjsLib.workerSrc) {
-            pdfjsLib.workerSrc = '/lib/pdf.worker.min.js';
+            pdfjsLib.workerSrc = '/lib/pdf.worker.mjs';
         }
 
         if (uint8Array.length < 1024) {
             throw new Error('PDF file is too small to be valid');
         }
 
-        const loadingOptions = [
-            {
-                data: uint8Array,
-                stopAtErrors: false,
-                maxImageSize: 1024 * 1024 * 5,
-                disableFontFace: true,
-                disableRange: true,
-                disableStream: true,
-                verbosity: 1
-            },
-            {
-                data: uint8Array,
-                stopAtErrors: false,
-                maxImageSize: 1024 * 1024 * 10,
-                disableFontFace: false,
-                disableRange: true,
-                disableStream: false,
-                verbosity: 1
-            },
-            {
-                data: uint8Array,
-                stopAtErrors: false,
-                verbosity: 1
-            }
-        ];
-
+        // パスワード・セキュリティ情報取得用
+        let isPasswordProtected = false;
+        let isOperationRestricted = false;
+        let securityInfo = "";
+        let thumbnail = "";
         let pdf = null;
         let lastError = null;
 
+        // 複数オプションでロードを試みる
+        const loadingOptions = [
+            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 5, disableFontFace: true, disableRange: true, disableStream: true, verbosity: 1 },
+            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 10, disableFontFace: false, disableRange: true, disableStream: false, verbosity: 1 },
+            { data: uint8Array, stopAtErrors: false, verbosity: 1 }
+        ];
+
         for (let i = 0; i < loadingOptions.length; i++) {
             try {
-                const loadingTask = pdfjsLib.getDocument(loadingOptions[i]);
+                const loadingTask = pdfjsLib.getDocument({
+                    ...loadingOptions[i],
+                    password: password || undefined
+                });
+                loadingTask.onPassword = function (callback, reason) {
+                    if (reason === pdfjsLib.PasswordResponses.NEED_PASSWORD) {
+                        // パスワードが必要
+                        throw new Error("PasswordException");
+                    } else if (reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) {
+                        // パスワードが間違っている
+                        console.log(`パスワードが間違っています。`)
+                        throw new Error("PasswordException");
+                        // ここで再入力を促すUIを出すのが理想
+                    } else {
+                        console.log(`別の理由`)
+                        throw new Error("PasswordException");
+                    }
+                };
                 pdf = await loadingTask.promise;
                 break;
             } catch (error) {
                 lastError = error;
+                // パスワード例外
+                if (error && error.name === "PasswordException") {
+                    isPasswordProtected = true;
+                    securityInfo = "パスワード付きPDF";
+                    break;
+                }
                 if (i === loadingOptions.length - 1) {
                     throw lastError;
                 }
             }
         }
 
-        if (!pdf) {
-            throw new Error('Failed to load PDF with all options');
+        // パスワード付きPDFの場合はサムネイル生成せず情報のみ返す
+        if (isPasswordProtected || !pdf) {
+            return {
+                thumbnail: "",
+                isPasswordProtected,
+                isOperationRestricted,
+                securityInfo: securityInfo || "パスワード付きPDF"
+            };
         }
 
-        const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        // 権限情報取得
+        if (pdf && pdf._pdfInfo && pdf._pdfInfo.permissions) {
+            // permissionsは配列で、印刷・編集禁止などの情報が入る
+            isOperationRestricted = pdf._pdfInfo.permissions.length > 0;
+            securityInfo += (isOperationRestricted ? " 操作制限あり" : "");
+        }
 
-        const context = canvas.getContext('2d');
-        const renderContext = {
-            canvasContext: context,
-            viewport: viewport,
+        // サムネイル生成
+        try {
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 1 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const context = canvas.getContext('2d');
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            thumbnail = canvas.toDataURL('image/png');
+        } catch (thumbErr) {
+            thumbnail = "";
+        }
+
+        return {
+            thumbnail,
+            isPasswordProtected,
+            isOperationRestricted,
+            securityInfo
         };
 
-        await page.render(renderContext).promise;
-        const result = canvas.toDataURL('image/png');
-        return result;
     } catch (error) {
         console.error('Error in renderFirstPDFPage:', error);
-        throw error;
+        return {
+            thumbnail: "",
+            isPasswordProtected: error && error.name === "PasswordException",
+            isOperationRestricted: false,
+            securityInfo: error && error.name === "PasswordException" ? "パスワード付きPDF" : "解析失敗"
+        };
     }
 };
 
 // 指定したページのサムネイルを生成
-window.renderPdfPage = async function (pdfData, pageIndex) {
+window.renderPdfPage = async function (pdfData, pageIndex, password) {
     try {
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
@@ -204,7 +237,7 @@ window.renderPdfPage = async function (pdfData, pageIndex) {
             uint8Array = new Uint8Array(pdfData);
         }
 
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        const pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) {
             throw new Error('PDF.js library not loaded');
         }
@@ -213,85 +246,85 @@ window.renderPdfPage = async function (pdfData, pageIndex) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
         }
 
-        const loadingOptions = [
-            {
-                data: uint8Array,
-                stopAtErrors: false,
-                maxImageSize: 1024 * 1024 * 5,
-                disableFontFace: true,
-                disableRange: true,
-                disableStream: true,
-                verbosity: 1
-            },
-            {
-                data: uint8Array,
-                stopAtErrors: false,
-                maxImageSize: 1024 * 1024 * 10,
-                disableFontFace: false,
-                disableRange: true,
-                disableStream: false,
-                verbosity: 1
-            },
-            {
-                data: uint8Array,
-                stopAtErrors: false,
-                verbosity: 1
-            }
-        ];
-
+        // パスワード対応
+        let isPasswordProtected = false;
+        let securityInfo = "";
         let pdf = null;
         let lastError = null;
 
-        for (let i = 0; i < loadingOptions.length; i++) {
-            try {
-                const loadingTask = pdfjsLib.getDocument(loadingOptions[i]);
-                pdf = await loadingTask.promise;
-                break;
-            } catch (error) {
-                lastError = error;
-                if (i === loadingOptions.length - 1) {
-                    throw lastError;
+        try {
+            const loadingTask = pdfjsLib.getDocument({
+                data: uint8Array,
+                password: password || undefined
+            });
+            loadingTask.onPassword = function (callback, reason) {
+                if (reason === pdfjsLib.PasswordResponses.NEED_PASSWORD) {
+                    // パスワードが必要
+                    throw new Error("PasswordException");
+                } else if (reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) {
+                    // パスワードが間違っている
+                    console.log(`パスワードが間違っています。`)
+                    throw new Error("PasswordException");
+                    // ここで再入力を促すUIを出すのが理想
+                } else {
+                    console.log(`別の理由`)
+                    throw new Error("PasswordException");
                 }
+            };
+            pdf = await loadingTask.promise;
+        } catch (error) {
+            lastError = error;
+            if (error && error.name === "PasswordException") {
+                isPasswordProtected = true;
+                securityInfo = "パスワード付きPDF";
+            } else {
+                throw error;
             }
         }
 
-        if (!pdf) {
-            throw new Error('Failed to load PDF with all options');
+        if (isPasswordProtected || !pdf) {
+            return {
+                thumbnail: "",
+                isError: true,
+                isPasswordProtected,
+                securityInfo: securityInfo || "パスワード付きPDF"
+            };
         }
 
-        if (pageIndex >= pdf.numPages) {
-            return '';
+        // 指定ページのサムネイル生成
+        let thumbnail = "";
+        try {
+            const page = await pdf.getPage(pageIndex + 1);
+            const viewport = page.getViewport({ scale: 1 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const context = canvas.getContext('2d');
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            thumbnail = canvas.toDataURL('image/png');
+        } catch (thumbErr) {
+            thumbnail = "";
         }
 
-        const page = await pdf.getPage(pageIndex + 1);
-        const viewport = page.getViewport({ scale: 0.5 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-
-        const context = canvas.getContext('2d');
-        const renderContext = {
-            canvasContext: context,
-            viewport: viewport,
-            intent: 'display'
+        return {
+            thumbnail,
+            isError: false,
+            isPasswordProtected: false,
+            securityInfo: ""
         };
 
-        const renderTask = page.render(renderContext);
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Rendering timeout')), 10000);
-        });
-
-        await Promise.race([renderTask.promise, timeoutPromise]);
-        return { thumbnail: canvas.toDataURL('image/png'), isError: false };
-
     } catch (error) {
-        console.error(`Error rendering PDF page ${pageIndex}:`, error);
-        return { thumbnail: '', isError: true };
+        return {
+            thumbnail: "",
+            isError: true,
+            isPasswordProtected: false,
+            securityInfo: "解析失敗"
+        };
     }
 };
 
 // PDFのページ数のみ取得
-window.getPDFPageCount = async function (pdfData) {
+window.getPDFPageCount = async function (pdfData, password) {
     try {
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
@@ -308,19 +341,20 @@ window.getPDFPageCount = async function (pdfData) {
             uint8Array = new Uint8Array(pdfData);
         }
 
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        const pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) {
             throw new Error('PDF.js library not loaded');
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
         }
 
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
             stopAtErrors: false,
-            verbosity: 1
+            verbosity: 1,
+            password: password || undefined
         });
         const pdf = await loadingTask.promise;
         return pdf.numPages;
@@ -331,7 +365,7 @@ window.getPDFPageCount = async function (pdfData) {
 };
 
 // 個別のPDFデータとして抽出する関数
-window.extractPdfPage = async function (pdfData, pageIndex) {
+window.extractPdfPage = async function (pdfData, pageIndex, password) {
     try {
 
         const { PDFDocument } = PDFLib;
@@ -355,17 +389,50 @@ window.extractPdfPage = async function (pdfData, pageIndex) {
             uint8Array = new Uint8Array(pdfData);
         }
 
-        const pdfDoc = await PDFDocument.load(uint8Array);
-
-        // ページ数チェック
-        if (pageIndex >= pdfDoc.getPageCount()) {
-            console.warn(`Page index ${pageIndex} is out of range (total pages: ${pdfDoc.getPageCount()})`);
-            // エラー時は空白ページを作成
+        // パスワード付きPDF対応
+        let pdfDoc;
+        try {
+            // PDF-libはパスワード付きPDFの復号に対応していません
+            // なのでPDF.jsで該当ページを抽出し、そのバイナリをPDF-libで扱う必要があります
+            if (password) {
+                const pdfjsLib = window.pdfjsLib;
+                if (!pdfjsLib) throw new Error('PDF.js library not loaded');
+                if (pdfjsLib.GlobalWorkerOptions) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
+                }
+                // PDF.jsでパスワード付きPDFを開く
+                const loadingTask = pdfjsLib.getDocument({
+                    data: uint8Array,
+                    password: password
+                });
+                loadingTask.onPassword = function (callback, reason) {
+                    // パスワードが必要 or 間違っている場合は失敗させる
+                    callback(null);
+                };
+                const pdf = await loadingTask.promise;
+                if (pageIndex >= pdf.numPages) {
+                    // 範囲外なら空白ページ
+                    const blankPdf = await PDFDocument.create();
+                    blankPdf.addPage([595.28, 841.89]);
+                    const pdfBytes = await blankPdf.save();
+                    let binary = '';
+                    for (let j = 0; j < pdfBytes.length; j++) {
+                        binary += String.fromCharCode(pdfBytes[j]);
+                    }
+                    return btoa(binary);
+                }
+                // ページを抽出
+                const page = await pdf.getPage(pageIndex + 1);
+                const pdfData = await page.pdfManager.stream.bytes;
+                pdfDoc = await PDFDocument.load(pdfData);
+            } else {
+                pdfDoc = await PDFDocument.load(uint8Array);
+            }
+        } catch (e) {
+            // パスワード付きPDFで失敗した場合は空白ページ
             const blankPdf = await PDFDocument.create();
-            // A4サイズの空白ページ
             blankPdf.addPage([595.28, 841.89]);
             const pdfBytes = await blankPdf.save();
-
             let binary = '';
             for (let j = 0; j < pdfBytes.length; j++) {
                 binary += String.fromCharCode(pdfBytes[j]);
@@ -379,7 +446,6 @@ window.extractPdfPage = async function (pdfData, pageIndex) {
             const [copiedPage] = await newPdf.copyPages(pdfDoc, [pageIndex]);
             newPdf.addPage(copiedPage);
         } catch (copyError) {
-            console.warn(`Failed to copy page ${pageIndex}, creating blank page:`, copyError);
             // ページコピーに失敗した場合は空白ページを追加
             newPdf.addPage([595.28, 841.89]);
         }
@@ -411,7 +477,6 @@ window.extractPdfPage = async function (pdfData, pageIndex) {
 
             return btoa(binary);
         } catch (fallbackError) {
-            console.error('Error creating fallback blank PDF:', fallbackError);
             return '';
         }
     }
@@ -443,8 +508,8 @@ window.createBlankPage = async function () {
 // 単一PDFページをレンダリング
 window.renderSinglePDFPage = async function (pdfData) {
     try {
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.min.js';
+        const pdfjsLib = window.pdfjsLib;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
 
         // base64文字列をUint8Arrayに変換
         const binaryString = atob(pdfData);

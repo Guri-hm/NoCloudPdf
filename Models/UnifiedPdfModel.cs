@@ -55,6 +55,11 @@ public class FileMetadata
     public string CoverThumbnail { get; set; } = ""; // 表紙サムネイル
     public bool IsFullyLoaded { get; set; } = false; // 全ページのPageDataとサムネイルの読み込み完了フラグ
     public DateTime CreatedAt { get; set; } = DateTime.Now; // ファイル追加日時
+
+    public bool IsPasswordProtected { get; set; } // パスワード保護フラグ
+    public bool IsOperationRestricted { get; set; } // 操作制限フラグ
+    public string? SecurityInfo { get; set; } // 詳細なセキュリティ情報
+    public string? Password { get; set; }
 }
 
 /// <summary>

@@ -174,9 +174,35 @@ public class PdfDataService
             }
 
             var fileId = $"{fileName}_{DateTime.Now.Ticks}";
-            var coverThumbnail = await _jsRuntime.InvokeAsync<string>("renderFirstPDFPage", fileData);
-            var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
-            if (string.IsNullOrEmpty(coverThumbnail) || pageCount <= 0)
+            string? password = null;
+            int retryCount = 0;
+            RenderResult? renderResult = null;
+
+            // パスワード付きPDF対応（最大3回リトライ）
+            while (retryCount < 3)
+            {
+                renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password);
+
+                // パスワード付きPDFの場合はここで処理を分岐
+                if (renderResult.isPasswordProtected)
+                {
+                    // パスワード入力ダイアログを表示
+                    password = await ShowPasswordInputDialogAsync(fileName);
+                    if (string.IsNullOrEmpty(password))
+                        return false; // キャンセル時
+                    retryCount++;
+                    continue;
+                }
+                break;
+            }
+
+            if (renderResult == null || string.IsNullOrEmpty(renderResult.thumbnail))
+            {
+                return false;
+            }
+
+            var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData, password);
+            if (pageCount <= 0)
             {
                 return false;
             }
@@ -188,8 +214,12 @@ public class PdfDataService
                 FileName = fileName,
                 FileData = fileData,
                 PageCount = pageCount,
-                CoverThumbnail = coverThumbnail,
+                CoverThumbnail = renderResult.thumbnail,
                 IsFullyLoaded = false,
+                IsPasswordProtected = renderResult.isPasswordProtected,
+                IsOperationRestricted = renderResult.isOperationRestricted,
+                SecurityInfo = renderResult.securityInfo,
+                Password = password
             };
             _model.Files[fileId] = fileMetadata;
 
@@ -204,7 +234,7 @@ public class PdfDataService
                     FileId = fileId,
                     FileName = fileName,
                     OriginalPageIndex = i,
-                    Thumbnail = i == 0 ? coverThumbnail : "", // 1ページ目は表紙
+                    Thumbnail = i == 0 ? renderResult.thumbnail : "", // 1ページ目は表紙
                     PageData = "",
                     IsLoading = true,
                     HasThumbnailError = false,
@@ -238,10 +268,23 @@ public class PdfDataService
         }
     }
 
+    private async Task<string?> ShowPasswordInputDialogAsync(string fileName)
+    {
+        // シンプルなwindow.promptを使う場合（Blazor WASM/Server両対応）
+        return await _jsRuntime.InvokeAsync<string?>(
+            "prompt",
+            $"「{fileName}」はパスワード付きPDFです。パスワードを入力してください。",
+            ""
+        );
+    }
+
     public class RenderResult
     {
         public string thumbnail { get; set; } = "";
         public bool isError { get; set; }
+        public bool isPasswordProtected { get; set; }
+        public bool isOperationRestricted { get; set; }
+        public string securityInfo { get; set; } = "";
     }
     /// <summary>
     /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示，ファイル単位表示で処理切り分け）
@@ -290,14 +333,11 @@ public class PdfDataService
                     {
                         try
                         {
-                            Console.WriteLine($"[サムネイル生成開始] FileName: {pageItem.FileName}, FileId: {pageItem.FileId}, PageIndex: {pageItem.OriginalPageIndex}");
-
                             var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
-                                "renderPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex);
+                                "renderPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex, fileMetadata.Password);
                             pageItem.Thumbnail = renderResult.thumbnail;
                             pageItem.HasThumbnailError = renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail);
                             pageItem.IsLoading = false;
-                            Console.WriteLine($"[サムネイル生成完了] FileName: {pageItem.FileName}, FileId: {pageItem.FileId}, PageIndex: {pageItem.OriginalPageIndex}, Success: {!pageItem.HasThumbnailError}");
                             await InvokeOnChangeAsync();
                         }
                         catch
@@ -320,7 +360,7 @@ public class PdfDataService
 
                 try
                 {
-                    pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex);
+                    pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex, fileMetadata.Password);
                     pageItem.HasPageDataError = string.IsNullOrEmpty(pageItem.PageData);
                     pageItem.IsLoading = false;
                     await InvokeOnChangeAsync();

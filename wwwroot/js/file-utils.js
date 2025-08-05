@@ -73,7 +73,7 @@ async function ensureJsZipLoaded() {
 
 window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
     await ensureJsZipLoaded();
-    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) {
         alert('PDF.jsがロードされていません');
         return;
