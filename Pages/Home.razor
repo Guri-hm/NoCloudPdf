@@ -5,7 +5,7 @@
 <PageTitle>Home</PageTitle>
 
 <div class="flex flex-col items-center justify-center h-screen relative">
-    <h1 class="text-5xl md:text-6xl font-bold my-2">ClientPdf</h1>
+    <h1 class="text-5xl md:text-7xl font-bold my-2">ClientPdf</h1>
     <div class="flex items-center justify-center gap-6 mb-6">
         <div class="flex">
             <div
@@ -37,14 +37,15 @@
     </div>
 </div>
 
-<section class="max-w-3xl mx-auto space-y-8">
+<section class="max-w-3xl mx-auto space-y-8 pb-20">
     <div class="flex flex-col gap-8">
         <FadeInOnScroll>
             <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-8">
                 <div class="flex-1">
-                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-800">セキュア</h2>
-                    <p class="text-sm text-black">
-                        プライバシーが心配ですか？PDFの処理はすべてお使いの端末内で完結し、ファイルが外部に送信されることはありません。
+                    <h2 class="font-extrabold text-4xl md:text-5xl mb-3 text-purple-800"><i
+                            class="fa-solid fa-check"></i>セキュア</h2>
+                    <p class="text-base leading-relaxed text-black">
+                        セキュリティが心配ですか？PDFの処理はすべてお使いの端末内で完結し、ファイルが外部に送信されることはありません。
                     </p>
                 </div>
                 <div class="flex-shrink-0 flex justify-center">
@@ -56,9 +57,10 @@
         <FadeInOnScroll>
             <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-8">
                 <div class="flex-1 md:order-2">
-                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-800">シンプル</h2>
-                    <p class="text-sm text-black">
-                        すべての操作は直感的でシンプル。ドラッグ＆ドロップだけで簡単にPDFを扱えます。
+                    <h2 class="font-extrabold text-4xl md:text-5xl mb-3 text-purple-800"><i
+                            class="fa-solid fa-check"></i>シンプル</h2>
+                    <p class="text-base leading-relaxed text-black">
+                        操作は直感的でシンプル。ドラッグ＆ドロップだけで簡単にPDFを扱えます。
                     </p>
                 </div>
                 <div class="flex-shrink-0 flex justify-center md:order-1">
@@ -70,9 +72,10 @@
         <FadeInOnScroll>
             <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-8">
                 <div class="flex-1">
-                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-800">ご注意</h2>
-                    <p class="text-sm text-black">
-                        本アプリはすべての処理をお使いのブラウザ上で行うため、大きなPDFや複雑な処理の場合は動作が遅くなったり、端末の性能によっては処理が重く感じられることがあります。あらかじめご了承ください。
+                    <h2 class="font-extrabold text-4xl md:text-5xl mb-3 text-purple-800"><i
+                            class="fa-solid fa-triangle-exclamation"></i>ブラウザ</h2>
+                    <p class="text-base leading-relaxed text-black">
+                        すべての処理をお使いのブラウザ上で行うため、大きなPDFや複雑な処理の場合は動作が遅くなったり、端末の性能によっては処理が重く感じられることがあります。あらかじめご了承ください。
                     </p>
                 </div>
                 <div class="flex-shrink-0 flex justify-center">
@@ -84,12 +87,28 @@
         <FadeInOnScroll>
             <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-8">
                 <div class="flex-1 md:order-2">
-                    <h2 class="font-bold text-3xl md:text-4xl mb-1 text-purple-800">ご意見・ご報告のお願い</h2>
-                    <p class="text-sm text-black">
-                        本アプリに関するご感想やバグ報告などがありましたら、ぜひご連絡ください。皆さまのフィードバックをもとに、より使いやすいサービスを目指します。
+                    <h2 class="font-extrabold text-4xl md:text-5xl mb-3 text-purple-800"><i
+                            class="fa-solid fa-triangle-exclamation"></i>フォント</h2>
+                    <p class="text-base leading-relaxed text-black">
+                        Web技術の制約により、PDF内のフォントが正しく表示されない場合があります。処理後のPDFで文字化けや表示崩れが発生した場合は、PDF作成時にフォントを埋め込む設定になっているか、または標準フォントを使用しているかをご確認ください。
                     </p>
                 </div>
                 <div class="flex-shrink-0 flex justify-center md:order-1">
+                    <img src="img/letter-japanese-a-svgrepo-com.svg" alt="Feedback"
+                        class="min-w-[200px] max-w-[200px] w-full h-auto object-contain text-center" />
+                </div>
+            </div>
+        </FadeInOnScroll>
+        <FadeInOnScroll>
+            <div class="grid grid-cols-1 md:grid-cols-2 items-center gap-6 rounded-xl p-8">
+                <div class="flex-1">
+                    <h2 class="font-extrabold text-4xl md:text-5xl mb-3 text-purple-800"><i
+                            class="fa-solid fa-comment-dots"></i>ご意見</h2>
+                    <p class="text-base leading-relaxed text-black">
+                        本アプリに関するご感想やバグ報告などがありましたら、ぜひご連絡ください。皆さまのフィードバックをもとに、より使いやすいサービスを目指します。
+                    </p>
+                </div>
+                <div class="flex-shrink-0 flex justify-center">
                     <img src="img/comment-heart-1.svg" alt="Feedback"
                         class="min-w-[200px] max-w-[200px] w-full h-auto object-contain text-center" />
                 </div>
