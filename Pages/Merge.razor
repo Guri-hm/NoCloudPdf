@@ -67,7 +67,7 @@
 
         <!-- サムネイル編集エリア -->
         <div class="md:p-0 p-3 pb-24 md:pb-0">
-                        @if (DisplayItems.Any(item => item.RawData is PageItem pageItem && pageItem.IsLoading))
+            @if (DisplayItems.Any(item => item.RawData is PageItem pageItem && pageItem.IsLoading))
             {
                 <div class="w-full flex justify-center my-2">
                     <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded font-bold text-sm flex items-center gap-2">
@@ -76,12 +76,12 @@
                     </div>
                 </div>
             }
-            @if (DisplayItems.Any(item => item.RawData is PageItem pi && pi.IsPasswordProtected))
+            @if (DisplayItems.Any(item => item.RawData is PageItem pi && (pi.IsPasswordProtected || pi.IsOperationRestricted)))
             {
                 <div class="w-full flex justify-center my-2">
                     <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-900 p-3 rounded font-bold text-sm flex items-center gap-2">
                         <UnlockIcon Class="w-5 h-5 text-yellow-500" />
-                        パスワード付きPDFを解除して読み込んだページが含まれています。テキスト選択や検索、しおり等は利用できません（画像PDFとして扱われます）。
+                        制限付きPDFを解除して読み込んだページが含まれています。テキスト選択や検索、しおり等は利用できません（画像PDFとして扱われます）。
                     </div>
                 </div>
             }

@@ -150,9 +150,9 @@
                         </div>
                     }
                 }
-                @if (pageItem != null && pageItem.IsPasswordProtected)
+                @if (pageItem != null && pageItem.IsPasswordProtected || pageItem != null && pageItem.IsOperationRestricted)
                 {
-                    <UnlockIcon Class="absolute top-1 right-1 w-6 h-6 text-yellow-500" />
+                    <UnlockIcon Class="absolute top-[-25px] right-[35px] w-6 h-6 text-yellow-500" />
                 }
             </div>
             <!-- ファイル名・ページ数 -->

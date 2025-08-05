@@ -179,11 +179,28 @@ window.renderFirstPDFPage = async function (pdfData, password) {
             };
         }
 
-        // 権限情報取得
+        // 権限情報取得(基本取得できない)
         if (pdf && pdf._pdfInfo && pdf._pdfInfo.permissions) {
             // permissionsは配列で、印刷・編集禁止などの情報が入る
+            console.log("PDF permissions:", pdf._pdfInfo.permissions);
             isOperationRestricted = pdf._pdfInfo.permissions.length > 0;
             securityInfo += (isOperationRestricted ? " 操作制限あり" : "");
+        }
+
+        // 編集禁止などが判定できないので抽出を試行して判定
+        try {
+            const { PDFDocument } = pdfjsLib;
+            const pdfDoc = await PDFDocument.load(uint8Array);
+            // 1ページ目をコピー
+            const newPdf = await PDFDocument.create();
+            const [copiedPage] = await newPdf.copyPages(pdfDoc, [0]);
+            // ここまで成功すれば編集可能
+            newPdf.addPage(copiedPage);
+        } catch (extractError) {
+            // 編集不可（暗号化やパーミッション制限など）
+            isOperationRestricted = true;
+            isDegraded = true;
+            securityInfo += "編集不可PDF（画像PDFに変換）";
         }
 
         // サムネイル生成
@@ -604,7 +621,7 @@ window.unlockPdf = async function (pdfData, password) {
     const unlockedPdf = await PDFDocument.create();
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: 1.5 }); // 高解像度でレンダリングして劣化を軽減
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;

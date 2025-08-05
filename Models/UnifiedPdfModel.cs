@@ -43,6 +43,7 @@ public class PageItem
     public bool IsSelectedForExtract { get; set; } = false; // このページを抽出
     public bool IsPasswordProtected { get; set; } // パスワード保護フラグ
 
+    public bool IsOperationRestricted { get; set; } // 操作制限フラグ
 }
 
 /// <summary>

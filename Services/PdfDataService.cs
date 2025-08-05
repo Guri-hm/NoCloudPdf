@@ -184,7 +184,7 @@ public class PdfDataService
             {
                 renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password);
 
-                // パスワード付きPDFの場合はここで処理を分岐
+                // パスワード付きPDFの場合
                 if (renderResult.isPasswordProtected)
                 {
                     //fileMetadataに利用
@@ -206,6 +206,13 @@ public class PdfDataService
                         break;
                     retryCount++;
                     continue;
+                }
+
+                // 操作制限がある場合
+                if (renderResult.isOperationRestricted)
+                {
+                    var unlockedBase64 = await _jsRuntime.InvokeAsync<string>("unlockPdf", Convert.ToBase64String(fileData), password);
+                    fileData = Convert.FromBase64String(unlockedBase64);
                 }
                 break;
             }
@@ -254,6 +261,7 @@ public class PdfDataService
                     HasPageDataError = false,
                     ColorHsl = GenerateColorHsl(fileId),
                     IsPasswordProtected = wasPasswordProtected,
+                    IsOperationRestricted = renderResult.isOperationRestricted,
                 };
                 _model.Pages.Insert(baseIndex + i, loadingItem);
             }
