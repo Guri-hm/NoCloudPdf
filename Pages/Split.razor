@@ -92,7 +92,7 @@
                     </div>
                 </div>
             }
-            @if (HasAnyThumbnailError)
+            @if (HasAnyPageOrThumbnailError)
             {
                 <div class="w-full flex justify-center my-2">
                     <button class="px-4 py-2 border-2 border-yellow-400 text-yellow-700 bg-white rounded hover:bg-yellow-50 transition font-bold"
@@ -1408,8 +1408,9 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
     }
 
-    private bool HasAnyThumbnailError => DisplayItems.Any(item =>
-        item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError);
+    private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
+        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)

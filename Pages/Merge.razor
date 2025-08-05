@@ -74,7 +74,7 @@
                     </div>
                 </div>
             }
-            @if (HasAnyThumbnailError)
+            @if (HasAnyPageOrThumbnailError)
             {
                 <div class="w-full flex justify-center my-2">
                     <button class="px-4 py-2 border-2 border-yellow-400 text-yellow-700 bg-white rounded hover:bg-yellow-50 transition font-bold"
@@ -1098,8 +1098,10 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             StateHasChanged();
         }
     }
-        private bool HasAnyThumbnailError => DisplayItems.Any(item =>
-        item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError);
+
+    private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
+        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+        
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)
