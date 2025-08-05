@@ -150,7 +150,6 @@ window.renderFirstPDFPage = async function (pdfData, password) {
                         throw new Error("PasswordException");
                         // ここで再入力を促すUIを出すのが理想
                     } else {
-                        console.log(`別の理由`)
                         throw new Error("PasswordException");
                     }
                 };
