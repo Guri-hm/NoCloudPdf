@@ -243,7 +243,7 @@ window.renderPdfPage = async function (pdfData, pageIndex, password) {
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
         }
 
         // パスワード対応

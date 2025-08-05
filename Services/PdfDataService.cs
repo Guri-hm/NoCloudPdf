@@ -437,7 +437,7 @@ public class PdfDataService
                     }
                     else
                     {
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
+                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.Password);
                     }
                     thumbError = string.IsNullOrEmpty(thumbnail);
                     dataError = string.IsNullOrEmpty(pageData);
@@ -454,7 +454,7 @@ public class PdfDataService
                             try
                             {
                                 var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
-                                    "renderPdfPage", renderCts.Token, fileMetadata.FileData, pageIndex);
+                                    "renderPdfPage", renderCts.Token, fileMetadata.FileData, pageIndex, fileMetadata.Password);
                                 thumbnail = renderResult.thumbnail;
                                 thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
                             }
