@@ -1295,7 +1295,7 @@ public class PdfDataService
         setErrorMessage?.Invoke("");
         setWarnMessage?.Invoke("");
 
-        const long maxFileSize = 52428800; // 50MB
+        const long maxFileSize = 100 * 1024 * 1024; // 100MB
         const long maxTotalSize = 200 * 1024 * 1024; // 200MB
 
         // 合計サイズチェック
