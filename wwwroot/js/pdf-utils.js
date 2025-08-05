@@ -78,6 +78,7 @@ window.mergePDFPages = async function (pdfPageDataList) {
 
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
 window.renderFirstPDFPage = async function (pdfData, password) {
+
     try {
         // BlazorからのデータがUint8Arrayかどうかチェック
         let uint8Array;
@@ -242,6 +243,7 @@ window.renderFirstPDFPage = async function (pdfData, password) {
 
 // 指定したページのサムネイルを生成
 window.renderPdfPage = async function (pdfData, pageIndex) {
+
     try {
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
@@ -364,6 +366,7 @@ window.extractPdfPage = async function (pdfData, pageIndex) {
         } else {
             uint8Array = new Uint8Array(pdfData);
         }
+
         const pdfDoc = await PDFDocument.load(uint8Array);
         const newPdf = await PDFDocument.create();
 
@@ -518,6 +521,7 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
         console.error("pdfjsLib is not loaded");
         return;
     }
+
     const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
     for (let i = 0; i < canvasIds.length; i++) {
         const page = await pdf.getPage(i + 1);
@@ -549,6 +553,7 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
         console.warn("render in progress, skipping:", canvasId);
         return false;
     }
+
     window._canvasRendering[canvasId] = true;
     try {
         const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
