@@ -1362,14 +1362,14 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
     }
 
-    private async void ShowError(string msg)
+    private void ShowError(string msg)
     {
         errorMessage = msg;
         warnMessage = null;
         StateHasChanged();
     }
 
-    private async void ShowWarn(string msg)
+    private void ShowWarn(string msg)
     {
         warnMessage = msg;
         errorMessage = null;
