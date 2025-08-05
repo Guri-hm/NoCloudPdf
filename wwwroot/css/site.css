@@ -839,8 +839,8 @@ input[type=number] {
   .h-\[50px\] {
     height: 50px;
   }
-  .h-\[97vh\] {
-    height: 97vh;
+  .h-\[90vh\] {
+    height: 90vh;
   }
   .h-\[calc\(100vh-4rem\)\] {
     height: calc(100vh - 4rem);
@@ -1898,6 +1898,11 @@ input[type=number] {
   .md\:h-32 {
     @media (width >= 48rem) {
       height: calc(var(--spacing) * 32);
+    }
+  }
+  .md\:h-\[97vh\] {
+    @media (width >= 48rem) {
+      height: 97vh;
     }
   }
   .md\:h-full {
