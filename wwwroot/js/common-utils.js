@@ -14,7 +14,7 @@ window.fadeInOnScroll = {
                 }
             });
         };
-        const observer = new IntersectionObserver(cb, { threshold: 0.2 });
+        const observer = new IntersectionObserver(cb, { threshold: 0.5 });
         observer.observe(el);
     }
 };
