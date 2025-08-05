@@ -4,15 +4,13 @@
         @onclick="OpenFileDialog">
         <div
             class="w-[97%] h-[90vh] md:h-[97vh] border-2 border-dashed border-blue-300 hover:border-solid rounded-xl flex flex-col items-center justify-center bg-white/60 hover:bg-blue-100/60 transition-colors duration-200">
-            <span class="text-blue-500 text-xl font-bold select-none mb-8">ここにファイルをドロップ または ペースト</span>
+            <FileOpenIcon Class="w-24 h-24 text-blue-500"></FileOpenIcon>
+            <span class="text-blue-500 text-xl font-bold select-none mb-8 px-4">ここにファイルをドロップ または ペースト</span>
             <div class="text-center">
                 <div class="mb-1">
                     <ActionButtonGroup T="string" Actions="selectFileActions" HideLabelOnNarrow="false" />
                 </div>
-                <div class="mb-4 text-neutral-600 text-base">
-                    PDF，画像ファイルを追加
-                </div>
-                <div class="mb-6 text-neutral-500 text-sm">
+                <div class="mb-6 text-neutral-500 text-sm mt-8 px-4">
                     サポートされているファイル形式：<br />
                     <span class="inline-block mt-1 font-mono bg-gray-100 px-2 py-1 rounded">
                         .pdf, .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg
