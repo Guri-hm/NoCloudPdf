@@ -1325,6 +1325,7 @@ public class PdfDataService
                 continue;
             }
 
+            Console.WriteLine(ext);
             try
             {
                 // 許容する最大メモリを引数で指定
@@ -1348,6 +1349,7 @@ public class PdfDataService
                 else
                 {
                     setWarnMessage?.Invoke($"未対応のファイル形式です: {file.Name}");
+                    continue;
                 }
 
                 if (!success)
@@ -1367,6 +1369,7 @@ public class PdfDataService
         string fileName,
         string base64Data,
         Action<string>? setErrorMessage = null,
+        Action<string>? setWarnMessage = null,
         Func<string, byte[], Task<bool>>? onPdf = null,
         Func<string, byte[], Task<bool>>? onImage = null)
     {
@@ -1386,7 +1389,8 @@ public class PdfDataService
         }
         else
         {
-            setErrorMessage?.Invoke($"未対応のファイル形式です: {fileName}");
+            setWarnMessage?.Invoke($"未対応のファイル形式です: {fileName}");
+            return false;
         }
 
         if (!success)

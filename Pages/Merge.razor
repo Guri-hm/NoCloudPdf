@@ -919,7 +919,8 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
-                msg => errorMessage = msg,
+                msg => { errorMessage = msg; warnMessage = null; StateHasChanged(); },
+                msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); },
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );
