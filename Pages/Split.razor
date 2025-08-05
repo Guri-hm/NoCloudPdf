@@ -1359,26 +1359,13 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         errorMessage = msg;
         warnMessage = null;
         StateHasChanged();
-        await Task.Delay(5000);
-        if (errorMessage == msg) // 他のメッセージで上書きされていなければ
-        {
-            errorMessage = null;
-            StateHasChanged();
-        }
     }
-
 
     private async void ShowWarn(string msg)
     {
         warnMessage = msg;
         errorMessage = null;
         StateHasChanged();
-        await Task.Delay(5000);
-        if (warnMessage == msg)
-        {
-            warnMessage = null;
-            StateHasChanged();
-        }
     }
 
     private void ClearAllMessages()

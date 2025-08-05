@@ -219,7 +219,7 @@
 <!-- メッセージ表示エリア -->
 @if (!string.IsNullOrEmpty(errorMessage) || !string.IsNullOrEmpty(warnMessage))
 {
-    <MessageBar Message="@(errorMessage ?? warnMessage)" IsError="@(errorMessage != null)" OnClose="ClearAllMessages" />
+    <MessageBar Message="@(errorMessage ?? warnMessage)" IsError="@(errorMessage != null)" OnClose="ClearAllMessages"  AutoCloseMs="5000" />
 }
 
 <!-- ファイル選択用の隠しinput -->
@@ -1054,29 +1054,15 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     {
         errorMessage = msg;
         warnMessage = null;
-        await Task.Delay(5000);
-        if (errorMessage == msg) // 他のメッセージで上書きされていなければ
-        {
-            errorMessage = null;
-        }
         StateHasChanged();
-
     }
 
 
     private async void ShowWarn(string msg)
     {
-        Console.WriteLine($"ShowWarn called with message: {msg}");
         warnMessage = msg;
         errorMessage = null;
-        await Task.Delay(5000);
-        if (warnMessage == msg)
-        {
-            warnMessage = null;
-        }
-
         StateHasChanged();
-
     }
 
     private void ClearAllMessages()
