@@ -41,6 +41,8 @@ public class PageItem
     public string ColorHsl { get; set; } = ""; // 色（HSL形式） - ファイルIDから生成
     public int RotateAngle { get; set; } = 0; // 0, 90, 180, 270
     public bool IsSelectedForExtract { get; set; } = false; // このページを抽出
+    public bool IsPasswordProtected { get; set; } // パスワード保護フラグ
+
 }
 
 /// <summary>

@@ -252,7 +252,8 @@ public class PdfDataService
                     IsLoading = true,
                     HasThumbnailError = false,
                     HasPageDataError = false,
-                    ColorHsl = GenerateColorHsl(fileId)
+                    ColorHsl = GenerateColorHsl(fileId),
+                    IsPasswordProtected = wasPasswordProtected,
                 };
                 _model.Pages.Insert(baseIndex + i, loadingItem);
             }

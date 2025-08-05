@@ -1,6 +1,9 @@
 @using ClientPdfApp.Models
 @using Microsoft.AspNetCore.Components.Web
 
+@{
+    PageItem? pageItem = Item.RawData as PageItem;
+}
 <div class="sortable-item-container group flex flex-col md:flex-row items-center px-2 py-1 rounded gap-3 w-full md:w-auto" data-index="@Index">
 
     <div class="items-center relative mr-2 flex flex-row md:flex-col h-full justify-center w-full md:w-auto" data-position="@Index">
@@ -66,7 +69,7 @@
             @if (OperationMode == OperationMode.Extract)
             {
                 <div class="absolute top-2 left-2 z-10">
-                    <input  type="checkbox"                            
+                    <input type="checkbox"                            
                             checked="@Item.IsSelectedForExtract"
                             @onchange="() => OnSelectChanged.InvokeAsync(Index)"
                             class="form-checkbox h-6 w-6 accent-blue-500" />
@@ -97,7 +100,7 @@
                 }
                 else if (Item.HasError)
                 {
-                    @if (Item.RawData is PageItem pageItem && pageItem.HasPageDataError)
+                    @if (pageItem != null && pageItem.HasPageDataError)
                     {
                         <div class="page-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-red-700" title="クリックで再読み込み" 
                         @onclick="() => OnReloadPageItem.InvokeAsync(Item)"
@@ -147,12 +150,16 @@
                         </div>
                     }
                 }
+                @if (pageItem != null && pageItem.IsPasswordProtected)
+                {
+                    <UnlockIcon Class="absolute top-1 right-1 w-6 h-6 text-yellow-500" />
+                }
             </div>
             <!-- ファイル名・ページ数 -->
             <div class="flex flex-col justify-center min-w-0 flex-1 md:w-full md:mt-2">
                 <div class="file-info">
                     <div class="file-name truncate text-[11px] px-2 rounded" title="@Item.FullFileName"
-                        style="background:@(Item.RawData is PageItem pi ? pi.ColorHsl : Item.ColorHsl); margin: 2px 0;">
+                        style="background:@(pageItem != null ? pageItem.ColorHsl : Item.ColorHsl); margin: 2px 0;">
                         @Item.DisplayName
                     </div>
                     @if (Mode == DisplayMode.Page && !string.IsNullOrEmpty(Item.PageInfo))
