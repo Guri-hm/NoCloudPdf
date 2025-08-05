@@ -166,7 +166,7 @@
 @if (!IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
 {
     <!-- 初期画面：ファイル選択 -->
-    <SelectFilePanel OnOpenFileDialog="OpenFileDialog" isLoading="isLoading"/>
+    <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
 
 @if (CompletionState.ShowSplitOrExtractResult)
@@ -318,7 +318,6 @@
             _dropAreaRegistered = false;
         }
     }
-    private bool isLoading = false;
     private bool isBusy = false;
     private string? errorMessage;
     private string? warnMessage;
@@ -1037,9 +1036,7 @@
             e,
             insertPosition >= 0 ? insertPosition : null,
             msg => { errorMessage = msg; warnMessage = null; StateHasChanged(); },
-            msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); },
-            () => isLoading = true,
-            () => isLoading = false
+            msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); }
         );
         insertPosition = -1;
         isBusy = false;

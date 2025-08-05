@@ -142,7 +142,7 @@
 @if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
 {
     <!-- 初期画面：ファイル選択 -->
-    <SelectFilePanel OnOpenFileDialog="OpenFileDialog" isLoading="isLoading"/>
+    <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
 
 @if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
@@ -250,7 +250,6 @@
         PdfDataService.OnChange -= OnServiceChanged;
         _dotNetRef?.Dispose();
     }
-    private bool isLoading = false;
     private bool isBusy = false;
     private string? mergedPdfUrl;
     private string? errorMessage;
@@ -770,9 +769,7 @@
             e,
             insertPosition >= 0 ? insertPosition : null,
             msg => { errorMessage = msg; warnMessage = null; StateHasChanged(); },
-            msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); },
-            () => isLoading = true,
-            () => isLoading = false
+            msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); }
         );
         insertPosition = -1;
         isBusy = false;

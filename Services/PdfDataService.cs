@@ -1288,13 +1288,10 @@ public class PdfDataService
     InputFileChangeEventArgs e,
     int? insertPosition = null,
     Action<string>? setErrorMessage = null,
-    Action<string>? setWarnMessage = null,
-    Action? setIsLoading = null,
-    Action? setIsLoaded = null)
+    Action<string>? setWarnMessage = null)
     {
         if (e.FileCount == 0) return;
 
-        setIsLoading?.Invoke();
         setErrorMessage?.Invoke("");
         setWarnMessage?.Invoke("");
 
@@ -1306,7 +1303,6 @@ public class PdfDataService
         if (TotalFileSize + newFilesSize > maxTotalSize)
         {
             setWarnMessage?.Invoke($"合計ファイルサイズが上限（{maxTotalSize / 1024 / 1024}MB）を超えています。");
-            setIsLoaded?.Invoke();
             return;
         }
 
@@ -1357,7 +1353,6 @@ public class PdfDataService
             }
         }
 
-        setIsLoaded?.Invoke();
     }
 
     public async Task<bool> HandleDroppedFileAsync(
