@@ -99,6 +99,10 @@ window.renderFirstPDFPage = async function (pdfData, password) {
             throw new Error('Data too short to be valid PDF');
         }
 
+        // 抽出試行時に使用
+        // PDF.jsによる読取後にuint8Arrayがdetachされるためコピーを用意
+        const freshArray = new Uint8Array(uint8Array);
+
         const header = String.fromCharCode.apply(null, uint8Array.slice(0, 8));
         if (!header.startsWith('%PDF-')) {
             throw new Error(`Invalid PDF header: ${header}`);
@@ -189,8 +193,8 @@ window.renderFirstPDFPage = async function (pdfData, password) {
 
         // 編集禁止などが判定できないので抽出を試行して判定
         try {
-            const { PDFDocument } = pdfjsLib;
-            const pdfDoc = await PDFDocument.load(uint8Array);
+            const { PDFDocument } = PDFLib;
+            const pdfDoc = await PDFDocument.load(freshArray);
             // 1ページ目をコピー
             const newPdf = await PDFDocument.create();
             const [copiedPage] = await newPdf.copyPages(pdfDoc, [0]);
@@ -198,6 +202,7 @@ window.renderFirstPDFPage = async function (pdfData, password) {
             newPdf.addPage(copiedPage);
         } catch (extractError) {
             // 編集不可（暗号化やパーミッション制限など）
+            console.warn("PDF extraction failed, likely due to restrictions:", extractError);
             isOperationRestricted = true;
             isDegraded = true;
             securityInfo += "編集不可PDF（画像PDFに変換）";
@@ -359,7 +364,6 @@ window.extractPdfPage = async function (pdfData, pageIndex) {
         } else {
             uint8Array = new Uint8Array(pdfData);
         }
-
         const pdfDoc = await PDFDocument.load(uint8Array);
         const newPdf = await PDFDocument.create();
 
