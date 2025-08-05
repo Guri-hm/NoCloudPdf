@@ -220,7 +220,7 @@ window.renderFirstPDFPage = async function (pdfData, password) {
 };
 
 // 指定したページのサムネイルを生成
-window.renderPdfPage = async function (pdfData, pageIndex, password) {
+window.renderPdfPage = async function (pdfData, pageIndex) {
     try {
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
@@ -246,53 +246,9 @@ window.renderPdfPage = async function (pdfData, pageIndex, password) {
             pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
         }
 
-        // パスワード対応
-        let isPasswordProtected = false;
-        let securityInfo = "";
-        let pdf = null;
-        let lastError = null;
-
-        try {
-            const loadingTask = pdfjsLib.getDocument({
-                data: uint8Array,
-                password: password || undefined
-            });
-            loadingTask.onPassword = function (callback, reason) {
-                if (reason === pdfjsLib.PasswordResponses.NEED_PASSWORD) {
-                    // パスワードが必要
-                    throw new Error("PasswordException");
-                } else if (reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD) {
-                    // パスワードが間違っている
-                    console.log(`パスワードが間違っています。`)
-                    throw new Error("PasswordException");
-                    // ここで再入力を促すUIを出すのが理想
-                } else {
-                    console.log(`別の理由`)
-                    throw new Error("PasswordException");
-                }
-            };
-            pdf = await loadingTask.promise;
-        } catch (error) {
-            lastError = error;
-            if (error && error.name === "PasswordException") {
-                isPasswordProtected = true;
-                securityInfo = "パスワード付きPDF";
-            } else {
-                throw error;
-            }
-        }
-
-        if (isPasswordProtected || !pdf) {
-            return {
-                thumbnail: "",
-                isError: true,
-                isPasswordProtected,
-                securityInfo: securityInfo || "パスワード付きPDF"
-            };
-        }
-
-        // 指定ページのサムネイル生成
+        let pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
         let thumbnail = "";
+
         try {
             const page = await pdf.getPage(pageIndex + 1);
             const viewport = page.getViewport({ scale: 1 });
@@ -324,7 +280,7 @@ window.renderPdfPage = async function (pdfData, pageIndex, password) {
 };
 
 // PDFのページ数のみ取得
-window.getPDFPageCount = async function (pdfData, password) {
+window.getPDFPageCount = async function (pdfData) {
     try {
         let uint8Array;
         if (pdfData instanceof Uint8Array) {
@@ -353,8 +309,7 @@ window.getPDFPageCount = async function (pdfData, password) {
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
             stopAtErrors: false,
-            verbosity: 1,
-            password: password || undefined
+            verbosity: 1
         });
         const pdf = await loadingTask.promise;
         return pdf.numPages;
@@ -365,9 +320,9 @@ window.getPDFPageCount = async function (pdfData, password) {
 };
 
 // 個別のPDFデータとして抽出する関数
-window.extractPdfPage = async function (pdfData, pageIndex, password) {
-    try {
+window.extractPdfPage = async function (pdfData, pageIndex) {
 
+    try {
         const { PDFDocument } = PDFLib;
         if (!PDFDocument) {
             throw new Error('PDF-lib library not loaded');
@@ -389,57 +344,7 @@ window.extractPdfPage = async function (pdfData, pageIndex, password) {
             uint8Array = new Uint8Array(pdfData);
         }
 
-        // パスワード付きPDF対応
-        let pdfDoc;
-        try {
-            // PDF-libはパスワード付きPDFの復号に対応していません
-            // なのでPDF.jsで該当ページを抽出し、そのバイナリをPDF-libで扱う必要があります
-            if (password) {
-                const pdfjsLib = window.pdfjsLib;
-                if (!pdfjsLib) throw new Error('PDF.js library not loaded');
-                if (pdfjsLib.GlobalWorkerOptions) {
-                    pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
-                }
-                // PDF.jsでパスワード付きPDFを開く
-                const loadingTask = pdfjsLib.getDocument({
-                    data: uint8Array,
-                    password: password
-                });
-                loadingTask.onPassword = function (callback, reason) {
-                    // パスワードが必要 or 間違っている場合は失敗させる
-                    callback(null);
-                };
-                const pdf = await loadingTask.promise;
-                if (pageIndex >= pdf.numPages) {
-                    // 範囲外なら空白ページ
-                    const blankPdf = await PDFDocument.create();
-                    blankPdf.addPage([595.28, 841.89]);
-                    const pdfBytes = await blankPdf.save();
-                    let binary = '';
-                    for (let j = 0; j < pdfBytes.length; j++) {
-                        binary += String.fromCharCode(pdfBytes[j]);
-                    }
-                    return btoa(binary);
-                }
-                // ページを抽出
-                const page = await pdf.getPage(pageIndex + 1);
-                const pdfData = await page.pdfManager.stream.bytes;
-                pdfDoc = await PDFDocument.load(pdfData);
-            } else {
-                pdfDoc = await PDFDocument.load(uint8Array);
-            }
-        } catch (e) {
-            // パスワード付きPDFで失敗した場合は空白ページ
-            const blankPdf = await PDFDocument.create();
-            blankPdf.addPage([595.28, 841.89]);
-            const pdfBytes = await blankPdf.save();
-            let binary = '';
-            for (let j = 0; j < pdfBytes.length; j++) {
-                binary += String.fromCharCode(pdfBytes[j]);
-            }
-            return btoa(binary);
-        }
-
+        const pdfDoc = await PDFDocument.load(uint8Array);
         const newPdf = await PDFDocument.create();
 
         try {
@@ -467,7 +372,7 @@ window.extractPdfPage = async function (pdfData, pageIndex, password) {
         try {
             const { PDFDocument } = PDFLib;
             const blankPdf = await PDFDocument.create();
-            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ペ�Eジ
+            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ページ
             const pdfBytes = await blankPdf.save();
 
             let binary = '';
@@ -566,7 +471,6 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     canvas.height = viewport.height;
     const context = canvas.getContext('2d');
     await page.render({ canvasContext: context, viewport: viewport }).promise;
-
     // 画像データとして返す
     return canvas.toDataURL('image/jpeg', 0.85);
 };
@@ -673,4 +577,49 @@ window.drawImageToCanvas = function (canvasId, imageUrl) {
             drawWidth, drawHeight);
     };
     img.src = imageUrl;
+};
+
+window.unlockPdf = async function (pdfData, password) {
+    const pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) throw new Error('PDF.js library not loaded');
+    if (pdfjsLib.GlobalWorkerOptions) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
+    }
+    // base64→Uint8Array変換
+    let uint8Array;
+    if (typeof pdfData === 'string') {
+        const binaryString = atob(pdfData);
+        uint8Array = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            uint8Array[i] = binaryString.charCodeAt(i);
+        }
+    } else {
+        uint8Array = pdfData;
+    }
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array, password: password });
+    const pdf = await loadingTask.promise;
+
+    // PDF-libで新PDFを作成
+    // 画像化するので劣化（クライアントサイドの仕様上）
+    const { PDFDocument } = PDFLib;
+    const unlockedPdf = await PDFDocument.create();
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1 });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const context = canvas.getContext('2d');
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        const imgData = canvas.toDataURL('image/png');
+        const img = await unlockedPdf.embedPng(imgData);
+        const pdfPage = unlockedPdf.addPage([viewport.width, viewport.height]);
+        pdfPage.drawImage(img, { x: 0, y: 0, width: viewport.width, height: viewport.height });
+    }
+    const pdfBytes = await unlockedPdf.save();
+    let binary = '';
+    for (let i = 0; i < pdfBytes.length; i++) {
+        binary += String.fromCharCode(pdfBytes[i]);
+    }
+    return btoa(binary);
 };

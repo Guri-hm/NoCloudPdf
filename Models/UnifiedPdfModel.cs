@@ -59,7 +59,6 @@ public class FileMetadata
     public bool IsPasswordProtected { get; set; } // パスワード保護フラグ
     public bool IsOperationRestricted { get; set; } // 操作制限フラグ
     public string? SecurityInfo { get; set; } // 詳細なセキュリティ情報
-    public string? Password { get; set; }
 }
 
 /// <summary>
