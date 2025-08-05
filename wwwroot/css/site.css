@@ -365,7 +365,6 @@ input[type=number] {
     --color-yellow-100: oklch(97.3% 0.071 103.193);
     --color-yellow-400: oklch(85.2% 0.199 91.936);
     --color-yellow-500: oklch(79.5% 0.184 86.047);
-    --color-yellow-600: oklch(68.1% 0.162 75.834);
     --color-yellow-700: oklch(55.4% 0.135 66.442);
     --color-yellow-800: oklch(47.6% 0.114 61.907);
     --color-yellow-900: oklch(42.1% 0.095 57.708);
@@ -653,9 +652,6 @@ input[type=number] {
   }
   .right-0 {
     right: calc(var(--spacing) * 0);
-  }
-  .right-1 {
-    right: calc(var(--spacing) * 1);
   }
   .right-4 {
     right: calc(var(--spacing) * 4);
@@ -2007,20 +2003,26 @@ input[type=number] {
       gap: calc(var(--spacing) * 2);
     }
   }
-  .md\:gap-3 {
-    @media (width >= 48rem) {
-      gap: calc(var(--spacing) * 3);
-    }
-  }
   .md\:gap-x-0 {
     @media (width >= 48rem) {
       -moz-column-gap: calc(var(--spacing) * 0);
            column-gap: calc(var(--spacing) * 0);
     }
   }
+  .md\:gap-x-3 {
+    @media (width >= 48rem) {
+      -moz-column-gap: calc(var(--spacing) * 3);
+           column-gap: calc(var(--spacing) * 3);
+    }
+  }
   .md\:gap-y-1 {
     @media (width >= 48rem) {
       row-gap: calc(var(--spacing) * 1);
+    }
+  }
+  .md\:gap-y-\[30px\] {
+    @media (width >= 48rem) {
+      row-gap: 30px;
     }
   }
   .md\:rounded-lg {
