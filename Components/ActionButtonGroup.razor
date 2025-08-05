@@ -14,13 +14,21 @@
             class="@($"{action.ButtonClass} px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 {roundedClass} {borderClass}")"
             @onclick="() => action.OnClick.InvokeAsync()"
             @onclick:stopPropagation="action.StopPropagation" title="@action.Title">
-            @if ((string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "left") &&
-                    !string.IsNullOrEmpty(action.IconHtml))
+
+            @if (string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "left")
             {
-                <span class="@(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
-                    @((MarkupString)action.IconHtml)
-                </span>
+                if (action.Icon != null)
+                {
+                    @action.Icon
+                }
+                else if (!string.IsNullOrEmpty(action.IconHtml))
+                {
+                    <span class="@(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
+                        @((MarkupString)action.IconHtml)
+                    </span>
+                }
             }
+
             <span class="flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "") @(string.IsNullOrEmpty(action.ButtonClass) ? "text-gray-800" : "text-white")">
                 @action.Label
             </span>

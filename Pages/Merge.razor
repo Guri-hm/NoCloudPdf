@@ -35,7 +35,9 @@
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                                 </svg>
-                                <span class="hidden xl:inline">追加</span>
+                                <span class="hidden xl:inline">
+                                    追加
+                                </span>
                             </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
@@ -824,7 +826,12 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         new ActionButtonItem
         {
             Label = "左",
-            IconHtml = "<span class='material-symbols-outlined'>rotate_left</span>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateLeftIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
             Title = "左回転",
             OnClick = EventCallback.Factory.Create(this, RotateAllLeft),
             IconPosition = "left"
@@ -832,7 +839,12 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         new ActionButtonItem
         {
             Label = "右",
-            IconHtml = "<span class='material-symbols-outlined'>rotate_right</span>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateRightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
             Title = "右回転",
             OnClick = EventCallback.Factory.Create(this, RotateAllRight),
             IconPosition = "left"
