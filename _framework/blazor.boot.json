@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdfApp",
   "resources": {
-    "hash": "sha256-F/xKxkirg7tGXdiJtEgHSBU7Wy+T9UgaKWGIgFstQG0=",
+    "hash": "sha256-QtyxhSBgRDXsUUXNXb/yt7OQdPu0o3tEWIJsfhw246w=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.qy3eb9ccot.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.vu7xy25xil.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -36,9 +36,9 @@
       "System.Text.RegularExpressions.ce28mje8pi.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.cy526l72bt.wasm": "System.Threading.wasm",
       "System.Private.CoreLib.c7ld46x0j4.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdfApp.gdre9djh18.wasm": "NoCloudPdfApp.wasm",
+      "NoCloudPdfApp.1cflvqykhd.wasm": "NoCloudPdfApp.wasm",
       "dotnet.native.490rfvce2d.js": "dotnet.native.js",
-      "dotnet.native.u80l2xrpjq.wasm": "dotnet.native.wasm",
+      "dotnet.native.d1pe3pi3kc.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.ew19f13umk.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -52,7 +52,7 @@
       "dotnet.runtime.ew19f13umk.js": "sha256-Isv/63htfX73xgn3/2cZMtk4S8xBcbmlXRgJMDv4mhI="
     },
     "wasmNative": {
-      "dotnet.native.u80l2xrpjq.wasm": "sha256-grVYlzr1MLDHKwn3Khxzru01fObjOZ1ak0KD36JfEZs="
+      "dotnet.native.d1pe3pi3kc.wasm": "sha256-v8LwShoXjl3rcD3HCFU/Dw1N8cEwq/m3SbCeL6YjTFs="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -93,7 +93,7 @@
       "System.Text.RegularExpressions.ce28mje8pi.wasm": "sha256-3F/WWSI6FXzuweLYobbc39eeq31n/iZx4Hg4cMdS2Xc=",
       "System.Threading.cy526l72bt.wasm": "sha256-XEsgkzB/5E/EJIekQAKL/++ZBvHe055n9Zo6Q2Ce2Zo=",
       "System.Private.CoreLib.c7ld46x0j4.wasm": "sha256-mBi0R1058VpPTDeGxct5/yX0jBQ/Fe45LN72TdvuR28=",
-      "NoCloudPdfApp.gdre9djh18.wasm": "sha256-7BDzX94PpsWLVWvAmUpRT+grxu0tqJuRi32w5pBZp7g="
+      "NoCloudPdfApp.1cflvqykhd.wasm": "sha256-4YdwaL2z4xFhcvTv9tU4/+E6gf2pdlGU/nhIyrIKNto="
     },
     "assembly": {}
   },
