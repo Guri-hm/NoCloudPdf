@@ -1,7 +1,11 @@
 @inject IJSRuntime JS
 
-<button class="bg-blue-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-blue-700 transition"
+@* <button class="bg-blue-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-blue-700 transition"
     @onclick="InstallPwaAsync" style="display:@(canInstall ? "block" : "none")">
+    インストール
+</button> *@
+<button class="bg-blue-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-blue-700 transition"
+    @onclick="InstallPwaAsync">
     インストール
 </button>
 
@@ -14,9 +18,9 @@
         if (firstRender)
         {
             jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/install-pwa.js");
-            canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
-            Console.WriteLine($"Install prompt available: {canInstall}");
-            StateHasChanged();
+            //canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
+            //Console.WriteLine($"Install prompt available: {canInstall}");
+            //StateHasChanged();
         }
     }
 
@@ -24,7 +28,18 @@
     {
         if (jsModule != null)
         {
-            await jsModule.InvokeVoidAsync("showInstallPrompt");
+            //await jsModule.InvokeVoidAsync("showInstallPrompt");
+
+            bool available = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
+            if (available)
+            {
+                await jsModule.InvokeVoidAsync("showInstallPrompt");
+            }
+            else
+            {
+                // すでにインストール済みか、まだインストール不可
+                Console.WriteLine("インストールできません");
+            }
         }
     }
 }
