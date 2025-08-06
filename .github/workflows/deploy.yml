@@ -22,7 +22,8 @@ jobs:
         run: dotnet restore
 
       - name: Build and publish
-        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish
+        # run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish
+        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish --blazorwasm-aot
 
       - name: Rewrite base href for GitHub Pages
         run: sed -i 's|<base href="%(BaseHref)">|<base href="/NoCloudPdfApp/">|g' publish/wwwroot/index.html

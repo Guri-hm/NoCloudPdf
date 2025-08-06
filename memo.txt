@@ -14,4 +14,7 @@ git push origin v1.0
 v1.0 2025/08/06
 
 【発行】
-dotnet publish ./NoCloudPdfApp/NoCloudPdfApp.csproj -c Release -o publish
+dotnet publish NoCloudPdfApp.csproj -c Release -o publish
+
+AOTコンパイルは下記
+dotnet publish NoCloudPdfApp.csproj -c Release -o publish --blazorwasm-aot
