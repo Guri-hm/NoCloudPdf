@@ -115,9 +115,9 @@ window.renderFirstPDFPage = async function (pdfData, password) {
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
         } else if (pdfjsLib.workerSrc) {
-            pdfjsLib.workerSrc = '/lib/pdf.worker.mjs';
+            pdfjsLib.workerSrc = './lib/pdf.worker.mjs';
         }
 
         if (uint8Array.length < 1024) {
@@ -266,7 +266,7 @@ window.renderPdfPage = async function (pdfData, pageIndex) {
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
         }
 
         let pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
@@ -326,7 +326,7 @@ window.getPDFPageCount = async function (pdfData) {
         }
 
         if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
         }
 
         const loadingTask = pdfjsLib.getDocument({
@@ -437,7 +437,7 @@ window.createBlankPage = async function () {
 window.renderSinglePDFPage = async function (pdfData) {
     try {
         const pdfjsLib = window.pdfjsLib;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
 
         // base64文字列をUint8Arrayに変換
         const binaryString = atob(pdfData);
@@ -608,7 +608,7 @@ window.unlockPdf = async function (pdfData, password) {
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js library not loaded');
     if (pdfjsLib.GlobalWorkerOptions) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
     }
     // base64→Uint8Array変換
     let uint8Array;
