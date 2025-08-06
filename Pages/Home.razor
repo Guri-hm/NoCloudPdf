@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using NoCloudPdfApp.Pages
 @using NoCloudPdfApp.Components
+@inject NavigationManager Nav
 
 <PageTitle>NoCloudPDF</PageTitle>
 
@@ -131,7 +132,7 @@
             <p class="text-gray-700 text-center mb-4">
                 複数のPDFや画像ファイルを<br />ひとつのPDFにまとめます。
             </p>
-            <a href="/merge" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+            <a href="@($"{Nav.BaseUri}merge")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
                 結合ページへ
             </a>
         </div>
@@ -142,7 +143,7 @@
             <p class="text-gray-700 text-center mb-4">
                 PDFファイルをページごとに<br />分割して保存できます。
             </p>
-            <a href="/split" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+            <a href="@($"{Nav.BaseUri}split")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
                 分割ページへ
             </a>
         </div>
