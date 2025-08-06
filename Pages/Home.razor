@@ -4,7 +4,7 @@
 
 <PageTitle>NoCloudPDF</PageTitle>
 
-<div class="flex flex-col items-center justify-center h-screen relative">
+<div class="flex flex-col items-center justify-center h-screen relative bg-gradient-home">
     <h1 class="text-5xl md:text-7xl font-bold my-2">No Cloud PDF</h1>
 
     <img src="img/logo.svg" alt="NoCloudPDF">
@@ -117,6 +117,35 @@
                 </div>
             </div>
         </FadeInOnScroll>
+    </div>
+</section>
+<section class="max-w-3xl mx-auto py-12">
+    <h2 class="text-3xl md:text-4xl font-bold text-center mb-8">
+        今すぐPDFを操作してみましょう
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- 左：結合 -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6">
+            <MergeIcon Class="w-8 h-8" />
+            <h3 class="text-xl font-bold text-purple-700 mb-2">PDF結合</h3>
+            <p class="text-gray-700 text-center mb-4">
+                複数のPDFや画像ファイルを<br />ひとつのPDFにまとめます。
+            </p>
+            <a href="/merge" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                結合ページへ
+            </a>
+        </div>
+        <!-- 右：分割 -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6">
+            <SplitIcon Class="w-8 h-8" />
+            <h3 class="text-xl font-bold text-purple-700 mb-2">PDF分割</h3>
+            <p class="text-gray-700 text-center mb-4">
+                PDFファイルをページごとに<br />分割して保存できます。
+            </p>
+            <a href="/split" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                分割ページへ
+            </a>
+        </div>
     </div>
 </section>
 <footer class="w-full bg-gradient-to-r from-purple-100 via-gray-100 to-blue-100 border-t mt-12 py-8 shadow-inner">
