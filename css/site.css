@@ -347,6 +347,15 @@ input[type=number] {
 .rotate-270 {
   transform: rotate(270deg);
 }
+.checkerboard-bg {
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+}
 @layer theme, base, components, utilities;
 @layer theme {
   :root, :host {
@@ -379,6 +388,7 @@ input[type=number] {
     --color-blue-600: oklch(54.6% 0.245 262.881);
     --color-blue-700: oklch(48.8% 0.243 264.376);
     --color-blue-900: oklch(37.9% 0.146 265.522);
+    --color-purple-100: oklch(94.6% 0.033 307.174);
     --color-purple-500: oklch(62.7% 0.265 303.9);
     --color-purple-700: oklch(49.6% 0.265 301.924);
     --color-purple-800: oklch(43.8% 0.218 303.724);
@@ -759,6 +769,9 @@ input[type=number] {
   }
   .mt-8 {
     margin-top: calc(var(--spacing) * 8);
+  }
+  .mt-12 {
+    margin-top: calc(var(--spacing) * 12);
   }
   .mr-1 {
     margin-right: calc(var(--spacing) * 1);
@@ -1323,12 +1336,6 @@ input[type=number] {
   .bg-gray-300 {
     background-color: var(--color-gray-300);
   }
-  .bg-gray-700\/70 {
-    background-color: color-mix(in srgb, oklch(37.3% 0.034 259.733) 70%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-gray-700) 70%, transparent);
-    }
-  }
   .bg-gray-800 {
     background-color: var(--color-gray-800);
   }
@@ -1373,6 +1380,23 @@ input[type=number] {
   }
   .bg-yellow-400 {
     background-color: var(--color-yellow-400);
+  }
+  .bg-gradient-to-r {
+    --tw-gradient-position: to right in oklab;
+    background-image: linear-gradient(var(--tw-gradient-stops));
+  }
+  .from-purple-100 {
+    --tw-gradient-from: var(--color-purple-100);
+    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+  }
+  .via-gray-100 {
+    --tw-gradient-via: var(--color-gray-100);
+    --tw-gradient-via-stops: var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-via) var(--tw-gradient-via-position), var(--tw-gradient-to) var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-via-stops);
+  }
+  .to-blue-100 {
+    --tw-gradient-to: var(--color-blue-100);
+    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
   }
   .object-contain {
     -o-object-fit: contain;
@@ -1431,6 +1455,9 @@ input[type=number] {
   }
   .py-8 {
     padding-block: calc(var(--spacing) * 8);
+  }
+  .py-12 {
+    padding-block: calc(var(--spacing) * 12);
   }
   .pb-20 {
     padding-bottom: calc(var(--spacing) * 20);
@@ -1531,6 +1558,9 @@ input[type=number] {
   .text-blue-600 {
     color: var(--color-blue-600);
   }
+  .text-blue-700 {
+    color: var(--color-blue-700);
+  }
   .text-blue-900 {
     color: var(--color-blue-900);
   }
@@ -1563,6 +1593,9 @@ input[type=number] {
   }
   .text-purple-500 {
     color: var(--color-purple-500);
+  }
+  .text-purple-700 {
+    color: var(--color-purple-700);
   }
   .text-purple-800 {
     color: var(--color-purple-800);
@@ -1627,6 +1660,10 @@ input[type=number] {
   }
   .shadow-\[0_15px_20px_rgba\(0\,0\,0\,0\.5\)\] {
     --tw-shadow: 0 15px 20px var(--tw-shadow-color, rgba(0,0,0,0.5));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .shadow-inner {
+    --tw-shadow: inset 0 2px 4px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .shadow-lg {
@@ -1928,6 +1965,11 @@ input[type=number] {
       margin-block: calc(var(--spacing) * 0.5);
     }
   }
+  .md\:mt-0 {
+    @media (width >= 48rem) {
+      margin-top: calc(var(--spacing) * 0);
+    }
+  }
   .md\:mt-1 {
     @media (width >= 48rem) {
       margin-top: calc(var(--spacing) * 1);
@@ -2120,6 +2162,17 @@ input[type=number] {
       padding-bottom: calc(var(--spacing) * 0);
     }
   }
+  .md\:text-right {
+    @media (width >= 48rem) {
+      text-align: right;
+    }
+  }
+  .md\:text-4xl {
+    @media (width >= 48rem) {
+      font-size: var(--text-4xl);
+      line-height: var(--tw-leading, var(--text-4xl--line-height));
+    }
+  }
   .md\:text-5xl {
     @media (width >= 48rem) {
       font-size: var(--text-5xl);
@@ -2244,6 +2297,48 @@ input[type=number] {
   syntax: "*";
   inherits: false;
   initial-value: solid;
+}
+@property --tw-gradient-position {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-gradient-from {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #0000;
+}
+@property --tw-gradient-via {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #0000;
+}
+@property --tw-gradient-to {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #0000;
+}
+@property --tw-gradient-stops {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-gradient-via-stops {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-gradient-from-position {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@property --tw-gradient-via-position {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+@property --tw-gradient-to-position {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 100%;
 }
 @property --tw-leading {
   syntax: "*";
@@ -2407,6 +2502,15 @@ input[type=number] {
       --tw-space-y-reverse: 0;
       --tw-divide-x-reverse: 0;
       --tw-border-style: solid;
+      --tw-gradient-position: initial;
+      --tw-gradient-from: #0000;
+      --tw-gradient-via: #0000;
+      --tw-gradient-to: #0000;
+      --tw-gradient-stops: initial;
+      --tw-gradient-via-stops: initial;
+      --tw-gradient-from-position: 0%;
+      --tw-gradient-via-position: 50%;
+      --tw-gradient-to-position: 100%;
       --tw-leading: initial;
       --tw-font-weight: initial;
       --tw-shadow: 0 0 #0000;

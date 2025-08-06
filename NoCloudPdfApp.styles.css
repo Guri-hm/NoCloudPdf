@@ -109,3 +109,7 @@ main[b-mf1h5q9ie4] {
         overflow-y: auto;
     }
 }
+/* /Pages/Home.razor.rz.scp.css */
+.bg-gradient-home[b-gkqj9uvn8i] {
+    background: linear-gradient(to bottom, #d7dfe9 0%, #F8FBFF 50%, #F5F5F5 100%);
+}
