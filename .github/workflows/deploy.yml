@@ -22,7 +22,10 @@ jobs:
         run: dotnet restore
 
       - name: Build and publish
-        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish --base-path /NoCloudPdfApp/
+        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish
+
+      - name: Rewrite base href for GitHub Pages
+        run: sed -i 's|<base href="/">|<base href="/NoCloudPdfApp/">|g' publish/wwwroot/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
