@@ -36,6 +36,9 @@ jobs:
       - name: Rewrite base href for GitHub Pages
         run: sed -i 's|<base href="%(BaseHref)">|<base href="/NoCloudPdfApp/">|g' publish/wwwroot/index.html
 
+      - name: Copy index.html to 404.html
+        run: cp publish/wwwroot/index.html publish/wwwroot/404.html
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
