@@ -37,7 +37,7 @@ jobs:
         # AOT+不要コードの除去
         run: dotnet publish NoCloudPdf.csproj -c Release -o publish -p:RunAOTCompilation=true -p:PublishTrimmed=true
 
-      - #name: Rewrite base href for GitHub Pages
+        #name: Rewrite base href for GitHub Pages
         #run: sed -i 's|<base href="%(BaseHref)">|<base href="/NoCloudPdf/">|g' publish/wwwroot/index.html
 
       - name: Copy index.html to 404.html
