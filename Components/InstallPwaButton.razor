@@ -18,8 +18,8 @@
         if (firstRender)
         {
             jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/install-pwa.js");
-            //canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
-            //Console.WriteLine($"Install prompt available: {canInstall}");
+            canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
+            Console.WriteLine($"Install prompt available: {canInstall}");
             //StateHasChanged();
         }
     }
