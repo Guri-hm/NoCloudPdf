@@ -1,8 +1,8 @@
 <div
-    class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(IsDragOver ? "opacity-100" : "opacity-0")">
+    class="drop-cover pointer-events-none absolute inset-0 m-4 flex items-center justify-center z-[100] transition-all duration-200 @(IsDragOver ? "opacity-60" : "opacity-0")">
     <div
-        class="w-full h-full bg-gray-700/70 rounded-xl border-2 border-dashed border-blue-300 flex items-center justify-center transition-all duration-200 @(IsDragOver ? "scale-100" : "scale-70")">
-        <span class="text-white text-2xl font-bold">@Message</span>
+        class="w-full h-full checkerboard-bg rounded-xl border-2 border-dashed border-blue-300 flex items-center justify-center transition-all duration-200 @(IsDragOver ? "scale-100" : "scale-70")">
+        <span class="text-2xl font-bold">@Message</span>
     </div>
 </div>
 
