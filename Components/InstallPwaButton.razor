@@ -30,6 +30,11 @@
                         await InvokeAsync(StateHasChanged);
                     }
                     Console.WriteLine($"Install prompt available: {available}");
+                    if (available)
+                    {
+                        timer?.Dispose();
+                        timer = null;
+                    }
                 }
             }, null, 0, 1000); // 1秒ごとにチェック
         }
