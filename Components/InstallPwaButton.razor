@@ -12,16 +12,31 @@
 @code {
     private bool canInstall = false;
     private IJSObjectReference? jsModule;
+    private Timer? timer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/install-pwa.js");
-            canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
-            Console.WriteLine($"Install prompt available: {canInstall}");
-            //StateHasChanged();
+            timer = new Timer(async _ =>
+            {
+                if (jsModule != null)
+                {
+                    var available = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
+                    if (canInstall != available)
+                    {
+                        canInstall = available;
+                        await InvokeAsync(StateHasChanged);
+                    }
+                    Console.WriteLine($"Install prompt available: {available}");
+                }
+            }, null, 0, 1000); // 1秒ごとにチェック
         }
+    }
+    public void Dispose()
+    {
+        timer?.Dispose();
     }
 
     private async Task InstallPwaAsync()
