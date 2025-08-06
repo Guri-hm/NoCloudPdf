@@ -1,8 +1,8 @@
 {
     "name": "NoCloudPdf",
     "short_name": "NoCloudPdf",
-    "start_url": "/NoCloudPdf/",
-    "scope": "/NoCloudPdf/",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#2563eb",

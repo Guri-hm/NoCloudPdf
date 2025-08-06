@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-C1Tgyd5UAg/RcaQD5GUEECvLFpijlJe6cU8qfiXGeT8=",
+    "hash": "sha256-NZcj1Jo/DIVLhrlhdPb+csF81kBUC4GN1Lbu0ey+bVg=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.qy3eb9ccot.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.vu7xy25xil.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -36,9 +36,9 @@
       "System.Text.RegularExpressions.ce28mje8pi.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.cy526l72bt.wasm": "System.Threading.wasm",
       "System.Private.CoreLib.t8ta5nsgqj.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.8zmfiyofc4.wasm": "NoCloudPdf.wasm",
+      "NoCloudPdf.b4gklju09t.wasm": "NoCloudPdf.wasm",
       "dotnet.native.9b0ehpjz08.js": "dotnet.native.js",
-      "dotnet.native.oylapuubqz.wasm": "dotnet.native.wasm",
+      "dotnet.native.ktlc582zit.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.ew19f13umk.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -52,7 +52,7 @@
       "dotnet.runtime.ew19f13umk.js": "sha256-Isv/63htfX73xgn3/2cZMtk4S8xBcbmlXRgJMDv4mhI="
     },
     "wasmNative": {
-      "dotnet.native.oylapuubqz.wasm": "sha256-sB7O8N9FsB0zOwREfWWtWa6E9oKUsOk/aVpJ+CwEPYY="
+      "dotnet.native.ktlc582zit.wasm": "sha256-iOFKyxdBVk75KUnJALxovg6d387sWK9R3jUhgQY4OK0="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -93,7 +93,7 @@
       "System.Text.RegularExpressions.ce28mje8pi.wasm": "sha256-3F/WWSI6FXzuweLYobbc39eeq31n/iZx4Hg4cMdS2Xc=",
       "System.Threading.cy526l72bt.wasm": "sha256-XEsgkzB/5E/EJIekQAKL/++ZBvHe055n9Zo6Q2Ce2Zo=",
       "System.Private.CoreLib.t8ta5nsgqj.wasm": "sha256-jVMcBaVG9phFXQM+f53456/Q7ScdsvqV88kB7KGjNlc=",
-      "NoCloudPdf.8zmfiyofc4.wasm": "sha256-7IOy6HSAkPOOuLwqlsLwDBFqLwzxZ/98puewCCaA7KY="
+      "NoCloudPdf.b4gklju09t.wasm": "sha256-m8+DBCt53xZf1e7iI/e7rDQ9kYwWRo4+YB0g8AKQ5ak="
     },
     "assembly": {}
   },
