@@ -22,7 +22,7 @@ jobs:
         run: dotnet restore
 
       - name: Build and publish
-        run: dotnet publish ./NoCloudPdfApp/NoCloudPdfApp.csproj -c Release -o publish
+        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
