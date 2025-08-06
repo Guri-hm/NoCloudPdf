@@ -1,4 +1,4 @@
-namespace ClientPdfApp.Components
+namespace NoCloudPdfApp.Components
 {
     public class ToggleButtonItem<T>
     {

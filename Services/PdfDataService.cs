@@ -1,10 +1,10 @@
-using ClientPdfApp.Models;
+using NoCloudPdfApp.Models;
 using Microsoft.JSInterop;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace ClientPdfApp.Services;
+namespace NoCloudPdfApp.Services;
 
 /// <summary>
 /// 統一PDFデータサービス - ファイル表示とページ表示の統一データ管理

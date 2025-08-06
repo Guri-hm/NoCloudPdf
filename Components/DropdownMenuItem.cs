@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace ClientPdfApp.Components
+namespace NoCloudPdfApp.Components
 {
     public class DropdownMenuItem
     {

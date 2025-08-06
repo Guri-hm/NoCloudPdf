@@ -1,4 +1,4 @@
-namespace ClientPdfApp.Models;
+namespace NoCloudPdfApp.Models;
 
 /// <summary>
 /// 統一PDFデータモデル - ファイル表示とページ表示の両方で共有する単一のデータソース

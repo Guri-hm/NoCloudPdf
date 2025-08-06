@@ -98,7 +98,7 @@ window.initializeSortable = function () {
                 }
 
                 DotNet.invokeMethodAsync(
-                    'ClientPdfApp',
+                    'NoCloudPdfApp',
                     'UpdateOrder',
                     getPageType(),
                     evt.oldIndex,
