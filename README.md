@@ -105,7 +105,7 @@ NoCloudPdfApp/
 
 ## 🌐 デモ
 
-[ライブデモを試す](https://guri-hm.github.io/NoCloudPdfApp/)
+[ライブデモを試す](https://guri-hm.github.io/NoCloudPdf/)
 
 ## 📝 ライセンス
 
