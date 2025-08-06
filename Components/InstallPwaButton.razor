@@ -1,11 +1,7 @@
 @inject IJSRuntime JS
 
-@* <button class="bg-blue-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-blue-700 transition"
-    @onclick="InstallPwaAsync" style="display:@(canInstall ? "block" : "none")">
-    インストール
-</button> *@
 <button class="bg-blue-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-blue-700 transition"
-    @onclick="InstallPwaAsync">
+    @onclick="InstallPwaAsync" style="display:@(canInstall ? "block" : "none")">
     インストール
 </button>
 
