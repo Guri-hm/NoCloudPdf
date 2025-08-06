@@ -1,0 +1,26 @@
+@inject IJSRuntime JS
+
+<button class="bg-blue-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-blue-700 transition"
+    @onclick="InstallPwaAsync" style="display:@(canInstall ? "block" : "none")">
+    インストール
+</button>
+
+@code {
+    private bool canInstall = false;
+    private IJSObjectReference? jsModule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/install-pwa.js");
+        canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
+        StateHasChanged();
+    }
+
+    private async Task InstallPwaAsync()
+    {
+        if (jsModule != null)
+        {
+            await jsModule.InvokeVoidAsync("showInstallPrompt");
+        }
+    }
+}
