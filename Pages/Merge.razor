@@ -230,6 +230,7 @@
 {
     <MessageBar Message="@(string.IsNullOrEmpty(errorMessage) ? warnMessage : errorMessage)" IsError="@(errorMessage != null)" OnClose="ClearAllMessages"  AutoCloseMs="5000" />
 }
+<PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
 
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
@@ -238,6 +239,7 @@
     protected override void OnInitialized()
     {
         PdfDataService.OnChange += OnServiceChanged;
+        PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
     }
 
     private void OnServiceChanged()
@@ -249,6 +251,12 @@
     {
         PdfDataService.OnChange -= OnServiceChanged;
         _dotNetRef?.Dispose();
+        
+        if (_dropAreaRegistered)
+        {
+            JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
+            _dropAreaRegistered = false;
+        }
     }
     private bool isBusy = false;
     private string? mergedPdfUrl;
@@ -960,6 +968,27 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             SwitchToFileMode();
         else if (mode == "Page")
             SwitchToPageMode();
+    }
+
+    private bool isPasswordDialogOpen = false;
+    private string passwordDialogFileName = "";
+    private TaskCompletionSource<string?>? passwordTcs;
+
+    // サービスから呼ばれる
+    public Task<string?> ShowPasswordInputDialogAsync(string fileName)
+    {
+        isPasswordDialogOpen = true;
+        passwordDialogFileName = fileName;
+        passwordTcs = new TaskCompletionSource<string?>();
+        StateHasChanged();
+        return passwordTcs.Task;
+    }
+
+    private void OnPasswordDialogClose(string? password)
+    {
+        isPasswordDialogOpen = false;
+        passwordTcs?.SetResult(password);
+        StateHasChanged();
     }
 
     private bool _renderedMergedPages = false;

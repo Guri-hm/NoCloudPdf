@@ -290,9 +290,14 @@ public class PdfDataService
         }
     }
 
+    public Func<string, Task<string?>>? PasswordInputDialogFunc { get; set; }
+
     private async Task<string?> ShowPasswordInputDialogAsync(string fileName)
     {
-        // シンプルなwindow.promptを使う場合（Blazor WASM/Server両対応）
+        if (PasswordInputDialogFunc != null)
+            return await PasswordInputDialogFunc(fileName);
+        Console.WriteLine($"PasswordInputDialogFunc is not set, using fallback prompt for {PasswordInputDialogFunc}");
+        // fallback: window.prompt
         return await _jsRuntime.InvokeAsync<string?>(
             "prompt",
             $"「{fileName}」はパスワード付きPDFです。パスワードを入力してください。",
