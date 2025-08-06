@@ -31,7 +31,7 @@ jobs:
 
       - name: Build and publish with AOT
         # run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish
-        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish --blazorwasm-aot
+        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish -p:RunAOTCompilation=true
 
       - name: Rewrite base href for GitHub Pages
         run: sed -i 's|<base href="%(BaseHref)">|<base href="/NoCloudPdfApp/">|g' publish/wwwroot/index.html
