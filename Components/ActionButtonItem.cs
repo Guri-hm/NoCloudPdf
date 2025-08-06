@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace NoCloudPdfApp.Components
+namespace NoCloudPdf.Components
 {
     public class ActionButtonItem
     {

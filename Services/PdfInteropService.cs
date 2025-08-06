@@ -1,8 +1,8 @@
 using System.Threading.Tasks;
 using Microsoft.JSInterop;
-using NoCloudPdfApp.Pages;
+using NoCloudPdf.Pages;
 
-namespace NoCloudPdfApp.Services
+namespace NoCloudPdf.Services
 {
     /// <summary>
     /// JS連携用の共通サービス

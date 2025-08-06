@@ -48,8 +48,8 @@ NoCloudPDFは、プライバシーを重視したブラウザベースのPDF操�
 ### ローカル実行
 ```bash
 # リポジトリをクローン
-git clone https://github.com/Guri-hm/NoCloudPdfApp.git
-cd NoCloudPdfApp
+git clone https://github.com/Guri-hm/NoCloudPdf.git
+cd NoCloudPdf
 
 # 依存関係をインストール
 dotnet restore
@@ -81,7 +81,7 @@ dotnet publish -c Release -o ./publish
 ## 🔧 プロジェクト構造
 
 ```
-NoCloudPdfApp/
+NoCloudPdf/
 ├── Components/          # 共通コンポーネント
 │   ├── DropCover.razor
 │   ├── FadeInOnScroll.razor
@@ -105,7 +105,7 @@ NoCloudPdfApp/
 
 ## 🌐 デモ
 
-[ライブデモを試す](https://guri-hm.github.io/NoCloudPdfApp/)
+[ライブデモを試す](https://guri-hm.github.io/NoCloudPdf/)
 
 ## 📝 ライセンス
 
@@ -123,12 +123,12 @@ NoCloudPdfApp/
 
 ## 🐛 バグ報告・機能要望
 
-バグ報告や機能要望は [Issues](https://github.com/Guri-hm/NoCloudPdfApp/issues) にてお知らせください。
+バグ報告や機能要望は [Issues](https://github.com/Guri-hm/NoCloudPdf/issues) にてお知らせください。
 
 ## 📧 連絡先
 
 - GitHub: [@Guri-hm](https://github.com/Guri-hm)
-- プロジェクト: [NoCloudPdfApp](https://github.com/Guri-hm/NoCloudPdfApp)
+- プロジェクト: [NoCloudPdf](https://github.com/Guri-hm/NoCloudPdf)
 
 ---
 
