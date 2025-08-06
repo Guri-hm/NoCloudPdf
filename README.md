@@ -31,7 +31,7 @@ NoCloudPDFは、プライバシーを重視したブラウザベースのPDF操�
 - **UI Framework**: Tailwind CSS
 - **PDF処理**: PDF.js
 - **Icons**: Font Awesome
-- **Language**: C# (.NET 8)
+- **Language**: C# (.NET 9)
 
 ## 🖥️ 対応環境
 
@@ -42,7 +42,7 @@ NoCloudPDFは、プライバシーを重視したブラウザベースのPDF操�
 ## 📦 インストール・実行
 
 ### 前提条件
-- .NET 8 SDK
+- .NET 9 SDK
 - Node.js (Tailwind CSS用)
 
 ### ローカル実行
