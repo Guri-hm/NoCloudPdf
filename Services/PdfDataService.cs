@@ -30,8 +30,8 @@ public class PdfDataService
     public SplitInfo SplitInfo { get; private set; } = new SplitInfo();
 
     // PdfDataService.cs など
-    public static readonly string[] SupportedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" };
-    public static readonly string[] SupportedPdfExtensions = new[] { ".pdf" };
+    internal static readonly string[] SupportedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" };
+    internal static readonly string[] SupportedPdfExtensions = new[] { ".pdf" };
 
     /// <summary>
     /// 表示モードを切り替え
@@ -305,7 +305,7 @@ public class PdfDataService
         );
     }
 
-    public class RenderResult
+    internal class RenderResult
     {
         public string thumbnail { get; set; } = "";
         public bool isError { get; set; }
