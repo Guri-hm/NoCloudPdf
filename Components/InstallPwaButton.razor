@@ -9,12 +9,15 @@
     private bool canInstall = false;
     private IJSObjectReference? jsModule;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/install-pwa.js");
-        canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
-        Console.WriteLine($"Install prompt available: {canInstall}");
-        StateHasChanged();
+        if (firstRender)
+        {
+            jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/install-pwa.js");
+            canInstall = await jsModule.InvokeAsync<bool>("isInstallPromptAvailable");
+            Console.WriteLine($"Install prompt available: {canInstall}");
+            StateHasChanged();
+        }
     }
 
     private async Task InstallPwaAsync()
