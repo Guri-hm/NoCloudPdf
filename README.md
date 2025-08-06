@@ -1,6 +1,6 @@
 # NoCloudPDF
 
-![NoCloudPDF Logo](./wwwroot/img/NoCloudPDF_logo.png)
+![NoCloudPDF Logo](./wwwroot/img/logo.webp)
 
 **クラウドにアップロードしない、ブラウザ完結型のPDF操作ツール**
 
