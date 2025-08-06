@@ -1255,6 +1255,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
     {
         isPasswordDialogOpen = false;
         passwordTcs?.SetResult(password);
+        passwordTcs = null;
         StateHasChanged();
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
