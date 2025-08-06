@@ -15,6 +15,9 @@
         if (firstRender)
         {
             jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/install-pwa.js");
+            int tryCount = 0;
+            const int maxTry = 30;
+
             timer = new Timer(async _ =>
             {
                 if (jsModule != null)
@@ -26,13 +29,14 @@
                         await InvokeAsync(StateHasChanged);
                     }
                     Console.WriteLine($"Install prompt available: {available}");
-                    if (available)
+                    tryCount++;
+                    if (available || tryCount >= maxTry)
                     {
                         timer?.Dispose();
                         timer = null;
                     }
                 }
-            }, null, 0, 1000); // 1秒ごとにチェック
+            }, null, 0, 5000); // 5秒ごとにチェック
         }
     }
     public void Dispose()
