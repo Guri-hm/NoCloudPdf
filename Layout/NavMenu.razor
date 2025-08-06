@@ -1,8 +1,9 @@
 ﻿@inject NavigationManager Navigation
+@inject NavigationManager Nav
 @using NoCloudPdfApp.Components
 
 <div class="bg-gray-800 px-4 py-1 flex items-center justify-between">
-    <a class="text-white" href="/NoCloudPdfApp/">
+    <a class="text-white" href="@Nav.BaseUri">
         <img src="img/logo.webp" alt="NoCloudPDF" class="w-12 h-12 object-contain" />
     </a>
     <span class="text-white font-bold ml-4 md:hidden">
