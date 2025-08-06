@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdfApp",
   "resources": {
-    "hash": "sha256-aOYZhuSVQAHTY3lbJ7qcbEJljxuoGp4t7MZxBjix57A=",
+    "hash": "sha256-lMzYA7e1okpJ5svsJIb7Xl51ngHv2Ch1Keckx8cf8CA=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.6j9taqfdk0.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.m0vincdhky.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -36,7 +36,7 @@
       "System.Text.RegularExpressions.4dehktbz0s.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.cy526l72bt.wasm": "System.Threading.wasm",
       "System.Private.CoreLib.2h8m4n9ku8.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdfApp.j61zq84sin.wasm": "NoCloudPdfApp.wasm",
+      "NoCloudPdfApp.36xfotz04t.wasm": "NoCloudPdfApp.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.native.50iqa8w3ys.js": "dotnet.native.js",
       "dotnet.native.pk43x8e436.wasm": "dotnet.native.wasm",
@@ -95,7 +95,7 @@
       "System.Text.Json.30rqgu7lhl.wasm": "sha256-zfwJXo8EYGyqtxilXsVDs89AUMRb7jfEELnQgH9ubTc=",
       "System.Text.RegularExpressions.4dehktbz0s.wasm": "sha256-CAVmb9rUs1b823hX47Oh/qbIirzz4j7kPUgdk1vZxuU=",
       "System.Threading.cy526l72bt.wasm": "sha256-XEsgkzB/5E/EJIekQAKL/++ZBvHe055n9Zo6Q2Ce2Zo=",
-      "NoCloudPdfApp.j61zq84sin.wasm": "sha256-RVU+OmKsenDy1mcZXUlLD7TYaWyN65KCwmnHKMovOQw="
+      "NoCloudPdfApp.36xfotz04t.wasm": "sha256-qzHeT4kJ2EULmfFn2jL0VFpsRJyNIdYZO2MmsGY+k8I="
     }
   },
   "cacheBootResources": true,
