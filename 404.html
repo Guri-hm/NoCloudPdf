@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NoCloudPdf</title>
     <base href="/NoCloudPdf/">
+    <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="NoCloudPdf.styles.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -40,6 +41,11 @@
     <script src="js/file-utils.js"></script>
     <script src="js/sortable-utils.js"></script>
     <script src="js/dragdrop-utils.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js');
+        }
+    </script>
 </body>
 
 </html>
