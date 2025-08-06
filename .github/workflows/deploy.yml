@@ -30,8 +30,12 @@ jobs:
         run: dotnet restore
 
       - name: Build and publish with AOT
+        # 通常のビルド
         # run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish
-        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish -p:RunAOTCompilation=true
+        #AOT
+        # run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish -p:RunAOTCompilation=true
+        # AOT+不要コードの除去
+        run: dotnet publish NoCloudPdfApp.csproj -c Release -o publish -p:RunAOTCompilation=true -p:PublishTrimmed=true
 
       - name: Rewrite base href for GitHub Pages
         run: sed -i 's|<base href="%(BaseHref)">|<base href="/NoCloudPdfApp/">|g' publish/wwwroot/index.html
