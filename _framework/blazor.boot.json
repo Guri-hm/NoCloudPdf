@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-Th3CtON7Qt3ajJLEisBOjeXhRbKIkP+OTAnXqlL8juw=",
+    "hash": "sha256-ApS37/3klDoWBWtKUPkWi2Ng6bv49a6ecP2zhZwlK54=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.qy3eb9ccot.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.vu7xy25xil.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -36,9 +36,9 @@
       "System.Text.RegularExpressions.ce28mje8pi.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.cy526l72bt.wasm": "System.Threading.wasm",
       "System.Private.CoreLib.c7ld46x0j4.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.pclju007bq.wasm": "NoCloudPdf.wasm",
+      "NoCloudPdf.c602gul2pi.wasm": "NoCloudPdf.wasm",
       "dotnet.native.9b0ehpjz08.js": "dotnet.native.js",
-      "dotnet.native.1b9nvnxxxc.wasm": "dotnet.native.wasm",
+      "dotnet.native.7kv3zrqqtd.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.ew19f13umk.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -52,7 +52,7 @@
       "dotnet.runtime.ew19f13umk.js": "sha256-Isv/63htfX73xgn3/2cZMtk4S8xBcbmlXRgJMDv4mhI="
     },
     "wasmNative": {
-      "dotnet.native.1b9nvnxxxc.wasm": "sha256-3RkYH77K1exZC9Dx4jPSBjWjSa7Jqjz2IyQ3GYGw55Q="
+      "dotnet.native.7kv3zrqqtd.wasm": "sha256-ec7RUzp7Wc7wdMNDdPWVwn/X3hHs2bKTWQtAgGk1bpE="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -93,7 +93,7 @@
       "System.Text.RegularExpressions.ce28mje8pi.wasm": "sha256-3F/WWSI6FXzuweLYobbc39eeq31n/iZx4Hg4cMdS2Xc=",
       "System.Threading.cy526l72bt.wasm": "sha256-XEsgkzB/5E/EJIekQAKL/++ZBvHe055n9Zo6Q2Ce2Zo=",
       "System.Private.CoreLib.c7ld46x0j4.wasm": "sha256-mBi0R1058VpPTDeGxct5/yX0jBQ/Fe45LN72TdvuR28=",
-      "NoCloudPdf.pclju007bq.wasm": "sha256-2ZD1+hCnwC0SOx2qie3vEFN1hDGnVY/8NOQX52uZfT4="
+      "NoCloudPdf.c602gul2pi.wasm": "sha256-ZIW0cneLN5NsLv4UbZ0EagShO99G/CZdaG3R6WwAcfc="
     },
     "assembly": {}
   },
