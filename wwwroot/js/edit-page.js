@@ -16,6 +16,22 @@ window.setupEditPage = async function (fileId, pageIndex, pageData) {
     await page.render({ canvasContext: context, viewport: viewport }).promise;
 };
 
+window.getTagNameFromEvent = function (e) {
+    return e?.target?.tagName || "";
+}
+
+window.getCanvasCoords = function (canvasSelector, clientX, clientY, offsetX, offsetY, zoomLevel) {
+    const canvas = document.querySelector(canvasSelector);
+    console.log("canvasSelector:", canvasSelector, "canvas:", canvas);
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    console.log("rect:", rect, "clientX:", clientX, "clientY:", clientY, "offsetX:", offsetX, "offsetY:", offsetY, "zoomLevel:", zoomLevel);
+    const x = (clientX - rect.left - offsetX) / zoomLevel;
+    const y = (clientY - rect.top - offsetY) / zoomLevel;
+    console.log("result:", { x, y });
+    return { x, y };
+};
+
 window.triggerFileInput = (element) => {
     element.click();
 };

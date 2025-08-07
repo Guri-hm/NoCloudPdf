@@ -368,6 +368,7 @@ input[type=number] {
     --color-red-500: oklch(63.7% 0.237 25.331);
     --color-red-600: oklch(57.7% 0.245 27.325);
     --color-red-700: oklch(50.5% 0.213 27.518);
+    --color-orange-500: oklch(70.5% 0.213 47.604);
     --color-amber-400: oklch(82.8% 0.189 84.429);
     --color-amber-500: oklch(76.9% 0.188 70.08);
     --color-yellow-50: oklch(98.7% 0.026 102.212);
@@ -396,6 +397,7 @@ input[type=number] {
     --color-pink-600: oklch(59.2% 0.249 0.584);
     --color-pink-700: oklch(52.5% 0.223 3.958);
     --color-slate-600: oklch(44.6% 0.043 257.281);
+    --color-gray-50: oklch(98.5% 0.002 247.839);
     --color-gray-100: oklch(96.7% 0.003 264.542);
     --color-gray-200: oklch(92.8% 0.006 264.531);
     --color-gray-300: oklch(87.2% 0.01 258.338);
@@ -437,6 +439,7 @@ input[type=number] {
     --text-7xl: 4.5rem;
     --text-7xl--line-height: 1;
     --font-weight-normal: 400;
+    --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
     --font-weight-extrabold: 800;
@@ -948,6 +951,9 @@ input[type=number] {
   .w-full {
     width: 100%;
   }
+  .w-px {
+    width: 1px;
+  }
   .max-w-3xl {
     max-width: var(--container-3xl);
   }
@@ -1054,8 +1060,14 @@ input[type=number] {
   .cursor-grab {
     cursor: grab;
   }
+  .cursor-move {
+    cursor: move;
+  }
   .cursor-pointer {
     cursor: pointer;
+  }
+  .cursor-text {
+    cursor: text;
   }
   .touch-none {
     touch-action: none;
@@ -1219,6 +1231,10 @@ input[type=number] {
     border-top-style: var(--tw-border-style);
     border-top-width: 2px;
   }
+  .border-b {
+    border-bottom-style: var(--tw-border-style);
+    border-bottom-width: 1px;
+  }
   .border-b-2 {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 2px;
@@ -1242,6 +1258,10 @@ input[type=number] {
   .border-dashed {
     --tw-border-style: dashed;
     border-style: dashed;
+  }
+  .border-none {
+    --tw-border-style: none;
+    border-style: none;
   }
   .border-solid {
     --tw-border-style: solid;
@@ -1325,6 +1345,9 @@ input[type=number] {
       background-color: color-mix(in oklab, var(--color-blue-100) 60%, transparent);
     }
   }
+  .bg-blue-500 {
+    background-color: var(--color-blue-500);
+  }
   .bg-blue-500\/60 {
     background-color: color-mix(in srgb, oklch(62.3% 0.214 259.815) 60%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1333,6 +1356,9 @@ input[type=number] {
   }
   .bg-blue-600 {
     background-color: var(--color-blue-600);
+  }
+  .bg-gray-50 {
+    background-color: var(--color-gray-50);
   }
   .bg-gray-100 {
     background-color: var(--color-gray-100);
@@ -1369,6 +1395,9 @@ input[type=number] {
   }
   .bg-slate-600 {
     background-color: var(--color-slate-600);
+  }
+  .bg-transparent {
+    background-color: transparent;
   }
   .bg-white {
     background-color: var(--color-white);
@@ -1557,6 +1586,10 @@ input[type=number] {
     --tw-font-weight: var(--font-weight-extrabold);
     font-weight: var(--font-weight-extrabold);
   }
+  .font-medium {
+    --tw-font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-medium);
+  }
   .font-normal {
     --tw-font-weight: var(--font-weight-normal);
     font-weight: var(--font-weight-normal);
@@ -1615,6 +1648,9 @@ input[type=number] {
   }
   .text-neutral-600 {
     color: var(--color-neutral-600);
+  }
+  .text-orange-500 {
+    color: var(--color-orange-500);
   }
   .text-purple-500 {
     color: var(--color-purple-500);
@@ -1760,6 +1796,10 @@ input[type=number] {
   .will-change-transform {
     will-change: transform;
   }
+  .outline-none {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
   .select-none {
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -1822,6 +1862,13 @@ input[type=number] {
     &:hover {
       @media (hover: hover) {
         background-color: var(--color-gray-100);
+      }
+    }
+  }
+  .hover\:bg-gray-200 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-gray-200);
       }
     }
   }
@@ -1909,6 +1956,13 @@ input[type=number] {
     &:hover {
       @media (hover: hover) {
         color: var(--color-blue-800);
+      }
+    }
+  }
+  .hover\:text-gray-800 {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-gray-800);
       }
     }
   }

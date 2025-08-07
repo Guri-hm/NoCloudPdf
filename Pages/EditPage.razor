@@ -2,8 +2,10 @@
 @using NoCloudPdf.Models
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components
+@using NoCloudPdf.Services
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
+@inject PdfDataService PdfDataService
 
 <div class="edit-page-container h-screen flex flex-col">
     <!-- ヘッダー -->
@@ -78,8 +80,9 @@
 
     <!-- メインエディタエリア -->
     <div class="flex-1 overflow-hidden relative bg-gray-100">
-        <div class="edit-canvas-container h-full w-full overflow-auto" @onmousedown="OnCanvasMouseDown"
-            @onmousemove="OnCanvasMouseMove" @onmouseup="OnCanvasMouseUp" @onwheel="OnCanvasWheel">
+        <div class="edit-canvas-container h-full w-full overflow-auto flex justify-center items-center @(currentTool == EditTool.Text ? "cursor-text" : "")"
+            @onmousedown="OnCanvasMouseDown" @onmousemove="OnCanvasMouseMove" @onmouseup="OnCanvasMouseUp"
+            @onwheel="OnCanvasWheel">
 
             <div class="edit-canvas-wrapper relative"
                 style="transform: translate(@(offsetX)px, @(offsetY)px) scale(@zoomLevel); transform-origin: 0 0;">
@@ -88,7 +91,7 @@
                 <div class="pdf-page bg-white shadow-lg relative"
                     style="width: @(pageWidth)px; height: @(pageHeight)px;" @onclick="OnPageClick">
 
-                    <canvas id="pdf-canvas-@FileId-@PageIndex" width="@pageWidth" height="@pageHeight"
+                    <canvas id="pdf-canvas-@safeFileId-@PageIndex" width="@pageWidth" height="@pageHeight"
                         class="absolute inset-0"></canvas>
 
                     <!-- 編集要素 -->
@@ -104,7 +107,8 @@
                                     <input type="text" @bind="element.Text" @onblur="() => FinishTextEdit(element)"
                                         @onkeypress="(e) => OnTextKeyPress(e, element)"
                                         class="border-none outline-none bg-transparent"
-                                        style="font-size: @(element.FontSize)px; color: @element.Color;" @ref="textInputRef" />
+                                        style="font-size: @(element.FontSize)px; color: @element.Color;" @ref="textInputRef"
+                                        @onclick:stopPropagation @onmousedown:stopPropagation />
                                 }
                                 else
                                 {
@@ -171,6 +175,10 @@
                         :
                         "grab")
         ;
+    }
+
+    .edit-canvas-container.cursor-text {
+        cursor: text !important;
     }
 
     .edit-element {
@@ -246,7 +254,15 @@
 @code {
     [Parameter] public string FileId { get; set; } = "";
     [Parameter] public int PageIndex { get; set; }
+    // 例: FileIdをピリオドなしに変換(cssセレクタでピリオドがクラス名として解釈されるため)
+    private string GetSafeId(string fileId) =>
+    fileId.Replace(".", "_").Replace("/", "_").Replace("\\", "_");
 
+    private string safeFileId = "";
+    protected override void OnParametersSet()
+    {
+        safeFileId = GetSafeId(FileId);
+    }
     private string fileName = "";
     private int pageWidth = 595;
     private int pageHeight = 842;
@@ -292,7 +308,7 @@
             await LoadPageData();
             var allPages = PdfDataService.GetModel().Pages;
             var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
-            await JS.InvokeVoidAsync("setupEditPage", FileId, PageIndex, pageItem?.PageData ?? "");
+            await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "");
         }
     }
 
@@ -368,15 +384,39 @@
             ZoomOut();
     }
 
+    // C#で座標を受け取るクラス
+    private class CanvasCoords
+    {
+        public double x { get; set; }
+        public double y { get; set; }
+    }
     private async Task OnPageClick(MouseEventArgs e)
     {
+        // JSでクリックターゲットのタグ名を取得
+        var tagName = await JS.InvokeAsync<string>("getTagNameFromEvent", e);
+        if (tagName == "INPUT" || tagName == "BUTTON") return;
+
+        // すでにテキスト編集中の要素があれば追加しない
+        if (editElements.Any(el => el.IsEditing)) return;
+
         if (currentTool == EditTool.Text)
         {
+            // JSで正確なキャンバス座標を取得
+            var coords = await JS.InvokeAsync<CanvasCoords>(
+            "getCanvasCoords",
+            $"#pdf-canvas-{safeFileId}-{PageIndex}",
+            e.ClientX,
+            e.ClientY,
+            offsetX,
+            offsetY,
+            zoomLevel
+            );
+
             var element = new EditElement
             {
                 Type = ElementType.Text,
-                X = (e.OffsetX / zoomLevel) - offsetX,
-                Y = (e.OffsetY / zoomLevel) - offsetY,
+                X = coords.x,
+                Y = coords.y,
                 Text = "テキスト",
                 FontSize = fontSize,
                 Color = textColor,

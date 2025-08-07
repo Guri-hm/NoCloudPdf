@@ -42,10 +42,12 @@
     <script src="js/sortable-utils.js"></script>
     <script src="js/dragdrop-utils.js"></script>
     <script src="js/scroll-to-section.js"></script>
+    <script src="js/edit-page.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-
+            if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+                navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+            }
         }
     </script>
 </body>
