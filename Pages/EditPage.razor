@@ -65,7 +65,9 @@
         {
             <div class="h-6 w-px bg-gray-300"></div>
             <div class="flex items-center gap-2">
-                <select @bind="fontSize" class="text-sm border rounded px-2 py-1">
+                <select class="text-sm border rounded px-2 py-1"
+                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
+                    @onchange="OnFontSizeChanged">
                     <option value="12">12px</option>
                     <option value="14">14px</option>
                     <option value="16">16px</option>
@@ -277,7 +279,6 @@
 
     private List<EditElement> editElements = new();
     private string? selectedElementId = null;
-    private int fontSize = 16;
     private string textColor = "#000000";
 
     private ElementReference textInputRef;
@@ -300,7 +301,34 @@
         public string ImageUrl { get; set; } = "";
         public bool IsEditing { get; set; } = false;
     }
+    private int _fontSize = 16;
+    private int fontSize
+    {
+        get => _fontSize;
+        set
+        {
+            _fontSize = value;
+            var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+            if (editingElement != null)
+            {
+                editingElement.FontSize = value;
+            }
+        }
+    }
 
+    private void OnFontSizeChanged(ChangeEventArgs e)
+    {
+        int value = int.Parse(e.Value?.ToString() ?? "16");
+        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editingElement != null)
+        {
+            editingElement.FontSize = value;
+        }
+        else
+        {
+            fontSize = value;
+        }
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -397,7 +425,13 @@
         if (tagName == "INPUT" || tagName == "BUTTON") return;
 
         // すでにテキスト編集中の要素があれば追加しない
-        if (editElements.Any(el => el.IsEditing)) return;
+        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editingElement != null)
+        {
+            editingElement.IsEditing = false;
+            StateHasChanged();
+            return;
+        }
 
         if (currentTool == EditTool.Text)
         {
