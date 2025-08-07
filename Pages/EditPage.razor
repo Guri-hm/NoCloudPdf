@@ -290,7 +290,9 @@
         if (firstRender)
         {
             await LoadPageData();
-            await JS.InvokeVoidAsync("setupEditPage", FileId, PageIndex);
+            var allPages = PdfDataService.GetModel().Pages;
+            var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+            await JS.InvokeVoidAsync("setupEditPage", FileId, PageIndex, pageItem?.PageData ?? "");
         }
     }
 

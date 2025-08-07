@@ -1,15 +1,19 @@
-window.setupEditPage = (fileId, pageIndex) => {
-    // PDF.jsを使用してPDFページを描画
+window.setupEditPage = async function (fileId, pageIndex, pageData) {
     const canvas = document.getElementById(`pdf-canvas-${fileId}-${pageIndex}`);
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        // 仮のページ描画
-        ctx.fillStyle = '#f8f9fa';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#000';
-        ctx.font = '20px Arial';
-        ctx.fillText(`PDF Page ${pageIndex + 1}`, 50, 50);
-    }
+    if (!canvas || !pageData) return;
+
+    const bytes = Uint8Array.from(atob(pageData), c => c.charCodeAt(0));
+    const pdfjsLib = window.pdfjsLib;
+    const loadingTask = pdfjsLib.getDocument({ data: bytes });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1); // 1ページ目のみ描画
+
+    const viewport = page.getViewport({ scale: 1.0 });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    const context = canvas.getContext('2d');
+    await page.render({ canvasContext: context, viewport: viewport }).promise;
 };
 
 window.triggerFileInput = (element) => {
