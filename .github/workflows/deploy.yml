@@ -40,6 +40,9 @@ jobs:
         #name: Rewrite base href for GitHub Pages
         #run: sed -i 's|<base href="%(BaseHref)">|<base href="/NoCloudPdf/">|g' publish/wwwroot/index.html
 
+      - name: Create CNAME file
+        run: echo 'ncp.solopg.com' > publish/wwwroot/CNAME
+
       - name: Copy index.html to 404.html
         run: cp publish/wwwroot/index.html publish/wwwroot/404.html
 
