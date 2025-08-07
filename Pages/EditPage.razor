@@ -1,0 +1,454 @@
+@page "/edit/page/{FileId}/{PageIndex:int}"
+@using NoCloudPdf.Models
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<div class="edit-page-container h-screen flex flex-col">
+    <!-- ヘッダー -->
+    <div class="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <button @onclick="NavigateBack" class="text-gray-600 hover:text-gray-800">
+                <i class="fa-solid fa-arrow-left text-xl"></i>
+            </button>
+            <h1 class="text-lg font-semibold">ページ編集</h1>
+            @if (!string.IsNullOrEmpty(fileName))
+            {
+                <span class="text-sm text-gray-500">@fileName - ページ @(PageIndex + 1)</span>
+            }
+        </div>
+        <div class="flex items-center gap-3">
+            <button @onclick="SaveChanges" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                保存
+            </button>
+        </div>
+    </div>
+
+    <!-- ツールバー -->
+    <div class="bg-gray-50 border-b px-4 py-2 flex items-center gap-4">
+        <!-- ズーム -->
+        <div class="flex items-center gap-2">
+            <button @onclick="ZoomOut" class="p-2 hover:bg-gray-200 rounded">
+                <i class="fa-solid fa-minus"></i>
+            </button>
+            <span class="text-sm font-medium w-16 text-center">@((int)(zoomLevel * 100))%</span>
+            <button @onclick="ZoomIn" class="p-2 hover:bg-gray-200 rounded">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+            <button @onclick="FitToScreen" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">
+                画面に合わせる
+            </button>
+        </div>
+
+        <div class="h-6 w-px bg-gray-300"></div>
+
+        <!-- ツール選択 -->
+        <div class="flex items-center gap-2">
+            <button @onclick="() => SetTool(EditTool.Select)"
+                class="p-2 rounded @(currentTool == EditTool.Select ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
+                <i class="fa-solid fa-mouse-pointer"></i>
+            </button>
+            <button @onclick="() => SetTool(EditTool.Text)"
+                class="p-2 rounded @(currentTool == EditTool.Text ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
+                <i class="fa-solid fa-font"></i>
+            </button>
+            <button @onclick="() => SetTool(EditTool.Image)"
+                class="p-2 rounded @(currentTool == EditTool.Image ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
+                <i class="fa-solid fa-image"></i>
+            </button>
+        </div>
+
+        @if (currentTool == EditTool.Text)
+        {
+            <div class="h-6 w-px bg-gray-300"></div>
+            <div class="flex items-center gap-2">
+                <select @bind="fontSize" class="text-sm border rounded px-2 py-1">
+                    <option value="12">12px</option>
+                    <option value="14">14px</option>
+                    <option value="16">16px</option>
+                    <option value="18">18px</option>
+                    <option value="20">20px</option>
+                    <option value="24">24px</option>
+                </select>
+                <input type="color" @bind="textColor" class="w-8 h-8 border rounded">
+            </div>
+        }
+    </div>
+
+    <!-- メインエディタエリア -->
+    <div class="flex-1 overflow-hidden relative bg-gray-100">
+        <div class="edit-canvas-container h-full w-full overflow-auto" @onmousedown="OnCanvasMouseDown"
+            @onmousemove="OnCanvasMouseMove" @onmouseup="OnCanvasMouseUp" @onwheel="OnCanvasWheel">
+
+            <div class="edit-canvas-wrapper relative"
+                style="transform: translate(@(offsetX)px, @(offsetY)px) scale(@zoomLevel); transform-origin: 0 0;">
+
+                <!-- PDF ページ -->
+                <div class="pdf-page bg-white shadow-lg relative"
+                    style="width: @(pageWidth)px; height: @(pageHeight)px;" @onclick="OnPageClick">
+
+                    <canvas id="pdf-canvas-@FileId-@PageIndex" width="@pageWidth" height="@pageHeight"
+                        class="absolute inset-0"></canvas>
+
+                    <!-- 編集要素 -->
+                    @foreach (var element in editElements)
+                    {
+                        @if (element.Type == ElementType.Text)
+                        {
+                            <div class="edit-element text-element absolute cursor-move select-none"
+                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color;"
+                                @onclick="() => SelectElement(element.Id)" @onclick:stopPropagation>
+                                @if (element.IsEditing)
+                                {
+                                    <input type="text" @bind="element.Text" @onblur="() => FinishTextEdit(element)"
+                                        @onkeypress="(e) => OnTextKeyPress(e, element)"
+                                        class="border-none outline-none bg-transparent"
+                                        style="font-size: @(element.FontSize)px; color: @element.Color;" @ref="textInputRef" />
+                                }
+                                else
+                                {
+                                    <span @ondblclick="() => StartTextEdit(element)" @ondblclick:stopPropagation>
+                                        @element.Text
+                                    </span>
+                                }
+                                @if (selectedElementId == element.Id)
+                                {
+                                    <div class="element-handles">
+                                        <div class="handle handle-nw"></div>
+                                        <div class="handle handle-ne"></div>
+                                        <div class="handle handle-sw"></div>
+                                        <div class="handle handle-se"></div>
+                                        <button class="delete-btn" @onclick="() => DeleteElement(element.Id)"
+                                            @onclick:stopPropagation>
+                                            <i class="fa-solid fa-times"></i>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else if (element.Type == ElementType.Image)
+                        {
+                            <div class="edit-element image-element absolute cursor-move"
+                                style="left: @(element.X)px; top: @(element.Y)px; width: @(element.Width)px; height: @(element.Height)px;"
+                                @onclick="() => SelectElement(element.Id)" @onclick:stopPropagation>
+                                <img src="@element.ImageUrl" class="w-full h-full object-contain" />
+                                @if (selectedElementId == element.Id)
+                                {
+                                    <div class="element-handles">
+                                        <div class="handle handle-nw"></div>
+                                        <div class="handle handle-ne"></div>
+                                        <div class="handle handle-sw"></div>
+                                        <div class="handle handle-se"></div>
+                                        <button class="delete-btn" @onclick="() => DeleteElement(element.Id)"
+                                            @onclick:stopPropagation>
+                                            <i class="fa-solid fa-times"></i>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ファイルアップロード用の隠しinput -->
+    <input type="file" @ref="fileInputRef" @onchange="OnImageSelected" accept="image/*" style="display: none;" />
+</div>
+
+<style>
+    .edit-canvas-container {
+        cursor:
+            @(isDragging
+                        &&
+                        currentTool
+                        ==
+                        EditTool.Select
+                        ?
+                        "grabbing"
+                        :
+                        "grab")
+        ;
+    }
+
+    .edit-element {
+        border: 2px solid transparent;
+    }
+
+    .edit-element.selected {
+        border-color: #3b82f6;
+    }
+
+    .element-handles {
+        position: absolute;
+        inset: -4px;
+        pointer-events: none;
+    }
+
+    .handle {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background: #3b82f6;
+        border: 1px solid white;
+        pointer-events: auto;
+        cursor: nw-resize;
+    }
+
+    .handle-nw {
+        top: -4px;
+        left: -4px;
+    }
+
+    .handle-ne {
+        top: -4px;
+        right: -4px;
+        cursor: ne-resize;
+    }
+
+    .handle-sw {
+        bottom: -4px;
+        left: -4px;
+        cursor: sw-resize;
+    }
+
+    .handle-se {
+        bottom: -4px;
+        right: -4px;
+        cursor: se-resize;
+    }
+
+    .delete-btn {
+        position: absolute;
+        top: -12px;
+        right: -12px;
+        width: 20px;
+        height: 20px;
+        background: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+    }
+
+    .delete-btn:hover {
+        background: #dc2626;
+    }
+</style>
+
+@code {
+    [Parameter] public string FileId { get; set; } = "";
+    [Parameter] public int PageIndex { get; set; }
+
+    private string fileName = "";
+    private int pageWidth = 595;
+    private int pageHeight = 842;
+    private double zoomLevel = 1.0;
+    private double offsetX = 0;
+    private double offsetY = 0;
+
+    private EditTool currentTool = EditTool.Select;
+    private bool isDragging = false;
+    private double lastMouseX = 0;
+    private double lastMouseY = 0;
+
+    private List<EditElement> editElements = new();
+    private string? selectedElementId = null;
+    private int fontSize = 16;
+    private string textColor = "#000000";
+
+    private ElementReference textInputRef;
+    private ElementReference fileInputRef;
+
+    private enum EditTool { Select, Text, Image }
+    private enum ElementType { Text, Image }
+
+    private class EditElement
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public ElementType Type { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; } = 100;
+        public double Height { get; set; } = 20;
+        public string Text { get; set; } = "";
+        public int FontSize { get; set; } = 16;
+        public string Color { get; set; } = "#000000";
+        public string ImageUrl { get; set; } = "";
+        public bool IsEditing { get; set; } = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadPageData();
+            await JS.InvokeVoidAsync("setupEditPage", FileId, PageIndex);
+        }
+    }
+
+    private async Task LoadPageData()
+    {
+        // PDFページデータの読み込み処理
+        // 実際の実装では、サービスを使用してページデータを取得
+        fileName = $"Document_{FileId}";
+    }
+
+    private void NavigateBack()
+    {
+        //JavaScript interop で history.back() を使うのも検討
+        Navigation.NavigateTo("/", true);
+    }
+
+    private void ZoomIn()
+    {
+        zoomLevel = Math.Min(zoomLevel * 1.2, 5.0);
+    }
+
+    private void ZoomOut()
+    {
+        zoomLevel = Math.Max(zoomLevel / 1.2, 0.1);
+    }
+
+    private void FitToScreen()
+    {
+        zoomLevel = 1.0;
+        offsetX = 0;
+        offsetY = 0;
+    }
+
+    private void SetTool(EditTool tool)
+    {
+        currentTool = tool;
+        selectedElementId = null;
+    }
+
+    private void OnCanvasMouseDown(MouseEventArgs e)
+    {
+        if (currentTool == EditTool.Select)
+        {
+            isDragging = true;
+            lastMouseX = e.ClientX;
+            lastMouseY = e.ClientY;
+        }
+    }
+
+    private void OnCanvasMouseMove(MouseEventArgs e)
+    {
+        if (isDragging && currentTool == EditTool.Select)
+        {
+            var deltaX = e.ClientX - lastMouseX;
+            var deltaY = e.ClientY - lastMouseY;
+            offsetX += deltaX;
+            offsetY += deltaY;
+            lastMouseX = e.ClientX;
+            lastMouseY = e.ClientY;
+        }
+    }
+
+    private void OnCanvasMouseUp(MouseEventArgs e)
+    {
+        isDragging = false;
+    }
+
+    private void OnCanvasWheel(WheelEventArgs e)
+    {
+        if (e.DeltaY < 0)
+            ZoomIn();
+        else
+            ZoomOut();
+    }
+
+    private async Task OnPageClick(MouseEventArgs e)
+    {
+        if (currentTool == EditTool.Text)
+        {
+            var element = new EditElement
+            {
+                Type = ElementType.Text,
+                X = (e.OffsetX / zoomLevel) - offsetX,
+                Y = (e.OffsetY / zoomLevel) - offsetY,
+                Text = "テキスト",
+                FontSize = fontSize,
+                Color = textColor,
+                IsEditing = true
+            };
+            editElements.Add(element);
+            selectedElementId = element.Id;
+        }
+        else if (currentTool == EditTool.Image)
+        {
+            await fileInputRef.FocusAsync();
+            await JS.InvokeVoidAsync("triggerFileInput", fileInputRef);
+        }
+        else
+        {
+            selectedElementId = null;
+        }
+    }
+
+    private void SelectElement(string elementId)
+    {
+        selectedElementId = elementId;
+    }
+
+    private void StartTextEdit(EditElement element)
+    {
+        element.IsEditing = true;
+        StateHasChanged();
+    }
+
+    private void FinishTextEdit(EditElement element)
+    {
+        element.IsEditing = false;
+    }
+
+    private async Task OnTextKeyPress(KeyboardEventArgs e, EditElement element)
+    {
+        if (e.Key == "Enter")
+        {
+            element.IsEditing = false;
+            await textInputRef.FocusAsync();
+        }
+    }
+
+    private async Task OnImageSelected(ChangeEventArgs e)
+    {
+        // 画像アップロード処理
+        // 実際の実装では、ファイルをBase64に変換またはサーバーにアップロード
+        var imageUrl =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+        var element = new EditElement
+        {
+            Type = ElementType.Image,
+            X = 100,
+            Y = 100,
+            Width = 100,
+            Height = 100,
+            ImageUrl = imageUrl
+        };
+        editElements.Add(element);
+        selectedElementId = element.Id;
+    }
+
+    private void DeleteElement(string elementId)
+    {
+        editElements.RemoveAll(e => e.Id == elementId);
+        selectedElementId = null;
+    }
+
+    private async Task SaveChanges()
+    {
+        // 編集内容の保存処理
+        // 実際の実装では、編集要素をサーバーに送信
+        await JS.InvokeVoidAsync("alert", "変更を保存しました");
+    }
+}

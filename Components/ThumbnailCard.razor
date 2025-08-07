@@ -179,6 +179,12 @@
         <!-- 操作ボタン群 -->
         <div class="flex flex-wrap items-center ml-auto
             md:absolute md:top-2 md:right-2 md:bg-white md:shadow md:rounded-lg md:p-1 md:flex-col md:flex md:opacity-0 md:pointer-events-none md:transition-opacity md:duration-300 md:group-hover:opacity-100 md:group-hover:pointer-events-auto z-20 gap-x-5 md:gap-x-0 md:gap-y-1">
+
+            <button type="button" class="text-orange-500 hover:text-orage-700 p-1 mx-1 md:mx-0 md:my-0.5 hidden md:block" title="このページを編集"
+                    @onclick="NavigateToPageEdit" @onpointerdown:stopPropagation>
+                <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+
             <button type="button"class="text-green-500 hover:text-green-700 p-1 mx-1 md:mx-0 md:my-0.5" title="複製"
                     @onclick="() => OnDuplicate.InvokeAsync(Index)" @onpointerdown:stopPropagation>
                 <i class="fa-solid fa-copy"></i>
@@ -191,6 +197,7 @@
                     @onclick="() => OnShowPreview.InvokeAsync((Index, 0))" @onpointerdown:stopPropagation>
                 <i class="fa-solid fa-magnifying-glass-plus"></i>
             </button>
+
             <button type="button" class="text-red-500 hover:text-red-700 p-1 mx-1 md:mx-0 md:my-0.5" title="削除"
                     @onclick="() => OnRemove.InvokeAsync(Index)" @onpointerdown:stopPropagation>
                 <i class="fa-solid fa-trash"></i>
@@ -215,8 +222,20 @@
     [Parameter] public EventCallback<int> OnCheckChanged { get; set; }
     [Parameter] public EventCallback<int> OnSelectChanged { get; set; }
     [Parameter] public IReadOnlyCollection<int> SplitPositions { get; set; } = Array.Empty<int>();
-[Parameter] public EventCallback<int> OnInsertBlankPage { get; set; }
-[Parameter] public EventCallback<int> OnInsertPdfAtPosition { get; set; }
+    [Parameter] public EventCallback<int> OnInsertBlankPage { get; set; }
+    [Parameter] public EventCallback<int> OnInsertPdfAtPosition { get; set; }
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private void NavigateToPageEdit()
+    {
+        if (Item.RawData is PageItem pageItem)
+        {
+            var fileId = pageItem.FileId;
+            var pageIndex = pageItem.OriginalPageIndex;
+            Navigation.NavigateTo($"/edit/page/{fileId}/{pageIndex}");
+        }
+    }
 
     private List<DropdownMenuItem> GetAddMenuItems(int index)
     {
