@@ -145,7 +145,11 @@
                                     : (selectedElementIds.Contains(element.Id)
                                         ? "border-2 border-blue-600"
                                         : "border-2 border-transparent"))"
-                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color; font-family: @(element.FontFamily);">
+                                style="left: @(element.X * zoomLevel)px; top: @(element.Y * zoomLevel)px; font-size: @(element.FontSize * zoomLevel)px; color: @element.Color; font-family: @(element.FontFamily);"
+                                @onmousedown="(e) => OnElementMouseDown(e, element)"
+                                @onmouseup="OnElementMouseUp"
+                                @onmousemove="OnElementMouseMove"
+                                >
                                 @if (element.IsEditing)
                                 {
                                     <input type="text" @bind="element.Text" @onblur="() => FinishTextEdit(element)"
@@ -158,7 +162,9 @@
                                 {
                                     <span @onclick="() => { if (!element.IsEditing) SelectElement(element.Id); }"
                                         @ondblclick="() => StartTextEdit(element)" @onclick:stopPropagation
-                                        @ondblclick:stopPropagation>
+                                        @ondblclick:stopPropagation
+                                        style="font-size: @(element.FontSize * zoomLevel)px; color: @element.Color; font-family: @(element.FontFamily);"
+                                        >
                                         @element.Text
                                     </span>
                                 }
@@ -234,6 +240,12 @@
     private double zoomLevel = 1.0;
     private double offsetX = 0;
     private double offsetY = 0;
+
+    private string? draggingElementId = null;
+    private double dragStartMouseX = 0;
+    private double dragStartMouseY = 0;
+    private double dragStartElementX = 0;
+    private double dragStartElementY = 0;
 
     private EditTool currentTool = EditTool.Select;
     private bool isDragging = false;
@@ -363,6 +375,35 @@
         }
     }
 
+    private void OnElementMouseDown(MouseEventArgs e, EditElement element)
+    {
+        if (element.Type != ElementType.Text || !selectedElementIds.Contains(element.Id)) return;
+        draggingElementId = element.Id;
+        dragStartMouseX = e.ClientX;
+        dragStartMouseY = e.ClientY;
+        dragStartElementX = element.X;
+        dragStartElementY = element.Y;
+    }
+
+    private void OnElementMouseMove(MouseEventArgs e)
+    {
+        if (draggingElementId == null) return;
+        var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
+        if (element == null) return;
+
+        // マウスの移動量をズーム倍率で補正
+        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+        element.X = dragStartElementX + dx;
+        element.Y = dragStartElementY + dy;
+        StateHasChanged();
+    }
+
+    private void OnElementMouseUp(MouseEventArgs e)
+    {
+        draggingElementId = null;
+    }
+
     private void OnFontSizeChanged(ChangeEventArgs e)
     {
         int value;
@@ -406,6 +447,13 @@
         {
             var allPages = PdfDataService.GetModel().Pages;
             var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+
+            if (pageItem == null)
+            {
+                Navigation.NavigateTo("/edit");
+                return;
+            }
+
             fileName = pageItem?.FileName ?? "";
             await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "");
         }
@@ -477,6 +525,7 @@
     private void OnCanvasMouseUp(MouseEventArgs e)
     {
         isDragging = false;
+        draggingElementId = null;
     }
 
     private void OnCanvasWheel(WheelEventArgs e)
@@ -546,7 +595,8 @@
                 Text = "テキスト",
                 FontSize = fontSize,
                 Color = textColor,
-                IsEditing = true
+                IsEditing = true,
+                FontFamily = fontFamily 
             };
             editElements.Add(element);
         }
@@ -578,6 +628,11 @@
             selectedElementIds.Clear();
             selectedElementIds.Add(elementId);
         }
+
+        var selected = editElements.FirstOrDefault(el => el.Id == elementId);
+        if (selected != null)
+            fontFamily = selected.FontFamily;
+
         StateHasChanged();
     }
 
@@ -590,6 +645,7 @@
             return;
         }
         element.IsEditing = false;
+        fontFamily = element.FontFamily;
     }
 
     private async Task OnTextKeyPress(KeyboardEventArgs e, EditElement element)
