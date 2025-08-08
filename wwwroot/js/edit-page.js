@@ -1,19 +1,47 @@
-window.setupEditPage = async function (fileId, pageIndex, pageData) {
-    const canvas = document.getElementById(`pdf-canvas-${fileId}-${pageIndex}`);
-    if (!canvas || !pageData) return;
+let renderTask = null;
 
-    const bytes = Uint8Array.from(atob(pageData), c => c.charCodeAt(0));
-    const pdfjsLib = window.pdfjsLib;
-    const loadingTask = pdfjsLib.getDocument({ data: bytes });
-    const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1); // 1ページ目のみ描画
+window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 1.0) {
+    try {
+        const canvas = document.getElementById(`pdf-canvas-${fileId}-${pageIndex}`);
+        if (!canvas || !pageData) return;
 
-    const viewport = page.getViewport({ scale: 1.0 });
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+        const dpr = window.devicePixelRatio || 1;
+        const bytes = Uint8Array.from(atob(pageData), c => c.charCodeAt(0));
+        const pdfjsLib = window.pdfjsLib;
+        if (!pdfjsLib) {
+            console.error("pdfjsLib is not loaded");
+            return;
+        }
+        const loadingTask = pdfjsLib.getDocument({ data: bytes });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
 
-    const context = canvas.getContext('2d');
-    await page.render({ canvasContext: context, viewport: viewport }).promise;
+        // viewportはズーム倍率のみ反映
+        const viewport = page.getViewport({ scale: zoomLevel });
+
+        // canvasの物理サイズとCSSサイズを一致させる
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = viewport.width + "px";
+        canvas.style.height = viewport.height + "px";
+
+        const context = canvas.getContext('2d');
+        context.setTransform(1, 0, 0, 1, 0, 0);
+
+        // 前回の描画タスクがあればキャンセル
+        if (window._pdfRenderTask && window._pdfRenderTask.cancel) {
+            window._pdfRenderTask.cancel();
+        }
+
+        window._pdfRenderTask = page.render({ canvasContext: context, viewport: viewport });
+        await window._pdfRenderTask.promise;
+    } catch (err) {
+        if (err && err.name === "RenderingCancelledException") {
+            // ズーム連打や素早い操作で発生するため例外を握りつぶす
+            return;
+        }
+        console.error("setupEditPage error:", err);
+    }
 };
 
 window.getTagNameFromEvent = function (e) {

@@ -91,9 +91,12 @@
 
                 <!-- PDF ページ -->
                 <div class="pdf-page bg-white shadow-lg relative"
-                    style="width: @(pageWidth)px; height: @(pageHeight)px;" @onclick="OnPageClick">
+                    style="width: @(pageWidth* zoomLevel)px; height: @(pageHeight* zoomLevel)px;"
+                    @onclick="OnPageClick">
 
-                    <canvas id="pdf-canvas-@safeFileId-@PageIndex" width="@pageWidth" height="@pageHeight"
+                    <canvas id="pdf-canvas-@safeFileId-@PageIndex" width="@(pageWidth* zoomLevel)"
+                        height="@(pageHeight* zoomLevel)"
+                        style="width: @(pageWidth* zoomLevel)px; height: @(pageHeight* zoomLevel)px;"
                         class="absolute inset-0"></canvas>
 
                     <!-- 編集要素 -->
@@ -412,21 +415,32 @@
         Navigation.NavigateTo("/edit");
     }
 
-    private void ZoomIn()
+    private async void ZoomIn()
     {
         zoomLevel = Math.Min(zoomLevel * 1.2, 5.0);
+        await RedrawPdfPage();
     }
 
-    private void ZoomOut()
+    private async void ZoomOut()
     {
         zoomLevel = Math.Max(zoomLevel / 1.2, 0.1);
+        await RedrawPdfPage();
     }
 
-    private void FitToScreen()
+    private async void FitToScreen()
     {
         zoomLevel = 1.0;
         offsetX = 0;
         offsetY = 0;
+        await RedrawPdfPage();
+    }
+
+    // PDF再描画用メソッドを追加
+    private async Task RedrawPdfPage()
+    {
+        var allPages = PdfDataService.GetModel().Pages;
+        var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+        await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
     }
 
     private void SetTool(EditTool tool)
