@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components
 @using NoCloudPdf.Services
+@using System.Text.Json
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 @inject PdfDataService PdfDataService
@@ -333,8 +334,8 @@
         public string ImageUrl { get; set; } = "";
         public bool IsEditing { get; set; } = false;
         public string FontFamily { get; set; } = "sans-serif"; 
-    public double ImageOriginalWidth { get; set; }
-    public double ImageOriginalHeight { get; set; }
+        public double ImageOriginalWidth { get; set; }
+        public double ImageOriginalHeight { get; set; }
     }
 
     private string _textColor = "#000000";
@@ -503,7 +504,7 @@
         dragStartImageX = element.X;
         dragStartImageY = element.Y;
     }
-    
+
     private void OnImageMouseMove(MouseEventArgs e)
     {
         bool changed = false;
@@ -528,14 +529,14 @@
         }
         if (changed) StateHasChanged();
     }
-    
+
     private void OnImageMouseUp(MouseEventArgs e)
     {
         draggingImageId = null;
         resizingImageId = null;
         resizingHandle = null;
     }
-    
+
     private void OnImageResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
     {
         resizingImageId = element.Id;
@@ -771,7 +772,7 @@
         editElements.Add(element);
         StateHasChanged();
     }
-    
+
     private async Task OnImageSelected(ChangeEventArgs e)
     {
         // input要素のElementReferenceを渡す
@@ -779,7 +780,7 @@
         // 同じファイルを連続で選択してもonchangeが発火しない仕様なのでクリアしておく
         await JS.InvokeVoidAsync("clearFileInput", fileInputRef);
     }
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -905,7 +906,7 @@
             ignoreNextPageClick = false;
             return;
         }
-        
+
         // JSでクリックターゲットのタグ名を取得
         var tagName = await JS.InvokeAsync<string>("getTagNameFromEvent", e);
         if (tagName == "INPUT" || tagName == "BUTTON") return;
@@ -961,11 +962,11 @@
         }
     }
 
-private async Task TriggerImageInput()
-{
-    await fileInputRef.FocusAsync();
-    await JS.InvokeVoidAsync("triggerFileInput", fileInputRef);
-}
+    private async Task TriggerImageInput()
+    {
+        await fileInputRef.FocusAsync();
+        await JS.InvokeVoidAsync("triggerFileInput", fileInputRef);
+    }
 
     // 選択された要素のIDを格納
     private void SelectElement(string elementId, bool multi = false)
@@ -1030,21 +1031,32 @@ private async Task TriggerImageInput()
 
         if (pageItem != null)
         {
-            // 編集要素を保存（必要に応じてシリアライズ）
-            //pageItem.PageData = JsonSerializer.Serialize(editElements);
-            var newThumbnail = await JS.InvokeAsync<string>("generateThumbnail", safeFileId, PageIndex);
-            pageItem.Thumbnail = newThumbnail;
+            try
+            {
+                var editJson = JsonSerializer.Serialize(editElements);
+                var editedBase64 = await JS.InvokeAsync<string>(
+                    "renderEditedPage",
+                    pageItem.PageData,
+                    editJson
+                );
+                Console.WriteLine("Saving changes...");
+                pageItem.PageData = editedBase64;
+                pageItem.Thumbnail = "";
+                pageItem.IsLoading = true;
 
-            
-
-            // 必要ならPdfDataService.Save()などで永続化
-            // await PdfDataService.SaveAsync();
-
-            await JS.InvokeVoidAsync("alert", "変更を保存しました");
+                await JS.InvokeVoidAsync("alert", "変更を保存しました");
+            }
+            catch (Exception ex)
+            {
+                await JS.InvokeVoidAsync("alert", $"保存時エラー: {ex.Message}");
+                Console.WriteLine($"保存時エラー: {ex}");
+            }
         }
         else
         {
             await JS.InvokeVoidAsync("alert", "ページ情報が見つかりません");
+
         }
+            Console.WriteLine("Saved...");
     }
 }

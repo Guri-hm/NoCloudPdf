@@ -648,3 +648,73 @@ window.unlockPdf = async function (pdfData, password) {
     }
     return btoa(binary);
 };
+
+window.renderEditedPage = async function (baseImage, editJson) {
+
+    if (!baseImage) throw new Error("PDFページ画像がありません");
+    // 編集要素をパース
+    let editElements = [];
+    try {
+        editElements = JSON.parse(editJson);
+    } catch (e) {
+        console.error("editJson parse error", e, editJson);
+    }
+
+
+    let imgSrc = baseImage.startsWith("data:") ? baseImage : "data:image/png;base64," + baseImage;
+
+    // ベース画像をImageとして読み込む
+    const img = new window.Image();
+    img.onerror = function (e) {
+        console.error("renderEditedPage: 画像の読み込みに失敗", imgSrc, e);
+        resolve(); // onloadが呼ばれないとPromiseが永遠に解決しないので
+    };
+    img.src = imgSrc;
+    console.log("renderEditedPage imgSrc", imgSrc);
+    await new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = function (e) {
+            console.error("renderEditedPage: 画像の読み込みに失敗", imgSrc, e);
+            resolve();
+        };
+    });
+
+    // 4. Canvasを用意
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+
+    // 5. ベース画像を描画
+    ctx.drawImage(img, 0, 0);
+
+    // 6. 編集要素を重ねて描画
+    for (const el of editElements) {
+        if (el.Type === 0 || el.Type === "Text") {
+            // テキスト
+            ctx.save();
+            ctx.font = `${el.FontSize || 16}px ${el.FontFamily || "sans-serif"}`;
+            ctx.fillStyle = el.Color || "#000";
+            ctx.textBaseline = "top";
+            ctx.fillText(el.Text || "", el.X || 0, el.Y || 0, el.Width || undefined);
+            ctx.restore();
+        } else if (el.Type === 1 || el.Type === "Image") {
+            // 画像
+            if (el.ImageUrl) {
+                const overlayImg = new window.Image();
+                overlayImg.src = el.ImageUrl;
+                await new Promise(resolve => { overlayImg.onload = resolve; });
+                ctx.drawImage(
+                    overlayImg,
+                    el.X || 0,
+                    el.Y || 0,
+                    el.Width || overlayImg.width,
+                    el.Height || overlayImg.height
+                );
+            }
+        }
+    }
+
+    // 7. PNG Base64として返す（data:image/png;base64,～ の「,」以降のみ返す）
+    return canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+};
