@@ -30,12 +30,14 @@
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
     <script type="module">
         import * as pdfjsLib from './lib/pdf.mjs';
         window.pdfjsLib = pdfjsLib;
         pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+
     <script src="js/common-utils.js"></script>
     <script src="js/pdf-utils.js"></script>
     <script src="js/file-utils.js"></script>

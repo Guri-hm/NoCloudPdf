@@ -775,9 +775,21 @@
 
     private async Task OnImageSelected(ChangeEventArgs e)
     {
-        // input要素のElementReferenceを渡す
+        // e.ValueはIBrowserFile[]またはstring
+        var files = (e.Value as Microsoft.AspNetCore.Components.Forms.IBrowserFile[]);
+        if (files != null && files.Length > 0)
+        {
+            var file = files[0];
+            var contentType = file.ContentType?.ToLower() ?? "";
+            if (!(contentType.StartsWith("image/png") || contentType.StartsWith("image/jpeg")))
+            {
+                await JS.InvokeVoidAsync("alert", "PNGまたはJPEG画像のみ追加できます。");
+                await JS.InvokeVoidAsync("clearFileInput", fileInputRef);
+                return;
+            }
+            // ここでファイル処理
+        }
         await JS.InvokeVoidAsync("readImageAsBase64", fileInputRef, DotNetObjectReference.Create(this));
-        // 同じファイルを連続で選択してもonchangeが発火しない仕様なのでクリアしておく
         await JS.InvokeVoidAsync("clearFileInput", fileInputRef);
     }
 
@@ -1035,26 +1047,15 @@
             {
                 var editJson = JsonSerializer.Serialize(editElements);
 
-                var pngResult = await JS.InvokeAsync<object>("renderPdfPage", pageItem.PageData, 0);
-                var pngBase64 = pngResult?.GetType().GetProperty("thumbnail")?.GetValue(pngResult)?.ToString();
-
-                // 1. 編集内容を反映したPNG画像を生成
-                var editedPngBase64 = await JS.InvokeAsync<string>(
-                    "renderEditedPage",
-                    pngBase64, // ここはPDFのBase64ではなく、まずPNG画像のBase64を渡す必要がある
+                var newPdfBase64 = await JS.InvokeAsync<string>(
+                    "editPdfPageWithElements",
+                    pageItem.PageData, // extractPdfPageで取得したPDF Base64
                     editJson
                 );
-
-                // 2. PNG画像をPDF化してBase64で取得
-                var editedPdfBase64 = await JS.InvokeAsync<string>(
-                    "embedImageAsPdf",
-                    editedPngBase64,
-                    ".png"
-                );
-
-                pageItem.PageData = editedPdfBase64;
+                pageItem.PageData = newPdfBase64;
                 pageItem.Thumbnail = "";
                 pageItem.IsLoading = true;
+                await PdfDataService.LoadAllPagesForFileAsync(pageItem.FileId, loadThumbnails: true);
                 await JS.InvokeVoidAsync("alert", "変更を保存しました");
             }
             catch (Exception ex)
@@ -1068,6 +1069,5 @@
             await JS.InvokeVoidAsync("alert", "ページ情報が見つかりません");
 
         }
-            Console.WriteLine("Saved...");
     }
 }

@@ -649,10 +649,25 @@ window.unlockPdf = async function (pdfData, password) {
     return btoa(binary);
 };
 
-window.renderEditedPage = async function (baseImage, editJson) {
 
-    if (!baseImage) throw new Error("PDFページ画像がありません");
-    // 編集要素をパース
+window.editPdfPageWithElements = async function (pdfBase64, editJson) {
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+    // fontkit登録（1回だけでOK）
+    if (!PDFLib._fontkitRegistered) {
+        if (window.fontkit) {
+            PDFLib.PDFDocument.prototype.registerFontkit(window.fontkit);
+            PDFLib._fontkitRegistered = true;
+        } else {
+            throw new Error("fontkitがロードされていません。");
+        }
+    }
+    const pdfBytes = base64ToUint8Array(pdfBase64);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+
+    const page = pdfDoc.getPage(0);
+    const pageHeight = page.getHeight();
+
     let editElements = [];
     try {
         editElements = JSON.parse(editJson);
@@ -660,61 +675,90 @@ window.renderEditedPage = async function (baseImage, editJson) {
         console.error("editJson parse error", e, editJson);
     }
 
-
-    let imgSrc = baseImage.startsWith("data:") ? baseImage : "data:image/png;base64," + baseImage;
-
-    // ベース画像をImageとして読み込む
-    const img = new window.Image();
-    img.onerror = function (e) {
-        console.error("renderEditedPage: 画像の読み込みに失敗", imgSrc, e);
-        resolve(); // onloadが呼ばれないとPromiseが永遠に解決しないので
+    // サポートするフォント
+    const supportedFonts = {
+        "sans-serif": StandardFonts.Helvetica,
+        "serif": StandardFonts.TimesRoman,
+        "monospace": StandardFonts.Courier,
+        "Arial, Helvetica, sans-serif": StandardFonts.Helvetica,
+        "Times New Roman, serif": StandardFonts.TimesRoman,
+        "Meiryo, sans-serif": StandardFonts.Helvetica,
+        "Yu Gothic, sans-serif": StandardFonts.Helvetica
     };
-    img.src = imgSrc;
-    console.log("renderEditedPage imgSrc", imgSrc);
-    await new Promise(resolve => {
-        img.onload = resolve;
-        img.onerror = function (e) {
-            console.error("renderEditedPage: 画像の読み込みに失敗", imgSrc, e);
-            resolve();
-        };
-    });
 
-    // 4. Canvasを用意
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-
-    // 5. ベース画像を描画
-    ctx.drawImage(img, 0, 0);
-
-    // 6. 編集要素を重ねて描画
     for (const el of editElements) {
         if (el.Type === 0 || el.Type === "Text") {
-            // テキスト
-            ctx.save();
-            ctx.font = `${el.FontSize || 16}px ${el.FontFamily || "sans-serif"}`;
-            ctx.fillStyle = el.Color || "#000";
-            ctx.textBaseline = "top";
-            ctx.fillText(el.Text || "", el.X || 0, el.Y || 0, el.Width || undefined);
-            ctx.restore();
+            // フォント名をStandardFontsにマッピング
+            function containsJapanese(text) {
+                return /[\u3000-\u30FF\u4E00-\u9FFF]/.test(text);
+            }
+
+            let font;
+            if (containsJapanese(el.Text || "")) {
+                if (!pdfDoc._notoFont) {
+                    const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
+                    const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+                    pdfDoc._notoFont = await pdfDoc.embedFont(fontBytes);
+                }
+                font = pdfDoc._notoFont;
+            } else {
+                font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            }
+
+            page.drawText(el.Text || "", {
+                x: el.X || 0,
+                y: pageHeight - (el.Y || 0) - (el.FontSize || 16),
+                size: el.FontSize || 16,
+                font: font,
+                color: rgbHexToRgb(el.Color || "#000000"),
+            });
         } else if (el.Type === 1 || el.Type === "Image") {
-            // 画像
-            if (el.ImageUrl) {
-                const overlayImg = new window.Image();
-                overlayImg.src = el.ImageUrl;
-                await new Promise(resolve => { overlayImg.onload = resolve; });
-                ctx.drawImage(
-                    overlayImg,
-                    el.X || 0,
-                    el.Y || 0,
-                    el.Width || overlayImg.width,
-                    el.Height || overlayImg.height
-                );
+            if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
+                let base64 = el.ImageUrl.split(',')[1] || el.ImageUrl;
+                let img;
+                if (el.ImageUrl.startsWith("data:image/png")) {
+                    img = await pdfDoc.embedPng(base64ToUint8Array(base64));
+                } else if (el.ImageUrl.startsWith("data:image/jpeg")) {
+                    img = await pdfDoc.embedJpg(base64ToUint8Array(base64));
+                }
+                page.drawImage(img, {
+                    x: el.X || 0,
+                    y: pageHeight - (el.Y || 0) - (el.Height || img.height),
+                    width: el.Width || img.width,
+                    height: el.Height || img.height
+                });
+            } else {
+                // SVGやWebPなど未対応形式はスキップ
+                console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
             }
         }
     }
 
-    // 7. PNG Base64として返す（data:image/png;base64,～ の「,」以降のみ返す）
-    return canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+    const newPdfBytes = await pdfDoc.save();
+    let binary = '';
+    for (let i = 0; i < newPdfBytes.length; i++) {
+        binary += String.fromCharCode(newPdfBytes[i]);
+    }
+    return btoa(binary);
+
+    // ヘルパー
+    function rgbHexToRgb(hex) {
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+        const num = parseInt(hex, 16);
+        return rgb(
+            ((num >> 16) & 255) / 255,
+            ((num >> 8) & 255) / 255,
+            (num & 255) / 255
+        );
+    }
+    function base64ToUint8Array(base64) {
+        const binaryString = atob(base64.replace(/^data:.*;base64,/, ''));
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    }
 };
