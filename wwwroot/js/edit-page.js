@@ -50,13 +50,11 @@ window.getTagNameFromEvent = function (e) {
 
 window.getCanvasCoords = function (canvasSelector, clientX, clientY, offsetX, offsetY, zoomLevel) {
     const canvas = document.querySelector(canvasSelector);
-    console.log("canvasSelector:", canvasSelector, "canvas:", canvas);
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    console.log("rect:", rect, "clientX:", clientX, "clientY:", clientY, "offsetX:", offsetX, "offsetY:", offsetY, "zoomLevel:", zoomLevel);
-    const x = (clientX - rect.left - offsetX) / zoomLevel;
-    const y = (clientY - rect.top - offsetY) / zoomLevel;
-    console.log("result:", { x, y });
+    // offsetX/offsetYはtransformで既に反映済みなので引かない！
+    const x = (clientX - rect.left) / zoomLevel;
+    const y = (clientY - rect.top) / zoomLevel;
     return { x, y };
 };
 

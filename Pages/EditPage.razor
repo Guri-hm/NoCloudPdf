@@ -68,13 +68,29 @@
                 <select class="text-sm border rounded px-2 py-1"
                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
                     @onchange="OnFontSizeChanged" @onmousedown:stopPropagation>
+                    <option value="10">10px</option>
+                    <option value="11">11px</option>
                     <option value="12">12px</option>
+                    <option value="13">13px</option>
                     <option value="14">14px</option>
+                    <option value="15">15px</option>
                     <option value="16">16px</option>
                     <option value="18">18px</option>
                     <option value="20">20px</option>
+                    <option value="22">22px</option>
                     <option value="24">24px</option>
+                    <option value="28">28px</option>
+                    <option value="32">32px</option>
+                    <option value="36">36px</option>
+                    <option value="40">40px</option>
+                    <option value="48">48px</option>
+                    <option value="56">56px</option>
+                    <option value="64">64px</option>
                 </select>
+                <input type="number" min="6" max="128" step="1" class="text-sm border rounded px-2 py-1 w-16"
+                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
+                    @onchange="OnFontSizeChanged" @onmousedown:stopPropagation placeholder="手入力" />
+                <span class="text-xs text-gray-500">px</span>
                 <input type="color" @bind="textColor" class="w-8 h-8 border rounded">
             </div>
         }
@@ -360,7 +376,11 @@
 
     private void OnFontSizeChanged(ChangeEventArgs e)
     {
-        int value = int.Parse(e.Value?.ToString() ?? "16");
+        int value;
+        if (!int.TryParse(e.Value?.ToString(), out value))
+        {
+            value = 16; // デフォルト値
+        }
         // 編集中の要素があればそれだけ
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
