@@ -129,7 +129,7 @@
     <!-- メインエディタエリア -->
     <div class="edit-canvas-container h-full w-full overflow-auto flex justify-center items-center
             @(currentTool == EditTool.Text ? "cursor-text" : (isDragging && currentTool == EditTool.Select ? "cursor-grabbing" : "cursor-grab"))"
-            @onmousedown="OnCanvasMouseDown" @onmousemove="OnCanvasMouseMove" @onmouseup="OnElementMouseUp"
+            @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp"
             @onwheel="OnCanvasWheel">
 
             <div class="edit-canvas-wrapper relative"
@@ -159,7 +159,6 @@
                                 style="left: @(element.X * zoomLevel)px; top: @(element.Y * zoomLevel)px; font-size: @(element.FontSize * zoomLevel)px; color: @element.Color; font-family: @(element.FontFamily);"
                                 @onmousedown="(e) => OnElementMouseDown(e, element)"
                                 @onmouseup="OnElementMouseUp"
-                                @onmousemove="OnElementMouseMove"
                                 >
                                 @if (element.IsEditing)
                                 {
@@ -211,7 +210,6 @@
                                 style="left: @(element.X * zoomLevel)px; top: @(element.Y * zoomLevel)px; width: @(element.Width * zoomLevel)px; height: @(element.Height * zoomLevel)px;"
                                 @onmousedown="(e) => OnImageMouseDown(e, element)"
                                 @onmouseup="OnImageMouseUp"
-                                @onmousemove="OnImageMouseMove"
                                 @onclick="() => { if (currentTool == EditTool.Image) SelectElement(element.Id); }"
                                 @onclick:stopPropagation
                             >
@@ -508,6 +506,7 @@
     
     private void OnImageMouseMove(MouseEventArgs e)
     {
+        bool changed = false;
         if (draggingImageId != null)
         {
             var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
@@ -516,7 +515,7 @@
             var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
             element.X = dragStartImageX + dx;
             element.Y = dragStartImageY + dy;
-            StateHasChanged();
+            changed = true;
         }
         else if (resizingImageId != null && resizingHandle != null)
         {
@@ -525,8 +524,9 @@
             var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
             var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
             ResizeImageElement(element, resizingHandle, dx, dy);
-            StateHasChanged();
+            changed = true;
         }
+        if (changed) StateHasChanged();
     }
     
     private void OnImageMouseUp(MouseEventArgs e)
@@ -554,87 +554,92 @@
         double aspect = element.ImageOriginalWidth > 0 && element.ImageOriginalHeight > 0
             ? element.ImageOriginalWidth / element.ImageOriginalHeight
             : 1.0;
-    
+
         double newX = dragStartImageX;
         double newY = dragStartImageY;
         double newWidth = dragStartImageWidth;
         double newHeight = dragStartImageHeight;
-    
+
         if (keepAspectRatio)
         {
             switch (handle)
             {
-                case "nw":
-                    // 左上：XとYを増やし、幅・高さを減らす
+                case "n":
                     {
-                        double delta = Math.Min(dx, dy);
-                        newWidth = Math.Max(dragStartImageWidth - delta, minSize);
+                        double rawHeight = dragStartImageHeight - dy;
+                        newHeight = Math.Max(rawHeight, minSize);
+                        double actualDy = dragStartImageHeight - newHeight;
+                        newWidth = Math.Max(newHeight * aspect, minSize);
+                        newY = dragStartImageY + actualDy;
+                    }
+                    break;
+                case "s":
+                    {
+                        double rawHeight = dragStartImageHeight + dy;
+                        newHeight = Math.Max(rawHeight, minSize);
+                        newWidth = Math.Max(newHeight * aspect, minSize);
+                    }
+                    break;
+                case "e":
+                    {
+                        double rawWidth = dragStartImageWidth + dx;
+                        newWidth = Math.Max(rawWidth, minSize);
                         newHeight = Math.Max(newWidth / aspect, minSize);
-                        newX = dragStartImageX + (dragStartImageWidth - newWidth);
+                    }
+                    break;
+                case "w":
+                    {
+                        double rawWidth = dragStartImageWidth - dx;
+                        newWidth = Math.Max(rawWidth, minSize);
+                        double actualDx = dragStartImageWidth - newWidth;
+                        newHeight = Math.Max(newWidth / aspect, minSize);
+                        newX = dragStartImageX + actualDx;
+                    }
+                    break;
+                case "nw":
+                    {
+                        // dx,dyのうち絶対値が大きい方を優先
+                        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
+                        double rawWidth = dragStartImageWidth - delta;
+                        newWidth = Math.Max(rawWidth, minSize);
+                        newHeight = Math.Max(newWidth / aspect, minSize);
+                        double actualDelta = dragStartImageWidth - newWidth;
+                        newX = dragStartImageX + actualDelta;
                         newY = dragStartImageY + (dragStartImageHeight - newHeight);
                     }
                     break;
                 case "ne":
-                    // 右上：Yを増やし、幅・高さを増やす
                     {
-                        double delta = Math.Min(-dx, dy);
-                        newWidth = Math.Max(dragStartImageWidth + dx, minSize);
+                        double delta = Math.Abs(dx) > Math.Abs(dy) ? -dx : dy;
+                        double rawWidth = dragStartImageWidth + dx;
+                        newWidth = Math.Max(rawWidth, minSize);
                         newHeight = Math.Max(newWidth / aspect, minSize);
                         newY = dragStartImageY + (dragStartImageHeight - newHeight);
                     }
                     break;
                 case "se":
-                    // 右下：幅・高さを増やす
                     {
-                        double delta = Math.Max(dx, dy);
-                        newWidth = Math.Max(dragStartImageWidth + dx, minSize);
+                        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
+                        double rawWidth = dragStartImageWidth + delta;
+                        newWidth = Math.Max(rawWidth, minSize);
                         newHeight = Math.Max(newWidth / aspect, minSize);
                     }
                     break;
                 case "sw":
-                    // 左下：Xを増やし、幅・高さを増やす
                     {
-                        double delta = Math.Min(dx, -dy);
-                        newWidth = Math.Max(dragStartImageWidth - dx, minSize);
+                        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : -dy;
+                        double rawWidth = dragStartImageWidth - dx;
+                        newWidth = Math.Max(rawWidth, minSize);
                         newHeight = Math.Max(newWidth / aspect, minSize);
-                        newX = dragStartImageX + (dragStartImageWidth - newWidth);
-                    }
-                    break;
-                case "n":
-                    // 上：Yを増やし、高さを減らす、幅も連動
-                    {
-                        newHeight = Math.Max(dragStartImageHeight - dy, minSize);
-                        newWidth = Math.Max(newHeight * aspect, minSize);
-                        newY = dragStartImageY + (dragStartImageHeight - newHeight);
-                    }
-                    break;
-                case "s":
-                    // 下：高さを増やす、幅も連動
-                    {
-                        newHeight = Math.Max(dragStartImageHeight + dy, minSize);
-                        newWidth = Math.Max(newHeight * aspect, minSize);
-                    }
-                    break;
-                case "e":
-                    // 右：幅を増やす、高さも連動
-                    {
-                        newWidth = Math.Max(dragStartImageWidth + dx, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                    }
-                    break;
-                case "w":
-                    // 左：Xを増やし、幅を減らす、高さも連動
-                    {
-                        newWidth = Math.Max(dragStartImageWidth - dx, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        newX = dragStartImageX + (dragStartImageWidth - newWidth);
+                        double actualDx = dragStartImageWidth - newWidth;
+                        newX = dragStartImageX + actualDx;
                     }
                     break;
             }
         }
         else
         {
-            // アスペクト比無視
+            // アスペクト比無視（今のままでOK）
             switch (handle)
             {
                 case "nw":
@@ -673,7 +678,7 @@
                     break;
             }
         }
-    
+
         element.X = newX;
         element.Y = newY;
         element.Width = newWidth;
@@ -689,6 +694,53 @@
         resizingHandle = null;
         isDragging = false;
         StateHasChanged();
+    }
+
+    public class MouseMoveArgs
+    {
+        public double ClientX { get; set; }
+        public double ClientY { get; set; }
+    }
+
+    [JSInvokable]
+    public void OnGlobalMouseMove(MouseMoveArgs e)
+    {
+        bool changed = false;
+
+        // 画像リサイズ
+        if (resizingImageId != null && resizingHandle != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            ResizeImageElement(element, resizingHandle, dx, dy);
+            changed = true;
+        }
+        // 画像ドラッグ
+        else if (draggingImageId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartImageX + dx;
+            element.Y = dragStartImageY + dy;
+            changed = true;
+        }
+        // テキスト要素のドラッグ
+        else if (draggingElementId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartElementX + dx;
+            element.Y = dragStartElementY + dy;
+            changed = true;
+        }
+
+        if (changed) StateHasChanged();
     }
 
     [JSInvokable]
@@ -734,6 +786,7 @@
         {
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
+            await JS.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
 
             var allPages = PdfDataService.GetModel().Pages;
             var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
@@ -752,6 +805,7 @@
     public async ValueTask DisposeAsync()
     {
         await JS.InvokeVoidAsync("unregisterGlobalMouseUp");
+        await JS.InvokeVoidAsync("unregisterGlobalMouseMove");
         _dotNetRef?.Dispose();
     }
 

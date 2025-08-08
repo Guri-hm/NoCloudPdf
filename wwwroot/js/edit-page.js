@@ -78,6 +78,22 @@ window.unregisterGlobalMouseUp = function () {
     }
 };
 
+window.registerGlobalMouseMove = function (dotNetRef) {
+    window._globalMouseMoveHandler = function (e) {
+        dotNetRef.invokeMethodAsync('OnGlobalMouseMove', {
+            clientX: e.clientX,
+            clientY: e.clientY
+        });
+    };
+    window.addEventListener('mousemove', window._globalMouseMoveHandler);
+};
+window.unregisterGlobalMouseMove = function () {
+    if (window._globalMouseMoveHandler) {
+        window.removeEventListener('mousemove', window._globalMouseMoveHandler);
+        window._globalMouseMoveHandler = null;
+    }
+};
+
 window.readImageAsBase64 = function (input, dotNetRef) {
     const file = input.files[0];
     if (!file) return;
