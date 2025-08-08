@@ -61,3 +61,26 @@ window.getCanvasCoords = function (canvasSelector, clientX, clientY, offsetX, of
 window.triggerFileInput = (element) => {
     element.click();
 };
+
+window.registerGlobalMouseUp = function (dotNetHelper) {
+    window._blazorMouseUpHandler = function (e) {
+        dotNetHelper.invokeMethodAsync('OnGlobalMouseUp');
+    };
+    window.addEventListener('mouseup', window._blazorMouseUpHandler);
+};
+window.unregisterGlobalMouseUp = function () {
+    if (window._blazorMouseUpHandler) {
+        window.removeEventListener('mouseup', window._blazorMouseUpHandler);
+        window._blazorMouseUpHandler = null;
+    }
+};
+
+window.readImageAsBase64 = function (input, dotNetHelper) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            dotNetHelper.invokeMethodAsync('OnImageBase64Loaded', e.target.result);
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+};

@@ -113,12 +113,23 @@
                     @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
             </div>
         }
+        @if (currentTool == EditTool.Image)
+        {
+            <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" @bind="keepAspectRatio" />
+                アスペクト比固定
+            </label>
+            <button class="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                    @onclick="TriggerImageInput">
+                画像を追加
+            </button>
+        }
     </div>
 
     <!-- メインエディタエリア -->
     <div class="edit-canvas-container h-full w-full overflow-auto flex justify-center items-center
             @(currentTool == EditTool.Text ? "cursor-text" : (isDragging && currentTool == EditTool.Select ? "cursor-grabbing" : "cursor-grab"))"
-            @onmousedown="OnCanvasMouseDown" @onmousemove="OnCanvasMouseMove" @onmouseup="OnCanvasMouseUp"
+            @onmousedown="OnCanvasMouseDown" @onmousemove="OnCanvasMouseMove" @onmouseup="OnElementMouseUp"
             @onwheel="OnCanvasWheel">
 
             <div class="edit-canvas-wrapper relative"
@@ -177,10 +188,13 @@
                                         <div class="handle handle-se absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-se-resize bottom-[-4px] right-[-4px]"></div>
                                         @if (!element.IsEditing)
                                         {
-                                            <button class="edit-btn absolute top-[-12px] right-[12px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
-                                                @onclick="() => StartTextEdit(element)" @onclick:stopPropagation title="テキスト編集">
-                                                <i class="fa-solid fa-pen"></i>
-                                            </button>
+                                            @if (currentTool == EditTool.Text)
+                                            {
+                                                <button class="edit-btn absolute top-[-12px] right-[12px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
+                                                    @onclick="() => StartTextEdit(element)" @onclick:stopPropagation title="テキスト編集">
+                                                    <i class="fa-solid fa-pen"></i>
+                                                </button>
+                                            }
                                         }
                                         <button class="delete-btn absolute top-[-12px] right-[-12px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
                                             @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
@@ -192,22 +206,34 @@
                         }
                         else if (element.Type == ElementType.Image)
                         {
-                            <div class="edit-element text-element absolute select-none cursor-move border-2 border-transparent
-                                @(element.IsEditing ? "border-blue-600 bg-blue-50" : (selectedElementIds.Contains(element.Id) ? "border-blue-600" : ""))"
-                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color;">
-                                <img src="@element.ImageUrl" class="w-full h-full object-contain" />
+                             <div class="edit-element image-element absolute select-none cursor-move
+                                @(selectedElementIds.Contains(element.Id) ? "border-2 border-blue-600" : "border-2 border-transparent")"
+                                style="left: @(element.X * zoomLevel)px; top: @(element.Y * zoomLevel)px; width: @(element.Width * zoomLevel)px; height: @(element.Height * zoomLevel)px;"
+                                @onmousedown="(e) => OnImageMouseDown(e, element)"
+                                @onmouseup="OnImageMouseUp"
+                                @onmousemove="OnImageMouseMove"
+                                @onclick="() => { if (currentTool == EditTool.Image) SelectElement(element.Id); }"
+                                @onclick:stopPropagation
+                            >
+                                <img src="@element.ImageUrl" class="w-full h-full object-contain pointer-events-none" />
+                                @if (selectedElementIds.Contains(element.Id) && currentTool == EditTool.Image)
+                                {
+                                    <div class="element-handles absolute inset-0 pointer-events-none">
+                                        @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
+                                        {
+                                            <div class="handle handle-@handle absolute bg-blue-600 border border-white w-2 h-2 pointer-events-auto"
+                                                style="@GetHandleStyle(handle, element)"
+                                                @onmousedown="(e) => OnImageResizeMouseDown(e, element, handle)"
+                                                @onmousedown:stopPropagation />
+                                        }
+                                    </div>
+                                }
                                 @if (selectedElementIds.Contains(element.Id))
                                 {
-                                    <div class="element-handles">
-                                        <div class="handle handle-nw"></div>
-                                        <div class="handle handle-ne"></div>
-                                        <div class="handle handle-sw"></div>
-                                        <div class="handle handle-se"></div>
-                                        <button class="delete-btn" @onclick="() => DeleteElement(element.Id)"
-                                            @onclick:stopPropagation>
-                                            <i class="fa-solid fa-times"></i>
-                                        </button>
-                                    </div>
+                                    <button class="delete-btn absolute top-[-20px] right-[-20px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
+                                            @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
+                                        <i class="fa-solid fa-times"></i>
+                                    </button>
                                 }
                             </div>
                         }
@@ -218,11 +244,13 @@
     </div>
 
     <!-- ファイルアップロード用の隠しinput -->
-    <input type="file" @ref="fileInputRef" @onchange="OnImageSelected" accept="image/*" style="display: none;" />
+   <input type="file" @ref="fileInputRef" @onchange="OnImageSelected" accept="image/*" style="display: none;" />
 </div>
 
 
 @code {
+    private DotNetObjectReference<EditPage>? _dotNetRef;
+
     [Parameter] public string FileId { get; set; } = "";
     [Parameter] public int PageIndex { get; set; }
     // 例: FileIdをピリオドなしに変換(cssセレクタでピリオドがクラス名として解釈されるため)
@@ -246,6 +274,12 @@
     private double dragStartMouseY = 0;
     private double dragStartElementX = 0;
     private double dragStartElementY = 0;
+
+    private string? draggingImageId = null;
+    private string? resizingImageId = null;
+    private string? resizingHandle = null;
+    private double dragStartImageX, dragStartImageY;
+    private double dragStartImageWidth, dragStartImageHeight;
 
     private EditTool currentTool = EditTool.Select;
     private bool isDragging = false;
@@ -375,6 +409,24 @@
         }
     }
 
+    private string GetHandleStyle(string handle, EditElement element)
+    {
+        var w = element.Width * zoomLevel;
+        var h = element.Height * zoomLevel;
+        var positions = new Dictionary<string, string>
+        {
+            ["nw"] = "top:-4px;left:-4px;cursor:nw-resize;",
+            ["n"]  = $"top:-4px;left:{w/2-4}px;cursor:n-resize;",
+            ["ne"] = $"top:-4px;right:-4px;cursor:ne-resize;",
+            ["e"]  = $"top:{h/2-4}px;right:-4px;cursor:e-resize;",
+            ["se"] = $"bottom:-4px;right:-4px;cursor:se-resize;",
+            ["s"]  = $"bottom:-4px;left:{w/2-4}px;cursor:s-resize;",
+            ["sw"] = $"bottom:-4px;left:-4px;cursor:sw-resize;",
+            ["w"]  = $"top:{h/2-4}px;left:-4px;cursor:w-resize;"
+        };
+        return positions[handle] + "position:absolute;width:8px;height:8px;z-index:10;";
+    }
+
     private void OnElementMouseDown(MouseEventArgs e, EditElement element)
     {
         if (element.Type != ElementType.Text || !selectedElementIds.Contains(element.Id)) return;
@@ -441,10 +493,186 @@
         StateHasChanged();
     }
 
+    private bool keepAspectRatio = true;
+
+    private void OnImageMouseDown(MouseEventArgs e, EditElement element)
+    {
+        if (currentTool != EditTool.Image || !selectedElementIds.Contains(element.Id)) return;
+        draggingImageId = element.Id;
+        dragStartMouseX = e.ClientX;
+        dragStartMouseY = e.ClientY;
+        dragStartImageX = element.X;
+        dragStartImageY = element.Y;
+    }
+    
+    private void OnImageMouseMove(MouseEventArgs e)
+    {
+        if (draggingImageId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartImageX + dx;
+            element.Y = dragStartImageY + dy;
+            StateHasChanged();
+        }
+        else if (resizingImageId != null && resizingHandle != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            ResizeImageElement(element, resizingHandle, dx, dy);
+            StateHasChanged();
+        }
+    }
+    
+    private void OnImageMouseUp(MouseEventArgs e)
+    {
+        draggingImageId = null;
+        resizingImageId = null;
+        resizingHandle = null;
+    }
+    
+    private void OnImageResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
+    {
+        resizingImageId = element.Id;
+        resizingHandle = handle;
+        dragStartMouseX = e.ClientX;
+        dragStartMouseY = e.ClientY;
+        dragStartImageX = element.X;
+        dragStartImageY = element.Y;
+        dragStartImageWidth = element.Width;
+        dragStartImageHeight = element.Height;
+    }
+
+    private void ResizeImageElement(EditElement element, string handle, double dx, double dy)
+    {
+        double minSize = 20;
+        double aspect = dragStartImageWidth / dragStartImageHeight;
+
+        if (keepAspectRatio)
+        {
+            // アスペクト比固定
+            switch (handle)
+            {
+                case "nw":
+                case "ne":
+                case "se":
+                case "sw":
+                    // 斜めハンドルはdx,dyの大きい方に合わせて正方形に
+                    double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
+                    if (handle == "nw") delta = -Math.Min(Math.Abs(dx), Math.Abs(dy));
+                    if (handle == "ne") delta = Math.Min(Math.Abs(dx), Math.Abs(dy));
+                    if (handle == "se") delta = Math.Max(Math.Abs(dx), Math.Abs(dy));
+                    if (handle == "sw") delta = -Math.Max(Math.Abs(dx), Math.Abs(dy));
+                    element.Width = Math.Max(dragStartImageWidth + delta, minSize);
+                    element.Height = Math.Max(element.Width / aspect, minSize);
+                    if (handle.Contains("n")) element.Y = dragStartImageY + (dragStartImageHeight - element.Height);
+                    if (handle.Contains("w")) element.X = dragStartImageX + (dragStartImageWidth - element.Width);
+                    break;
+                case "n":
+                case "s":
+                    // 上下ハンドルは高さのみ変更、幅も連動
+                    double newHeight = Math.Max(dragStartImageHeight + (handle == "n" ? -dy : dy), minSize);
+                    element.Height = newHeight;
+                    element.Width = Math.Max(newHeight * aspect, minSize);
+                    if (handle == "n") element.Y = dragStartImageY + (dragStartImageHeight - element.Height);
+                    break;
+                case "e":
+                case "w":
+                    // 左右ハンドルは幅のみ変更、高さも連動
+                    double newWidth = Math.Max(dragStartImageWidth + (handle == "w" ? -dx : dx), minSize);
+                    element.Width = newWidth;
+                    element.Height = Math.Max(newWidth / aspect, minSize);
+                    if (handle == "w") element.X = dragStartImageX + (dragStartImageWidth - element.Width);
+                    break;
+            }
+        }
+        else
+        {
+            // アスペクト比無視（従来通り）
+            switch (handle)
+            {
+                case "nw":
+                    element.X = dragStartImageX + dx;
+                    element.Y = dragStartImageY + dy;
+                    element.Width = Math.Max(dragStartImageWidth - dx, minSize);
+                    element.Height = Math.Max(dragStartImageHeight - dy, minSize);
+                    break;
+                case "n":
+                    element.Y = dragStartImageY + dy;
+                    element.Height = Math.Max(dragStartImageHeight - dy, minSize);
+                    break;
+                case "ne":
+                    element.Y = dragStartImageY + dy;
+                    element.Width = Math.Max(dragStartImageWidth + dx, minSize);
+                    element.Height = Math.Max(dragStartImageHeight - dy, minSize);
+                    break;
+                case "e":
+                    element.Width = Math.Max(dragStartImageWidth + dx, minSize);
+                    break;
+                case "se":
+                    element.Width = Math.Max(dragStartImageWidth + dx, minSize);
+                    element.Height = Math.Max(dragStartImageHeight + dy, minSize);
+                    break;
+                case "s":
+                    element.Height = Math.Max(dragStartImageHeight + dy, minSize);
+                    break;
+                case "sw":
+                    element.X = dragStartImageX + dx;
+                    element.Width = Math.Max(dragStartImageWidth - dx, minSize);
+                    element.Height = Math.Max(dragStartImageHeight + dy, minSize);
+                    break;
+                case "w":
+                    element.X = dragStartImageX + dx;
+                    element.Width = Math.Max(dragStartImageWidth - dx, minSize);
+                    break;
+            }
+        }
+    }
+
+    [JSInvokable]
+    public void OnGlobalMouseUp()
+    {
+        draggingElementId = null;
+        draggingImageId = null;
+        resizingImageId = null;
+        resizingHandle = null;
+        isDragging = false;
+        StateHasChanged();
+    }
+
+        [JSInvokable]
+    public void OnImageBase64Loaded(string base64)
+    {
+        var element = new EditElement
+        {
+            Type = ElementType.Image,
+            X = 100,
+            Y = 100,
+            Width = 100,
+            Height = 100,
+            ImageUrl = base64
+        };
+        editElements.Add(element);
+        StateHasChanged();
+    }
+    
+    private async Task OnImageSelected(ChangeEventArgs e)
+    {
+        // input要素のElementReferenceを渡す
+        await JS.InvokeVoidAsync("readImageAsBase64", fileInputRef, DotNetObjectReference.Create(this));
+    }
+    
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
+
             var allPages = PdfDataService.GetModel().Pages;
             var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
 
@@ -457,6 +685,12 @@
             fileName = pageItem?.FileName ?? "";
             await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "");
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await JS.InvokeVoidAsync("unregisterGlobalMouseUp");
+        _dotNetRef?.Dispose();
     }
 
     private void NavigateBack()
@@ -501,6 +735,9 @@
 
     private void OnCanvasMouseDown(MouseEventArgs e)
     {
+        // テキストエリアのドラッグ中はページ移動を開始しない
+        if (draggingElementId != null) return;
+
         if (currentTool == EditTool.Select)
         {
             isDragging = true;
@@ -511,6 +748,8 @@
 
     private void OnCanvasMouseMove(MouseEventArgs e)
     {
+        if (draggingElementId != null) return;
+
         if (isDragging && currentTool == EditTool.Select)
         {
             var deltaX = e.ClientX - lastMouseX;
@@ -600,16 +839,17 @@
             };
             editElements.Add(element);
         }
-        else if (currentTool == EditTool.Image)
-        {
-            await fileInputRef.FocusAsync();
-            await JS.InvokeVoidAsync("triggerFileInput", fileInputRef);
-        }
         else
         {
             selectedElementIds.Clear();
         }
     }
+
+private async Task TriggerImageInput()
+{
+    await fileInputRef.FocusAsync();
+    await JS.InvokeVoidAsync("triggerFileInput", fileInputRef);
+}
 
     // 選択された要素のIDを格納
     private void SelectElement(string elementId, bool multi = false)
@@ -657,25 +897,6 @@
         }
     }
 
-    private async Task OnImageSelected(ChangeEventArgs e)
-    {
-        // 画像アップロード処理
-        // 実際の実装では、ファイルをBase64に変換またはサーバーにアップロード
-        var imageUrl =
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-
-        var element = new EditElement
-        {
-            Type = ElementType.Image,
-            X = 100,
-            Y = 100,
-            Width = 100,
-            Height = 100,
-            ImageUrl = imageUrl
-        };
-        editElements.Add(element);
-    }
-
     private void DeleteElement(string elementId)
     {
         editElements.RemoveAll(e => e.Id == elementId);
@@ -684,8 +905,27 @@
 
     private async Task SaveChanges()
     {
-        // 編集内容の保存処理
-        // 実際の実装では、編集要素をサーバーに送信
-        await JS.InvokeVoidAsync("alert", "変更を保存しました");
+        // 現在のページを取得
+        var allPages = PdfDataService.GetModel().Pages;
+        var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+
+        if (pageItem != null)
+        {
+            // 編集要素を保存（必要に応じてシリアライズ）
+            //pageItem.PageData = JsonSerializer.Serialize(editElements);
+            var newThumbnail = await JS.InvokeAsync<string>("generateThumbnail", safeFileId, PageIndex);
+            pageItem.Thumbnail = newThumbnail;
+
+            
+
+            // 必要ならPdfDataService.Save()などで永続化
+            // await PdfDataService.SaveAsync();
+
+            await JS.InvokeVoidAsync("alert", "変更を保存しました");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "ページ情報が見つかりません");
+        }
     }
 }
