@@ -2051,9 +2051,9 @@ input[type=number] {
       margin-inline: calc(var(--spacing) * 0);
     }
   }
-  .md\:my-0\.5 {
+  .md\:my-0 {
     @media (width >= 48rem) {
-      margin-block: calc(var(--spacing) * 0.5);
+      margin-block: calc(var(--spacing) * 0);
     }
   }
   .md\:mt-0 {
@@ -2196,9 +2196,9 @@ input[type=number] {
            column-gap: calc(var(--spacing) * 3);
     }
   }
-  .md\:gap-y-1 {
+  .md\:gap-y-0 {
     @media (width >= 48rem) {
-      row-gap: calc(var(--spacing) * 1);
+      row-gap: calc(var(--spacing) * 0);
     }
   }
   .md\:gap-y-\[30px\] {

@@ -67,7 +67,7 @@
             <div class="flex items-center gap-2">
                 <select class="text-sm border rounded px-2 py-1"
                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                    @onchange="OnFontSizeChanged">
+                    @onchange="OnFontSizeChanged" @onmousedown:stopPropagation>
                     <option value="12">12px</option>
                     <option value="14">14px</option>
                     <option value="16">16px</option>
@@ -101,9 +101,8 @@
                     {
                         @if (element.Type == ElementType.Text)
                         {
-                            <div class="edit-element text-element absolute cursor-move select-none"
-                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color;"
-                                @onclick="() => SelectElement(element.Id)" @onclick:stopPropagation>
+                            <div class="edit-element text-element absolute cursor-move select-none @(element.IsEditing ? "editing" : (selectedElementIds.Contains(element.Id) ? "selected" : ""))"
+                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color;">
                                 @if (element.IsEditing)
                                 {
                                     <input type="text" @bind="element.Text" @onblur="() => FinishTextEdit(element)"
@@ -114,11 +113,13 @@
                                 }
                                 else
                                 {
-                                    <span @ondblclick="() => StartTextEdit(element)" @ondblclick:stopPropagation>
+                                    <span @onclick="() => { if (!element.IsEditing) SelectElement(element.Id); }"
+                                        @ondblclick="() => StartTextEdit(element)" @onclick:stopPropagation
+                                        @ondblclick:stopPropagation>
                                         @element.Text
                                     </span>
                                 }
-                                @if (selectedElementId == element.Id)
+                                @if (selectedElementIds.Contains(element.Id))
                                 {
                                     <div class="element-handles">
                                         <div class="handle handle-nw"></div>
@@ -139,7 +140,7 @@
                                 style="left: @(element.X)px; top: @(element.Y)px; width: @(element.Width)px; height: @(element.Height)px;"
                                 @onclick="() => SelectElement(element.Id)" @onclick:stopPropagation>
                                 <img src="@element.ImageUrl" class="w-full h-full object-contain" />
-                                @if (selectedElementId == element.Id)
+                                @if (selectedElementIds.Contains(element.Id))
                                 {
                                     <div class="element-handles">
                                         <div class="handle handle-nw"></div>
@@ -185,6 +186,11 @@
 
     .edit-element {
         border: 2px solid transparent;
+    }
+
+    .edit-element.editing {
+        border: 2px solid #3b82f6 !important;
+        background: #e0edff;
     }
 
     .edit-element.selected {
@@ -277,8 +283,10 @@
     private double lastMouseX = 0;
     private double lastMouseY = 0;
 
+    // 選択された要素のIDリスト
+    private List<string> selectedElementIds = new();
+
     private List<EditElement> editElements = new();
-    private string? selectedElementId = null;
     private string textColor = "#000000";
 
     private ElementReference textInputRef;
@@ -301,6 +309,7 @@
         public string ImageUrl { get; set; } = "";
         public bool IsEditing { get; set; } = false;
     }
+
     private int _fontSize = 16;
     private int fontSize
     {
@@ -319,16 +328,36 @@
     private void OnFontSizeChanged(ChangeEventArgs e)
     {
         int value = int.Parse(e.Value?.ToString() ?? "16");
+        // 編集中の要素があればそれだけ
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
             editingElement.FontSize = value;
         }
+        // 選択中なら全て
+        else if (selectedElementIds.Count > 0)
+        {
+            foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
+                el.FontSize = value;
+        }
         else
         {
             fontSize = value;
         }
+        StateHasChanged();
     }
+
+    private void StartTextEdit(EditElement element)
+    {
+        foreach (var el in editElements)
+            el.IsEditing = false;
+
+        element.IsEditing = true;
+        selectedElementIds.Clear();
+        selectedElementIds.Add(element.Id);
+        StateHasChanged();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -373,7 +402,7 @@
     private void SetTool(EditTool tool)
     {
         currentTool = tool;
-        selectedElementId = null;
+        selectedElementIds.Clear();
     }
 
     private void OnCanvasMouseDown(MouseEventArgs e)
@@ -428,7 +457,17 @@
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
-            editingElement.IsEditing = false;
+            // ここで全てのIsEditingをfalseにしておく
+            foreach (var el in editElements)
+                el.IsEditing = false;
+            StateHasChanged();
+            return;
+        }
+
+        // 選択中が1つ以上なら、選択解除だけして終了
+        if (selectedElementIds.Count > 0)
+        {
+            selectedElementIds.Clear();
             StateHasChanged();
             return;
         }
@@ -457,7 +496,6 @@
                 IsEditing = true
             };
             editElements.Add(element);
-            selectedElementId = element.Id;
         }
         else if (currentTool == EditTool.Image)
         {
@@ -466,18 +504,27 @@
         }
         else
         {
-            selectedElementId = null;
+            selectedElementIds.Clear();
         }
     }
 
-    private void SelectElement(string elementId)
+    // 選択された要素のIDを格納
+    private void SelectElement(string elementId, bool multi = false)
     {
-        selectedElementId = elementId;
-    }
+        // すべての編集中状態を解除
+        foreach (var el in editElements)
+            el.IsEditing = false;
 
-    private void StartTextEdit(EditElement element)
-    {
-        element.IsEditing = true;
+        if (multi)
+        {
+            if (!selectedElementIds.Contains(elementId))
+                selectedElementIds.Add(elementId);
+        }
+        else
+        {
+            selectedElementIds.Clear();
+            selectedElementIds.Add(elementId);
+        }
         StateHasChanged();
     }
 
@@ -512,13 +559,12 @@
             ImageUrl = imageUrl
         };
         editElements.Add(element);
-        selectedElementId = element.Id;
     }
 
     private void DeleteElement(string elementId)
     {
         editElements.RemoveAll(e => e.Id == elementId);
-        selectedElementId = null;
+        selectedElementIds.Remove(elementId);
     }
 
     private async Task SaveChanges()
