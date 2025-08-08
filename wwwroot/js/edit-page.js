@@ -61,6 +61,9 @@ window.getCanvasCoords = function (canvasSelector, clientX, clientY, offsetX, of
 window.triggerFileInput = (element) => {
     element.click();
 };
+window.clearFileInput = function (element) {
+    if (element) element.value = "";
+};
 
 window.registerGlobalMouseUp = function (dotNetHelper) {
     window._blazorMouseUpHandler = function (e) {
@@ -75,12 +78,17 @@ window.unregisterGlobalMouseUp = function () {
     }
 };
 
-window.readImageAsBase64 = function (input, dotNetHelper) {
-    if (input.files && input.files[0]) {
-        var reader = new FileReader();
-        reader.onload = function (e) {
-            dotNetHelper.invokeMethodAsync('OnImageBase64Loaded', e.target.result);
+window.readImageAsBase64 = function (input, dotNetRef) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+            dotNetRef.invokeMethodAsync('OnImageBase64Loaded', e.target.result, img.width, img.height);
         };
-        reader.readAsDataURL(input.files[0]);
-    }
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
 };
+
