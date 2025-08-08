@@ -1034,16 +1034,27 @@
             try
             {
                 var editJson = JsonSerializer.Serialize(editElements);
-                var editedBase64 = await JS.InvokeAsync<string>(
+
+                var pngResult = await JS.InvokeAsync<object>("renderPdfPage", pageItem.PageData, 0);
+                var pngBase64 = pngResult?.GetType().GetProperty("thumbnail")?.GetValue(pngResult)?.ToString();
+
+                // 1. 編集内容を反映したPNG画像を生成
+                var editedPngBase64 = await JS.InvokeAsync<string>(
                     "renderEditedPage",
-                    pageItem.PageData,
+                    pngBase64, // ここはPDFのBase64ではなく、まずPNG画像のBase64を渡す必要がある
                     editJson
                 );
-                Console.WriteLine("Saving changes...");
-                pageItem.PageData = editedBase64;
+
+                // 2. PNG画像をPDF化してBase64で取得
+                var editedPdfBase64 = await JS.InvokeAsync<string>(
+                    "embedImageAsPdf",
+                    editedPngBase64,
+                    ".png"
+                );
+
+                pageItem.PageData = editedPdfBase64;
                 pageItem.Thumbnail = "";
                 pageItem.IsLoading = true;
-
                 await JS.InvokeVoidAsync("alert", "変更を保存しました");
             }
             catch (Exception ex)
