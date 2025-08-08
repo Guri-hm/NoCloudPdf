@@ -92,6 +92,18 @@
                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
                     @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
                 <span class="text-xs text-gray-500">px</span>
+
+                <select class="text-sm border rounded px-2 py-1 w-28 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontFamily ?? fontFamily)"
+                    @onchange="OnFontFamilyChanged" @onmousedown="() => ignoreTextBlur = true">
+                    <option value="sans-serif">標準（ゴシック）</option>
+                    <option value="serif">明朝体</option>
+                    <option value="monospace">等幅</option>
+                    <option value="Arial, Helvetica, sans-serif">Arial</option>
+                    <option value="Times New Roman, serif">Times New Roman</option>
+                    <option value="Meiryo, sans-serif">メイリオ</option>
+                    <option value="Yu Gothic, sans-serif">游ゴシック</option>
+                </select>
                 <input type="color"
                     class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                     value="@CurrentTextColor"
@@ -133,7 +145,7 @@
                                     : (selectedElementIds.Contains(element.Id)
                                         ? "border-2 border-blue-600"
                                         : "border-2 border-transparent"))"
-                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color;">
+                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color; font-family: @(element.FontFamily);">
                                 @if (element.IsEditing)
                                 {
                                     <input type="text" @bind="element.Text" @onblur="() => FinishTextEdit(element)"
@@ -234,6 +246,27 @@
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
 
+    private string fontFamily = "sans-serif";
+
+    private void OnFontFamilyChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "sans-serif";
+        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editingElement != null)
+        {
+            editingElement.FontFamily = value;
+        }
+        else if (selectedElementIds.Count > 0)
+        {
+            foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
+                el.FontFamily = value;
+        }
+        else
+        {
+            fontFamily = value;
+        }
+        StateHasChanged();
+    }
     private List<EditElement> editElements = new();
 
     private ElementReference textInputRef;
@@ -255,6 +288,8 @@
         public string Color { get; set; } = "#000000";
         public string ImageUrl { get; set; } = "";
         public bool IsEditing { get; set; } = false;
+        public string FontFamily { get; set; } = "sans-serif"; 
+
     }
 
     private string _textColor = "#000000";
