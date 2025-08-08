@@ -65,9 +65,9 @@
         {
             <div class="h-6 w-px bg-gray-300"></div>
             <div class="flex items-center gap-2">
-                <select class="text-sm border rounded px-2 py-1"
+                <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                    @onchange="OnFontSizeChanged" @onmousedown:stopPropagation>
+                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
                     <option value="10">10px</option>
                     <option value="11">11px</option>
                     <option value="12">12px</option>
@@ -87,18 +87,25 @@
                     <option value="56">56px</option>
                     <option value="64">64px</option>
                 </select>
-                <input type="number" min="6" max="128" step="1" class="text-sm border rounded px-2 py-1 w-16"
+                <input type="number" min="6" max="128" step="1"
+                    class="text-sm border rounded px-2 py-1 w-16 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                    @onchange="OnFontSizeChanged" @onmousedown:stopPropagation placeholder="手入力" />
+                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
                 <span class="text-xs text-gray-500">px</span>
-                <input type="color" @bind="textColor" class="w-8 h-8 border rounded">
+                <input type="color"
+                    class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                    value="@CurrentTextColor"
+                    @oninput="OnTextColorInput"
+                    @onfocus="() => ignoreNextPageClick = true"
+                    @onblur="OnColorPickerBlur"
+                    @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
             </div>
         }
     </div>
 
     <!-- メインエディタエリア -->
-    <div class="flex-1 overflow-hidden relative bg-gray-100">
-        <div class="edit-canvas-container h-full w-full overflow-auto flex justify-center items-center @(currentTool == EditTool.Text ? "cursor-text" : "")"
+    <div class="edit-canvas-container h-full w-full overflow-auto flex justify-center items-center
+            @(currentTool == EditTool.Text ? "cursor-text" : (isDragging && currentTool == EditTool.Select ? "cursor-grabbing" : "cursor-grab"))"
             @onmousedown="OnCanvasMouseDown" @onmousemove="OnCanvasMouseMove" @onmouseup="OnCanvasMouseUp"
             @onwheel="OnCanvasWheel">
 
@@ -120,7 +127,12 @@
                     {
                         @if (element.Type == ElementType.Text)
                         {
-                            <div class="edit-element text-element absolute cursor-move select-none @(element.IsEditing ? "editing" : (selectedElementIds.Contains(element.Id) ? "selected" : ""))"
+                            <div class="edit-element text-element absolute cursor-move select-none
+                                @(element.IsEditing
+                                    ? "border-2 border-blue-600 bg-blue-50"
+                                    : (selectedElementIds.Contains(element.Id)
+                                        ? "border-2 border-blue-600"
+                                        : "border-2 border-transparent"))"
                                 style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color;">
                                 @if (element.IsEditing)
                                 {
@@ -140,20 +152,20 @@
                                 }
                                 @if (selectedElementIds.Contains(element.Id))
                                 {
-                                    <div class="element-handles">
-                                        <div class="handle handle-nw"></div>
-                                        <div class="handle handle-ne"></div>
-                                        <div class="handle handle-sw"></div>
-                                        <div class="handle handle-se"></div>
+                                    <div class="element-handles absolute inset-[-4px] pointer-events-none">
+                                        <div class="handle handle-nw absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-nw-resize top-[-4px] left-[-4px]"></div>
+                                        <div class="handle handle-ne absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-ne-resize top-[-4px] right-[-4px]"></div>
+                                        <div class="handle handle-sw absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-sw-resize bottom-[-4px] left-[-4px]"></div>
+                                        <div class="handle handle-se absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-se-resize bottom-[-4px] right-[-4px]"></div>
                                         @if (!element.IsEditing)
                                         {
-                                            <button class="edit-btn" @onclick="() => StartTextEdit(element)" @onclick:stopPropagation
-                                                title="テキスト編集">
+                                            <button class="edit-btn absolute top-[-12px] right-[12px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
+                                                @onclick="() => StartTextEdit(element)" @onclick:stopPropagation title="テキスト編集">
                                                 <i class="fa-solid fa-pen"></i>
                                             </button>
                                         }
-                                        <button class="delete-btn" @onclick="() => DeleteElement(element.Id)"
-                                            @onclick:stopPropagation title="削除">
+                                        <button class="delete-btn absolute top-[-12px] right-[-12px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
+                                            @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
                                             <i class="fa-solid fa-times"></i>
                                         </button>
                                     </div>
@@ -162,9 +174,9 @@
                         }
                         else if (element.Type == ElementType.Image)
                         {
-                            <div class="edit-element image-element absolute cursor-move"
-                                style="left: @(element.X)px; top: @(element.Y)px; width: @(element.Width)px; height: @(element.Height)px;"
-                                @onclick="() => SelectElement(element.Id)" @onclick:stopPropagation>
+                            <div class="edit-element text-element absolute select-none cursor-move border-2 border-transparent
+                                @(element.IsEditing ? "border-blue-600 bg-blue-50" : (selectedElementIds.Contains(element.Id) ? "border-blue-600" : ""))"
+                                style="left: @(element.X)px; top: @(element.Y)px; font-size: @(element.FontSize)px; color: @element.Color;">
                                 <img src="@element.ImageUrl" class="w-full h-full object-contain" />
                                 @if (selectedElementIds.Contains(element.Id))
                                 {
@@ -184,129 +196,13 @@
                     }
                 </div>
             </div>
-        </div>
+        
     </div>
 
     <!-- ファイルアップロード用の隠しinput -->
     <input type="file" @ref="fileInputRef" @onchange="OnImageSelected" accept="image/*" style="display: none;" />
 </div>
 
-<style>
-    .edit-canvas-container {
-        cursor:
-            @(isDragging
-                        &&
-                        currentTool
-                        ==
-                        EditTool.Select
-                        ?
-                        "grabbing"
-                        :
-                        "grab")
-        ;
-    }
-
-    .edit-canvas-container.cursor-text {
-        cursor: text !important;
-    }
-
-    .edit-element {
-        border: 2px solid transparent;
-    }
-
-    .edit-element.editing {
-        border: 2px solid #3b82f6 !important;
-        background: #e0edff;
-    }
-
-    .edit-element.selected {
-        border-color: #3b82f6;
-    }
-
-    .element-handles {
-        position: absolute;
-        inset: -4px;
-        pointer-events: none;
-    }
-
-    .edit-element .edit-btn {
-        position: absolute;
-        top: -12px;
-        right: 12px;
-        width: 20px;
-        height: 20px;
-        background: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        pointer-events: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 10px;
-        z-index: 2;
-    }
-
-    .edit-element .edit-btn:hover {
-        background: #2563eb;
-    }
-
-    .handle {
-        position: absolute;
-        width: 8px;
-        height: 8px;
-        background: #3b82f6;
-        border: 1px solid white;
-        pointer-events: auto;
-        cursor: nw-resize;
-    }
-
-    .handle-nw {
-        top: -4px;
-        left: -4px;
-    }
-
-    .handle-ne {
-        top: -4px;
-        right: -4px;
-        cursor: ne-resize;
-    }
-
-    .handle-sw {
-        bottom: -4px;
-        left: -4px;
-        cursor: sw-resize;
-    }
-
-    .handle-se {
-        bottom: -4px;
-        right: -4px;
-        cursor: se-resize;
-    }
-
-    .delete-btn {
-        position: absolute;
-        top: -12px;
-        right: -12px;
-        width: 20px;
-        height: 20px;
-        background: #ef4444;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        cursor: pointer;
-        pointer-events: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 10px;
-    }
-
-    .delete-btn:hover {
-        background: #dc2626;
-    }
-</style>
 
 @code {
     [Parameter] public string FileId { get; set; } = "";
@@ -332,11 +228,13 @@
     private double lastMouseX = 0;
     private double lastMouseY = 0;
 
+    private bool ignoreNextPageClick = false;
+    private bool ignoreTextBlur = false;
+
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
 
     private List<EditElement> editElements = new();
-    private string textColor = "#000000";
 
     private ElementReference textInputRef;
     private ElementReference fileInputRef;
@@ -357,6 +255,62 @@
         public string Color { get; set; } = "#000000";
         public string ImageUrl { get; set; } = "";
         public bool IsEditing { get; set; } = false;
+    }
+
+    private string _textColor = "#000000";
+    private string textColor
+    {
+        get => _textColor;
+        set
+        {
+            _textColor = value;
+
+            // 編集中の要素があればそれだけ
+            var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+            if (editingElement != null)
+            {
+                editingElement.Color = value;
+            }
+            // 選択中なら全て
+            else if (selectedElementIds.Count > 0)
+            {
+                foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
+                    el.Color = value;
+            }
+            StateHasChanged();
+        }
+    }
+
+    private void OnColorPickerBlur(FocusEventArgs e)
+    {
+        ignoreNextPageClick = true;
+    }
+
+    private void OnTextColorInput(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString() ?? "#000000";
+        textColor = value; // setterで編集中・選択中要素にも反映される
+    }
+
+    private string CurrentTextColor
+    {
+        get
+        {
+            var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+            if (editingElement != null)
+                return editingElement.Color;
+            else if (selectedElementIds.Count > 0)
+            {
+                var selected = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
+                if (selected != null)
+                    return selected.Color;
+            }
+            return textColor;
+        }
+        set
+        {
+            textColor = value;
+        }
     }
 
     private int _fontSize = 16;
@@ -415,18 +369,11 @@
     {
         if (firstRender)
         {
-            await LoadPageData();
             var allPages = PdfDataService.GetModel().Pages;
             var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+            fileName = pageItem?.FileName ?? "";
             await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "");
         }
-    }
-
-    private async Task LoadPageData()
-    {
-        // PDFページデータの読み込み処理
-        // 実際の実装では、サービスを使用してページデータを取得
-        fileName = $"Document_{FileId}";
     }
 
     private void NavigateBack()
@@ -513,6 +460,13 @@
     }
     private async Task OnPageClick(MouseEventArgs e)
     {
+        // カラーピッカーが開いている場合は何もしない
+        if (ignoreNextPageClick)
+        {
+            ignoreNextPageClick = false;
+            return;
+        }
+        
         // JSでクリックターゲットのタグ名を取得
         var tagName = await JS.InvokeAsync<string>("getTagNameFromEvent", e);
         if (tagName == "INPUT" || tagName == "BUTTON") return;
@@ -594,6 +548,12 @@
 
     private void FinishTextEdit(EditElement element)
     {
+        if (ignoreTextBlur)
+        {
+            ignoreTextBlur = false;
+            // ツールバー操作時は編集中を維持
+            return;
+        }
         element.IsEditing = false;
     }
 
