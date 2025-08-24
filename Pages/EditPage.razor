@@ -942,6 +942,7 @@
             return;
         }
 
+// テキストボックス新規追加
         if (currentTool == EditTool.Text)
         {
             // JSで正確なキャンバス座標を取得
@@ -960,7 +961,7 @@
                 Type = ElementType.Text,
                 X = coords.x,
                 Y = coords.y,
-                Text = "テキスト",
+                Text = "",
                 FontSize = fontSize,
                 Color = textColor,
                 IsEditing = true,
@@ -1013,8 +1014,22 @@
             // ツールバー操作時は編集中を維持
             return;
         }
+
         element.IsEditing = false;
         fontFamily = element.FontFamily;
+
+        // blur による直後の page click で新規追加されないようにする
+        ignoreNextPageClick = true;
+
+        // 念のため短時間後に自動解除（例: 300ms）。不要なら削除可。
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(300);
+            ignoreNextPageClick = false;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        StateHasChanged();
     }
 
     private async Task OnTextKeyPress(KeyboardEventArgs e, EditElement element)
