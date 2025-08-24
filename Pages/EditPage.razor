@@ -133,18 +133,17 @@
             @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp"
             @onwheel="OnCanvasWheel">
 
-            <div class="edit-canvas-wrapper relative"
-                style="transform: translate(@(offsetX)px, @(offsetY)px) scale(@zoomLevel); transform-origin: 0 0;">
+   
 
                 <!-- PDF ページ -->
-                <div class="pdf-page bg-white shadow-lg relative"
-                    style="width: @(pageWidth* zoomLevel)px; height: @(pageHeight* zoomLevel)px;"
-                    @onclick="OnPageClick">
+                <div id="pdf-page-@safeFileId-@PageIndex" class="pdf-page bg-white shadow-lg relative"
+                     style="transform: translate(@(offsetX)px, @(offsetY)px) scale(@zoomLevel); transform-origin: 0 0; width: @(pageWidth)px; height: @(pageHeight)px;"
+                     @onclick="OnPageClick">
 
-                    <canvas id="pdf-canvas-@safeFileId-@PageIndex" width="@(pageWidth* zoomLevel)"
-                        height="@(pageHeight* zoomLevel)"
-                        style="width: @(pageWidth* zoomLevel)px; height: @(pageHeight* zoomLevel)px;"
-                        class="absolute inset-0"></canvas>
+                    <canvas id="pdf-canvas-@safeFileId-@PageIndex" width="@(pageWidth)"
+                            height="@(pageHeight)"
+                            style="width: @(pageWidth)px; height: @(pageHeight)px;"
+                            class="absolute inset-0"></canvas>
 
                     <!-- 編集要素 -->
                     @foreach (var element in editElements)
@@ -234,7 +233,6 @@
                         }
                     }
                 </div>
-            </div>
         
     </div>
 
