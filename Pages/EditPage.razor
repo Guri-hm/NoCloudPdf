@@ -163,18 +163,14 @@
                                 >
                                 @if (element.IsEditing)
                                 {
-                                    <input type="text" @bind="element.Text" @onblur="() => FinishTextEdit(element)"
-                                        @onkeypress="(e) => OnTextKeyPress(e, element)"
-                                        class="border-none outline-none bg-transparent"
-                                        style="font-size: @(element.FontSize)px; color: @element.Color;" @ref="textInputRef"
-                                        @onclick:stopPropagation @onmousedown:stopPropagation />
+                                    <input type="text" @bind="element.Text" @onblur="() => FinishTextEdit(element)" @onkeypress="(e) => OnTextKeyPress(e, element)" class="border-none outline-none bg-transparent" style="font-size: @(element.FontSize)px; color: @element.Color;" @ref="textInputRef" @onclick:stopPropagation @onmousedown:stopPropagation />
                                 }
                                 else
                                 {
                                     <span @onclick="() => { if (!element.IsEditing) SelectElement(element.Id); }"
                                         @ondblclick="() => StartTextEdit(element)" @onclick:stopPropagation
                                         @ondblclick:stopPropagation
-                                        style="font-size: @(element.FontSize * zoomLevel)px; color: @element.Color; font-family: @(element.FontFamily);"
+                                        style="font-size: @(element.FontSize)px; color: @element.Color; font-family: @(element.FontFamily);"
                                         >
                                         @element.Text
                                     </span>
