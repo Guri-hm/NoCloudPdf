@@ -942,7 +942,7 @@
             return;
         }
 
-// テキストボックス新規追加
+        // テキストボックス新規追加
         if (currentTool == EditTool.Text)
         {
             // JSで正確なキャンバス座標を取得
@@ -968,6 +968,18 @@
                 FontFamily = fontFamily 
             };
             editElements.Add(element);
+
+            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+            try
+            {
+                await textInputRef.FocusAsync();
+            }
+            catch
+            {
+                // フォーカス失敗は無視
+            }
         }
         else
         {
