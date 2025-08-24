@@ -805,6 +805,7 @@
             }
 
             fileName = pageItem?.FileName ?? "";
+            await JS.InvokeAsync<object>("syncCanvasCssToParentAndBacking", $"#pdf-page-{safeFileId}-{PageIndex}", $"#pdf-canvas-{safeFileId}-{PageIndex}");
             await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "");
         }
     }
@@ -841,14 +842,36 @@
         offsetY = 0;
         await RedrawPdfPage();
     }
-
-    // PDF再描画用メソッドを追加
-    private async Task RedrawPdfPage()
+    private class RectDto
     {
-        var allPages = PdfDataService.GetModel().Pages;
-        var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
-        await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
+        public double left { get; set; }
+        public double top { get; set; }
+        public double width { get; set; }
+        public double height { get; set; }
     }
+    // PDF再描画用メソッドを追加
+private async Task RedrawPdfPage()
+{
+    var allPages = PdfDataService.GetModel().Pages;
+    var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+    if (pageItem == null) return;
+
+    // 1) DOM に反映させる
+    await InvokeAsync(StateHasChanged);
+    await Task.Yield();
+
+    // 2) 親要素の実表示サイズを取得して canvas の CSS を合わせる（JS 側で getBoundingClientRect）
+    var pageSelector = $"#pdf-page-{safeFileId}-{PageIndex}";
+    var canvasSelector = $"#pdf-canvas-{safeFileId}-{PageIndex}";
+    var rect = await JS.InvokeAsync<RectDto>("getElementRect", pageSelector);
+    var cssW = Math.Max(1, (int)Math.Round(rect.width));
+    var cssH = Math.Max(1, (int)Math.Round(rect.height));
+    await JS.InvokeVoidAsync("setPdfPageAndCanvasCssSize", pageSelector, canvasSelector, cssW, cssH);
+
+    // 3) その後で描画（setupEditPage が backing を正しく設定してレンダリング）
+    await JS.InvokeAsync<object>("syncCanvasCssToParentAndBacking", $"#pdf-page-{safeFileId}-{PageIndex}", $"#pdf-canvas-{safeFileId}-{PageIndex}");
+    await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
+}
 
     private void SetTool(EditTool tool)
     {
