@@ -1,49 +1,96 @@
 let renderTask = null;
 
+// ...existing code...
 window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 1.0) {
     try {
-        const canvas = document.getElementById(`pdf-canvas-${fileId}-${pageIndex}`);
-        if (!canvas || !pageData) return;
+        console.debug("setupEditPage called", { fileId, pageIndex, len: pageData ? pageData.length : 0, zoomLevel });
 
-        const dpr = window.devicePixelRatio || 1;
-        const bytes = Uint8Array.from(atob(pageData), c => c.charCodeAt(0));
-        const pdfjsLib = window.pdfjsLib;
-        if (!pdfjsLib) {
-            console.error("pdfjsLib is not loaded");
+        const pageEl = document.getElementById(`pdf-page-${fileId}-${pageIndex}`);
+        const canvas = document.getElementById(`pdf-canvas-${fileId}-${pageIndex}`);
+        if (!canvas) {
+            console.error("setupEditPage: canvas not found", `pdf-canvas-${fileId}-${pageIndex}`);
             return;
         }
+        if (!pageData) {
+            console.error("setupEditPage: pageData empty");
+            return;
+        }
+
+        // 親要素の表示幅（CSSピクセル）を取得して、それに合わせた scale を計算する
+        const pageCssRect = pageEl ? pageEl.getBoundingClientRect() : canvas.getBoundingClientRect();
+        const targetCssWidth = Math.max(1, Math.round(pageCssRect.width)); // 0回避
+        const dpr = window.devicePixelRatio || 1;
+
+        // pageData が data: URI の場合に base64 部分を抽出
+        let rawBase64 = pageData;
+        const m = /^data:.*;base64,(.*)$/.exec(pageData);
+        if (m && m[1]) rawBase64 = m[1];
+
+        let bytes;
+        try {
+            bytes = Uint8Array.from(atob(rawBase64), c => c.charCodeAt(0));
+        } catch (e) {
+            console.error("setupEditPage: atob failed (invalid base64?)", e);
+            return;
+        }
+
+        const pdfjsLib = window.pdfjsLib;
+        if (!pdfjsLib) {
+            console.error("setupEditPage: pdfjsLib is not loaded");
+            return;
+        }
+
+        // 前回の描画タスクをキャンセル（安全系）
+        try {
+            if (window._pdfRenderTask && window._pdfRenderTask.cancel) {
+                window._pdfRenderTask.cancel();
+            }
+        } catch (e) {
+            console.debug("setupEditPage: cancel previous render failed", e);
+        }
+
         const loadingTask = pdfjsLib.getDocument({ data: bytes });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        // viewportはズーム倍率のみ反映
-        const viewport = page.getViewport({ scale: zoomLevel });
+        // デフォルト（scale=1）の幅を取得して、親要素幅に合わせる scale を決定
+        const baseViewport = page.getViewport({ scale: 1.0 });
+        const scaleToFit = targetCssWidth / baseViewport.width;
+        const targetScale = scaleToFit * zoomLevel;
 
-        // canvasの物理サイズとCSSサイズを一致させる
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.width = viewport.width + "px";
-        canvas.style.height = viewport.height + "px";
+        const viewport = page.getViewport({ scale: targetScale });
+
+        // CSS サイズ（表示サイズ）と内部バックバッファを設定（DPRを考慮）
+        const cssWidth = Math.round(viewport.width);
+        const cssHeight = Math.round(viewport.height);
+        const backingW = Math.max(1, Math.round(cssWidth * dpr));
+        const backingH = Math.max(1, Math.round(cssHeight * dpr));
+
+        // 先に CSS サイズを適用してからバックバッファを設定（レンダリング前）
+        canvas.style.width = cssWidth + "px";
+        canvas.style.height = cssHeight + "px";
+        canvas.width = backingW;
+        canvas.height = backingH;
 
         const context = canvas.getContext('2d');
-        context.setTransform(1, 0, 0, 1, 0, 0);
 
-        // 前回の描画タスクがあればキャンセル
-        if (window._pdfRenderTask && window._pdfRenderTask.cancel) {
-            window._pdfRenderTask.cancel();
-        }
+        // コンテキストを dpr でスケールして、viewport の CSS ピクセル基準で描画させる
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        context.clearRect(0, 0, cssWidth, cssHeight);
 
+        // 描画タスクを保持して待機
         window._pdfRenderTask = page.render({ canvasContext: context, viewport: viewport });
         await window._pdfRenderTask.promise;
+        console.debug("setupEditPage: render finished", { cssWidth, cssHeight, backingW, backingH });
     } catch (err) {
         if (err && err.name === "RenderingCancelledException") {
-            // ズーム連打や素早い操作で発生するため例外を握りつぶす
+            console.debug("setupEditPage: render cancelled");
             return;
         }
         console.error("setupEditPage error:", err);
     }
 };
-
+// ...existing code...
 window.getTagNameFromEvent = function (e) {
     return e?.target?.tagName || "";
 }
