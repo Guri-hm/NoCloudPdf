@@ -94,8 +94,9 @@ window.drawPdfPageToCanvas = async function (fileId, pageIndex, pageData, zoomLe
 };
 
 window.getTagNameFromEvent = function (e) {
-    return e?.target?.tagName || "";
-}
+    // e.target.tagName を返す
+    return e && e.target && e.target.tagName ? e.target.tagName : "";
+};
 
 window.getCanvasCoords = function (canvasSelector, clientX, clientY, offsetX, offsetY, zoomLevel) {
     const canvas = document.querySelector(canvasSelector);
@@ -167,3 +168,4 @@ window.getElementRect = function (selector) {
 window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));
 };
+

@@ -129,8 +129,8 @@
 
     <!-- メインエディタエリア -->
     <div class="edit-canvas-container h-full w-[100vw] md:w-[calc(100vw-70px)] min-w-0 overflow-auto flex justify-center items-start
-    @(currentTool == EditTool.Text ? " cursor-text" : (isDragging && currentTool == EditTool.Select ? " cursor-grabbing" : " cursor-grab"))"
-    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp">
+    @(currentTool == EditTool.Text ? " cursor-text" : "")"
+    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp" @onmousemove="OnCanvasMouseMove">
                 <!-- PDF ページ -->
                 <div class="pdf-page bg-white shadow-lg relative"
                     style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; transform: scale(1); transform-origin: center center;"
