@@ -1,5 +1,44 @@
 let renderTask = null;
 
+window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
+    try {
+        if (!pageData) return null;
+        // base64 の中身を取り出す（data:...;base64, を想定）
+        let raw = pageData;
+        const m = /^data:.*;base64,(.*)$/.exec(pageData);
+        if (m && m[1]) raw = m[1];
+
+        const dpr = window.devicePixelRatio || 1;
+
+        // try PDF
+        try {
+            const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0));
+            const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+            const page = await pdf.getPage(1);
+            const baseViewport = page.getViewport({ scale: 1.0 });
+            return { origW: baseViewport.width, origH: baseViewport.height, dpr: dpr };
+        } catch (pdfErr) {
+            // not PDF -> try image
+            try {
+                const dataUrl = pageData;
+                const img = await new Promise((res, rej) => {
+                    const i = new Image();
+                    i.onload = () => res(i);
+                    i.onerror = rej;
+                    i.src = dataUrl;
+                });
+                return { origW: img.naturalWidth, origH: img.naturalHeight, dpr: dpr };
+            } catch (imgErr) {
+                console.error("getPageSourceInfo: not pdf nor image", imgErr);
+                return null;
+            }
+        }
+    } catch (err) {
+        console.error("getPageSourceInfo error", err);
+        return null;
+    }
+};
+
 window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 1.0) {
     try {
         const pageSelector = `#pdf-page-${fileId}-${pageIndex}`;
@@ -8,52 +47,51 @@ window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 
         const canvas = document.querySelector(canvasSelector);
         if (!canvas || !pageEl || !pageData) return;
 
-        // 重要：まず親の実表示サイズに合わせて canvas の CSS/backing を確定する
-        await window.syncCanvasCssToParentAndBacking(pageSelector, canvasSelector);
-
-        // pageData が data:URI なら base64 部分を抽出
+        // pageData base64
         let rawBase64 = pageData;
         const m = /^data:.*;base64,(.*)$/.exec(pageData);
         if (m && m[1]) rawBase64 = m[1];
 
         let bytes;
-        try {
-            bytes = Uint8Array.from(atob(rawBase64), c => c.charCodeAt(0));
-        } catch (e) {
-            console.error("setupEditPage: invalid base64", e);
-            return;
-        }
+        try { bytes = Uint8Array.from(atob(rawBase64), c => c.charCodeAt(0)); } catch (e) { console.error("setupEditPage: invalid base64", e); return; }
 
         const pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) { console.error("pdfjsLib not loaded"); return; }
 
-        // cancel previous
-        if (window._pdfRenderTask && window._pdfRenderTask.cancel) {
-            try { window._pdfRenderTask.cancel(); } catch { }
-        }
+        if (window._pdfRenderTask && window._pdfRenderTask.cancel) { try { window._pdfRenderTask.cancel(); } catch { } }
 
         const loadingTask = pdfjsLib.getDocument({ data: bytes });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        // 親の実表示幅を再取得して viewport を決める（念のため）
-        const rect = pageEl.getBoundingClientRect();
-        const cssWidth = Math.max(1, Math.round(rect.width));
-        const dpr = window.devicePixelRatio || 1;
-
         const baseViewport = page.getViewport({ scale: 1.0 });
-        const targetScale = cssWidth / baseViewport.width * zoomLevel;
+        const origW = baseViewport.width;
+        const origH = baseViewport.height;
+        const dpr = window.devicePixelRatio || 1;
+        console.log("setupEditPage: orig", origW, origH, "canvas backing", canvas.width, canvas.height);
+
+        const targetScale = (canvas.width) / baseViewport.width; // use backing pixels directly
         const viewport = page.getViewport({ scale: targetScale });
 
-        // 描画（canvas の backing は既に sync で設定済み）
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
+        // render to offscreen and center onto main canvas
+        const off = document.createElement('canvas');
+        off.width = Math.max(1, Math.round(viewport.width));
+        off.height = Math.max(1, Math.round(viewport.height));
+        const offCtx = off.getContext('2d');
+        if (offCtx && offCtx.setTransform) offCtx.setTransform(1, 0, 0, 1, 0, 0);
 
-        window._pdfRenderTask = page.render({ canvasContext: ctx, viewport: viewport });
+        window._pdfRenderTask = page.render({ canvasContext: offCtx, viewport: viewport });
         await window._pdfRenderTask.promise;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const dx = Math.round((canvas.width - off.width) / 2);
+        const dy = Math.round((canvas.height - off.height) / 2);
+        ctx.drawImage(off, 0, 0, off.width, off.height, dx, dy, off.width, off.height);
+
+        if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     } catch (err) {
         if (err && err.name === "RenderingCancelledException") return;
         console.error("setupEditPage error", err);
@@ -177,4 +215,17 @@ window.syncCanvasCssToParentAndBacking = function (pageSelector, canvasSelector)
             resolve(null);
         }
     });
+};
+
+// ...existing code...
+window.getCanvasIntrinsicSize = function (canvasSelector) {
+    const canvas = document.querySelector(canvasSelector);
+    if (!canvas) return { width: 0, height: 0 };
+    return { width: canvas.width || 0, height: canvas.height || 0 };
+};
+// ...existing code...
+
+
+window.waitForNextFrame = function () {
+    return new Promise(resolve => requestAnimationFrame(resolve));
 };

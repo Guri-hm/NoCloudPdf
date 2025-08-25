@@ -136,13 +136,14 @@
    
 
                 <!-- PDF ページ -->
-                <div id="pdf-page-@safeFileId-@PageIndex" class="pdf-page bg-white shadow-lg relative"
-                     style="transform: translate(@(offsetX)px, @(offsetY)px) scale(@zoomLevel); transform-origin: 0 0; width: @(pageWidth)px; height: @(pageHeight)px;"
-                     @onclick="OnPageClick">
-
-                    <canvas id="pdf-canvas-@safeFileId-@PageIndex" width="@(pageWidth)"
+                <div id="pdf-page-@safeFileId-@PageIndex"
+                    class="pdf-page bg-white shadow-lg relative"
+                    style="width:@(displayWidth)px; height:@(displayHeight)px; transform: translate(@(offsetX)px, @(offsetY)px); transform-origin: 0 0;"
+                    @onclick="OnPageClick">
+                    <canvas id="pdf-canvas-@safeFileId-@PageIndex"
+                            width="@(pageWidth)"
                             height="@(pageHeight)"
-                            style="width: @(pageWidth)px; height: @(pageHeight)px;"
+                            style="width:@(displayWidth)px; height:@(displayHeight)px;"
                             class="absolute inset-0"></canvas>
 
                     <!-- 編集要素 -->
@@ -243,6 +244,7 @@
 
 @code {
     private DotNetObjectReference<EditPage>? _dotNetRef;
+    private PageSourceInfo? cachedPageSource;
 
     [Parameter] public string FileId { get; set; } = "";
     [Parameter] public int PageIndex { get; set; }
@@ -258,6 +260,8 @@
     private string fileName = "";
     private int pageWidth = 595;
     private int pageHeight = 842;
+    private int displayWidth = 595;
+    private int displayHeight = 842;
     private double zoomLevel = 1.0;
     private double offsetX = 0;
     private double offsetY = 0;
@@ -739,26 +743,35 @@
     }
 
     [JSInvokable]
-    public void OnImageBase64Loaded(string base64, double width, double height)
+    public async Task OnImageBase64Loaded(string base64, double width, double height)
     {
-        // 最大サイズをページサイズの50%に制限
-        double maxWidth = pageWidth * 0.5;
-        double maxHeight = pageHeight * 0.5;
+        // canvas の実表示サイズを取得して、その中で画像が最大で表示されるサイズを決める
+        var canvasSelector = $"#pdf-canvas-{safeFileId}-{PageIndex}";
+        var canvasRect = await JS.InvokeAsync<RectDto>("getElementRect", canvasSelector);
+
+        // フォールバックは displayWidth/displayHeight（既に Redraw で設定済み）
+        var availW = canvasRect.width > 0 ? canvasRect.width : displayWidth;
+        var availH = canvasRect.height > 0 ? canvasRect.height : displayHeight;
+
+        // 親（canvas）に対して画像を占める最大比率（例: 50%）
+        double maxRatio = 0.5;
+        double maxWidth = Math.Max(1, availW * maxRatio);
+        double maxHeight = Math.Max(1, availH * maxRatio);
 
         double scale = Math.Min(maxWidth / width, maxHeight / height);
-        // scaleが1以上なら縮小不要
         if (scale > 1) scale = 1;
 
-        double displayWidth = width * scale;
-        double displayHeight = height * scale;
+        double displayW = width * scale;
+        double displayH = height * scale;
 
+        // element.Width/Height は「ページ座標単位」で格納しているので、表示ピクセル -> ページ座標に戻す
         var element = new EditElement
         {
             Type = ElementType.Image,
             X = 100,
             Y = 100,
-            Width = displayWidth,
-            Height = displayHeight,
+            Width = displayW / zoomLevel,
+            Height = displayH / zoomLevel,
             ImageOriginalWidth = width,
             ImageOriginalHeight = height,
             ImageUrl = base64
@@ -805,8 +818,17 @@
             }
 
             fileName = pageItem?.FileName ?? "";
-            await JS.InvokeAsync<object>("syncCanvasCssToParentAndBacking", $"#pdf-page-{safeFileId}-{PageIndex}", $"#pdf-canvas-{safeFileId}-{PageIndex}");
-            await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "");
+
+            cachedPageSource = await JS.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem?.PageData ?? "");
+            if (cachedPageSource == null)
+            {
+                cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JS.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
+            }
+            //await JS.InvokeAsync<object>("syncCanvasCssToParentAndBacking", $"#pdf-page-{safeFileId}-{PageIndex}", $"#pdf-canvas-{safeFileId}-{PageIndex}");
+            //await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "");
+
+            // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
+            await RedrawPdfPage();
         }
     }
 
@@ -849,29 +871,83 @@
         public double width { get; set; }
         public double height { get; set; }
     }
+
+    public class PageSourceInfo {
+        public double origW { get; set; } 
+        public double origH { get; set; } 
+        public double cssW { get; set; } 
+        public double cssH { get; set; } 
+        public double backingW { get; set; } 
+        public double backingH { get; set; } 
+        public double dpr { get; set; }
+    }
+
     // PDF再描画用メソッドを追加
-private async Task RedrawPdfPage()
-{
-    var allPages = PdfDataService.GetModel().Pages;
-    var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
-    if (pageItem == null) return;
+    private async Task RedrawPdfPage()
+    {
+        var allPages = PdfDataService.GetModel().Pages;
+        var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+        if (pageItem == null) return;
 
-    // 1) DOM に反映させる
-    await InvokeAsync(StateHasChanged);
-    await Task.Yield();
+        // getElementRectなどの値を確実に取得できるように待機
+        await InvokeAsync(StateHasChanged);
+        await JS.InvokeVoidAsync("waitForNextFrame");
 
-    // 2) 親要素の実表示サイズを取得して canvas の CSS を合わせる（JS 側で getBoundingClientRect）
-    var pageSelector = $"#pdf-page-{safeFileId}-{PageIndex}";
-    var canvasSelector = $"#pdf-canvas-{safeFileId}-{PageIndex}";
-    var rect = await JS.InvokeAsync<RectDto>("getElementRect", pageSelector);
-    var cssW = Math.Max(1, (int)Math.Round(rect.width));
-    var cssH = Math.Max(1, (int)Math.Round(rect.height));
-    await JS.InvokeVoidAsync("setPdfPageAndCanvasCssSize", pageSelector, canvasSelector, cssW, cssH);
+        var pageSelector = $"#pdf-page-{safeFileId}-{PageIndex}";
+        var canvasSelector = $"#pdf-canvas-{safeFileId}-{PageIndex}";
 
-    // 3) その後で描画（setupEditPage が backing を正しく設定してレンダリング）
-    await JS.InvokeAsync<object>("syncCanvasCssToParentAndBacking", $"#pdf-page-{safeFileId}-{PageIndex}", $"#pdf-canvas-{safeFileId}-{PageIndex}");
-    await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
-}
+        var src = cachedPageSource;
+        if (src == null)
+        {
+            src = new PageSourceInfo
+            {
+                origW = pageWidth,
+                origH = pageHeight,
+                dpr = 1.0
+            };
+        }
+
+        Console.WriteLine(src);
+
+        // 編集領域コンテナの可用サイズを取得
+        var containerRect = await JS.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
+        var availW = Math.Max(1, containerRect.width);
+        var availH = Math.Max(1, containerRect.height);
+
+        // 極端に小さい場合は修正
+        if (availW < 50 || availH < 50)
+        {
+            var pageRect = await JS.InvokeAsync<RectDto>("getElementRect", pageSelector);
+            // 安全のため container と page の最大値を使う（どちらかが正しい場合をカバー）
+            availW = Math.Max(1, Math.Max(containerRect.width, pageRect.width));
+            availH = Math.Max(1, Math.Max(containerRect.height, pageRect.height));
+
+        }
+
+        // origW/origH を基準にフィット（これで横長なら横幅いっぱい、縦長なら縦幅いっぱい）
+        var logicalW = Math.Max(1, src.origW);
+        var logicalH = Math.Max(1, src.origH);
+        double fitScale = Math.Min(availW / logicalW, availH / logicalH);
+        if (double.IsNaN(fitScale) || fitScale <= 0) fitScale = 1.0;
+        zoomLevel = Math.Max(0.1, Math.Min(fitScale, 5.0));
+
+        // CSS（表示ピクセル）と backing（物理ピクセル）を決定
+        var cssW = Math.Max(1, (int)Math.Round(logicalW * zoomLevel));
+        var cssH = Math.Max(1, (int)Math.Round(logicalH * zoomLevel));
+        var dpr = src.dpr > 0 ? src.dpr : await JS.InvokeAsync<double>("eval", "window.devicePixelRatio || 1");
+        var backingW = (int)Math.Round(cssW * dpr);
+        var backingH = (int)Math.Round(cssH * dpr);
+
+        displayWidth = cssW;
+        displayHeight = cssH;
+
+        Console.WriteLine($"Display Size: {displayWidth}x{displayHeight}");
+
+        // 再度 setupEditPage（または専用描画関数）で actual 描画を行う
+        await JS.InvokeVoidAsync("setupEditPage", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
+
+        StateHasChanged();
+    }
 
     private void SetTool(EditTool tool)
     {
