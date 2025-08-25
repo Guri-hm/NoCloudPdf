@@ -39,13 +39,11 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
     }
 };
 
-window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 1.0) {
+window.drawPdfPageToCanvas = async function (fileId, pageIndex, pageData, zoomLevel = 1.0) {
     try {
-        const pageSelector = `#pdf-page-${fileId}-${pageIndex}`;
         const canvasSelector = `#pdf-canvas-${fileId}-${pageIndex}`;
-        const pageEl = document.querySelector(pageSelector);
         const canvas = document.querySelector(canvasSelector);
-        if (!canvas || !pageEl || !pageData) return;
+        if (!canvas || !pageData) return;
 
         // pageData base64
         let rawBase64 = pageData;
@@ -53,7 +51,7 @@ window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 
         if (m && m[1]) rawBase64 = m[1];
 
         let bytes;
-        try { bytes = Uint8Array.from(atob(rawBase64), c => c.charCodeAt(0)); } catch (e) { console.error("setupEditPage: invalid base64", e); return; }
+        try { bytes = Uint8Array.from(atob(rawBase64), c => c.charCodeAt(0)); } catch (e) { console.error("drawPdfPageToCanvas: invalid base64", e); return; }
 
         const pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) { console.error("pdfjsLib not loaded"); return; }
@@ -68,7 +66,7 @@ window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 
         const origW = baseViewport.width;
         const origH = baseViewport.height;
         const dpr = window.devicePixelRatio || 1;
-        console.log("setupEditPage: orig", origW, origH, "canvas backing", canvas.width, canvas.height);
+        console.log("drawPdfPageToCanvas: orig", origW, origH, "canvas backing", canvas.width, canvas.height);
 
         const targetScale = (canvas.width) / baseViewport.width; // use backing pixels directly
         const viewport = page.getViewport({ scale: targetScale });
@@ -94,7 +92,7 @@ window.setupEditPage = async function (fileId, pageIndex, pageData, zoomLevel = 
         if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     } catch (err) {
         if (err && err.name === "RenderingCancelledException") return;
-        console.error("setupEditPage error", err);
+        console.error("drawPdfPageToCanvas error", err);
     }
 };
 
