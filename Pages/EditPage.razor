@@ -408,21 +408,6 @@
         textColor = value; // setterで編集中・選択中要素にも反映される
     }
 
-    private async Task OnTextChanged(ChangeEventArgs e, EditElement element)
-    {
-        element.Text = e.Value?.ToString() ?? "";
-        // JSでテキスト幅を計算（zoomLevelを掛けた表示サイズで計測）
-        var measuredWidth = await JS.InvokeAsync<double>(
-            "measureTextWidth",
-            element.Text,
-            element.FontSize * zoomLevel,
-            element.FontFamily
-        );
-        // 余白分は fontSize * zoomLevel * 0.5 で可変に
-        element.Width = (measuredWidth / zoomLevel) + (element.FontSize * 0.5);
-        StateHasChanged();
-    }
-
     private string CurrentTextColor
     {
         get
@@ -513,33 +498,31 @@
         {
             value = 16; // デフォルト値
         }
-        // 編集中の要素があればそれだけ
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
             editingElement.FontSize = value;
-            // --- ここでテキスト幅を再計算 ---
-            var measuredWidth = await JS.InvokeAsync<double>(
-                "measureTextWidth",
+            // measureMaxLineWidthで幅を再計算
+            var maxLineWidth = await JS.InvokeAsync<double>(
+                "measureMaxLineWidth",
                 editingElement.Text,
                 editingElement.FontSize * zoomLevel,
                 editingElement.FontFamily
             );
-            editingElement.Width = (measuredWidth / zoomLevel) + (editingElement.FontSize * 0.5);
+            editingElement.Width = (maxLineWidth / zoomLevel) + (editingElement.FontSize * 0.5);
         }
-        // 選択中なら全て
         else if (selectedElementIds.Count > 0)
         {
             foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
             {
                 el.FontSize = value;
-                var measuredWidth = await JS.InvokeAsync<double>(
-                    "measureTextWidth",
+                var maxLineWidth = await JS.InvokeAsync<double>(
+                    "measureMaxLineWidth",
                     el.Text,
                     el.FontSize * zoomLevel,
                     el.FontFamily
                 );
-                el.Width = (measuredWidth / zoomLevel) + (el.FontSize * 0.5);
+                el.Width = (maxLineWidth / zoomLevel) + (el.FontSize * 0.5);
             }
         }
         else
