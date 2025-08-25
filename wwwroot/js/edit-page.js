@@ -169,3 +169,9 @@ window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));
 };
 
+window.measureTextWidth = function (text, fontSize, fontFamily) {
+    const canvas = window._measureTextCanvas || (window._measureTextCanvas = document.createElement("canvas"));
+    const ctx = canvas.getContext("2d");
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    return ctx.measureText(text).width;
+};
