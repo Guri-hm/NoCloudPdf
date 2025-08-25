@@ -63,10 +63,7 @@ window.drawPdfPageToCanvas = async function (fileId, pageIndex, pageData, zoomLe
         const page = await pdf.getPage(1);
 
         const baseViewport = page.getViewport({ scale: 1.0 });
-        const origW = baseViewport.width;
-        const origH = baseViewport.height;
         const dpr = window.devicePixelRatio || 1;
-        console.log("drawPdfPageToCanvas: orig", origW, origH, "canvas backing", canvas.width, canvas.height);
 
         const targetScale = (canvas.width) / baseViewport.width; // use backing pixels directly
         const viewport = page.getViewport({ scale: targetScale });
@@ -166,63 +163,6 @@ window.getElementRect = function (selector) {
     const r = el.getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
 };
-
-window.setPdfPageAndCanvasCssSize = function (pageSelector, canvasSelector, cssW, cssH) {
-    const pageEl = document.querySelector(pageSelector);
-    const canvas = document.querySelector(canvasSelector);
-    if (!pageEl || !canvas) return;
-    pageEl.style.width = cssW + "px";
-    pageEl.style.height = cssH + "px";
-    canvas.style.width = cssW + "px";
-    canvas.style.height = cssH + "px";
-};
-
-window.syncCanvasCssToParentAndBacking = function (pageSelector, canvasSelector) {
-    return new Promise((resolve) => {
-        try {
-            const pageEl = document.querySelector(pageSelector);
-            const canvas = document.querySelector(canvasSelector);
-            if (!pageEl || !canvas) return resolve(null);
-
-            requestAnimationFrame(() => {
-                const r = pageEl.getBoundingClientRect();
-                const cssW = Math.max(1, Math.round(r.width));
-                const cssH = Math.max(1, Math.round(r.height));
-
-                // 表示を必ず親に揃える（これで見た目は一致する）
-                canvas.style.width = cssW + "px";
-                canvas.style.height = cssH + "px";
-
-                // バックバッファは DPR を考慮して設定（描画前に行う）
-                const dpr = window.devicePixelRatio || 1;
-                const backingW = Math.max(1, Math.round(cssW * dpr));
-                const backingH = Math.max(1, Math.round(cssH * dpr));
-                if (canvas.width !== backingW || canvas.height !== backingH) {
-                    canvas.width = backingW;
-                    canvas.height = backingH;
-                }
-
-                // コンテキストのスケールをセット（常に dpr にする）
-                const ctx = canvas.getContext('2d');
-                if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-                resolve({ cssW, cssH, backingW, backingH });
-            });
-        } catch (e) {
-            console && console.debug && console.debug("syncCanvasCssToParentAndBacking failed", e);
-            resolve(null);
-        }
-    });
-};
-
-// ...existing code...
-window.getCanvasIntrinsicSize = function (canvasSelector) {
-    const canvas = document.querySelector(canvasSelector);
-    if (!canvas) return { width: 0, height: 0 };
-    return { width: canvas.width || 0, height: canvas.height || 0 };
-};
-// ...existing code...
-
 
 window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));

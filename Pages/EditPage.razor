@@ -128,18 +128,17 @@
     </div>
 
     <!-- メインエディタエリア -->
-    <div class="edit-canvas-container h-full w-full overflow-auto flex justify-center items-center
-            @(currentTool == EditTool.Text ? "cursor-text" : (isDragging && currentTool == EditTool.Select ? "cursor-grabbing" : "cursor-grab"))"
-            @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp"
-            @onwheel="OnCanvasWheel">
+    <div class="edit-canvas-container h-full w-[100vw] md:w-[calc(100vw-70px)] min-w-0 overflow-auto flex justify-center items-start
+    @(currentTool == EditTool.Text ? " cursor-text" : (isDragging && currentTool == EditTool.Select ? " cursor-grabbing" : " cursor-grab"))"
+    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp">
                 <!-- PDF ページ -->
                 <div class="pdf-page bg-white shadow-lg relative"
-                    style="width:@(displayWidth)px; height:@(displayHeight)px; transform: translate(@(offsetX)px, @(offsetY)px); transform-origin: 0 0;"
+                    style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; transform: scale(1); transform-origin: center center;"
                     @onclick="OnPageClick">
                     <canvas id="pdf-canvas-@safeFileId-@PageIndex"
                             width="@(pageWidth)"
                             height="@(pageHeight)"
-                            style="width:@(displayWidth)px; height:@(displayHeight)px;"
+                            style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px;"
                             class="absolute inset-0"></canvas>
 
                     <!-- 編集要素 -->
@@ -256,8 +255,6 @@
     private string fileName = "";
     private int pageWidth = 595;
     private int pageHeight = 842;
-    private int displayWidth = 595;
-    private int displayHeight = 842;
     private double zoomLevel = 1.0;
     private double offsetX = 0;
     private double offsetY = 0;
@@ -746,8 +743,8 @@
         var canvasRect = await JS.InvokeAsync<RectDto>("getElementRect", canvasSelector);
 
         // フォールバックは displayWidth/displayHeight（既に Redraw で設定済み）
-        var availW = canvasRect.width > 0 ? canvasRect.width : displayWidth;
-        var availH = canvasRect.height > 0 ? canvasRect.height : displayHeight;
+        var availW = canvasRect.width > 0 ? canvasRect.width : pageWidth * zoomLevel;
+        var availH = canvasRect.height > 0 ? canvasRect.height : pageHeight * zoomLevel;
 
         // 親（canvas）に対して画像を占める最大比率（例: 50%）
         double maxRatio = 0.5;
@@ -825,7 +822,8 @@
             pageHeight = (int)cachedPageSource.origH;
 
             // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
-            await RedrawPdfPage();
+            await RedrawPdfPage(applyFit: true);
+
         }
     }
 
@@ -900,8 +898,6 @@
             };
         }
 
-        Console.WriteLine(src);
-
         // 編集領域コンテナの可用サイズを取得
         var containerRect = await JS.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
         var availW = Math.Max(1, containerRect.width);
@@ -918,18 +914,7 @@
             zoomLevel = Math.Max(0.1, Math.Min(fitScale, 5.0));
         }
 
-        Console.WriteLine($"Zoom Level: {zoomLevel}");
-        // CSS（表示ピクセル）と backing（物理ピクセル）を決定
-        var cssW = Math.Max(1, (int)Math.Round(logicalW * zoomLevel));
-        var cssH = Math.Max(1, (int)Math.Round(logicalH * zoomLevel));
-
-        displayWidth = cssW;
-        displayHeight = cssH;
-
-        Console.WriteLine($"Display Size: {displayWidth}x{displayHeight}");
-
         await JS.InvokeVoidAsync("drawPdfPageToCanvas", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
-
         StateHasChanged();
     }
 
