@@ -156,7 +156,6 @@
                                     left: @(element.X * zoomLevel)px;
                                     top: @(element.Y * zoomLevel)px;
                                     width: @(element.Width * zoomLevel)px;
-                                    height: @(element.Height * zoomLevel)px;
                                     font-size: @(element.FontSize * zoomLevel)px;
                                     color: @element.Color;
                                     font-family: @(element.FontFamily);"
@@ -165,26 +164,16 @@
                                 >
                                 @if (element.IsEditing)
                                 {
-                                    <input type="text"
-                                    @bind="element.Text"
-                                    @oninput="(e) => OnTextChanged(e, element)"
-                                    @onblur="() => FinishTextEdit(element)"
-                                    @onkeypress="(e) => OnTextKeyPress(e, element)"
-                                    class="border-none outline-none bg-transparent"
-                                    style="
-                                        width: 100%;
-                                        height: 100%;
-                                        font-size: @(element.FontSize * zoomLevel)px;
-                                        line-height: @(element.FontSize * zoomLevel * 1.2)px;
-                                        padding: 0;
-                                        margin: 0;
-                                        box-sizing: border-box;
-                                        border: none;
-                                        display: block;
-                                        color: @element.Color;"
-                                    @ref="textInputRef"
-                                    @onclick:stopPropagation
-                                    @onmousedown:stopPropagation />
+                                    <textarea
+                                        @bind="element.Text"
+                                        @oninput="(e) => OnTextAreaInput(e, element)"
+                                        @onblur="() => FinishTextEdit(element)"
+                                        class="border-none outline-none bg-transparent resize-none overflow-hidden"
+                                        style="width: 100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; vertical-align: middle; color: @element.Color;"
+                                        @ref="textInputRef"
+                                        @onclick:stopPropagation
+                                        @onmousedown:stopPropagation
+                                    />
                                 }
                                 else
                                 {
@@ -195,15 +184,17 @@
                                         @ondblclick:stopPropagation
                                         style="
                                             width: 100%;
-                                            height: 100%;
-                                            display: block;
                                             font-size: @(element.FontSize * zoomLevel)px;
                                             line-height: @(element.FontSize * zoomLevel)px;
+                                            padding: 0;
+                                            margin: 0;
+                                            border: none;
                                             box-sizing: border-box;
-                                            color: @element.Color;
-                                            font-family: @(element.FontFamily);"
+                                            display: block;
+                                            vertical-align: middle;
+                                            color: @element.Color;"
                                     >
-                                        @element.Text
+                                        @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
                                 }
                                 @if (selectedElementIds.Contains(element.Id))
@@ -323,7 +314,20 @@
     private List<string> selectedElementIds = new();
 
     private string fontFamily = "sans-serif";
-
+    private async Task OnTextAreaInput(ChangeEventArgs e, EditElement element)
+    {
+        element.Text = e.Value?.ToString() ?? "";
+        // 最大行幅を取得
+        var maxLineWidth = await JS.InvokeAsync<double>(
+            "measureMaxLineWidth",
+            element.Text,
+            element.FontSize * zoomLevel,
+            element.FontFamily
+        );
+        element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); // 余白分はfontSizeに比例
+        await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef);
+        StateHasChanged();
+    }
     private void OnFontFamilyChanged(ChangeEventArgs e)
     {
         var value = e.Value?.ToString() ?? "sans-serif";
@@ -502,7 +506,7 @@
         draggingElementId = null;
     }
 
-    private void OnFontSizeChanged(ChangeEventArgs e)
+    private async void OnFontSizeChanged(ChangeEventArgs e)
     {
         int value;
         if (!int.TryParse(e.Value?.ToString(), out value))
@@ -514,12 +518,29 @@
         if (editingElement != null)
         {
             editingElement.FontSize = value;
+            // --- ここでテキスト幅を再計算 ---
+            var measuredWidth = await JS.InvokeAsync<double>(
+                "measureTextWidth",
+                editingElement.Text,
+                editingElement.FontSize * zoomLevel,
+                editingElement.FontFamily
+            );
+            editingElement.Width = (measuredWidth / zoomLevel) + (editingElement.FontSize * 0.5);
         }
         // 選択中なら全て
         else if (selectedElementIds.Count > 0)
         {
             foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
+            {
                 el.FontSize = value;
+                var measuredWidth = await JS.InvokeAsync<double>(
+                    "measureTextWidth",
+                    el.Text,
+                    el.FontSize * zoomLevel,
+                    el.FontFamily
+                );
+                el.Width = (measuredWidth / zoomLevel) + (el.FontSize * 0.5);
+            }
         }
         else
         {
@@ -528,7 +549,7 @@
         StateHasChanged();
     }
 
-    private void StartTextEdit(EditElement element)
+    private async void StartTextEdit(EditElement element)
     {
         foreach (var el in editElements)
             el.IsEditing = false;
@@ -537,6 +558,17 @@
         selectedElementIds.Clear();
         selectedElementIds.Add(element.Id);
         StateHasChanged();
+        await Task.Yield(); // レンダリング待ち
+
+        try
+        {
+            await textInputRef.FocusAsync();
+            await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef); // ←ここで高さ調整
+        }
+        catch
+        {
+            // フォーカス失敗は無視
+        }
     }
 
     private bool keepAspectRatio = true;

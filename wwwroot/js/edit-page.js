@@ -169,9 +169,21 @@ window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));
 };
 
-window.measureTextWidth = function (text, fontSize, fontFamily) {
+window.measureMaxLineWidth = function (text, fontSize, fontFamily) {
     const canvas = window._measureTextCanvas || (window._measureTextCanvas = document.createElement("canvas"));
     const ctx = canvas.getContext("2d");
     ctx.font = `${fontSize}px ${fontFamily}`;
-    return ctx.measureText(text).width;
+    const lines = text.split('\n');
+    let maxWidth = 0;
+    for (const line of lines) {
+        const w = ctx.measureText(line).width;
+        if (w > maxWidth) maxWidth = w;
+    }
+    return maxWidth;
+};
+
+window.autoResizeTextarea = function (ref) {
+    if (!ref) return;
+    ref.style.height = "auto";
+    ref.style.height = ref.scrollHeight + "px";
 };
