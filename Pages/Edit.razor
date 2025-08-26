@@ -22,7 +22,11 @@
                 class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 <div class="flex flex-wrap gap-2 items-center">
                     <h1 class="hidden md:inline text-lg font-bold">編集</h1>
-                    
+                    @* <button class="ml-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                            @onclick="ForceReloadAllThumbnailsAsync">
+                        <i class="fa-solid fa-image mr-1"></i>
+                        サムネイル再取得
+                    </button> *@
                     <!-- 回転ボタングループ -->
                     <ActionButtonGroup T="string" Actions="rotateActions" />
 
@@ -1132,6 +1136,17 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             }
         }
     }
+
+    private async Task ForceReloadAllThumbnailsAsync()
+{
+    foreach (var item in DisplayItems)
+    {
+        if (item.RawData is PageItem pageItem)
+        {
+            await ReloadPageItem(item);
+        }
+    }
+}
     private async Task ReloadPageItem(DisplayItem item)
     {
         // ページ単位の場合のみ対応

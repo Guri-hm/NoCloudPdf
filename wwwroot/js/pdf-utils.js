@@ -242,22 +242,22 @@ window.renderFirstPDFPage = async function (pdfData, password) {
 };
 
 // 指定したページのサムネイルを生成
-window.renderPdfPage = async function (pdfData, pageIndex) {
+window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageIndex) {
 
     try {
         let uint8Array;
-        if (pdfData instanceof Uint8Array) {
-            uint8Array = pdfData;
-        } else if (Array.isArray(pdfData)) {
-            uint8Array = new Uint8Array(pdfData);
-        } else if (typeof pdfData === 'string') {
-            const binaryString = atob(pdfData);
+        if (pdfFileData instanceof Uint8Array) {
+            uint8Array = pdfFileData;
+        } else if (Array.isArray(pdfFileData)) {
+            uint8Array = new Uint8Array(pdfFileData);
+        } else if (typeof pdfFileData === 'string') {
+            const binaryString = atob(pdfFileData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
         } else {
-            uint8Array = new Uint8Array(pdfData);
+            uint8Array = new Uint8Array(pdfFileData);
         }
 
         const pdfjsLib = window.pdfjsLib;
@@ -273,8 +273,9 @@ window.renderPdfPage = async function (pdfData, pageIndex) {
         let thumbnail = "";
 
         try {
+            const scale = 0.2; // サムネイル用の縮小率（必要に応じて調整）
             const page = await pdf.getPage(pageIndex + 1);
-            const viewport = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: scale });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -434,7 +435,7 @@ window.createBlankPage = async function () {
 };
 
 // 単一PDFページをレンダリング
-window.renderSinglePDFPage = async function (pdfData) {
+window.generatePdfThumbnailFromPageData = async function (pdfData) {
     try {
         const pdfjsLib = window.pdfjsLib;
         pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
@@ -449,8 +450,9 @@ window.renderSinglePDFPage = async function (pdfData) {
         const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
         const pdf = await loadingTask.promise;
 
+        const scale = 0.2;
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;

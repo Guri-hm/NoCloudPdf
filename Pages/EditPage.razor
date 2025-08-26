@@ -1523,8 +1523,11 @@
                 );
                 pageItem.PageData = newPdfBase64;
                 pageItem.Thumbnail = "";
-                pageItem.IsLoading = true;
-                await PdfDataService.LoadAllPagesForFileAsync(pageItem.FileId, loadThumbnails: true);
+                
+                var newThumbnail = await JS.InvokeAsync<string>(
+                    "generatePdfThumbnailFromPageData", pageItem.PageData);
+                pageItem.Thumbnail = newThumbnail;
+
                 ShowMessage($"変更を保存しました", type: MessageType.Success);
 
             }

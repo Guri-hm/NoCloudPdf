@@ -361,7 +361,7 @@ public class PdfDataService
                         try
                         {
                             var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
-                                "renderPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex);
+                                "generatePdfThumbnailFromFileMetaData ", fileMetadata.FileData, pageItem.OriginalPageIndex);
                             pageItem.Thumbnail = renderResult.thumbnail;
                             pageItem.HasThumbnailError = renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail);
                             pageItem.IsLoading = false;
@@ -481,7 +481,7 @@ public class PdfDataService
                             try
                             {
                                 var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
-                                    "renderPdfPage", renderCts.Token, fileMetadata.FileData, pageIndex);
+                                    "generatePdfThumbnailFromFileMetaData", renderCts.Token, fileMetadata.FileData, pageIndex);
                                 thumbnail = renderResult.thumbnail;
                                 thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
                             }
@@ -640,7 +640,7 @@ public class PdfDataService
                 var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 try
                 {
-                    var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
+                    var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("generatePdfThumbnailFromFileMetaData ", cts.Token, fileMetadata.FileData, pageIndex);
                     thumbnail = renderResult.thumbnail;
                     thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
 
@@ -887,7 +887,7 @@ public class PdfDataService
         {
             // 空白ページのPDFデータを生成
             var blankPageData = await _jsRuntime.InvokeAsync<string>("createBlankPage");
-            var blankThumbnail = await _jsRuntime.InvokeAsync<string>("renderSinglePDFPage", blankPageData);
+            var blankThumbnail = await _jsRuntime.InvokeAsync<string>("generatePdfThumbnailFromPageData", blankPageData);
 
             if (string.IsNullOrEmpty(blankPageData) || string.IsNullOrEmpty(blankThumbnail))
             {
