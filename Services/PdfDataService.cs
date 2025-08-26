@@ -628,32 +628,50 @@ public class PdfDataService
             bool thumbError = false;
             bool dataError = false;
 
-            if (pageIndex == 0)
+            var ext = Path.GetExtension(fileMetadata.FileName).ToLowerInvariant();
+
+            if (SupportedImageExtensions.Contains(ext))
             {
+                // 画像ファイルの場合はPDF化
+                string base64 = Convert.ToBase64String(fileMetadata.FileData);
                 thumbnail = fileMetadata.CoverThumbnail;
-                pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
+                pageData = await _jsRuntime.InvokeAsync<string>("embedImageAsPdf", base64, ext);
                 thumbError = string.IsNullOrEmpty(thumbnail);
                 dataError = string.IsNullOrEmpty(pageData);
             }
-            else
+            else if (SupportedPdfExtensions.Contains(ext))
             {
-                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                try
+                if (pageIndex == 0)
                 {
-                    var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("generatePdfThumbnailFromFileMetaData ", cts.Token, fileMetadata.FileData, pageIndex);
-                    thumbnail = renderResult.thumbnail;
-                    thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
-
-                    pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
+                    thumbnail = fileMetadata.CoverThumbnail;
+                    pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex);
+                    thumbError = string.IsNullOrEmpty(thumbnail);
                     dataError = string.IsNullOrEmpty(pageData);
                 }
-                catch (OperationCanceledException)
+                else
                 {
-                    Console.WriteLine($"Timeout reloading page {pageIndex + 1} of {fileMetadata.FileName}");
-                    thumbnail = "";
-                    thumbError = true;
-                    dataError = false;
+                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    try
+                    {
+                        var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("generatePdfThumbnailFromFileMetaData", cts.Token, fileMetadata.FileData, pageIndex);
+                        thumbnail = renderResult.thumbnail;
+                        thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
+
+                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex);
+                        dataError = string.IsNullOrEmpty(pageData);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Console.WriteLine($"Timeout reloading page {pageIndex + 1} of {fileMetadata.FileName}");
+                        thumbnail = "";
+                        thumbError = true;
+                        dataError = false;
+                    }
                 }
+            }
+            else
+            {
+                return "未対応のファイル形式です。";
             }
 
             pageItem.Thumbnail = thumbnail;

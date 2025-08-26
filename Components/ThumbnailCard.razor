@@ -178,33 +178,36 @@
         </div>
         <!-- 操作ボタン群 -->
         <div class="flex flex-wrap items-center ml-auto
-            md:absolute md:top-2 md:right-2 md:bg-white md:shadow md:rounded-lg md:p-1 md:flex-col md:flex md:opacity-0 md:pointer-events-none md:transition-opacity md:duration-300 md:group-hover:opacity-100 md:group-hover:pointer-events-auto z-20 gap-x-5 md:gap-x-0 md:gap-y-0">
+            md:absolute md:top-2 md:right-2 md:bg-white md:shadow md:rounded-lg md:p-1 md:flex-col md:flex md:opacity-0 md:pointer-events-none md:transition-opacity md:duration-300 md:group-hover:opacity-100 md:group-hover:pointer-events-auto z-20 gap-x-5 md:gap-x-0 md:gap-y-0" @onmouseleave="HideAllActionButtons">
 
-            @if (Mode == DisplayMode.Page)
-            {
-                <button type="button" class="text-orange-500 hover:text-orange-700 p-1 mx-1 md:mx-0 md:my-0 hidden md:block" title="このページを編集"
-                    @onclick="NavigateToPageEdit" @onpointerdown:stopPropagation>
-                    <i class="fa-solid fa-pen-to-square"></i>
-                </button>
+            @{
+                var buttons = GetActionButtons();
+                var visibleButtons = buttons.Take(MaxVisibleButtons).ToList();
+                var hiddenButtons = buttons.Skip(MaxVisibleButtons).ToList();
             }
 
-            <button type="button"class="text-green-500 hover:text-green-700 p-1 mx-1 md:mx-0 md:my-0" title="複製"
-                    @onclick="() => OnDuplicate.InvokeAsync(Index)" @onpointerdown:stopPropagation>
-                <i class="fa-solid fa-copy"></i>
-            </button>
-            <button type="button"class="text-blue-500 hover:text-blue-700 p-1 mx-1 md:mx-0 md:my-0" title="回転"
-                    @onclick="() => OnRotate.InvokeAsync(Index)" @onpointerdown:stopPropagation>
-                <i class="fa-solid fa-rotate-right"></i>
-            </button>
-            <button type="button" class="text-purple-500 hover:text-purple-700 p-1 mx-1 md:mx-0 md:my-0 hidden md:block" title="拡大プレビュー"
-                    @onclick="() => OnShowPreview.InvokeAsync((Index, 0))" @onpointerdown:stopPropagation>
-                <i class="fa-solid fa-magnifying-glass-plus"></i>
-            </button>
+            @foreach (var btn in visibleButtons)
+            {
+                @btn
+            }
 
-            <button type="button" class="text-red-500 hover:text-red-700 p-1 mx-1 md:mx-0 md:my-0" title="削除"
-                    @onclick="() => OnRemove.InvokeAsync(Index)" @onpointerdown:stopPropagation>
-                <i class="fa-solid fa-trash"></i>
-            </button>
+            @if (hiddenButtons.Count > 0)
+            {
+                if (!isActionDropdownOpen)
+                {
+                    <button type="button" class="text-gray-500 hover:text-gray-700 p-1 mx-1 md:mx-0 md:my-0" title="その他"
+                        @onclick="ShowAllActionButtons" @onpointerdown:stopPropagation>
+                        <i class="fa-solid fa-ellipsis-v"></i>
+                    </button>
+                }
+                else
+                {
+                    @foreach (var btn in hiddenButtons)
+                    {
+                        @btn
+                    }
+                }
+            }
         </div>
         
     </div>
@@ -229,6 +232,55 @@
     [Parameter] public EventCallback<int> OnInsertPdfAtPosition { get; set; }
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private const int MaxVisibleButtons = 4;
+    private bool isActionDropdownOpen = false;
+
+    private List<RenderFragment> GetActionButtons()
+    {
+        var buttons = new List<RenderFragment>();
+
+        if (Mode == DisplayMode.Page)
+        {
+            buttons.Add(@<button type="button" class="text-orange-500 hover:text-orange-700 p-1 mx-1 md:mx-0 md:my-0 hidden md:block" title="このページを編集"
+                @onclick="NavigateToPageEdit" @onpointerdown:stopPropagation>
+                <i class="fa-solid fa-pen-to-square"></i>
+            </button>);
+            buttons.Add(@<button type="button" class="text-pink-500 hover:text-pink-700 p-1 mx-1 md:mx-0 md:my-0 hidden md:block" title="編集をリセット"
+                @onclick="() => OnReloadPageItem.InvokeAsync(Item)" @onpointerdown:stopPropagation>
+                <i class="fa-solid fa-eraser"></i>
+            </button>);
+        }
+
+        buttons.Add(@<button type="button" class="text-purple-500 hover:text-purple-700 p-1 mx-1 md:mx-0 md:my-0 hidden md:block" title="拡大プレビュー"
+            @onclick="() => OnShowPreview.InvokeAsync((Index, 0))" @onpointerdown:stopPropagation>
+            <i class="fa-solid fa-magnifying-glass-plus"></i>
+        </button>);
+        buttons.Add(@<button type="button" class="text-green-500 hover:text-green-700 p-1 mx-1 md:mx-0 md:my-0" title="複製"
+            @onclick="() => OnDuplicate.InvokeAsync(Index)" @onpointerdown:stopPropagation>
+            <i class="fa-solid fa-copy"></i>
+        </button>);
+        buttons.Add(@<button type="button" class="text-blue-500 hover:text-blue-700 p-1 mx-1 md:mx-0 md:my-0" title="回転"
+            @onclick="() => OnRotate.InvokeAsync(Index)" @onpointerdown:stopPropagation>
+            <i class="fa-solid fa-rotate-right"></i>
+        </button>);
+        buttons.Add(@<button type="button" class="text-red-500 hover:text-red-700 p-1 mx-1 md:mx-0 md:my-0" title="削除"
+            @onclick="() => OnRemove.InvokeAsync(Index)" @onpointerdown:stopPropagation>
+            <i class="fa-solid fa-trash"></i>
+        </button>);
+
+        return buttons;
+    }
+
+    private void ShowAllActionButtons()
+    {
+        isActionDropdownOpen = true;
+    }
+
+    private void HideAllActionButtons()
+    {
+        isActionDropdownOpen = false;
+    }
 
     private void NavigateToPageEdit()
     {
