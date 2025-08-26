@@ -165,11 +165,13 @@
                                 @if (element.IsEditing)
                                 {
                                     <textarea
+                                        id="text-area-@element.Id"
+                                        name="text-area-@element.Id"
                                         @bind="element.Text"
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
                                         class="border-none outline-none bg-transparent resize-none overflow-hidden"
-                                        style="width: 100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; vertical-align: middle; color: @element.Color;"
+                                        style="width: 100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color;"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
                                         @onmousedown:stopPropagation
@@ -197,7 +199,7 @@
                                         @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
                                 }
-                                @if (selectedElementIds.Contains(element.Id))
+                                @if (selectedElementIds.Contains(element.Id) && !element.IsEditing)
                                 {
                                     <div class="element-handles absolute inset-[-4px] pointer-events-none">
                                         <div class="handle handle-nw absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-nw-resize top-[-4px] left-[-4px]"
@@ -609,8 +611,6 @@
                 anchorY = element.Y;
                 break;
         }
-        Console.WriteLine($"anchorOppositeX={anchorX}");
-        Console.WriteLine($"anchorOppositeY={anchorY}");
         anchorFontSize = element.FontSize;
         draggingElementId = null;
         isDragging = true;
@@ -1253,11 +1253,11 @@
                 Type = ElementType.Text,
                 X = coords.x,
                 Y = coords.y,
-                Text = "",
+                Text = "テキスト",
                 FontSize = fontSize,
                 Color = textColor,
                 IsEditing = true,
-                FontFamily = fontFamily 
+                FontFamily = fontFamily,
             };
             editElements.Add(element);
 
@@ -1267,6 +1267,8 @@
             try
             {
                 await textInputRef.FocusAsync();
+                await JS.InvokeVoidAsync("selectAllTextarea", textInputRef);
+                await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef);
             }
             catch
             {

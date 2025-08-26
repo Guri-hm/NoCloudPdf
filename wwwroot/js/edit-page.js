@@ -182,8 +182,25 @@ window.measureMaxLineWidth = function (text, fontSize, fontFamily) {
     return maxWidth;
 };
 
+window.selectAllTextarea = function (ref) {
+    if (!ref) return;
+    ref.select();
+};
+
 window.autoResizeTextarea = function (ref) {
     if (!ref) return;
-    ref.style.height = "auto";
-    ref.style.height = ref.scrollHeight + "px";
+    ref.style.height = "1px";
+    const fontSize = parseFloat(window.getComputedStyle(ref).fontSize);
+    const value = ref.value || "";
+    const lines = value.split('\n');
+    if (value.trim() === "") {
+        // 空文字ならfontSizeで高さを強制
+        ref.style.height = fontSize + "px";
+    } else if (lines.length === 1) {
+        // 1行ならfontSizeで高さを強制
+        ref.style.height = fontSize + "px";
+    } else {
+        // 複数行ならscrollHeight
+        ref.style.height = Math.max(ref.scrollHeight, fontSize) + "px";
+    }
 };
