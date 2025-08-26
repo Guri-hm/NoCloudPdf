@@ -490,69 +490,80 @@
                 double newHeight = element.Height;
                 int newFontSize = element.FontSize;
 
-                string basePoint = "";
-
                 switch (resizingTextHandle)
                 {
                     case "nw":
                         // 右下基点（anchorX, anchorY固定）
-                        if (mouseCanvasX < anchorX)
-                        {
-                            newWidth = anchorX - mouseCanvasX;
-                            newX = anchorX - newWidth;
-                        }
-                        else
-                        {
-                            newWidth = 6;
-                            newX = anchorX - newWidth;
-                        }
+                        newWidth = anchorX - mouseCanvasX;
                         newHeight = anchorY - mouseCanvasY;
+                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                        // JSで最大行幅を取得
+                        var maxLineWidthNW = await JS.InvokeAsync<double>(
+                            "measureMaxLineWidth",
+                            element.Text,
+                            newFontSize * zoomLevel,
+                            element.FontFamily
+                        );
+                        newWidth = (maxLineWidthNW / zoomLevel) + (newFontSize * 0.5);
+                        // 右端(anchorX)を絶対固定
+                        newX = anchorX - newWidth;
                         newY = anchorY - newHeight;
                         break;
+
+                    case "sw":
+                        // 右上基点（anchorX, anchorY固定）
+                        newWidth = anchorX - mouseCanvasX;
+                        newHeight = mouseCanvasY - anchorY;
+                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                        var maxLineWidthSW = await JS.InvokeAsync<double>(
+                            "measureMaxLineWidth",
+                            element.Text,
+                            newFontSize * zoomLevel,
+                            element.FontFamily
+                        );
+                        newWidth = (maxLineWidthSW / zoomLevel) + (newFontSize * 0.5);
+                        // 右端(anchorX)を絶対固定
+                        newX = anchorX - newWidth;
+                        newY = anchorY;
+                        break;
+
                     case "ne":
                         // 左下基点（anchorX, anchorY固定）
                         newWidth = mouseCanvasX - anchorX;
                         newHeight = anchorY - mouseCanvasY;
+                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                        var maxLineWidthNE = await JS.InvokeAsync<double>(
+                            "measureMaxLineWidth",
+                            element.Text,
+                            newFontSize * zoomLevel,
+                            element.FontFamily
+                        );
+                        newWidth = (maxLineWidthNE / zoomLevel) + (newFontSize * 0.5);
+                        // 左端(anchorX)を絶対固定
                         newX = anchorX;
                         newY = anchorY - newHeight;
                         break;
-                    case "sw":
-                        // 右上基点（anchorX, anchorY固定）
-                        if (mouseCanvasX < anchorX)
-                        {
-                            newWidth = anchorX - mouseCanvasX;
-                            newX = anchorX - newWidth;
-                        }
-                        else
-                        {
-                            newWidth = 6; // 最小値
-                            newX = anchorX - newWidth;
-                        }
-                        newHeight = mouseCanvasY - anchorY;
-                        newY = anchorY;
 
-                        double currentRightX = element.X + element.Width;
-                        double currentRightY = element.Y;
-                        Console.WriteLine(
-                            $"[sw] anchorX={anchorX}, anchorY={anchorY} | currentRightX={currentRightX}, currentRightY={currentRightY} | 差分X={currentRightX-anchorX}, 差分Y={currentRightY-anchorY}"
-                        );
-                        
-                        break;
                     case "se":
                         // 左上基点（anchorX, anchorY固定）
                         newWidth = mouseCanvasX - anchorX;
                         newHeight = mouseCanvasY - anchorY;
+                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                        var maxLineWidthSE = await JS.InvokeAsync<double>(
+                            "measureMaxLineWidth",
+                            element.Text,
+                            newFontSize * zoomLevel,
+                            element.FontFamily
+                        );
+                        newWidth = (maxLineWidthSE / zoomLevel) + (newFontSize * 0.5);
+                        // 左端(anchorX)を絶対固定
                         newX = anchorX;
                         newY = anchorY;
                         break;
                 }
+
                 newWidth = Math.Max(newWidth, 6);
                 newHeight = Math.Max(newHeight, 6);
-
-                basePoint = $"{anchorX},{anchorY}"; // ← anchorX, anchorYを出力
-
-                // フォントサイズは高さベースで決定
-                newFontSize = Math.Max(6, (int)Math.Round(newHeight));
 
                 // 反映
                 element.X = newX;
@@ -562,21 +573,11 @@
                 element.FontSize = newFontSize;
                 fontSize = newFontSize;
 
-                var maxLineWidth = await JS.InvokeAsync<double>(
-                    "measureMaxLineWidth",
-                    element.Text,
-                    element.FontSize * zoomLevel,
-                    element.FontFamily
-                );
-                element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5);
-
                 changed = true;
             }
             if (changed) StateHasChanged();
             return;
         }
-
-        // ...既存のドラッグ処理...
     }
 
     // テキストハンドル押下でリサイズを開始
