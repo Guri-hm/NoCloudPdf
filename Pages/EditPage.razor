@@ -212,13 +212,13 @@
                                         {
                                             @if (currentTool == EditTool.Text)
                                             {
-                                                <button class="edit-btn absolute top-[-12px] right-[12px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
+                                                <button class="edit-btn absolute top-[-20px] right-[35px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
                                                     @onclick="() => StartTextEdit(element)" @onclick:stopPropagation title="テキスト編集">
                                                     <i class="fa-solid fa-pen"></i>
                                                 </button>
                                             }
                                         }
-                                        <button class="delete-btn absolute top-[-12px] right-[-12px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
+                                        <button class="delete-btn absolute top-[-20px] right-[10px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
                                             @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
                                             <i class="fa-solid fa-times"></i>
                                         </button>
