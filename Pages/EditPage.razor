@@ -200,10 +200,14 @@
                                 @if (selectedElementIds.Contains(element.Id))
                                 {
                                     <div class="element-handles absolute inset-[-4px] pointer-events-none">
-                                        <div class="handle handle-nw absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-nw-resize top-[-4px] left-[-4px]"></div>
-                                        <div class="handle handle-ne absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-ne-resize top-[-4px] right-[-4px]"></div>
-                                        <div class="handle handle-sw absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-sw-resize bottom-[-4px] left-[-4px]"></div>
-                                        <div class="handle handle-se absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-se-resize bottom-[-4px] right-[-4px]"></div>
+                                        <div class="handle handle-nw absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-nw-resize top-[-4px] left-[-4px]"
+                                            @onmousedown="@(e => OnTextResizeMouseDown(e, element, "nw"))" @onmousedown:stopPropagation></div>
+                                        <div class="handle handle-ne absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-ne-resize top-[-4px] right-[-4px]"
+                                            @onmousedown="@(e => OnTextResizeMouseDown(e, element, "ne"))" @onmousedown:stopPropagation></div>
+                                        <div class="handle handle-sw absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-sw-resize bottom-[-4px] left-[-4px]"
+                                            @onmousedown="@(e => OnTextResizeMouseDown(e, element, "sw"))" @onmousedown:stopPropagation></div>
+                                        <div class="handle handle-se absolute w-2 h-2 bg-blue-600 border border-white pointer-events-auto cursor-se-resize bottom-[-4px] right-[-4px]"
+                                            @onmousedown="@(e => OnTextResizeMouseDown(e, element, "se"))" @onmousedown:stopPropagation></div>
                                         @if (!element.IsEditing)
                                         {
                                             @if (currentTool == EditTool.Text)
@@ -452,6 +456,114 @@
         }
     }
 
+    // --- 新規追加: テキストリサイズ用フィールド/定数 ---
+    private string? resizingTextId = null;
+    private string? resizingTextHandle = null;
+    private double dragStartTextMouseY = 0;
+    private int dragStartTextFontSize = DefaultFontSize;
+    // ピクセル移動何pxでフォントサイズを1pt変えるか（調整可）
+    private const double TextFontResizePixelsPerPoint = 4.0;
+    
+    private async void OnElementMouseMove(MouseEventArgs e)
+    {
+        bool changed = false;
+    
+        // テキストリサイズ中
+        if (resizingTextId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
+            if (element != null)
+            {
+                var deltaY = e.ClientY - dragStartTextMouseY;
+                // 上にドラッグで文字大きくする、下で小さくする
+                var deltaPoints = -(deltaY) / (TextFontResizePixelsPerPoint * zoomLevel);
+                var newSize = Math.Max(6, (int)Math.Round(dragStartTextFontSize + deltaPoints));
+                if (newSize != element.FontSize)
+                {
+                    element.FontSize = newSize;
+                    // 幅を再計算（非同期 JS 呼び出し）
+                    var maxLineWidth = await JS.InvokeAsync<double>(
+                        "measureMaxLineWidth",
+                        element.Text,
+                        element.FontSize * zoomLevel,
+                        element.FontFamily
+                    );
+                    element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5);
+                    changed = true;
+                }
+            }
+    
+            if (changed) StateHasChanged();
+            return;
+        }
+    
+        // 既存: 画像リサイズ / 画像ドラッグ / テキストドラッグ 等
+        // 画像リサイズ
+        if (resizingImageId != null && resizingHandle != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            ResizeImageElement(element, resizingHandle, dx, dy);
+            changed = true;
+        }
+        // 画像ドラッグ
+        else if (draggingImageId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartImageX + dx;
+            element.Y = dragStartImageY + dy;
+            changed = true;
+        }
+        // テキスト要素のドラッグ
+        else if (draggingElementId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartElementX + dx;
+            element.Y = dragStartElementY + dy;
+            changed = true;
+        }
+    
+        if (changed) StateHasChanged();
+    }
+    
+    // テキストハンドル押下でリサイズを開始
+    private void OnTextResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
+    {
+        resizingTextId = element.Id;
+        resizingTextHandle = handle;
+        dragStartTextMouseY = e.ClientY;
+        dragStartTextFontSize = element.FontSize;
+        // Prevent element drag behavior
+        draggingElementId = null;
+        isDragging = true;
+    }
+    
+    // マウスアップ時にリサイズを終了
+    private void OnElementMouseUp(MouseEventArgs e)
+    {
+        draggingElementId = null;
+        // テキストリサイズ終了
+        resizingTextId = null;
+        resizingTextHandle = null;
+    
+        // 既存: 画像イベントも解除
+        draggingImageId = null;
+        resizingImageId = null;
+        resizingHandle = null;
+        isDragging = false;
+        StateHasChanged();
+    }
+    
+    // ...existing code...
+
     private string GetHandleStyle(string handle, EditElement element)
     {
         var w = element.Width * zoomLevel;
@@ -480,24 +592,19 @@
         dragStartElementY = element.Y;
     }
 
-    private void OnElementMouseMove(MouseEventArgs e)
-    {
-        if (draggingElementId == null) return;
-        var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
-        if (element == null) return;
-
-        // マウスの移動量をズーム倍率で補正
-        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
-        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
-        element.X = dragStartElementX + dx;
-        element.Y = dragStartElementY + dy;
-        StateHasChanged();
-    }
-
-    private void OnElementMouseUp(MouseEventArgs e)
-    {
-        draggingElementId = null;
-    }
+    //private void OnElementMouseMove(MouseEventArgs e)
+    //{
+    //    if (draggingElementId == null) return;
+    //    var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
+    //    if (element == null) return;
+//
+    //    // マウスの移動量をズーム倍率で補正
+    //    var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+    //    var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+    //    element.X = dragStartElementX + dx;
+    //    element.Y = dragStartElementY + dy;
+    //    StateHasChanged();
+    //}
 
     private async void OnFontSizeChanged(ChangeEventArgs e)
     {
@@ -1019,9 +1126,38 @@
         }
     }
 
-    private void OnCanvasMouseMove(MouseEventArgs e)
+    private async void OnCanvasMouseMove(MouseEventArgs e)
     {
+
         if (draggingElementId != null) return;
+
+        bool changed = false;
+        // テキストリサイズ
+        if (resizingTextId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
+            if (element != null)
+            {
+                var deltaY = e.ClientY - dragStartTextMouseY;
+                var deltaPoints = (deltaY) / (TextFontResizePixelsPerPoint * zoomLevel);
+                var newSize = Math.Max(6, (int)Math.Round(dragStartTextFontSize + deltaPoints));
+                if (newSize != element.FontSize)
+                {
+                    element.FontSize = newSize;
+                    fontSize = newSize;
+                    var maxLineWidth = await JS.InvokeAsync<double>(
+                        "measureMaxLineWidth",
+                        element.Text,
+                        element.FontSize * zoomLevel,
+                        element.FontFamily
+                    );
+                    element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5);
+                    changed = true;
+                }
+            }
+            if (changed) StateHasChanged();
+            return;
+        }
 
         if (isDragging && currentTool == EditTool.Select)
         {
