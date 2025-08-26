@@ -315,7 +315,6 @@
     private double dragStartImageWidth, dragStartImageHeight;
 
     private EditTool currentTool = EditTool.Select;
-    private bool isDragging = false;
     private double lastMouseX = 0;
     private double lastMouseY = 0;
 
@@ -338,7 +337,6 @@
         );
         element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); // 余白分はfontSizeに比例
         await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef);
-        StateHasChanged();
     }
     private void OnFontFamilyChanged(ChangeEventArgs e)
     {
@@ -488,13 +486,40 @@
     private int dragStartTextFontSize = DefaultFontSize;
     private double anchorX, anchorY; // ページ座標で保持
     private double anchorFontSize;
-    private double anchorOppositeX, anchorOppositeY; // 対角基点の座標（ページ座標）
 
     // ピクセル移動何pxでフォントサイズを1pt変えるか（調整可）
     private const double TextFontResizePixelsPerPoint = 4.0;
 
+    private DateTime lastMouseMoveTime = DateTime.MinValue;
+    private const int MouseMoveThrottleMs = 16; // 約60FPS（16ms間隔）
+
+    private RectDto? cachedCanvasRect = null;
+    private DateTime canvasRectCacheTime = DateTime.MinValue;
+    private const int CanvasRectCacheMs = 100; // 100ms間キャッシュ
+
+    private async Task<RectDto> GetCanvasRect()
+    {
+        var now = DateTime.UtcNow;
+        if (cachedCanvasRect != null && (now - canvasRectCacheTime).TotalMilliseconds < CanvasRectCacheMs)
+        {
+            return cachedCanvasRect; // キャッシュを使用
+        }
+
+        // 新しく取得
+        cachedCanvasRect = await JS.InvokeAsync<RectDto>("getElementRect", $"#pdf-canvas-{safeFileId}-{PageIndex}");
+        canvasRectCacheTime = now;
+        return cachedCanvasRect;
+    }
     private async void OnElementMouseMove(MouseEventArgs e)
     {
+        // フレームレート制限（60FPS以下にする）
+        var now = DateTime.UtcNow;
+        if ((now - lastMouseMoveTime).TotalMilliseconds < MouseMoveThrottleMs)
+        {
+            return; // スキップ
+        }
+        lastMouseMoveTime = now;
+
         bool changed = false;
 
         // テキストリサイズ中
@@ -503,8 +528,8 @@
             var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
             if (element != null)
             {
-                // 画面座標 → キャンバス座標に変換
-                var canvasRect = await JS.InvokeAsync<RectDto>("getElementRect", $"#pdf-canvas-{safeFileId}-{PageIndex}");
+                // キャッシュされたCanvasRectを使用
+                var canvasRect = await GetCanvasRect();
                 var mouseCanvasX = (e.ClientX - canvasRect.left) / zoomLevel;
                 var mouseCanvasY = (e.ClientY - canvasRect.top) / zoomLevel;
 
@@ -599,9 +624,8 @@
 
                 changed = true;
             }
-            if (changed) StateHasChanged();
-            return;
         }
+        if (changed) StateHasChanged();
     }
 
     // テキストハンドル押下でリサイズを開始
@@ -635,7 +659,6 @@
         }
         anchorFontSize = element.FontSize;
         draggingElementId = null;
-        isDragging = true;
     }
     
     // マウスアップ時にリサイズを終了
@@ -650,7 +673,6 @@
         draggingImageId = null;
         resizingImageId = null;
         resizingHandle = null;
-        isDragging = false;
         StateHasChanged();
     }
     
@@ -951,7 +973,6 @@
         draggingImageId = null;
         resizingImageId = null;
         resizingHandle = null;
-        isDragging = false;
         StateHasChanged();
     }
 
@@ -1182,7 +1203,6 @@
         }
 
         await JS.InvokeVoidAsync("drawPdfPageToCanvas", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
-        StateHasChanged();
     }
 
     private void SetTool(EditTool tool)
@@ -1198,7 +1218,6 @@
 
         if (currentTool == EditTool.Select)
         {
-            isDragging = true;
             lastMouseX = e.ClientX;
             lastMouseY = e.ClientY;
         }
@@ -1206,7 +1225,6 @@
 
     private void OnCanvasMouseUp(MouseEventArgs e)
     {
-        isDragging = false;
         draggingElementId = null;
     }
 
