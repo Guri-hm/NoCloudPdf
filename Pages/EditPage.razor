@@ -166,7 +166,7 @@
                 <div class="pdf-page bg-white shadow-lg relative"
                     style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; transform: scale(1); transform-origin: center center;"
                     @onclick="OnPageClick">
-                    <canvas id="pdf-canvas-@safeFileId-@PageIndex"
+                    <canvas id="pdf-canvas-@canvasUniqueId"
                             width="@(pageWidth)"
                             height="@(pageHeight)"
                             style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px;"
@@ -351,6 +351,14 @@
     private List<string> selectedElementIds = new();
 
     private string fontFamily = "sans-serif";
+
+    private string? canvasUniqueId;
+
+    protected override void OnInitialized()
+    {
+        canvasUniqueId = Guid.NewGuid().ToString();
+    }
+
     private async Task OnTextAreaInput(ChangeEventArgs e, EditElement element)
     {
         element.Text = e.Value?.ToString() ?? "";
@@ -1253,7 +1261,7 @@
             zoomLevel = Math.Max(0.1, Math.Min(fitScale, 5.0));
         }
 
-        await JS.InvokeVoidAsync("drawPdfPageToCanvas", safeFileId, PageIndex, pageItem?.PageData ?? "", zoomLevel);
+        await JS.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel);
     }
 
     private void SetTool(EditTool tool)

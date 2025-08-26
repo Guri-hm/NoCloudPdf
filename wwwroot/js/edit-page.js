@@ -39,9 +39,9 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
     }
 };
 
-window.drawPdfPageToCanvas = async function (fileId, pageIndex, pageData, zoomLevel = 1.0) {
+window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
     try {
-        const canvasSelector = `#pdf-canvas-${fileId}-${pageIndex}`;
+        const canvasSelector = `#pdf-canvas-${id}`;
         const canvas = document.querySelector(canvasSelector);
         if (!canvas || !pageData) return;
 
