@@ -675,16 +675,8 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
         console.error("editJson parse error", e, editJson);
     }
 
-    // サポートするフォント
-    const supportedFonts = {
-        "sans-serif": StandardFonts.Helvetica,
-        "serif": StandardFonts.TimesRoman,
-        "monospace": StandardFonts.Courier,
-        "Arial, Helvetica, sans-serif": StandardFonts.Helvetica,
-        "Times New Roman, serif": StandardFonts.TimesRoman,
-        "Meiryo, sans-serif": StandardFonts.Helvetica,
-        "Yu Gothic, sans-serif": StandardFonts.Helvetica
-    };
+    let notoFontRegular = null;
+    let notoFontBold = null;
 
     for (const el of editElements) {
         if (el.Type === 0 || el.Type === "Text") {
@@ -695,14 +687,28 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 
             let font;
             if (containsJapanese(el.Text || "")) {
-                if (!pdfDoc._notoFont) {
-                    const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
-                    const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-                    pdfDoc._notoFont = await pdfDoc.embedFont(fontBytes);
+                if (el.IsBold) {
+                    if (!notoFontBold) {
+                        const fontUrl = "/fonts/NotoSansJP-Bold.ttf";
+                        const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+                        notoFontBold = await pdfDoc.embedFont(fontBytes);
+                    }
+                    font = notoFontBold;
+                } else {
+                    if (!notoFontRegular) {
+                        const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
+                        const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+                        notoFontRegular = await pdfDoc.embedFont(fontBytes);
+                    }
+                    font = notoFontRegular;
                 }
-                font = pdfDoc._notoFont;
             } else {
-                font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                // 日本語を含まない場合
+                if (el.IsBold) {
+                    font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+                } else {
+                    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                }
             }
 
             page.drawText(el.Text || "", {
