@@ -459,6 +459,7 @@
 
     private void ToggleBold()
     {
+        ignoreTextBlur = true;
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
