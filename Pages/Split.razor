@@ -285,9 +285,12 @@
     <LoadingOverlay Message="処理中です..." />
 }
 <!-- メッセージ表示エリア -->
-@if (!string.IsNullOrEmpty(errorMessage) || !string.IsNullOrEmpty(warnMessage))
+@if (message != null && !string.IsNullOrEmpty(message.Text))
 {
-    <MessageBar Message="@(errorMessage ?? warnMessage)" IsError="@(errorMessage != null)" OnClose="ClearAllMessages"  AutoCloseMs="5000" />
+    <MessageBar Message="@message.Text"
+                Type="@message.Type"
+                OnClose="ClearMessage"
+                AutoCloseMs="5000" />
 }
 <PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
 
@@ -322,8 +325,17 @@
         }
     }
     private bool isBusy = false;
-    private string? errorMessage;
-    private string? warnMessage;
+    private MessageInfo? message;
+    private void ShowMessage(string? text, MessageType type)
+    {
+        message = new MessageInfo { Text = text ?? string.Empty, Type = type };
+        StateHasChanged();
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+    }
 
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
@@ -560,16 +572,16 @@
             var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
             {
-                ShowWarn($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。");
+                ShowMessage($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
                 return;
             }
             if (allPages.Count == 0)
             {
-                ShowError("分割対象がありません。");
+                ShowMessage("分割対象がありません。", MessageType.Error);
                 return;
             }
 
-            errorMessage = null;
+            ClearMessage();
 
             var splitGroups = new List<List<PageItem>>();
             var currentGroup = new List<PageItem>();
@@ -615,7 +627,7 @@
                 }
                 else
                 {
-                    ShowError($"PDFの分割に失敗しました。グループ {groupIndex} のページ数: {group.Count}");
+                    ShowMessage($"PDFの分割に失敗しました。グループ {groupIndex} のページ数: {group.Count}", MessageType.Error);
                     return;
                 }
                 groupIndex++;
@@ -635,13 +647,13 @@
             }
             else
             {
-                ShowError("分割PDFの生成に失敗しました。");
+                ShowMessage("分割PDFの生成に失敗しました。", MessageType.Error);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            ShowError("PDFの分割中にエラーが発生しました。");
+            ShowMessage("PDFの分割中にエラーが発生しました。", MessageType.Error);
         }
         finally
         {
@@ -664,14 +676,14 @@
 
             if (selectedPages.Count == 0)
             {
-                ShowWarn("抽出対象が選択されていません。");
+                ShowMessage("抽出対象が選択されていません。", MessageType.Warn);
                 return;
             }
 
             var notReadyCount = selectedPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
             {
-                ShowWarn($"抽出対象に読み込み未完了またはエラーのページが {notReadyCount} ページあります。");
+                ShowMessage($"抽出対象に読み込み未完了またはエラーのページが {notReadyCount} ページあります。", MessageType.Warn);
                 return;
             }
 
@@ -750,13 +762,13 @@
             }
             else
             {
-                ShowError("抽出PDFの生成に失敗しました。");
+                ShowMessage("抽出PDFの生成に失敗しました。", MessageType.Error);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            ShowError("PDFの抽出中にエラーが発生しました。");
+            ShowMessage("PDFの抽出中にエラーが発生しました。", MessageType.Error);
         }
         finally
         {
@@ -777,7 +789,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error removing item {index}: {ex.Message}");
-            errorMessage = $"削除に失敗しました: {ex.Message}";
+            ShowMessage($"削除に失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -792,7 +804,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error opening file dialog: {ex.Message}");
-            errorMessage = $"ファイル選択ダイアログの表示に失敗しました: {ex.Message}";
+            ShowMessage($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -818,15 +830,9 @@
                 resultZipSize = "";
                 resultTotalPageCount = 0;
             },
-            msg => errorMessage = msg,
+            msg => ShowMessage(msg, MessageType.Error),
             StateHasChanged
         );
-    }
-
-    private void ClearErrorMessage()
-    {
-        errorMessage = null;
-        StateHasChanged();
     }
 
     // 隣接サムネイルとの入れ替え機能
@@ -849,7 +855,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"サムネイルの入れ替えに失敗しました: {ex.Message}";
+            ShowMessage($"サムネイルの入れ替えに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -866,7 +872,7 @@
             catch (Exception ex)
             {
                 Console.WriteLine($"Error rotating item {index}: {ex.Message}");
-                errorMessage = $"アイテム {index + 1} の回転に失敗しました: {ex.Message}";
+                ShowMessage($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
             }
         }
     }
@@ -986,7 +992,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error in UpdateOrderInternal: {ex.Message}");
-            errorMessage = $"並び替えに失敗しました: {ex.Message}";
+            ShowMessage($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -1022,7 +1028,7 @@
             DisplayItems,
             position,
             pos => insertPosition = pos,
-            msg => errorMessage = msg
+            msg => ShowMessage(msg, MessageType.Error)
         );
     }
 
@@ -1038,8 +1044,8 @@
         await PdfDataService.HandleFileInputAsync(
             e,
             insertPosition >= 0 ? insertPosition : null,
-            msg => { errorMessage = msg; warnMessage = null; StateHasChanged(); },
-            msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); }
+            msg => { ShowMessage(msg, MessageType.Error); },
+            msg => { ShowMessage(msg, MessageType.Warn); }
         );
         insertPosition = -1;
         isBusy = false;
@@ -1172,8 +1178,8 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
-                msg => { errorMessage = msg; warnMessage = null; StateHasChanged(); },
-                msg => { warnMessage = msg; errorMessage = null; StateHasChanged(); },
+                msg => { ShowMessage(msg, MessageType.Error); },
+                msg => { ShowMessage(msg, MessageType.Warn); },
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );
@@ -1381,31 +1387,11 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
         catch (Exception ex)
         {
-            errorMessage = $"ZIPのダウンロードに失敗しました: {ex.Message}";
+            ShowMessage($"ZIPのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
             StateHasChanged();
         }
     }
 
-    private void ShowError(string msg)
-    {
-        errorMessage = msg;
-        warnMessage = null;
-        StateHasChanged();
-    }
-
-    private void ShowWarn(string msg)
-    {
-        warnMessage = msg;
-        errorMessage = null;
-        StateHasChanged();
-    }
-
-    private void ClearAllMessages()
-    {
-        errorMessage = null;
-        warnMessage = null;
-        StateHasChanged();
-    }
     private async Task DownloadResultPdf(ResultPdfInfo info)
     {
         await JSRuntime.InvokeVoidAsync("downloadFileFromUrl", info.Url, info.Name, "application/pdf");
@@ -1432,8 +1418,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
         catch (Exception ex)
         {
-            errorMessage = $"PNGダウンロードに失敗しました: {ex.Message}";
-            StateHasChanged();
+            ShowMessage($"PNGダウンロードに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -1465,7 +1450,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             
             if (!string.IsNullOrEmpty(errorMsg))
             {
-                ShowError(errorMsg);
+                ShowMessage(errorMsg, MessageType.Error);
             }
         }
     }

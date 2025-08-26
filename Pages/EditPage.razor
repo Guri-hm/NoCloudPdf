@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components
 @using NoCloudPdf.Services
 @using System.Text.Json
+@using NoCloudPdf.Components
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 @inject PdfDataService PdfDataService
@@ -304,9 +305,32 @@
     <!-- ファイルアップロード用の隠しinput -->
    <input type="file" @ref="fileInputRef" @onchange="OnImageSelected" accept="image/*" style="display: none;" />
 </div>
-
-
+@if (isBusy)
+{
+    <LoadingOverlay Message="処理中です..." />
+}
+<!-- メッセージ表示エリア -->
+@if (message != null && !string.IsNullOrEmpty(message.Text))
+{
+    <MessageBar Message="@message.Text"
+                Type="@message.Type"
+                OnClose="ClearMessage"
+                AutoCloseMs="5000" />
+}
 @code {
+    private bool isBusy = false;
+    private MessageInfo? message;
+
+    private void ShowMessage(string text, MessageType type)
+    {
+        message = new MessageInfo { Text = text, Type = type };
+        StateHasChanged();
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+    }
     private DotNetObjectReference<EditPage>? _dotNetRef;
     private PageSourceInfo? cachedPageSource;
 
@@ -1478,6 +1502,10 @@
 
     private async Task SaveChanges()
     {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
         // 現在のページを取得
         var allPages = PdfDataService.GetModel().Pages;
         var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
@@ -1497,18 +1525,25 @@
                 pageItem.Thumbnail = "";
                 pageItem.IsLoading = true;
                 await PdfDataService.LoadAllPagesForFileAsync(pageItem.FileId, loadThumbnails: true);
-                await JS.InvokeVoidAsync("alert", "変更を保存しました");
+                ShowMessage($"変更を保存しました", type: MessageType.Success);
+
             }
             catch (Exception ex)
             {
-                await JS.InvokeVoidAsync("alert", $"保存時エラー: {ex.Message}");
+                ShowMessage($"保存時エラー: {ex.Message}",type: MessageType.Error);
                 Console.WriteLine($"保存時エラー: {ex}");
+            }
+            finally
+            {
+                isBusy = false;
+                StateHasChanged();
             }
         }
         else
         {
             await JS.InvokeVoidAsync("alert", "ページ情報が見つかりません");
-
+            isBusy = false;
+            StateHasChanged();
         }
     }
 }

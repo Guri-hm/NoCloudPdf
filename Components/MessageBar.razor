@@ -1,3 +1,5 @@
+@using NoCloudPdf.Models
+
 @if (!string.IsNullOrEmpty(Message))
 {
     <div class="fixed top-4 right-4 z-50 max-w-md" style="min-width:180px;">
@@ -18,26 +20,55 @@
 }
 
 @code {
+
     [Parameter] public string? Message { get; set; }
-    [Parameter] public bool IsError { get; set; }
+    [Parameter] public MessageType Type { get; set; } = MessageType.Success;
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public int? AutoCloseMs { get; set; }
 
-    private string BarColor => IsError ? "bg-red-500" : "bg-yellow-400";
-    private string BoxColor => IsError ? "bg-red-400 text-white" : "bg-yellow-100 text-yellow-900 border border-yellow-400";
+    private string BarColor => Type switch
+    {
+        MessageType.Success => "bg-green-500",
+        MessageType.Warn => "bg-yellow-400",
+        MessageType.Error => "bg-red-500",
+        _ => "bg-gray-400"
+    };
+    private string BoxColor => Type switch
+    {
+        MessageType.Success => "bg-green-100 text-green-900 border border-green-400",
+        MessageType.Warn => "bg-yellow-100 text-yellow-900 border border-yellow-400",
+        MessageType.Error => "bg-red-400 text-white",
+        _ => "bg-gray-100 text-gray-900 border border-gray-400"
+    };
+
+    private CancellationTokenSource? _autoCloseCts;
 
     protected override async Task OnParametersSetAsync()
     {
+        // 前回の自動閉じ処理をキャンセル
+        _autoCloseCts?.Cancel();
+        _autoCloseCts = null;
+
         if (!string.IsNullOrEmpty(Message) && AutoCloseMs.HasValue)
         {
-            await Task.Delay(AutoCloseMs.Value);
-            if (OnClose.HasDelegate)
-                await OnClose.InvokeAsync();
+            _autoCloseCts = new CancellationTokenSource();
+            try
+            {
+                await Task.Delay(AutoCloseMs.Value, _autoCloseCts.Token);
+                if (!_autoCloseCts.Token.IsCancellationRequested && OnClose.HasDelegate)
+                    await OnClose.InvokeAsync();
+            }
+            catch (TaskCanceledException)
+            {
+                // キャンセル時は何もしない
+            }
         }
     }
 
     private async Task OnCloseClicked()
     {
+        _autoCloseCts?.Cancel();
+        _autoCloseCts = null;
         if (OnClose.HasDelegate)
             await OnClose.InvokeAsync();
     }

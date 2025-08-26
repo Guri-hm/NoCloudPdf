@@ -379,9 +379,12 @@ input[type=number] {
     --color-yellow-700: oklch(55.4% 0.135 66.442);
     --color-yellow-800: oklch(47.6% 0.114 61.907);
     --color-yellow-900: oklch(42.1% 0.095 57.708);
+    --color-green-100: oklch(96.2% 0.044 156.743);
+    --color-green-400: oklch(79.2% 0.209 151.711);
     --color-green-500: oklch(72.3% 0.219 149.579);
     --color-green-600: oklch(62.7% 0.194 149.214);
     --color-green-700: oklch(52.7% 0.154 150.069);
+    --color-green-900: oklch(39.3% 0.095 152.535);
     --color-blue-50: oklch(97% 0.014 254.604);
     --color-blue-100: oklch(93.2% 0.032 255.585);
     --color-blue-200: oklch(88.2% 0.059 254.128);
@@ -408,6 +411,7 @@ input[type=number] {
     --color-gray-600: oklch(44.6% 0.03 256.802);
     --color-gray-700: oklch(37.3% 0.034 259.733);
     --color-gray-800: oklch(27.8% 0.033 256.848);
+    --color-gray-900: oklch(21% 0.034 264.665);
     --color-neutral-100: oklch(97% 0 0);
     --color-neutral-200: oklch(92.2% 0 0);
     --color-neutral-500: oklch(55.6% 0 0);
@@ -1359,6 +1363,9 @@ input[type=number] {
   .border-gray-400 {
     border-color: var(--color-gray-400);
   }
+  .border-green-400 {
+    border-color: var(--color-green-400);
+  }
   .border-transparent {
     border-color: transparent;
   }
@@ -1437,8 +1444,17 @@ input[type=number] {
   .bg-gray-300 {
     background-color: var(--color-gray-300);
   }
+  .bg-gray-400 {
+    background-color: var(--color-gray-400);
+  }
   .bg-gray-800 {
     background-color: var(--color-gray-800);
+  }
+  .bg-green-100 {
+    background-color: var(--color-green-100);
+  }
+  .bg-green-500 {
+    background-color: var(--color-green-500);
   }
   .bg-green-600 {
     background-color: var(--color-green-600);
@@ -1705,11 +1721,17 @@ input[type=number] {
   .text-gray-800 {
     color: var(--color-gray-800);
   }
+  .text-gray-900 {
+    color: var(--color-gray-900);
+  }
   .text-green-500 {
     color: var(--color-green-500);
   }
   .text-green-600 {
     color: var(--color-green-600);
+  }
+  .text-green-900 {
+    color: var(--color-green-900);
   }
   .text-neutral-500 {
     color: var(--color-neutral-500);
