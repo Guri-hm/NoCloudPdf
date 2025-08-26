@@ -468,7 +468,7 @@
 
     // ピクセル移動何pxでフォントサイズを1pt変えるか（調整可）
     private const double TextFontResizePixelsPerPoint = 4.0;
-    
+
     private async void OnElementMouseMove(MouseEventArgs e)
     {
         bool changed = false;
@@ -503,12 +503,18 @@
                         }
                         else
                         {
-                            newWidth = mouseCanvasX - anchorX;
-                            newX = anchorX; // 基点固定
+                            newWidth = 6;
+                            newX = anchorX - newWidth;
                         }
                         newHeight = anchorY - mouseCanvasY;
                         newY = anchorY - newHeight;
-                        basePoint = $"右下({anchorX},{anchorY})";
+                        break;
+                    case "ne":
+                        // 左下基点（anchorX, anchorY固定）
+                        newWidth = mouseCanvasX - anchorX;
+                        newHeight = anchorY - mouseCanvasY;
+                        newX = anchorX;
+                        newY = anchorY - newHeight;
                         break;
                     case "sw":
                         // 右上基点（anchorX, anchorY固定）
@@ -519,17 +525,31 @@
                         }
                         else
                         {
-                            newWidth = mouseCanvasX - anchorX;
-                            newX = anchorX; // 基点固定
+                            newWidth = 6; // 最小値
+                            newX = anchorX - newWidth;
                         }
                         newHeight = mouseCanvasY - anchorY;
                         newY = anchorY;
-                        basePoint = $"右上({anchorX},{anchorY})";
+
+                        double currentRightX = element.X + element.Width;
+                        double currentRightY = element.Y;
+                        Console.WriteLine(
+                            $"[sw] anchorX={anchorX}, anchorY={anchorY} | currentRightX={currentRightX}, currentRightY={currentRightY} | 差分X={currentRightX-anchorX}, 差分Y={currentRightY-anchorY}"
+                        );
+                        
                         break;
-                    // 他のケース（ne, se）は今まで通り
+                    case "se":
+                        // 左上基点（anchorX, anchorY固定）
+                        newWidth = mouseCanvasX - anchorX;
+                        newHeight = mouseCanvasY - anchorY;
+                        newX = anchorX;
+                        newY = anchorY;
+                        break;
                 }
-                
-                Console.WriteLine($"[ResizeHandle:{resizingTextHandle}] 基点:{basePoint} mouse=({mouseCanvasX},{mouseCanvasY}) new=({newX},{newY},{newWidth},{newHeight}) fontSize={newFontSize}");
+                newWidth = Math.Max(newWidth, 6);
+                newHeight = Math.Max(newHeight, 6);
+
+                basePoint = $"{anchorX},{anchorY}"; // ← anchorX, anchorYを出力
 
                 // フォントサイズは高さベースで決定
                 newFontSize = Math.Max(6, (int)Math.Round(newHeight));
@@ -558,7 +578,7 @@
 
         // ...既存のドラッグ処理...
     }
-    
+
     // テキストハンドル押下でリサイズを開始
     private void OnTextResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
     {
@@ -588,6 +608,8 @@
                 anchorY = element.Y;
                 break;
         }
+        Console.WriteLine($"anchorOppositeX={anchorX}");
+        Console.WriteLine($"anchorOppositeY={anchorY}");
         anchorFontSize = element.FontSize;
         draggingElementId = null;
         isDragging = true;
