@@ -565,7 +565,7 @@
         }
 
         // 新しく取得
-        cachedCanvasRect = await JS.InvokeAsync<RectDto>("getElementRect", $"#pdf-canvas-{safeFileId}-{PageIndex}");
+        cachedCanvasRect = await JS.InvokeAsync<RectDto>("getElementRect", $"#pdf-canvas-{canvasUniqueId}");
         canvasRectCacheTime = now;
         return cachedCanvasRect;
     }
@@ -1086,7 +1086,7 @@
     public async Task OnImageBase64Loaded(string base64, double width, double height)
     {
         // canvas の実表示サイズを取得して、その中で画像が最大で表示されるサイズを決める
-        var canvasSelector = $"#pdf-canvas-{safeFileId}-{PageIndex}";
+        var canvasSelector = $"#pdf-canvas-{canvasUniqueId}";
         var canvasRect = await JS.InvokeAsync<RectDto>("getElementRect", canvasSelector);
 
         // フォールバックは displayWidth/displayHeight（既に Redraw で設定済み）
@@ -1339,7 +1339,7 @@
             // JSで正確なキャンバス座標を取得
             var coords = await JS.InvokeAsync<CanvasCoords>(
             "getCanvasCoords",
-            $"#pdf-canvas-{safeFileId}-{PageIndex}",
+            $"#pdf-canvas-{canvasUniqueId}",
             e.ClientX,
             e.ClientY,
             offsetX,
