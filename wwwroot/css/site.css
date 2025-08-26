@@ -734,6 +734,9 @@ input[type=number] {
   .left-2 {
     left: calc(var(--spacing) * 2);
   }
+  .left-6 {
+    left: calc(var(--spacing) * 6);
+  }
   .left-\[-4px\] {
     left: -4px;
   }
@@ -835,6 +838,9 @@ input[type=number] {
   }
   .mb-8 {
     margin-bottom: calc(var(--spacing) * 8);
+  }
+  .ml-1 {
+    margin-left: calc(var(--spacing) * 1);
   }
   .ml-2 {
     margin-left: calc(var(--spacing) * 2);
@@ -1866,6 +1872,13 @@ input[type=number] {
     -webkit-user-select: none;
     -moz-user-select: none;
          user-select: none;
+  }
+  .group-hover\:block {
+    &:is(:where(.group):hover *) {
+      @media (hover: hover) {
+        display: block;
+      }
+    }
   }
   .hover\:border-solid {
     &:hover {
