@@ -65,10 +65,19 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
         const baseViewport = page.getViewport({ scale: 1.0 });
         const dpr = window.devicePixelRatio || 1;
 
-        const targetScale = (canvas.width) / baseViewport.width; // use backing pixels directly
+        // 画質調整: zoomLevelが小さい場合はdprも下げる
+        // 例: zoomLevel < 1 のときは dpr = 1
+        const effectiveDpr = zoomLevel < 1 ? 1 : dpr;
+
+        // canvasの物理サイズを設定
+        canvas.width = Math.round(baseViewport.width * zoomLevel * effectiveDpr);
+        canvas.height = Math.round(baseViewport.height * zoomLevel * effectiveDpr);
+
+        // PDFのviewportもzoomLevelとdprを反映
+        const targetScale = zoomLevel * effectiveDpr;
         const viewport = page.getViewport({ scale: targetScale });
 
-        // render to offscreen and center onto main canvas
+        // オフスクリーンcanvasでPDFを描画
         const off = document.createElement('canvas');
         off.width = Math.max(1, Math.round(viewport.width));
         off.height = Math.max(1, Math.round(viewport.height));
@@ -78,15 +87,19 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
         window._pdfRenderTask = page.render({ canvasContext: offCtx, viewport: viewport });
         await window._pdfRenderTask.promise;
 
+        // メインcanvasに転送
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 中央に配置
         const dx = Math.round((canvas.width - off.width) / 2);
         const dy = Math.round((canvas.height - off.height) / 2);
         ctx.drawImage(off, 0, 0, off.width, off.height, dx, dy, off.width, off.height);
 
-        if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // CSSズーム用のtransform（必要なら）
+        if (ctx.setTransform) ctx.setTransform(effectiveDpr, 0, 0, effectiveDpr, 0, 0);
     } catch (err) {
         if (err && err.name === "RenderingCancelledException") return;
         console.error("drawPdfPageToCanvas error", err);
