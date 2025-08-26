@@ -105,6 +105,11 @@
                     <option value="Meiryo, sans-serif">メイリオ</option>
                     <option value="Yu Gothic, sans-serif">游ゴシック</option>
                 </select>
+                <button class="px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-200"
+                    @onclick="ToggleBold"
+                    title="太字">
+                    <i class="fa-solid fa-bold"></i>
+                </button>
                 <input type="color"
                     class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                     value="@CurrentTextColor"
@@ -171,7 +176,7 @@
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
                                         class="border-none outline-none bg-transparent resize-none overflow-hidden"
-                                        style="width: 100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color;"
+                                        style="width: 100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal");"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
                                         @onmousedown:stopPropagation
@@ -194,7 +199,8 @@
                                             box-sizing: border-box;
                                             display: block;
                                             vertical-align: middle;
-                                            color: @element.Color;"
+                                            color: @element.Color;
+                                            font-weight: @(element.IsBold ? "bold" : "normal");"
                                     >
                                         @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
@@ -377,6 +383,7 @@
         public string FontFamily { get; set; } = DefaultFontFamily;
         public double ImageOriginalWidth { get; set; }
         public double ImageOriginalHeight { get; set; }
+        public bool IsBold { get; set; } = false;
     }
 
     private string _textColor = "#000000";
@@ -403,6 +410,21 @@
         }
     }
 
+    private void ToggleBold()
+    {
+        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editingElement != null)
+        {
+            editingElement.IsBold = !editingElement.IsBold;
+            StateHasChanged();
+        }
+        else if (selectedElementIds.Count > 0)
+        {
+            foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
+                el.IsBold = !el.IsBold;
+            StateHasChanged();
+        }
+    }
     private void OnColorPickerBlur(FocusEventArgs e)
     {
         ignoreNextPageClick = true;
