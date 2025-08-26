@@ -429,7 +429,15 @@
         }
     }
 
-    private int _fontSize = 16;
+    private const int DefaultFontSize = 16;
+    private const string DefaultFontFamily = "sans-serif";
+    private int _fontSize = DefaultFontSize;
+    private void ResetFontToDefault()
+    {
+        _fontSize = DefaultFontSize;
+        fontFamily = DefaultFontFamily;
+        StateHasChanged();
+    }
     private int fontSize
     {
         get => _fontSize;
@@ -496,7 +504,7 @@
         int value;
         if (!int.TryParse(e.Value?.ToString(), out value))
         {
-            value = 16; // デフォルト値
+            value = DefaultFontSize;
         }
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
@@ -540,6 +548,10 @@
         element.IsEditing = true;
         selectedElementIds.Clear();
         selectedElementIds.Add(element.Id);
+
+        fontFamily = element.FontFamily;
+        _fontSize = element.FontSize;
+
         StateHasChanged();
         await Task.Yield(); // レンダリング待ち
 
@@ -1070,7 +1082,7 @@
         if (selectedElementIds.Count > 0)
         {
             selectedElementIds.Clear();
-            StateHasChanged();
+            ResetFontToDefault();
             return;
         }
 
@@ -1116,6 +1128,7 @@
         else
         {
             selectedElementIds.Clear();
+            ResetFontToDefault();
         }
     }
 
@@ -1145,7 +1158,13 @@
 
         var selected = editElements.FirstOrDefault(el => el.Id == elementId);
         if (selected != null)
+        {
             fontFamily = selected.FontFamily;
+            if (selected.Type == ElementType.Text)
+            {
+                _fontSize = selected.FontSize;
+            }
+        }
 
         StateHasChanged();
     }
@@ -1189,6 +1208,12 @@
     {
         editElements.RemoveAll(e => e.Id == elementId);
         selectedElementIds.Remove(elementId);
+
+        // フォントサイズをデフォルトに戻す
+        if (selectedElementIds.Count == 0)
+        {
+            ResetFontToDefault();
+        }
 
         // 画像削除後にもinputをクリア
         _ = JS.InvokeVoidAsync("clearFileInput", fileInputRef);
