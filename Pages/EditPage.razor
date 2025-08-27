@@ -318,6 +318,9 @@
                 AutoCloseMs="5000" />
 }
 @code {
+    // ページ表示時の元PDFデータを保持
+    private string? originalPageData;
+    private bool hasSaved = false;
     private bool isBusy = false;
     private MessageInfo? message;
 
@@ -1183,6 +1186,9 @@
 
             fileName = pageItem?.FileName ?? "";
 
+            // ここで元データを保持
+            originalPageData = pageItem.PageData;
+
             cachedPageSource = await JS.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem?.PageData ?? "");
             if (cachedPageSource == null)
             {
@@ -1205,8 +1211,14 @@
         _dotNetRef?.Dispose();
     }
 
-    private void NavigateBack()
+    private async void NavigateBack()
     {
+        if (hasSaved)
+        {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "ページ遷移すると、追加した要素の再編集できなくなります。本当に移動しますか？");
+            if (!confirmed)
+                return;
+        }
         //JavaScript interop で history.back() を使うのも検討
         Navigation.NavigateTo("/edit");
     }
@@ -1516,9 +1528,10 @@
             {
                 var editJson = JsonSerializer.Serialize(editElements);
 
+                // 元データ（originalPageData）に編集要素を追加して新PDF生成
                 var newPdfBase64 = await JS.InvokeAsync<string>(
                     "editPdfPageWithElements",
-                    pageItem.PageData, // extractPdfPageで取得したPDF Base64
+                    originalPageData, // extractPdfPageで取得したPDF Base64
                     editJson
                 );
                 pageItem.PageData = newPdfBase64;
@@ -1529,7 +1542,7 @@
                 pageItem.Thumbnail = newThumbnail;
 
                 ShowMessage($"変更を保存しました", type: MessageType.Success);
-
+                hasSaved = true;
             }
             catch (Exception ex)
             {
@@ -1544,7 +1557,7 @@
         }
         else
         {
-            await JS.InvokeVoidAsync("alert", "ページ情報が見つかりません");
+            ShowMessage("ページ情報が見つかりません", type: MessageType.Error);
             isBusy = false;
             StateHasChanged();
         }
