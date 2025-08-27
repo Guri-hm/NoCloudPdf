@@ -1,3 +1,14 @@
+let pdfConfig = null;
+
+// 初期化時にJSONを1回だけ読み込み
+async function loadConfig() {
+    if (!pdfConfig) {
+        const response = await fetch('/config.json');
+        pdfConfig = await response.json();
+    }
+    return pdfConfig;
+}
+
 window.embedImageAsPdf = async function (imageBase64, ext) {
     const { PDFDocument } = PDFLib;
     const pdfDoc = await PDFDocument.create();
@@ -209,7 +220,7 @@ window.renderFirstPDFPage = async function (fileData, password) {
         // サムネイル生成
         try {
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: config.pdfSettings.scales.normal });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -271,9 +282,8 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         let thumbnail = "";
 
         try {
-            const scale = 0.2; // サムネイル用の縮小率（必要に応じて調整）
             const page = await pdf.getPage(pageIndex + 1);
-            const viewport = page.getViewport({ scale: scale });
+            const viewport = page.getViewport({ scale: config.pdfSettings.scales.thumbnailScale });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -451,9 +461,8 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
         });
         const pdf = await loadingTask.promise;
 
-        const scale = 0.2;
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: scale });
+        const viewport = page.getViewport({ scale: config.pdfSettings.scales.thumbnail });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -493,8 +502,8 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     const page = await pdf.getPage(1);
 
     // 回転角度を反映したviewportを作成
-    const scale = 2.0; // 高画質用スケール
-    const viewport = page.getViewport({ scale: scale, rotation: (rotateAngle || 0) });
+    // プレビュー画像は高解像度で生成
+    const viewport = page.getViewport({ scale: config.pdfSettings.scales.preview, rotation: (rotateAngle || 0) });
 
     // canvas生成・描画
     const canvas = document.createElement('canvas');
@@ -542,7 +551,7 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
         if (!canvas) continue;
         const context = canvas.getContext('2d');
         // 元データサイズでviewportを取得
-        const viewport = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: config.pdfSettings.scales.normal });
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         await page.render({ canvasContext: context, viewport: viewport }).promise;
@@ -578,7 +587,7 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        const viewport = page.getViewport({ scale: 0.2 });
+        const viewport = page.getViewport({ scale: config.pdfSettings.thumbnailScale });
         const canvas = document.getElementById(canvasId);
         if (!canvas) {
             console.warn("canvas not found:", canvasId);
@@ -651,7 +660,7 @@ window.unlockPdf = async function (pdfData, password) {
     const unlockedPdf = await PDFDocument.create();
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 }); // 高解像度でレンダリングして劣化を軽減
+        const viewport = page.getViewport({ scale: config.pdfSettings.scales.unlock }); // 高解像度でレンダリングして劣化を軽減
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
