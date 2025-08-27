@@ -377,10 +377,9 @@ input[type=number] {
     cursor: move !important;
 }
 
-.sortable-item-container,
-.drag-handle,
-.touch-drag-handle {
-    touch-action: none !important;
+/* サムネイル全体はスクロール許可 */
+.sortable-item-container {
+    touch-action: pan-y !important;
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;

@@ -304,10 +304,8 @@ input[type=number] {
 .drag-handle:hover {
   cursor: move !important;
 }
-.sortable-item-container,
-.drag-handle,
-.touch-drag-handle {
-  touch-action: none !important;
+.sortable-item-container {
+  touch-action: pan-y !important;
   -webkit-user-select: none;
   -moz-user-select: none;
        user-select: none;
@@ -1890,6 +1888,9 @@ input[type=number] {
     -moz-user-select: none;
          user-select: none;
   }
+  .\[-webkit-tap-highlight-color\:transparent\] {
+    -webkit-tap-highlight-color: transparent;
+  }
   .group-hover\:block {
     &:is(:where(.group):hover *) {
       @media (hover: hover) {
@@ -2299,6 +2300,11 @@ input[type=number] {
       rotate: -90deg;
     }
   }
+  .md\:touch-none {
+    @media (width >= 48rem) {
+      touch-action: none;
+    }
+  }
   .md\:grid-cols-2 {
     @media (width >= 48rem) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2438,6 +2444,18 @@ input[type=number] {
     @media (width >= 48rem) {
       --tw-duration: 300ms;
       transition-duration: 300ms;
+    }
+  }
+  .md\:select-none {
+    @media (width >= 48rem) {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+           user-select: none;
+    }
+  }
+  .md\:\[-webkit-tap-highlight-color\:transparent\] {
+    @media (width >= 48rem) {
+      -webkit-tap-highlight-color: transparent;
     }
   }
   .md\:group-hover\:pointer-events-auto {
