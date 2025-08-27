@@ -77,7 +77,8 @@ public enum OperationMode
 {
     Normal, // 通常モード
     Split,  // 分割モード
-    Extract // 抽出モード
+    Extract, // 抽出モード
+    Edit, // 編集モード
 }
 
 /// <summary>

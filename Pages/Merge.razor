@@ -105,6 +105,7 @@
                             @key="item.Id"
                             Item="@item" Index="@i" DisplayItemsCount="DisplayItems.Count"
                             Mode="CurrentDisplayMode"
+                            OperationMode="CurrentOperationMode"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                             OnInsertBlankPage="InsertBlankPage"
                             OnInsertPdfAtPosition="InsertPdfAtPosition"
@@ -276,6 +277,7 @@
     }
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
+    private OperationMode CurrentOperationMode = OperationMode.Normal;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
     private bool IsFilesLoaded => DisplayItems.Any();
 
@@ -604,6 +606,7 @@
     // 回転処理
     private async Task RotatePage(int index, int angle = 90)
     {
+        Console.WriteLine($"Rotating page {index} by {angle} degrees");
         if (index >= 0 && index < DisplayItems.Count)
         {
             try

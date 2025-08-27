@@ -50,6 +50,7 @@
         var uri = Navigation.Uri.ToLower();
         if (uri.EndsWith("/merge")) return "結合";
         if (uri.EndsWith("/split")) return "分割";
+        if (uri.EndsWith("/edit")) return "編集";
         if (uri.EndsWith("/")) return "NoCloudPDF";
         // 必要に応じて他のページも追加
         return "";
