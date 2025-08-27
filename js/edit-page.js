@@ -21,6 +21,7 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
             }).promise;
             const page = await pdf.getPage(1);
             const baseViewport = page.getViewport({ scale: 1.0 });
+            pdf.destroy();
             return { origW: baseViewport.width, origH: baseViewport.height, dpr: dpr };
         } catch (pdfErr) {
             // not PDF -> try image
@@ -37,8 +38,6 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
                 console.error("getPageSourceInfo: not pdf nor image", imgErr);
                 return null;
             }
-        } finally {
-            pdf.destroy();
         }
     } catch (err) {
         console.error("getPageSourceInfo error", err);

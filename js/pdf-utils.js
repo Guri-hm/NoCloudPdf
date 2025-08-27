@@ -1,13 +1,14 @@
 let pdfConfig = null;
 
-// 初期化時にJSONを1回だけ読み込み
-async function loadConfig() {
+window.loadConfig = async function () {
     if (!pdfConfig) {
         const response = await fetch('/config.json');
         pdfConfig = await response.json();
     }
     return pdfConfig;
-}
+};
+// 初期化時にJSONを1回だけ読み込み
+window.loadConfig();
 
 window.embedImageAsPdf = async function (imageBase64, ext) {
     const { PDFDocument } = PDFLib;
@@ -224,7 +225,7 @@ window.renderFirstPDFPage = async function (fileData, password) {
         // サムネイル生成
         try {
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: config.pdfSettings.scales.normal });
+            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.normal });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -512,8 +513,7 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     const page = await pdf.getPage(1);
 
     // 回転角度を反映したviewportを作成
-    // プレビュー画像は高解像度で生成
-    const viewport = page.getViewport({ scale: config.pdfSettings.scales.preview, rotation: (rotateAngle || 0) });
+    const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.normal, rotation: (rotateAngle || 0) });
 
     // canvas生成・描画
     const canvas = document.createElement('canvas');
@@ -561,7 +561,7 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
         if (!canvas) continue;
         const context = canvas.getContext('2d');
         // 元データサイズでviewportを取得
-        const viewport = page.getViewport({ scale: config.pdfSettings.scales.normal });
+        const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.normal });
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         await page.render({ canvasContext: context, viewport: viewport }).promise;

@@ -3,7 +3,6 @@
         "scales": {
             "thumbnail": 0.2,
             "normal": 1.0,
-            "preview": 2.0,
             "unlock": 1.5
         }
     }

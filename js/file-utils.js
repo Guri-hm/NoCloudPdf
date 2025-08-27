@@ -109,7 +109,9 @@ window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
         } catch (e) {
             console.error(`PDF変換失敗: ${baseName}`, e);
         } finally {
-            pdf.destroy();
+            if (pdf) {
+                pdf.destroy();
+            }
         }
     }
 
