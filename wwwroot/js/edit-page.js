@@ -13,8 +13,12 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
         // try PDF
         try {
             const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0));
-            const pdf = await window.pdfjsLib.getDocument({ data: bytes,
-                    standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl }).promise;
+            const pdf = await window.pdfjsLib.getDocument({
+                data: bytes,
+                standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+                wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+                openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+            }).promise;
             const page = await pdf.getPage(1);
             const baseViewport = page.getViewport({ scale: 1.0 });
             return { origW: baseViewport.width, origH: baseViewport.height, dpr: dpr };
@@ -59,8 +63,12 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
 
         if (window._pdfRenderTask && window._pdfRenderTask.cancel) { try { window._pdfRenderTask.cancel(); } catch { } }
 
-        const loadingTask = pdfjsLib.getDocument({ data: bytes,
-                    standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl });
+        const loadingTask = pdfjsLib.getDocument({
+            data: bytes,
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+        });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 

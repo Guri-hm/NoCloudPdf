@@ -77,23 +77,23 @@ window.mergePDFPages = async function (pdfPageDataList) {
 };
 
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
-window.renderFirstPDFPage = async function (pdfData, password) {
+window.renderFirstPDFPage = async function (fileData, password) {
 
     try {
         // BlazorからのデータがUint8Arrayかどうかチェック
         let uint8Array;
-        if (pdfData instanceof Uint8Array) {
-            uint8Array = pdfData;
-        } else if (Array.isArray(pdfData)) {
-            uint8Array = new Uint8Array(pdfData);
-        } else if (typeof pdfData === 'string') {
-            const binaryString = atob(pdfData);
+        if (fileData instanceof Uint8Array) {
+            uint8Array = fileData;
+        } else if (Array.isArray(fileData)) {
+            uint8Array = new Uint8Array(fileData);
+        } else if (typeof fileData === 'string') {
+            const binaryString = atob(fileData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
         } else {
-            uint8Array = new Uint8Array(pdfData);
+            uint8Array = new Uint8Array(fileData);
         }
 
         if (uint8Array.length < 8) {
@@ -138,6 +138,8 @@ window.renderFirstPDFPage = async function (pdfData, password) {
                 const loadingTask = pdfjsLib.getDocument({
                     ...loadingOptions[i],
                     standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+                    wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+                    openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl,
                     password: password || undefined
                 });
                 loadingTask.onPassword = function (callback, reason) {
@@ -262,7 +264,9 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
 
         let pdf = await pdfjsLib.getDocument({
             data: uint8Array,
-            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
         }).promise;
         let thumbnail = "";
 
@@ -324,7 +328,9 @@ window.getPDFPageCount = async function (pdfData) {
             data: uint8Array,
             stopAtErrors: false,
             verbosity: 1,
-            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
         });
         const pdf = await loadingTask.promise;
         return pdf.numPages;
@@ -439,7 +445,9 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
 
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
-            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
         });
         const pdf = await loadingTask.promise;
 
@@ -477,7 +485,9 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     // PDF読み込み
     const loadingTask = pdfjsLib.getDocument({
         data: uint8Array,
-        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
     });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
@@ -522,7 +532,9 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
 
     const pdf = await pdfjsLib.getDocument({
         url: pdfUrl,
-        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
     }).promise;
     for (let i = 0; i < canvasIds.length; i++) {
         const page = await pdf.getPage(i + 1);
@@ -559,7 +571,9 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
     try {
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
-            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
         });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
@@ -625,7 +639,9 @@ window.unlockPdf = async function (pdfData, password) {
     }
     const loadingTask = pdfjsLib.getDocument({
         data: uint8Array, password: password,
-        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
     });
     const pdf = await loadingTask.promise;
 
