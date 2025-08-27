@@ -7,6 +7,17 @@
 app.cssには独自＋@import "tailwindcss";
 ⇒「npx postcss wwwroot/css/app.css -o wwwroot/css/site.css」もしくは「npm run build:css」実行でsite.cssに出力される
 
+【jsのバンドルミニファイ】
+下記２つインストール(npm installでインストール済みのはず)
+npm install --save-dev vite
+npm install --save-dev terser
+
+次のコマンドを実行
+npx vite build
+
+【cssとjsをまとめてビルド】
+npm run build
+
 【タグ付け】
 git tag v1.0
 git push origin v1.0
