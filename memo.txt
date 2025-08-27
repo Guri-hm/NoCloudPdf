@@ -19,9 +19,9 @@ npx vite build
 npm run build
 
 【タグ付け】
-git tag v1.0
 git push origin v1.0
-(削除時はgit tag -d タグ名，git push origin --delete タグ名) 
+(削除時は  git push origin --delete タグ名)
+(タグ一覧取得は  git fetch --tags → git tag) 
 
 v1.0 2025/08/06
 v1.1 2025/08/06
