@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-9LPUrfHlNru3cmwG2TW9NI/kZuF/EbOb2q1ukMdYYfI=",
+    "hash": "sha256-wIaDrdh6SGomKOwSVjHTlziqgg5/MZ4VSSdpnLJ9eUU=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.yzowokhzf0.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.wg04jtcarr.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -36,9 +36,9 @@
       "System.Text.RegularExpressions.cxtuaaodfw.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.cy526l72bt.wasm": "System.Threading.wasm",
       "System.Private.CoreLib.n3hak38j8k.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.v4ice64rn9.wasm": "NoCloudPdf.wasm",
+      "NoCloudPdf.q6gna12boq.wasm": "NoCloudPdf.wasm",
       "dotnet.native.9b0ehpjz08.js": "dotnet.native.js",
-      "dotnet.native.5gfjmlgn3q.wasm": "dotnet.native.wasm",
+      "dotnet.native.7kadwz9g9g.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.ew19f13umk.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -52,7 +52,7 @@
       "dotnet.runtime.ew19f13umk.js": "sha256-Isv/63htfX73xgn3/2cZMtk4S8xBcbmlXRgJMDv4mhI="
     },
     "wasmNative": {
-      "dotnet.native.5gfjmlgn3q.wasm": "sha256-9d6Uv+5N0QxDHFG6kuz0Y+XHnvF8S8JW3VmMDAdzLI0="
+      "dotnet.native.7kadwz9g9g.wasm": "sha256-t5K25DSVl6Ew9GsUcRqU2ooTp9ybeZGV9e3MicyjXHo="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -93,7 +93,7 @@
       "System.Text.RegularExpressions.cxtuaaodfw.wasm": "sha256-AJtNUl8QpI7UxU3O17p4EXee6E++zKMk4NQNSwwVLF4=",
       "System.Threading.cy526l72bt.wasm": "sha256-XEsgkzB/5E/EJIekQAKL/++ZBvHe055n9Zo6Q2Ce2Zo=",
       "System.Private.CoreLib.n3hak38j8k.wasm": "sha256-EzVXssLIAdds+I0O8AhSJba8zm/zDAHhj87rmUxirZ8=",
-      "NoCloudPdf.v4ice64rn9.wasm": "sha256-z4w3K1oOyEhcpk+9G4WyOpMl7XS0VyPpF8umGCQPFC4="
+      "NoCloudPdf.q6gna12boq.wasm": "sha256-sn/GsvQ0xuFIa2j9519Mfy1FLd58bnZ6XClIVsnmyMw="
     },
     "assembly": {}
   },
