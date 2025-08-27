@@ -417,7 +417,8 @@
                 var fileId = fileMeta.FileId;
 
                 var model = PdfDataService.GetModel();
-                var filePages = model.Pages.Where(p => p.FileId == fileId).OrderBy(p => p.OriginalPageIndex).ToList();
+                var filePages = model.Pages.Where(p => p.FileId == fileId).ToList();
+
                 if (pageIndex >= 0 && pageIndex < filePages.Count)
                 {
                     var page = filePages[pageIndex];
