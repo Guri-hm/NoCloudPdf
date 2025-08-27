@@ -178,7 +178,7 @@
         </div>
         <!-- 操作ボタン群 -->
         <div class="flex flex-wrap items-center ml-auto
-            md:absolute md:top-2 md:right-2 md:bg-white md:shadow md:rounded-lg md:p-1 md:flex-col md:flex md:opacity-0 md:pointer-events-none md:transition-opacity md:duration-300 md:group-hover:opacity-100 md:group-hover:pointer-events-auto z-20 gap-x-5 md:gap-x-0 md:gap-y-0" @onmouseleave="HideAllActionButtons">
+            md:absolute md:top-2 md:right-2 md:bg-white md:shadow md:rounded-lg p-3 md:p-1 flex-row md:flex-col md:opacity-0 md:pointer-events-none md:transition-opacity md:duration-300 md:group-hover:opacity-100 md:group-hover:pointer-events-auto z-20 gap-x-4 md:gap-x-0 md:gap-y-0 content-center" @onmouseleave="HideAllActionButtons">
 
             @{
                 var buttons = GetActionButtons();
@@ -197,7 +197,8 @@
                 {
                     <button type="button" class="text-gray-500 hover:text-gray-700 p-1 mx-1 md:mx-0 md:my-0" title="その他"
                         @onclick="ShowAllActionButtons" @onpointerdown:stopPropagation>
-                        <i class="fa-solid fa-ellipsis-v"></i>
+                        <i class="fa-solid fa-ellipsis-v
+                    md:rotate-0 rotate-90"></i>
                     </button>
                 }
                 else
@@ -242,11 +243,11 @@
 
         if (Mode == DisplayMode.Page)
         {
-            buttons.Add(@<button type="button" class="text-orange-500 hover:text-orange-700 p-1 mx-1 md:mx-0 md:my-0 hidden md:block" title="このページを編集"
+            buttons.Add(@<button type="button" class="text-orange-500 hover:text-orange-700 p-1 mx-1 md:mx-0 md:my-0" title="このページを編集"
                 @onclick="NavigateToPageEdit" @onpointerdown:stopPropagation>
                 <i class="fa-solid fa-pen-to-square"></i>
             </button>);
-            buttons.Add(@<button type="button" class="text-pink-500 hover:text-pink-700 p-1 mx-1 md:mx-0 md:my-0 hidden md:block" title="編集をリセット"
+            buttons.Add(@<button type="button" class="text-pink-500 hover:text-pink-700 p-1 mx-1 md:mx-0 md:my-0" title="編集をリセット"
                 @onclick="() => OnReloadPageItem.InvokeAsync(Item)" @onpointerdown:stopPropagation>
                 <i class="fa-solid fa-eraser"></i>
             </button>);
