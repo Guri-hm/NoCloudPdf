@@ -179,6 +179,10 @@ window.renderFirstPDFPage = async function (fileData, password) {
                 if (i === loadingOptions.length - 1) {
                     throw lastError;
                 }
+            } finally {
+                if (pdf) {
+                    pdf.destroy();
+                }
             }
         }
 
@@ -292,6 +296,10 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
             thumbnail = canvas.toDataURL('image/png');
         } catch (thumbErr) {
             thumbnail = "";
+        } finally {
+            if (pdf) {
+                pdf.destroy();
+            }
         }
 
         return {
@@ -478,6 +486,8 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
     } catch (error) {
         console.error('Error rendering single PDF page:', error);
         return '';
+    } finally {
+        pdf.destroy();
     }
 };
 
@@ -605,6 +615,9 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
         return false;
     } finally {
         window._canvasRendering[canvasId] = false;
+        if (pdf) {
+            pdf.destroy();
+        }
     }
 };
 

@@ -37,6 +37,8 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
                 console.error("getPageSourceInfo: not pdf nor image", imgErr);
                 return null;
             }
+        } finally {
+            pdf.destroy();
         }
     } catch (err) {
         console.error("getPageSourceInfo error", err);

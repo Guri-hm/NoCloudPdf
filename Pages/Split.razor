@@ -323,6 +323,9 @@
             JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
             _dropAreaRegistered = false;
         }
+
+        passwordTcs?.TrySetCanceled();
+        passwordTcs = null;
     }
     private bool isBusy = false;
     private MessageInfo? message;
