@@ -58,7 +58,7 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
 
         if (window._pdfRenderTask && window._pdfRenderTask.cancel) { try { window._pdfRenderTask.cancel(); } catch { } }
 
-        const loadingTask = pdfjsLib.getDocument({ data: bytes });
+        const loadingTask = pdfjsLib.getDocument({ data: bytes, standardFontDataUrl: './lib/standard_fonts/' });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 

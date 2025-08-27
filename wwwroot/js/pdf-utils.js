@@ -534,7 +534,10 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
         return;
     }
 
-    const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+    const pdf = await pdfjsLib.getDocument({
+        url: pdfUrl,
+        standardFontDataUrl: './lib/standard_fonts/'
+    }).promise;
     for (let i = 0; i < canvasIds.length; i++) {
         const page = await pdf.getPage(i + 1);
         const canvas = document.getElementById(canvasIds[i]);
@@ -568,7 +571,10 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 
     window._canvasRendering[canvasId] = true;
     try {
-        const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
+        const loadingTask = window.pdfjsLib.getDocument({
+            url: pdfUrl,
+            standardFontDataUrl: './lib/standard_fonts/'
+        });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
@@ -633,7 +639,10 @@ window.unlockPdf = async function (pdfData, password) {
     } else {
         uint8Array = pdfData;
     }
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array, password: password });
+    const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        standardFontDataUrl: './lib/standard_fonts/', password: password
+    });
     const pdf = await loadingTask.promise;
 
     // PDF-libで新PDFを作成
