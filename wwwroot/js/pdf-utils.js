@@ -134,9 +134,9 @@ window.renderFirstPDFPage = async function (pdfData, password) {
 
         // 複数オプションでロードを試みる
         const loadingOptions = [
-            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 5, disableFontFace: true, disableRange: true, disableStream: true, verbosity: 1 },
-            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 10, disableFontFace: false, disableRange: true, disableStream: false, verbosity: 1 },
-            { data: uint8Array, stopAtErrors: false, verbosity: 1 }
+            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 5, disableFontFace: true, disableRange: true, disableStream: true, verbosity: 1, standardFontDataUrl: './lib/standard_fonts/' },
+            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 10, disableFontFace: false, disableRange: true, disableStream: false, verbosity: 1, standardFontDataUrl: './lib/standard_fonts/' },
+            { data: uint8Array, stopAtErrors: false, verbosity: 1, standardFontDataUrl: './lib/standard_fonts/' }
         ];
 
         for (let i = 0; i < loadingOptions.length; i++) {
@@ -269,7 +269,10 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
             pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
         }
 
-        let pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+        let pdf = await pdfjsLib.getDocument({
+            data: uint8Array,
+            standardFontDataUrl: './lib/standard_fonts/'
+        }).promise;
         let thumbnail = "";
 
         try {
@@ -333,7 +336,8 @@ window.getPDFPageCount = async function (pdfData) {
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
             stopAtErrors: false,
-            verbosity: 1
+            verbosity: 1,
+            standardFontDataUrl: './lib/standard_fonts/'
         });
         const pdf = await loadingTask.promise;
         return pdf.numPages;
@@ -447,7 +451,10 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
             uint8Array[i] = binaryString.charCodeAt(i);
         }
 
-        const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+        const loadingTask = pdfjsLib.getDocument({
+            data: uint8Array,
+            standardFontDataUrl: './lib/standard_fonts/'
+        });
         const pdf = await loadingTask.promise;
 
         const scale = 0.2;
@@ -482,7 +489,10 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     }
 
     // PDF読み込み
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+    const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        standardFontDataUrl: './lib/standard_fonts/'
+    });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
