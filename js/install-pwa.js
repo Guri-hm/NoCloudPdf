@@ -6,13 +6,13 @@ window.addEventListener('beforeinstallprompt', (e) => {
     deferredPrompt = e;
 });
 
-export function isInstallPromptAvailable() {
+window.isInstallPromptAvailable = function () {
     return deferredPrompt !== null;
-}
+};
 
-export async function showInstallPrompt() {
+window.showInstallPrompt = async function () {
     if (deferredPrompt) {
         deferredPrompt.prompt();
         deferredPrompt = null;
     }
-}
+};

@@ -69,6 +69,9 @@ window.registerSelectDropArea = function (dotNetRef) {
     const area = document.getElementById('select-drop-area');
     if (!area || !area.firstElementChild) return;
 
+    // すでに登録済みなら一度解除
+    window.unregisterSelectDropArea();
+
     const child = area.firstElementChild;
     let dragCounter = 0;
 
@@ -125,4 +128,16 @@ window.registerSelectDropArea = function (dotNetRef) {
         }
     };
 
+};
+
+window.unregisterSelectDropArea = function () {
+    const area = document.getElementById('select-drop-area');
+    if (!area) return;
+
+    // すべてのイベントを解除
+    area.ondragenter = null;
+    area.ondragover = null;
+    area.ondragleave = null;
+    area.ondrop = null;
+    area.onpaste = null;
 };

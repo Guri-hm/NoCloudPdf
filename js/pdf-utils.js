@@ -1,3 +1,14 @@
+let pdfConfig = null;
+
+// 初期化時にJSONを1回だけ読み込み
+async function loadConfig() {
+    if (!pdfConfig) {
+        const response = await fetch('/config.json');
+        pdfConfig = await response.json();
+    }
+    return pdfConfig;
+}
+
 window.embedImageAsPdf = async function (imageBase64, ext) {
     const { PDFDocument } = PDFLib;
     const pdfDoc = await PDFDocument.create();
@@ -77,23 +88,23 @@ window.mergePDFPages = async function (pdfPageDataList) {
 };
 
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
-window.renderFirstPDFPage = async function (pdfData, password) {
+window.renderFirstPDFPage = async function (fileData, password) {
 
     try {
         // BlazorからのデータがUint8Arrayかどうかチェック
         let uint8Array;
-        if (pdfData instanceof Uint8Array) {
-            uint8Array = pdfData;
-        } else if (Array.isArray(pdfData)) {
-            uint8Array = new Uint8Array(pdfData);
-        } else if (typeof pdfData === 'string') {
-            const binaryString = atob(pdfData);
+        if (fileData instanceof Uint8Array) {
+            uint8Array = fileData;
+        } else if (Array.isArray(fileData)) {
+            uint8Array = new Uint8Array(fileData);
+        } else if (typeof fileData === 'string') {
+            const binaryString = atob(fileData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
         } else {
-            uint8Array = new Uint8Array(pdfData);
+            uint8Array = new Uint8Array(fileData);
         }
 
         if (uint8Array.length < 8) {
@@ -112,12 +123,6 @@ window.renderFirstPDFPage = async function (pdfData, password) {
         const pdfjsLib = window.pdfjsLib;
         if (!pdfjsLib) {
             throw new Error('PDF.js library not loaded');
-        }
-
-        if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-        } else if (pdfjsLib.workerSrc) {
-            pdfjsLib.workerSrc = './lib/pdf.worker.mjs';
         }
 
         if (uint8Array.length < 1024) {
@@ -143,6 +148,9 @@ window.renderFirstPDFPage = async function (pdfData, password) {
             try {
                 const loadingTask = pdfjsLib.getDocument({
                     ...loadingOptions[i],
+                    standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+                    wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+                    openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl,
                     password: password || undefined
                 });
                 loadingTask.onPassword = function (callback, reason) {
@@ -170,6 +178,10 @@ window.renderFirstPDFPage = async function (pdfData, password) {
                 }
                 if (i === loadingOptions.length - 1) {
                     throw lastError;
+                }
+            } finally {
+                if (pdf) {
+                    pdf.destroy();
                 }
             }
         }
@@ -212,7 +224,7 @@ window.renderFirstPDFPage = async function (pdfData, password) {
         // サムネイル生成
         try {
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: config.pdfSettings.scales.normal });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -242,22 +254,22 @@ window.renderFirstPDFPage = async function (pdfData, password) {
 };
 
 // 指定したページのサムネイルを生成
-window.renderPdfPage = async function (pdfData, pageIndex) {
+window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageIndex) {
 
     try {
         let uint8Array;
-        if (pdfData instanceof Uint8Array) {
-            uint8Array = pdfData;
-        } else if (Array.isArray(pdfData)) {
-            uint8Array = new Uint8Array(pdfData);
-        } else if (typeof pdfData === 'string') {
-            const binaryString = atob(pdfData);
+        if (pdfFileData instanceof Uint8Array) {
+            uint8Array = pdfFileData;
+        } else if (Array.isArray(pdfFileData)) {
+            uint8Array = new Uint8Array(pdfFileData);
+        } else if (typeof pdfFileData === 'string') {
+            const binaryString = atob(pdfFileData);
             uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
         } else {
-            uint8Array = new Uint8Array(pdfData);
+            uint8Array = new Uint8Array(pdfFileData);
         }
 
         const pdfjsLib = window.pdfjsLib;
@@ -265,16 +277,17 @@ window.renderPdfPage = async function (pdfData, pageIndex) {
             throw new Error('PDF.js library not loaded');
         }
 
-        if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-        }
-
-        let pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+        let pdf = await pdfjsLib.getDocument({
+            data: uint8Array,
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+        }).promise;
         let thumbnail = "";
 
         try {
             const page = await pdf.getPage(pageIndex + 1);
-            const viewport = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: config.pdfSettings.scales.thumbnailScale });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -283,6 +296,10 @@ window.renderPdfPage = async function (pdfData, pageIndex) {
             thumbnail = canvas.toDataURL('image/png');
         } catch (thumbErr) {
             thumbnail = "";
+        } finally {
+            if (pdf) {
+                pdf.destroy();
+            }
         }
 
         return {
@@ -325,14 +342,13 @@ window.getPDFPageCount = async function (pdfData) {
             throw new Error('PDF.js library not loaded');
         }
 
-        if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-        }
-
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
             stopAtErrors: false,
-            verbosity: 1
+            verbosity: 1,
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
         });
         const pdf = await loadingTask.promise;
         return pdf.numPages;
@@ -434,10 +450,9 @@ window.createBlankPage = async function () {
 };
 
 // 単一PDFページをレンダリング
-window.renderSinglePDFPage = async function (pdfData) {
+window.generatePdfThumbnailFromPageData = async function (pdfData) {
     try {
         const pdfjsLib = window.pdfjsLib;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
 
         // base64文字列をUint8Arrayに変換
         const binaryString = atob(pdfData);
@@ -446,11 +461,16 @@ window.renderSinglePDFPage = async function (pdfData) {
             uint8Array[i] = binaryString.charCodeAt(i);
         }
 
-        const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+        const loadingTask = pdfjsLib.getDocument({
+            data: uint8Array,
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+        });
         const pdf = await loadingTask.promise;
 
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: config.pdfSettings.scales.thumbnail });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -466,6 +486,8 @@ window.renderSinglePDFPage = async function (pdfData) {
     } catch (error) {
         console.error('Error rendering single PDF page:', error);
         return '';
+    } finally {
+        pdf.destroy();
     }
 };
 
@@ -480,13 +502,18 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     }
 
     // PDF読み込み
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+    const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+    });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
 
     // 回転角度を反映したviewportを作成
-    const scale = 2.0; // 高画質用スケール
-    const viewport = page.getViewport({ scale: scale, rotation: (rotateAngle || 0) });
+    // プレビュー画像は高解像度で生成
+    const viewport = page.getViewport({ scale: config.pdfSettings.scales.preview, rotation: (rotateAngle || 0) });
 
     // canvas生成・描画
     const canvas = document.createElement('canvas');
@@ -522,14 +549,19 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
         return;
     }
 
-    const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+    const pdf = await pdfjsLib.getDocument({
+        url: pdfUrl,
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+    }).promise;
     for (let i = 0; i < canvasIds.length; i++) {
         const page = await pdf.getPage(i + 1);
         const canvas = document.getElementById(canvasIds[i]);
         if (!canvas) continue;
         const context = canvas.getContext('2d');
         // 元データサイズでviewportを取得
-        const viewport = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: config.pdfSettings.scales.normal });
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         await page.render({ canvasContext: context, viewport: viewport }).promise;
@@ -556,11 +588,16 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 
     window._canvasRendering[canvasId] = true;
     try {
-        const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
+        const loadingTask = window.pdfjsLib.getDocument({
+            url: pdfUrl,
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+        });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        const viewport = page.getViewport({ scale: 0.2 });
+        const viewport = page.getViewport({ scale: config.pdfSettings.thumbnailScale });
         const canvas = document.getElementById(canvasId);
         if (!canvas) {
             console.warn("canvas not found:", canvasId);
@@ -578,6 +615,9 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
         return false;
     } finally {
         window._canvasRendering[canvasId] = false;
+        if (pdf) {
+            pdf.destroy();
+        }
     }
 };
 
@@ -607,9 +647,7 @@ window.drawImageToCanvas = function (canvasId, imageUrl) {
 window.unlockPdf = async function (pdfData, password) {
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js library not loaded');
-    if (pdfjsLib.GlobalWorkerOptions) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-    }
+
     // base64→Uint8Array変換
     let uint8Array;
     if (typeof pdfData === 'string') {
@@ -621,7 +659,12 @@ window.unlockPdf = async function (pdfData, password) {
     } else {
         uint8Array = pdfData;
     }
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array, password: password });
+    const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array, password: password,
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+    });
     const pdf = await loadingTask.promise;
 
     // PDF-libで新PDFを作成
@@ -630,7 +673,7 @@ window.unlockPdf = async function (pdfData, password) {
     const unlockedPdf = await PDFDocument.create();
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 }); // 高解像度でレンダリングして劣化を軽減
+        const viewport = page.getViewport({ scale: config.pdfSettings.scales.unlock }); // 高解像度でレンダリングして劣化を軽減
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -647,4 +690,124 @@ window.unlockPdf = async function (pdfData, password) {
         binary += String.fromCharCode(pdfBytes[i]);
     }
     return btoa(binary);
+};
+
+
+window.editPdfPageWithElements = async function (pdfBase64, editJson) {
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+    // fontkit登録（1回だけでOK）
+    if (!PDFLib._fontkitRegistered) {
+        if (window.fontkit) {
+            PDFLib.PDFDocument.prototype.registerFontkit(window.fontkit);
+            PDFLib._fontkitRegistered = true;
+        } else {
+            throw new Error("fontkitがロードされていません。");
+        }
+    }
+    const pdfBytes = base64ToUint8Array(pdfBase64);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+
+    const page = pdfDoc.getPage(0);
+    const pageHeight = page.getHeight();
+
+    let editElements = [];
+    try {
+        editElements = JSON.parse(editJson);
+    } catch (e) {
+        console.error("editJson parse error", e, editJson);
+    }
+
+    let notoFontRegular = null;
+    let notoFontBold = null;
+
+    for (const el of editElements) {
+        if (el.Type === 0 || el.Type === "Text") {
+            // フォント名をStandardFontsにマッピング
+            function containsJapanese(text) {
+                return /[\u3000-\u30FF\u4E00-\u9FFF]/.test(text);
+            }
+
+            let font;
+            if (containsJapanese(el.Text || "")) {
+                if (el.IsBold) {
+                    if (!notoFontBold) {
+                        const fontUrl = "/fonts/NotoSansJP-Bold.ttf";
+                        const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+                        notoFontBold = await pdfDoc.embedFont(fontBytes);
+                    }
+                    font = notoFontBold;
+                } else {
+                    if (!notoFontRegular) {
+                        const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
+                        const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+                        notoFontRegular = await pdfDoc.embedFont(fontBytes);
+                    }
+                    font = notoFontRegular;
+                }
+            } else {
+                // 日本語を含まない場合
+                if (el.IsBold) {
+                    font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+                } else {
+                    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                }
+            }
+
+            page.drawText(el.Text || "", {
+                x: el.X || 0,
+                y: pageHeight - (el.Y || 0) - (el.FontSize || 16),
+                size: el.FontSize || 16,
+                font: font,
+                color: rgbHexToRgb(el.Color || "#000000"),
+            });
+        } else if (el.Type === 1 || el.Type === "Image") {
+            if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
+                let base64 = el.ImageUrl.split(',')[1] || el.ImageUrl;
+                let img;
+                if (el.ImageUrl.startsWith("data:image/png")) {
+                    img = await pdfDoc.embedPng(base64ToUint8Array(base64));
+                } else if (el.ImageUrl.startsWith("data:image/jpeg")) {
+                    img = await pdfDoc.embedJpg(base64ToUint8Array(base64));
+                }
+                page.drawImage(img, {
+                    x: el.X || 0,
+                    y: pageHeight - (el.Y || 0) - (el.Height || img.height),
+                    width: el.Width || img.width,
+                    height: el.Height || img.height
+                });
+            } else {
+                // SVGやWebPなど未対応形式はスキップ
+                console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
+            }
+        }
+    }
+
+    const newPdfBytes = await pdfDoc.save();
+    let binary = '';
+    for (let i = 0; i < newPdfBytes.length; i++) {
+        binary += String.fromCharCode(newPdfBytes[i]);
+    }
+    return btoa(binary);
+
+    // ヘルパー
+    function rgbHexToRgb(hex) {
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+        const num = parseInt(hex, 16);
+        return rgb(
+            ((num >> 16) & 255) / 255,
+            ((num >> 8) & 255) / 255,
+            (num & 255) / 255
+        );
+    }
+    function base64ToUint8Array(base64) {
+        const binaryString = atob(base64.replace(/^data:.*;base64,/, ''));
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    }
 };

@@ -377,10 +377,9 @@ input[type=number] {
     cursor: move !important;
 }
 
-.sortable-item-container,
-.drag-handle,
-.touch-drag-handle {
-    touch-action: none !important;
+/* サムネイル全体はスクロール許可 */
+.sortable-item-container {
+    touch-action: pan-y !important;
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -410,22 +409,6 @@ input[type=number] {
         margin-right: 30px;
         border-radius: 100%
     }
-}
-
-.rotate-0 {
-    transform: rotate(0deg);
-}
-
-.rotate-90 {
-    transform: rotate(90deg);
-}
-
-.rotate-180 {
-    transform: rotate(180deg);
-}
-
-.rotate-270 {
-    transform: rotate(270deg);
 }
 
 .checkerboard-bg {
