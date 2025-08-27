@@ -78,7 +78,6 @@ window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
         alert('PDF.jsがロードされていません');
         return;
     }
-    pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
 
     const zip = new window.JSZip();
 
@@ -87,9 +86,11 @@ window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
         const baseName = (pdfNames[i] || `file${i + 1}.pdf`).replace(/\.pdf$/i, '');
 
         try {
+
             const response = await fetch(pdfUrl);
             const arrayBuffer = await response.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, standardFontDataUrl: './lib/standard_fonts/' }).promise;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer ,
+                    standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl}).promise;
 
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);

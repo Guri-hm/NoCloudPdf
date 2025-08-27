@@ -114,12 +114,6 @@ window.renderFirstPDFPage = async function (pdfData, password) {
             throw new Error('PDF.js library not loaded');
         }
 
-        if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-        } else if (pdfjsLib.workerSrc) {
-            pdfjsLib.workerSrc = './lib/pdf.worker.mjs';
-        }
-
         if (uint8Array.length < 1024) {
             throw new Error('PDF file is too small to be valid');
         }
@@ -134,15 +128,16 @@ window.renderFirstPDFPage = async function (pdfData, password) {
 
         // 複数オプションでロードを試みる
         const loadingOptions = [
-            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 5, disableFontFace: true, disableRange: true, disableStream: true, verbosity: 1, standardFontDataUrl: './lib/standard_fonts/' },
-            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 10, disableFontFace: false, disableRange: true, disableStream: false, verbosity: 1, standardFontDataUrl: './lib/standard_fonts/' },
-            { data: uint8Array, stopAtErrors: false, verbosity: 1, standardFontDataUrl: './lib/standard_fonts/' }
+            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 5, disableFontFace: true, disableRange: true, disableStream: true, verbosity: 1 },
+            { data: uint8Array, stopAtErrors: false, maxImageSize: 1024 * 1024 * 10, disableFontFace: false, disableRange: true, disableStream: false, verbosity: 1 },
+            { data: uint8Array, stopAtErrors: false, verbosity: 1 }
         ];
 
         for (let i = 0; i < loadingOptions.length; i++) {
             try {
                 const loadingTask = pdfjsLib.getDocument({
                     ...loadingOptions[i],
+                    standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
                     password: password || undefined
                 });
                 loadingTask.onPassword = function (callback, reason) {
@@ -265,13 +260,9 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
             throw new Error('PDF.js library not loaded');
         }
 
-        if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-        }
-
         let pdf = await pdfjsLib.getDocument({
             data: uint8Array,
-            standardFontDataUrl: './lib/standard_fonts/'
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
         }).promise;
         let thumbnail = "";
 
@@ -329,15 +320,11 @@ window.getPDFPageCount = async function (pdfData) {
             throw new Error('PDF.js library not loaded');
         }
 
-        if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-        }
-
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
             stopAtErrors: false,
             verbosity: 1,
-            standardFontDataUrl: './lib/standard_fonts/'
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
         });
         const pdf = await loadingTask.promise;
         return pdf.numPages;
@@ -442,7 +429,6 @@ window.createBlankPage = async function () {
 window.generatePdfThumbnailFromPageData = async function (pdfData) {
     try {
         const pdfjsLib = window.pdfjsLib;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
 
         // base64文字列をUint8Arrayに変換
         const binaryString = atob(pdfData);
@@ -453,7 +439,7 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
 
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
-            standardFontDataUrl: './lib/standard_fonts/'
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
         });
         const pdf = await loadingTask.promise;
 
@@ -491,7 +477,7 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     // PDF読み込み
     const loadingTask = pdfjsLib.getDocument({
         data: uint8Array,
-        standardFontDataUrl: './lib/standard_fonts/'
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
     });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);
@@ -536,7 +522,7 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
 
     const pdf = await pdfjsLib.getDocument({
         url: pdfUrl,
-        standardFontDataUrl: './lib/standard_fonts/'
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
     }).promise;
     for (let i = 0; i < canvasIds.length; i++) {
         const page = await pdf.getPage(i + 1);
@@ -573,7 +559,7 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
     try {
         const loadingTask = window.pdfjsLib.getDocument({
             url: pdfUrl,
-            standardFontDataUrl: './lib/standard_fonts/'
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
         });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
@@ -625,9 +611,7 @@ window.drawImageToCanvas = function (canvasId, imageUrl) {
 window.unlockPdf = async function (pdfData, password) {
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js library not loaded');
-    if (pdfjsLib.GlobalWorkerOptions) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
-    }
+
     // base64→Uint8Array変換
     let uint8Array;
     if (typeof pdfData === 'string') {
@@ -640,8 +624,8 @@ window.unlockPdf = async function (pdfData, password) {
         uint8Array = pdfData;
     }
     const loadingTask = pdfjsLib.getDocument({
-        data: uint8Array,
-        standardFontDataUrl: './lib/standard_fonts/', password: password
+        data: uint8Array, password: password,
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl
     });
     const pdf = await loadingTask.promise;
 

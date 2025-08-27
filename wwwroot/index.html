@@ -36,6 +36,7 @@
         import * as pdfjsLib from './lib/pdf.mjs';
         window.pdfjsLib = pdfjsLib;
         pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.mjs';
+        pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = './lib/standard_fonts/';
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 
