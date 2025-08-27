@@ -9,16 +9,25 @@
     <span class="text-white font-bold ml-4 md:hidden">
         @GetPageTitle()
     </span>
-    <button title="Navigation menu" class="text-white focus:outline-none md:hidden" @onclick="ToggleNavMenu">
-        <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+    <button title="Navigation menu"
+        class="relative w-10 h-10 flex flex-col justify-center items-center md:hidden focus:outline-none"
+        @onclick="ToggleNavMenu">
+        <!-- 1本目 -->
+        <span class="block absolute w-8 h-1 bg-white rounded transition-all duration-300 ease-in-out
+        top-3 left-1 @(collapseNavMenu ? "" : "rotate-45 translate-y-3")"></span>
+        <!-- 2本目 -->
+        <span class="block absolute w-8 h-1 bg-white rounded transition-all duration-300 ease-in-out
+        top-5 left-1 @(collapseNavMenu ? "" : "opacity-0")"></span>
+        <!-- 3本目 -->
+        <span class="block absolute w-8 h-1 bg-white rounded transition-all duration-300 ease-in-out
+        top-7 left-1 @(collapseNavMenu ? "" : "-rotate-45 -translate-y-3")"></span>
     </button>
 </div>
 
 <div class="transition-all duration-300 md:block @(collapseNavMenu ? "hidden" : "block") sidebar">
-    <nav class="flex flex-col items-center space-y-4 w-full mt-4">
+    <nav class="flex flex-col md:flex-col items-center space-y-4 w-full mt-4
+            md:flex-col md:space-y-4
+            flex-row space-x-4 space-y-0 justify-center md:justify-start">
         <NavLink class="flex flex-col items-center w-full py-2 text-white hover:bg-gray-700/70 rounded-lg transition"
             href="merge">
             <MergeIcon Class="w-8 h-8" />
