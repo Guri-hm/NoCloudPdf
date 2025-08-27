@@ -1184,12 +1184,12 @@
                 return;
             }
 
-            fileName = pageItem?.FileName ?? "";
+            fileName = pageItem.FileName ?? "";
 
             // ここで元データを保持
             originalPageData = pageItem.PageData;
 
-            cachedPageSource = await JS.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem?.PageData ?? "");
+            cachedPageSource = await JS.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
             if (cachedPageSource == null)
             {
                 cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JS.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
