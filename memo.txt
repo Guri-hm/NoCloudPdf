@@ -23,6 +23,7 @@ git tag v1.0
 git push origin v1.0
 
 v1.0 2025/08/06
+v1.1 2025/08/27
 
 【発行】
 dotnet publish NoCloudPdf.csproj -c Release -o publish
