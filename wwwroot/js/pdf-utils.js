@@ -180,10 +180,6 @@ window.renderFirstPDFPage = async function (fileData, password) {
                 if (i === loadingOptions.length - 1) {
                     throw lastError;
                 }
-            } finally {
-                if (pdf) {
-                    pdf.destroy();
-                }
             }
         }
 
@@ -218,21 +214,21 @@ window.renderFirstPDFPage = async function (fileData, password) {
             // 編集不可（暗号化やパーミッション制限など）
             console.warn("PDF extraction failed, likely due to restrictions:", extractError);
             isOperationRestricted = true;
-            isDegraded = true;
             securityInfo += "編集不可PDF（画像PDFに変換）";
         }
 
         // サムネイル生成
         try {
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.normal });
+            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail });
             const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
+            canvas.width = Math.max(1, Math.round(viewport.width));
+            canvas.height = Math.max(1, Math.round(viewport.height));
             const context = canvas.getContext('2d');
             await page.render({ canvasContext: context, viewport: viewport }).promise;
             thumbnail = canvas.toDataURL('image/png');
         } catch (thumbErr) {
+            console.error("サムネイル生成エラー:", thumbErr);
             thumbnail = "";
         }
 
@@ -288,7 +284,7 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
 
         try {
             const page = await pdf.getPage(pageIndex + 1);
-            const viewport = page.getViewport({ scale: config.pdfSettings.scales.thumbnailScale });
+            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
@@ -297,10 +293,6 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
             thumbnail = canvas.toDataURL('image/png');
         } catch (thumbErr) {
             thumbnail = "";
-        } finally {
-            if (pdf) {
-                pdf.destroy();
-            }
         }
 
         return {
@@ -471,7 +463,7 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
         const pdf = await loadingTask.promise;
 
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: config.pdfSettings.scales.thumbnail });
+        const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -487,8 +479,6 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
     } catch (error) {
         console.error('Error rendering single PDF page:', error);
         return '';
-    } finally {
-        pdf.destroy();
     }
 };
 
@@ -597,7 +587,7 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        const viewport = page.getViewport({ scale: config.pdfSettings.thumbnailScale });
+        const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail });
         const canvas = document.getElementById(canvasId);
         if (!canvas) {
             console.warn("canvas not found:", canvasId);
@@ -615,9 +605,7 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
         return false;
     } finally {
         window._canvasRendering[canvasId] = false;
-        if (pdf) {
-            pdf.destroy();
-        }
+
     }
 };
 
@@ -673,7 +661,7 @@ window.unlockPdf = async function (pdfData, password) {
     const unlockedPdf = await PDFDocument.create();
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: config.pdfSettings.scales.unlock }); // 高解像度でレンダリングして劣化を軽減
+        const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.unlock }); // 高解像度でレンダリングして劣化を軽減
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
