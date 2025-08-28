@@ -19,9 +19,24 @@ window.embedImageAsPdf = async function (imageBase64, ext) {
         img = await pdfDoc.embedPng(bytes);
     } else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) {
         img = await pdfDoc.embedJpg(bytes);
+    } else if (
+        ext.endsWith('.gif') ||
+        ext.endsWith('.bmp') ||
+        ext.endsWith('.webp') ||
+        ext.endsWith('.svg')
+    ) {
+        // その他画像はcanvasでPNGに変換
+        const mime = ext.endsWith('.gif') ? 'image/gif'
+            : ext.endsWith('.bmp') ? 'image/bmp'
+                : ext.endsWith('.webp') ? 'image/webp'
+                    : ext.endsWith('.svg') ? 'image/svg+xml'
+                        : '';
+        const { pngBase64, width, height } = await convertImageToPngBase64AndSize(imageBase64, mime);
+        img = await pdfDoc.embedPng(base64ToUint8Array(pngBase64.split(',')[1]));
     } else {
         throw new Error('Unsupported image type');
     }
+
     const imgDims = img.scale(1);
     const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
     page.drawImage(img, { x: 0, y: 0, width: imgDims.width, height: imgDims.height });
@@ -310,6 +325,33 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
             securityInfo: "解析失敗"
         };
     }
+};
+
+// 画像のBase64からPNGに変換してサイズも取得
+window.convertImageToPngBase64AndSize = function (base64OrDataUrl, mime) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = function () {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width || 800;
+            canvas.height = img.height || 600;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const pngBase64 = canvas.toDataURL('image/png');
+            resolve({ pngBase64, width: img.width, height: img.height });
+        };
+        img.onerror = reject;
+
+        // dataURL形式ならそのまま、base64のみならMIMEタイプを付与
+        if (base64OrDataUrl.startsWith('data:')) {
+            img.src = base64OrDataUrl;
+        } else if (mime) {
+            img.src = `data:${mime};base64,${base64OrDataUrl}`;
+        } else {
+            // MIME不明の場合はPNGとして扱う
+            img.src = `data:image/png;base64,${base64OrDataUrl}`;
+        }
+    });
 };
 
 // PDFのページ数のみ取得

@@ -217,20 +217,3 @@ window.getImageSizeFromBase64 = function (base64) {
         img.src = base64;
     });
 };
-
-// 画像のBase64からPNGに変換してサイズも取得
-window.convertImageToPngBase64AndSize = function (base64) {
-    return new Promise(resolve => {
-        const img = new Image();
-        img.onload = function () {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const pngBase64 = canvas.toDataURL('image/png');
-            resolve({ pngBase64, width: img.width, height: img.height });
-        };
-        img.src = base64;
-    });
-};
