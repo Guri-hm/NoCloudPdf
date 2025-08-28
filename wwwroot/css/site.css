@@ -1654,6 +1654,9 @@ input[type=number] {
   .text-\[11px\] {
     font-size: 11px;
   }
+  .text-\[30px\] {
+    font-size: 30px;
+  }
   .leading-none {
     --tw-leading: 1;
     line-height: 1;

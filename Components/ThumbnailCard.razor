@@ -78,7 +78,7 @@
             }
             <!-- サムネイル -->
             <div class="w-24 h-32 flex items-center justify-center md:w-24 md:h-32 w-10 h-14 mr-2 md:mr-0 scale-90 md:scale-100 transition-transform duration-200"
-                @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
+                @onclick="HandleThumbnailClick">
                 @{
                     var isMultiPage = Mode == DisplayMode.File && Item.PageInfo?.Contains("ページ") == true;
                     int angle = Item.RotateAngle % 360;
@@ -154,6 +154,12 @@
                 @if (pageItem != null && pageItem.IsPasswordProtected || pageItem != null && pageItem.IsOperationRestricted)
                 {
                     <UnlockIcon Class="absolute top-[-25px] right-[35px] w-6 h-6 text-yellow-500" />
+                }
+                @if (OperationMode == OperationMode.Edit)
+                {
+                    <span class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <i class="fa-solid fa-pen-to-square text-orange-500 opacity-50 text-[30px]"></i>
+                    </span>
                 }
             </div>
             <!-- ファイル名・ページ数 -->
@@ -237,6 +243,17 @@
     private const int MaxVisibleButtons = 4;
     private bool isActionDropdownOpen = false;
 
+    private void HandleThumbnailClick()
+    {
+        if (OperationMode == OperationMode.Edit)
+        {
+            NavigateToPageEdit();
+        }
+        else
+        {
+            OnShowPreview.InvokeAsync((Index, 0));
+        }
+    }
     private List<RenderFragment> GetActionButtons()
     {
         var buttons = new List<RenderFragment>();
