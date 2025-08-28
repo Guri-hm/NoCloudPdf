@@ -753,9 +753,9 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 
     for (const el of editElements) {
         if (el.Type === 0 || el.Type === "Text") {
-            // フォント名をStandardFontsにマッピング
             function containsJapanese(text) {
-                return /[\u3000-\u30FF\u4E00-\u9FFF]/.test(text);
+                // 日本語・全角カナ・全角英数字・全角記号
+                return /[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF60]/.test(text);
             }
 
             let font;
