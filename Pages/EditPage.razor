@@ -152,10 +152,10 @@
                 <input type="checkbox" @bind="keepAspectRatio" />
                 アスペクト比固定
             </label>
-            <button class="px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-                    @onclick="TriggerImageInput">
+            <label class="cursor-pointer px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
                 画像を追加
-            </button>
+                <InputFile OnChange="OnImageSelected" multiple class="hidden" />
+            </label>
         }
     </div>
 
@@ -302,8 +302,7 @@
         
     </div>
 
-    <!-- ファイルアップロード用の隠しinput -->
-   <input type="file" @ref="fileInputRef" @onchange="OnImageSelected" accept="image/*" style="display: none;" />
+
 </div>
 @if (isBusy)
 {
@@ -746,7 +745,7 @@
         anchorFontSize = element.FontSize;
         draggingElementId = null;
     }
-    
+
     // マウスアップ時にリサイズを終了
     private void OnElementMouseUp(MouseEventArgs e)
     {
@@ -754,14 +753,14 @@
         // テキストリサイズ終了
         resizingTextId = null;
         resizingTextHandle = null;
-    
+
         // 既存: 画像イベントも解除
         draggingImageId = null;
         resizingImageId = null;
         resizingHandle = null;
         StateHasChanged();
     }
-    
+
     // ...existing code...
 
     private string GetHandleStyle(string handle, EditElement element)
@@ -1068,6 +1067,19 @@
         public double ClientY { get; set; }
     }
 
+    public class SizeDto
+    {
+        public double width { get; set; }
+        public double height { get; set; }
+    }
+
+    public class ImageConvertResult
+    {
+        public string pngBase64 { get; set; } = "";
+        public double width { get; set; }
+        public double height { get; set; }
+    }
+
     [JSInvokable]
     public void OnGlobalMouseMove(MouseMoveArgs e)
     {
@@ -1147,24 +1159,55 @@
         StateHasChanged();
     }
 
-    private async Task OnImageSelected(ChangeEventArgs e)
+    private string inputFileKey = Guid.NewGuid().ToString();
+
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
     {
-        // e.ValueはIBrowserFile[]またはstring
-        var files = (e.Value as Microsoft.AspNetCore.Components.Forms.IBrowserFile[]);
-        if (files != null && files.Length > 0)
+        var files = e.GetMultipleFiles();
+        if (files == null || files.Count == 0)
         {
-            var file = files[0];
-            var contentType = file.ContentType?.ToLower() ?? "";
-            if (!(contentType.StartsWith("image/png") || contentType.StartsWith("image/jpeg")))
+            ShowMessage("ファイルが選択されていません。", MessageType.Warn);
+            return;
+        }
+
+        var file = files[0];
+        var contentType = file.ContentType?.ToLower() ?? "";
+
+        try
+        {
+            // 最大サイズを指定（例: 5MB = 5 * 1024 * 1024）
+            const long maxSize = 5 * 1024 * 1024;
+            using var stream = file.OpenReadStream(maxSize);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+            if (contentType == "image/png" || contentType == "image/jpeg")
             {
-                await JS.InvokeVoidAsync("alert", "PNGまたはJPEG画像のみ追加できます。");
-                await JS.InvokeVoidAsync("clearFileInput", fileInputRef);
+                var size = await JS.InvokeAsync<SizeDto>("getImageSizeFromBase64", base64);
+                await OnImageBase64Loaded(base64, size.width, size.height);
+            }
+            else if (contentType == "image/gif" || contentType == "image/bmp" ||
+                    contentType == "image/webp" || contentType == "image/svg+xml")
+            {
+                var result = await JS.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64);
+                await OnImageBase64Loaded(result.pngBase64, result.width, result.height);
+            }
+            else
+            {
+                ShowMessage("対応していない画像形式です。PNG, JPEG, GIF, BMP, WebP, SVGのみ追加できます。", MessageType.Warn);
                 return;
             }
-            // ここでファイル処理
         }
-        await JS.InvokeVoidAsync("readImageAsBase64", fileInputRef, DotNetObjectReference.Create(this));
-        await JS.InvokeVoidAsync("clearFileInput", fileInputRef);
+        catch (IOException ex)
+        {
+            ShowMessage("画像サイズが大きすぎます（最大5MBまで）。", MessageType.Warn);
+            Console.WriteLine($"画像サイズエラー: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            ShowMessage("画像の読み込みに失敗しました。", MessageType.Error);
+            Console.WriteLine($"画像読み込みエラー: {ex.Message}");
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1298,7 +1341,9 @@
             zoomLevel = Math.Max(0.1, Math.Min(fitScale, 5.0));
         }
 
-        await JS.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel);
+        var rotateAngle = pageItem.RotateAngle;
+
+        await JS.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel, rotateAngle);
     }
 
     private void SetTool(EditTool tool)
@@ -1420,7 +1465,6 @@
 
     private async Task TriggerImageInput()
     {
-        await fileInputRef.FocusAsync();
         await JS.InvokeVoidAsync("triggerFileInput", fileInputRef);
     }
 
