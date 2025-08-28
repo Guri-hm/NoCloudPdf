@@ -212,15 +212,6 @@ code {
     }
 }
 
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
-}
 
 /* サムネイル読み込み完了時のアニメーション */
 .thumbnail-loaded {
@@ -288,12 +279,6 @@ code {
 
 .sortable-item-container:hover {
     z-index: 10;
-}
-
-.sortable-item-container.ui-sortable-helper {
-    z-index: 1000 !important;
-    opacity: 0.8;
-    transform: rotate(5deg);
 }
 
 /* 挿入メニュー用のスタイル - インライン管理方式 */
