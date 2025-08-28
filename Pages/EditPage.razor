@@ -1190,7 +1190,7 @@
             else if (contentType == "image/gif" || contentType == "image/bmp" ||
                     contentType == "image/webp" || contentType == "image/svg+xml")
             {
-                var result = await JS.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64);
+                var result = await JS.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64,contentType);
                 await OnImageBase64Loaded(result.pngBase64, result.width, result.height);
             }
             else
