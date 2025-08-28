@@ -742,12 +742,15 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
                 }
             }
 
+            const rotateDegrees = PDFLib.degrees(el.Rotation || 0);
+
             page.drawText(el.Text || "", {
                 x: el.X || 0,
                 y: pageHeight - (el.Y || 0) - (el.FontSize || 16),
                 size: el.FontSize || 16,
                 font: font,
                 color: rgbHexToRgb(el.Color || "#000000"),
+                rotate: rotateDegrees
             });
         } else if (el.Type === 1 || el.Type === "Image") {
             if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
@@ -758,11 +761,14 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
                 } else if (el.ImageUrl.startsWith("data:image/jpeg")) {
                     img = await pdfDoc.embedJpg(base64ToUint8Array(base64));
                 }
+                const rotateDegrees = PDFLib.degrees(el.Rotation || 0);
+
                 page.drawImage(img, {
                     x: el.X || 0,
                     y: pageHeight - (el.Y || 0) - (el.Height || img.height),
                     width: el.Width || img.width,
-                    height: el.Height || img.height
+                    height: el.Height || img.height,
+                    rotate: rotateDegrees
                 });
             } else {
                 // SVGやWebPなど未対応形式はスキップ

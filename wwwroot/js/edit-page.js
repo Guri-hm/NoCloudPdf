@@ -72,21 +72,14 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rota
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        const baseViewport = page.getViewport({ scale: 1.0, rotation: rotateAngle });
+        // 回転・ズームを反映したviewport
         const dpr = window.devicePixelRatio || 1;
-
-        // 画質調整: zoomLevelが小さい場合はdprも下げる
-        // 例: zoomLevel < 1 のときは dpr = 1
         const effectiveDpr = zoomLevel < 1 ? 1 : dpr;
-
-        // canvasの物理サイズを設定
-        canvas.width = Math.round(baseViewport.width * zoomLevel * effectiveDpr);
-        canvas.height = Math.round(baseViewport.height * zoomLevel * effectiveDpr);
-
-        // PDFのviewportもzoomLevelとdprを反映
         const targetScale = zoomLevel * effectiveDpr;
         const viewport = page.getViewport({ scale: targetScale, rotation: rotateAngle });
 
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
         // オフスクリーンcanvasでPDFを描画
         const off = document.createElement('canvas');
         off.width = Math.max(1, Math.round(viewport.width));

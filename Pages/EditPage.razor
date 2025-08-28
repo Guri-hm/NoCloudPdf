@@ -272,11 +272,11 @@
                                     height: @(element.Height * zoomLevel)px;"
                                 @onmousedown="(e) => OnImageMouseDown(e, element)"
                                 @onmouseup="OnImageMouseUp"
-                                @onclick="() => { if (currentTool == EditTool.Image) SelectElement(element.Id); }"
+                                @onclick="() => { if (currentTool == EditTool.Image || currentTool == EditTool.Select) SelectElement(element.Id); }"
                                 @onclick:stopPropagation
                             >
                                 <img src="@element.ImageUrl" class="w-full h-full object-contain pointer-events-none" style="object-fit:@(keepAspectRatio ? "contain" : "fill");" />
-                                @if (selectedElementIds.Contains(element.Id) && currentTool == EditTool.Image)
+                                @if (selectedElementIds.Contains(element.Id) && currentTool == EditTool.Image || currentTool == EditTool.Select)
                                 {
                                     <div class="element-handles absolute inset-0 pointer-events-none">
                                         @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
@@ -465,6 +465,7 @@
         public double ImageOriginalWidth { get; set; }
         public double ImageOriginalHeight { get; set; }
         public bool IsBold { get; set; } = false;
+        public int Rotation { get; set; } = 0;
     }
 
     private string _textColor = "#000000";
@@ -862,7 +863,7 @@
 
     private void OnImageMouseDown(MouseEventArgs e, EditElement element)
     {
-        if (currentTool != EditTool.Image || !selectedElementIds.Contains(element.Id)) return;
+        if ((currentTool != EditTool.Image && currentTool != EditTool.Select) || !selectedElementIds.Contains(element.Id)) return;
         draggingImageId = element.Id;
         dragStartMouseX = e.ClientX;
         dragStartMouseY = e.ClientY;
@@ -1214,6 +1215,10 @@
     {
         if (firstRender)
         {
+            isBusy = true;
+            StateHasChanged();
+            await Task.Yield();
+
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
             await JS.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
@@ -1238,12 +1243,24 @@
                 cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JS.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
             }
 
-            pageWidth = (int)cachedPageSource.origW;
-            pageHeight = (int)cachedPageSource.origH;
+            // 回転角度を考慮して幅・高さを入れ替え
+            var rotateAngle = pageItem.RotateAngle;
+            if (rotateAngle % 180 != 0)
+            {
+                pageWidth = (int)cachedPageSource.origH;
+                pageHeight = (int)cachedPageSource.origW;
+            }
+            else
+            {
+                pageWidth = (int)cachedPageSource.origW;
+                pageHeight = (int)cachedPageSource.origH;
+            }
 
             // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
             await RedrawPdfPage(applyFit: true);
 
+            isBusy = false;
+            StateHasChanged();
         }
     }
 
@@ -1252,7 +1269,7 @@
         await JS.InvokeVoidAsync("unregisterGlobalMouseUp");
         await JS.InvokeVoidAsync("unregisterGlobalMouseMove");
         _dotNetRef?.Dispose();
-        
+
     }
 
     private async void NavigateBack()
@@ -1557,6 +1574,63 @@
         _ = JS.InvokeVoidAsync("clearFileInput", fileInputRef);
     }
 
+    private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)
+    {
+        var result = new List<EditElement>();
+        foreach (var el in editElements)
+        {
+            var newEl = new EditElement
+            {
+                Id = el.Id,
+                Type = el.Type,
+                Text = el.Text,
+                FontSize = el.FontSize,
+                Color = el.Color,
+                FontFamily = el.FontFamily,
+                IsBold = el.IsBold,
+                ImageUrl = el.ImageUrl,
+                ImageOriginalWidth = el.ImageOriginalWidth,
+                ImageOriginalHeight = el.ImageOriginalHeight
+            };
+
+            if (rotateAngle == 90)
+            {
+                newEl.X = el.Y +  el.Height;
+                newEl.Y = pageWidth - el.X -el.Height;
+                newEl.Width = el.Height;
+                newEl.Height = el.Width;
+                //newEl.Rotation = (el.Rotation - 90 + 360) % 360;
+                newEl.Rotation = rotateAngle; // ← PDF-libは左回転
+            }
+            else if (rotateAngle == 180)
+            {
+                newEl.X = pageWidth - el.X;
+                newEl.Y = pageHeight - el.Y - el.Height - (el.FontSize * 0.5);
+                newEl.Width = el.Width;
+                newEl.Height = el.Height;
+                newEl.Rotation = rotateAngle;
+            }
+            else if (rotateAngle == 270)
+            {
+                newEl.X = pageHeight - el.Y - el.Height - (el.FontSize * 0.5);
+                newEl.Y = el.X - el.Height - (el.FontSize * 0.5);
+                newEl.Width = el.Height;
+                newEl.Height = el.Width;
+                newEl.Rotation = rotateAngle;
+            }
+            else
+            {
+                newEl.X = el.X;
+                newEl.Y = el.Y;
+                newEl.Width = el.Width;
+                newEl.Height = el.Height;
+                newEl.Rotation = 0;
+            }
+            result.Add(newEl);
+        }
+        return result;
+    }
+
     private async Task SaveChanges()
     {
         isBusy = true;
@@ -1571,7 +1645,8 @@
         {
             try
             {
-                var editJson = JsonSerializer.Serialize(editElements);
+                var elementsForSave = GetElementsForSave(pageWidth, pageHeight, pageItem.RotateAngle);
+                var editJson = JsonSerializer.Serialize(elementsForSave);
 
                 // 元データ（originalPageData）に編集要素を追加して新PDF生成
                 var newPdfBase64 = await JS.InvokeAsync<string>(
