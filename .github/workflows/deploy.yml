@@ -46,6 +46,11 @@ jobs:
       - name: Copy index.html to 404.html
         run: cp publish/wwwroot/index.html publish/wwwroot/404.html
 
+      - name: Set JS cache-busting version
+        run: |
+          dt=$(date +"%Y%m%d_%H%M%S")
+          sed -i "s|js/bundle/bundle.min.js|js/bundle/bundle.min.js?v=$dt|g" wwwroot/index.html
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
