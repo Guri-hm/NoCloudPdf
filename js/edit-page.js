@@ -44,7 +44,7 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
     }
 };
 
-window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
+window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rotateAngle) {
     try {
         const canvasSelector = `#pdf-canvas-${id}`;
         const canvas = document.querySelector(canvasSelector);
@@ -72,7 +72,7 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        const baseViewport = page.getViewport({ scale: 1.0 });
+        const baseViewport = page.getViewport({ scale: 1.0, rotation: rotateAngle });
         const dpr = window.devicePixelRatio || 1;
 
         // 画質調整: zoomLevelが小さい場合はdprも下げる
@@ -85,7 +85,7 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0) {
 
         // PDFのviewportもzoomLevelとdprを反映
         const targetScale = zoomLevel * effectiveDpr;
-        const viewport = page.getViewport({ scale: targetScale });
+        const viewport = page.getViewport({ scale: targetScale, rotation: rotateAngle });
 
         // オフスクリーンcanvasでPDFを描画
         const off = document.createElement('canvas');
@@ -167,20 +167,6 @@ window.unregisterGlobalMouseMove = function () {
     }
 };
 
-window.readImageAsBase64 = function (input, dotNetRef) {
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-            dotNetRef.invokeMethodAsync('OnImageBase64Loaded', e.target.result, img.width, img.height);
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-};
-
 window.getElementRect = function (selector) {
     const el = document.querySelector(selector);
     if (!el) return { left: 0, top: 0, width: 0, height: 0 };
@@ -226,4 +212,32 @@ window.autoResizeTextarea = function (ref) {
         // 複数行ならscrollHeight
         ref.style.height = Math.max(ref.scrollHeight, fontSize) + "px";
     }
+};
+
+// 画像のBase64からサイズ取得
+window.getImageSizeFromBase64 = function (base64) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = function () {
+            resolve({ width: img.width, height: img.height });
+        };
+        img.src = base64;
+    });
+};
+
+// 画像のBase64からPNGに変換してサイズも取得
+window.convertImageToPngBase64AndSize = function (base64) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = function () {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const pngBase64 = canvas.toDataURL('image/png');
+            resolve({ pngBase64, width: img.width, height: img.height });
+        };
+        img.src = base64;
+    });
 };
