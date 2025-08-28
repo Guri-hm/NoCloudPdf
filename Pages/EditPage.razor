@@ -443,7 +443,6 @@
     private List<EditElement> editElements = new();
 
     private ElementReference textInputRef;
-    private ElementReference fileInputRef;
 
     private enum EditTool { Select, Text, Image }
     private enum ElementType { Text, Image }
@@ -1480,11 +1479,6 @@
         }
     }
 
-    private async Task TriggerImageInput()
-    {
-        await JS.InvokeVoidAsync("triggerFileInput", fileInputRef);
-    }
-
     // 選択された要素のIDを格納
     private void SelectElement(string elementId, bool multi = false)
     {
@@ -1570,8 +1564,6 @@
             ResetFontToDefault();
         }
 
-        // 画像削除後にもinputをクリア
-        _ = JS.InvokeVoidAsync("clearFileInput", fileInputRef);
     }
 
     private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)

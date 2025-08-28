@@ -240,6 +240,9 @@
 
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
+<HeaderFooterDialog IsOpen="@showHeaderFooterDialog" 
+                    OnApply="ApplyHeaderFooter" 
+                    OnClose="() => showHeaderFooterDialog = false" />
 
 @code {
     protected override void OnInitialized()
@@ -307,6 +310,18 @@
     private string mergedFileName = "";
     private string mergedFileSize = "";
     private int mergedPageCount = 0;
+    public class PdfStampPosition
+    {
+        public string Text { get; set; } = "";
+        public int OffsetX { get; set; } // 端からのX距離(px)
+        public int OffsetY { get; set; } // 端からのY距離(px)
+        public PdfStampCorner Corner { get; set; } // 左上/上/右上/左下/下/右下
+    }
+
+    public enum PdfStampCorner
+    {
+        TopLeft, Top, TopRight, BottomLeft, Bottom, BottomRight
+    }
     private int GetCurrentFilePageIndex()
     {
         if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
@@ -799,20 +814,6 @@
         StateHasChanged();
     }
 
-    private List<DropdownMenuItem> addMenuItems => new()
-{
-new DropdownMenuItem
-{
-Label = "空白ページを追加",
-OnClick = EventCallback.Factory.Create(this, () => InsertBlankPage(DisplayItems.Count))
-},
-new DropdownMenuItem
-{
-Label = "ドキュメントを追加",
-OnClick = EventCallback.Factory.Create(this, AddPdfFile)
-}
-};
-
     private List<DropdownMenuItem> sortMenuItems => new()
 {
 new DropdownMenuItem
@@ -1006,6 +1007,144 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         passwordTcs = null;
         StateHasChanged();
     }
+
+private bool showHeaderFooterDialog = false;
+
+    // 既存のaddMenuItems配列に追加
+    private List<DropdownMenuItem> addMenuItems => new()
+    {
+        new DropdownMenuItem
+        {
+            Label = "空白ページを追加",
+            OnClick = EventCallback.Factory.Create(this, () => InsertBlankPage(DisplayItems.Count))
+        },
+        new DropdownMenuItem
+        {
+            Label = "ドキュメントを追加",
+            OnClick = EventCallback.Factory.Create(this, AddPdfFile)
+        },
+        new DropdownMenuItem
+        {
+            Label = "ヘッダー・フッター",
+            OnClick = EventCallback.Factory.Create(this, ShowHeaderFooterDialog)
+        }
+    };
+
+    private void ShowHeaderFooterDialog()
+    {
+        showHeaderFooterDialog = true;
+        StateHasChanged();
+    }
+
+private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
+{
+    if (!setting.Stamps.Any())
+    {
+        ShowMessage("スタンプが設定されていません。", MessageType.Warn);
+        return;
+    }
+
+    try
+    {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        var model = PdfDataService.GetModel();
+        var pages = model.Pages;
+
+        if (!pages.Any())
+        {
+            ShowMessage("処理対象のページがありません。", MessageType.Warn);
+            return;
+        }
+
+        // 準備できていないページがある場合は中断
+        var notReadyCount = pages.Count(p => string.IsNullOrEmpty(p.PageData) || p.HasError);
+        if (notReadyCount > 0)
+        {
+            ShowMessage($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+            return;
+        }
+
+        var totalPages = pages.Count;
+
+        // 各ページにヘッダー・フッターを適用
+        for (int i = 0; i < pages.Count; i++)
+        {
+            var page = pages[i];
+            
+            try
+            {
+                var stampData = CreateStampsForCoordinateTransform(setting.Stamps, page.RotateAngle, totalPages, i);
+
+                var stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
+                    "addStampsToPdf", 
+                    page.PageData, 
+                    stampData
+                );
+
+                var stampedBase64 = Convert.ToBase64String(stampedPdfBytes);
+                page.PageData = stampedBase64;
+
+                // サムネイル再生成
+                var newThumbnail = await JSRuntime.InvokeAsync<string>(
+                    "generatePdfThumbnailFromPageData", 
+                    stampedBase64
+                );
+                
+                if (!string.IsNullOrEmpty(newThumbnail))
+                {
+                    page.Thumbnail = newThumbnail;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ページ {i + 1} のヘッダー・フッター適用でエラー: {ex.Message}");
+                ShowMessage($"ページ {i + 1} の処理中にエラーが発生しました。", MessageType.Error);
+            }
+        }
+
+        ShowMessage($"{pages.Count} ページにヘッダー・フッターを適用しました。", MessageType.Success);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"ヘッダー・フッター適用エラー: {ex.Message}");
+        ShowMessage("ヘッダー・フッターの適用中にエラーが発生しました。", MessageType.Error);
+    }
+    finally
+    {
+        isBusy = false;
+        StateHasChanged();
+    }
+}
+
+private List<object> CreateStampsForCoordinateTransform(List<StampPosition> originalStamps, int rotateAngle, int totalPages, int currentPageIndex)
+{
+    var stampData = new List<object>();
+
+    foreach (var stamp in originalStamps)
+    {
+        var stampObject = new
+        {
+            corner = stamp.Corner.ToString(), // ← 画面上での位置指定
+            text = stamp.Text,
+            isSerial = stamp.IsSerial,
+            isZeroPadded = stamp.IsZeroPadded,
+            totalPages = totalPages,
+            currentPageIndex = currentPageIndex,
+            rotateAngle = rotateAngle, // ← JavaScript側で座標変換に使用
+            offsetX = stamp.OffsetX,
+            offsetY = stamp.OffsetY,
+            fontSize = stamp.FontSize,
+            color = new { r = stamp.Color.R / 255.0, g = stamp.Color.G / 255.0, b = stamp.Color.B / 255.0 }
+        };
+        
+        stampData.Add(stampObject);
+    }
+
+    return stampData;
+}
 
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
