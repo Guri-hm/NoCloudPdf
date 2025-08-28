@@ -847,3 +847,251 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
         return bytes;
     }
 };
+
+window.addStampsToPdf = async function (pdfBytes, stamps) {
+    const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
+
+    // fontkit登録
+    if (!PDFLib._fontkitRegistered) {
+        if (window.fontkit) {
+            PDFLib.PDFDocument.prototype.registerFontkit(window.fontkit);
+            PDFLib._fontkitRegistered = true;
+        } else {
+            console.warn("fontkitがロードされていません。日本語フォントは使用できません。");
+        }
+    }
+
+    // Uint8Array変換
+    let uint8Array;
+    if (typeof pdfBytes === 'string') {
+        uint8Array = base64ToUint8Array(pdfBytes);
+    } else if (pdfBytes instanceof Uint8Array) {
+        uint8Array = pdfBytes;
+    } else if (Array.isArray(pdfBytes)) {
+        uint8Array = new Uint8Array(pdfBytes);
+    } else {
+        uint8Array = new Uint8Array(pdfBytes);
+    }
+
+    // 回転角度を取得
+    const rotateAngle = stamps.length > 0 ? (stamps[0].rotateAngle || 0) : 0;
+    const normalizedAngle = ((rotateAngle % 360) + 360) % 360;
+
+    // === 元PDFを読み込み ===
+    const pdfDoc = await PDFDocument.load(uint8Array);
+    const page = pdfDoc.getPage(0);
+    const { width, height } = page.getSize();
+
+    // フォント関連の準備
+    let notoFontRegular = null;
+
+    function containsJapanese(text) {
+        return /[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF60]/.test(text);
+    }
+
+    function generateSerialNumber(currentPageIndex, totalPages, isZeroPadded) {
+        const pageNumber = currentPageIndex + 1;
+        if (!isZeroPadded) {
+            return pageNumber.toString();
+        }
+        const digits = totalPages.toString().length;
+        return pageNumber.toString().padStart(digits, '0');
+    }
+
+    // === 座標変換関数（Y座標正しい修正版）===
+    function transformCoordinates(corner, offsetX, offsetY, rotateAngle, pageWidth, pageHeight, textWidth, fontSize) {
+        let x = 0, y = 0;
+        let textRotation = 0;
+
+        // 回転角度に応じて座標変換
+        const angle = ((rotateAngle % 360) + 360) % 360;
+
+        if (angle === 0) {
+            // 回転なし：通常の座標計算
+            switch (corner) {
+                case 'TopLeft':
+                    x = offsetX;
+                    y = pageHeight - offsetY - fontSize;
+                    break;
+                case 'Top':
+                    x = pageWidth / 2 - textWidth / 2;
+                    y = pageHeight - offsetY - fontSize;
+                    break;
+                case 'TopRight':
+                    x = pageWidth - offsetX - textWidth;
+                    y = pageHeight - offsetY - fontSize;
+                    break;
+                case 'BottomLeft':
+                    x = offsetX;
+                    y = offsetY;
+                    break;
+                case 'Bottom':
+                    x = pageWidth / 2 - textWidth / 2;
+                    y = offsetY;
+                    break;
+                case 'BottomRight':
+                    x = pageWidth - offsetX - textWidth;
+                    y = offsetY;
+                    break;
+            }
+            textRotation = 0;
+        } else if (angle === 90) {
+            // 90度回転: 画面上の位置 → 元PDFでの実際の位置
+            switch (corner) {
+                case 'TopLeft':     // 画面左上 → 元PDF左下
+                    x = offsetY;
+                    y = offsetX;
+                    break;
+                case 'Top':         // 画面上 → 元PDF左
+                    x = offsetY;
+                    y = pageHeight / 2 - textWidth / 2;
+                    break;
+                case 'TopRight':    // 画面右上 → 元PDF左上
+                    x = offsetY;
+                    y = pageHeight - offsetX - textWidth;
+                    break;
+                case 'BottomLeft':  // 画面左下 → 元PDF右下
+                    x = pageWidth - offsetY;
+                    y = offsetX;
+                    break;
+                case 'Bottom':      // 画面下 → 元PDF右
+                    x = pageWidth - offsetY;
+                    y = pageHeight / 2 - textWidth / 2;
+                    break;
+                case 'BottomRight': // 画面右下 → 元PDF右上
+                    x = pageWidth - offsetY;
+                    y = pageHeight - offsetX - textWidth;
+                    break;
+            }
+            textRotation = 90;
+        } else if (angle === 180) {
+            // 180度回転: 上下左右完全反転 + 右端基点対応（Y座標修正版）
+            switch (corner) {
+                case 'TopLeft':     // 画面左上 → 元PDF右下
+                    x = pageWidth - offsetX;
+                    y = offsetY; // 修正：0度BottomLeftと同じY座標
+                    break;
+                case 'Top':         // 画面上 → 元PDF下
+                    x = pageWidth / 2 - textWidth / 2;
+                    y = offsetY; // 修正：0度Bottomと同じY座標
+                    break;
+                case 'TopRight':    // 画面右上 → 元PDF左下
+                    x = offsetX + textWidth; // 右端基点対応
+                    y = offsetY; // 修正：0度BottomRightと同じY座標
+                    break;
+                case 'BottomLeft':  // 画面左下 → 元PDF右上
+                    x = pageWidth - offsetX;
+                    y = pageHeight - offsetY;
+                    break;
+                case 'Bottom':      // 画面下 → 元PDF上
+                    x = pageWidth / 2 - textWidth / 2;
+                    y = pageHeight - offsetY;
+                    break;
+                case 'BottomRight': // 画面右下 → 元PDF左上
+                    x = offsetX + textWidth;
+                    y = pageHeight - offsetY;
+                    break;
+            }
+            textRotation = 180;
+        } else if (angle === 270) {
+            // 270度回転: 右端基点対応
+            switch (corner) {
+                case 'TopLeft':     // 画面左上 → 元PDF右上
+                    x = pageWidth - offsetY;
+                    y = pageHeight - offsetX;
+                    break;
+                case 'Top':         // 画面上 → 元PDF右
+                    x = pageWidth - offsetY;
+                    y = pageHeight / 2 - textWidth / 2;
+                    break;
+                case 'TopRight':    // 画面右上 → 元PDF右下
+                    x = pageWidth - offsetY;
+                    y = offsetX + textWidth; // 右端基点対応
+                    break;
+                case 'BottomLeft':  // 画面左下 → 元PDF左上
+                    x = offsetY;
+                    y = pageHeight - offsetX;
+                    break;
+                case 'Bottom':      // 画面下 → 元PDF左
+                    x = offsetY;
+                    y = pageHeight / 2 - textWidth / 2;
+                    break;
+                case 'BottomRight': // 画面右下 → 元PDF左下
+                    x = offsetY;
+                    y = offsetX + textWidth; // 右端基点対応
+                    break;
+            }
+            textRotation = -90;
+        }
+
+        return { x, y, textRotation };
+    }
+
+    for (const stamp of stamps) {
+
+        let text = stamp.text || "";
+        if (stamp.isSerial) {
+            const serialNumber = generateSerialNumber(
+                stamp.currentPageIndex || 0,
+                stamp.totalPages || 1,
+                stamp.isZeroPadded || false
+            );
+            text = text ? `${text}${serialNumber}` : serialNumber;
+        }
+
+        // フォント選択
+        let font;
+        if (containsJapanese(text)) {
+            if (!notoFontRegular) {
+                try {
+                    const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
+                    const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+                    notoFontRegular = await pdfDoc.embedFont(fontBytes);
+                } catch (fontError) {
+                    console.warn("日本語フォント読み込み失敗:", fontError);
+                    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                }
+            }
+            font = notoFontRegular || await pdfDoc.embedFont(StandardFonts.Helvetica);
+        } else {
+            font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        }
+
+        const fontSize = stamp.fontSize || 12;
+        const textWidth = font.widthOfTextAtSize(text, fontSize);
+
+        // === 座標変換実行 ===
+        const transformed = transformCoordinates(
+            stamp.corner,
+            stamp.offsetX,
+            stamp.offsetY,
+            normalizedAngle,
+            width,
+            height,
+            textWidth,
+            fontSize
+        );
+
+        // 色設定
+        const color = stamp.color ?
+            rgb(stamp.color.r || 0, stamp.color.g || 0, stamp.color.b || 0) :
+            rgb(0, 0, 0);
+
+        // テキスト描画
+        try {
+            page.drawText(text, {
+                x: transformed.x,
+                y: transformed.y,
+                size: fontSize,
+                font: font,
+                color: color,
+                rotate: degrees(transformed.textRotation),
+            });
+        } catch (drawError) {
+            console.error("スタンプ描画エラー:", drawError);
+            throw drawError;
+        }
+    }
+
+    return await pdfDoc.save();
+};
