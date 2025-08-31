@@ -131,7 +131,7 @@
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <!-- 左：結合 -->
-        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6">
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
             <MergeIcon Class="w-8 h-8" />
             <h3 class="text-xl font-bold text-purple-700 mb-2">PDF結合</h3>
             <p class="text-gray-700 text-center mb-4">
@@ -142,7 +142,7 @@
             </a>
         </div>
         <!-- 右：分割 -->
-        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6">
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6  mx-2 md:mx-0">
             <SplitIcon Class="w-8 h-8" />
             <h3 class="text-xl font-bold text-purple-700 mb-2">PDF分割</h3>
             <p class="text-gray-700 text-center mb-4">
@@ -154,10 +154,12 @@
         </div>
     </div>
 </section>
+<!-- ThickSliceセクションの修正 -->
 <section class="max-w-4xl mx-auto py-12">
     <FadeInOnScroll>
         <div
-            class="bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50 rounded-2xl p-8 shadow-lg border border-gray-200">
+            class="bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50 rounded-2xl p-8 shadow-lg border border-gray-200 relative mx-2 md:mx-0">
+
             <div class="flex flex-col md:flex-row items-center gap-8">
                 <!-- 左側：ロゴとタイトル -->
                 <div class="flex flex-col items-center md:items-start flex-shrink-0">
@@ -165,19 +167,38 @@
                     <h2 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2 text-center md:text-left">
                         ThickSlice
                     </h2>
-                    <p class="text-lg text-slate-600 font-medium text-center md:text-left">
+                    <p class="text-lg text-slate-600 font-medium text-center md:text-left mb-2">
                         画像抽出専用ツール
                     </p>
                 </div>
 
                 <!-- 右側：説明と機能 -->
                 <div class="flex-1">
+                    <!-- 外部アプリであることの説明 -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0">
+                                <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-blue-800 font-semibold text-sm mb-1">外部サービスのご案内</p>
+                                <p class="text-blue-700 text-sm">
+                                    ThickSliceはNoCloudPDFとは別のサービスです。高品質な画像抽出機能を提供しており、NoCloudPDFの姉妹ツールとしてご利用いただけます。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <p class="text-gray-700 text-lg leading-relaxed mb-6">
                         PDFや画像ファイルから、矩形選択で必要な部分だけを<strong class="text-slate-800">高解像度のまま抽出</strong>できる専用ツールです。
                         <span class="text-slate-700 font-semibold">PDFのオリジナルサイズを保持した画像抽出</span>が他のアプリにない特長です。
                     </p>
 
-                    <!-- 機能紹介グリッド -->
+                    <!-- 機能紹介グリッド（変更なし） -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
                             <div class="flex items-center gap-2 mb-2">
@@ -234,7 +255,7 @@
                         </div>
                     </div>
 
-                    <!-- 注意事項 -->
+                    <!-- 注意事項（修正版） -->
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
                         <div class="flex items-start gap-3">
                             <div class="flex-shrink-0">
@@ -246,31 +267,27 @@
                             </div>
                             <div>
                                 <p class="text-amber-800 font-semibold text-sm mb-1">
-                                    <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-                                    </svg>
                                     クラウド処理について
                                 </p>
                                 <p class="text-amber-700 text-sm">
-                                    ThickSliceは高品質な画像処理のため、サーバー上で処理を行います。処理後にファイルは自動削除されますが、機密文書の使用はご注意ください。
+                                    ThickSliceは外部サービスのため、NoCloudPDFとは異なりサーバー上で処理を行います。処理後にファイルは自動削除されますが、機密文書の使用はご注意ください。
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- CTA ボタン -->
+                    <!-- CTA ボタン（修正版） -->
                     <div class="text-center">
                         <a href="https://solopg.com/app/thickslice/" target="_blank" rel="noopener"
                             class="inline-flex items-center gap-3 bg-gradient-to-r from-slate-700 to-blue-700 hover:from-slate-800 hover:to-blue-800 text-white font-bold py-3 px-8 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
-                            <img src="img/thickslice.svg" alt="" class="w-6 h-6">
-                            ThickSliceで画像を抽出する
+                            ThickSliceを開く（外部サイト）
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
                                     clip-rule="evenodd" />
                             </svg>
                         </a>
+                        <p class="text-xs text-gray-500 mt-2">※ 新しいタブで外部サイトが開きます</p>
                     </div>
                 </div>
             </div>
