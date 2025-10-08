@@ -3,6 +3,9 @@
 「npm install」
 ⇒package.jsonに載るライブラリを自動インストール
 
+【開発時のホットリロードあり実行】
+dotnet watch run
+
 【読み込み用cssファイル】
 app.cssには独自＋@import "tailwindcss";
 ⇒「npx postcss wwwroot/css/app.css -o wwwroot/css/site.css」もしくは「npm run build:css」実行でsite.cssに出力される
