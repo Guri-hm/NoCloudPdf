@@ -132,9 +132,33 @@
                         日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます。
                     </span>
                 </span>
-                <button class="px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-200"
+                <button
+                    class="@(IsFitActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")"
+                    @onclick="() => uiFitTextToArea = !uiFitTextToArea" @onmousedown="() => ignoreTextBlur = true"
+                    title="テキストにフィット：オンでエリアに合わせ自動調整（折返しなし）"
+                    aria-pressed="@IsFitActive" aria-label="テキストにフィット切替">
+                    @if (IsFitActive)
+                    {
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg class="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    }
+                </button>
+                <button
                     @onclick="ToggleBold"
-                    title="太字">
+                    title="太字"
+                    aria-pressed="@IsBoldActive"
+                    class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
                     <i class="fa-solid fa-bold"></i>
                 </button>
                 <input type="color"
@@ -203,7 +227,8 @@
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
                                         class="border-none outline-none bg-transparent resize-none overflow-hidden"
-                                        style="width: 100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal");"
+                                        style="width: 100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal"); @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;")"
+                                        wrap="@(element.FitTextToArea ? "off" : "soft")"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
                                         @onmousedown:stopPropagation
@@ -227,7 +252,8 @@
                                             display: block;
                                             vertical-align: middle;
                                             color: @element.Color;
-                                            font-weight: @(element.IsBold ? "bold" : "normal");"
+                                            font-weight: @(element.IsBold ? "bold" : "normal");
+                                            @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: normal; overflow-wrap: anywhere; word-break: break-word;")"
                                     >
                                         @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
@@ -379,6 +405,51 @@
     private string fontFamily = "sans-serif";
 
     private string? canvasUniqueId;
+    private bool _uiFitTextToArea = false;
+    private bool uiFitTextToArea
+    {
+        get => _uiFitTextToArea;
+        set
+        {
+            if (_uiFitTextToArea == value) return;
+            _uiFitTextToArea = value;
+            // 編集中の要素があればその要素に反映、なければ選択中の要素すべてに反映
+            var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+            if (editingElement != null)
+            {
+                editingElement.FitTextToArea = value;
+            }
+            else if (selectedElementIds.Count > 0)
+            {
+                foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
+                    el.FitTextToArea = value;
+            }
+            StateHasChanged();
+        }
+    }
+    private bool IsBoldActive
+    {
+        get
+        {
+            var editing = editElements.FirstOrDefault(el => el.IsEditing && el.Type == ElementType.Text);
+            if (editing != null) return editing.IsBold;
+            var selectedTextElems = editElements.Where(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Text).ToList();
+            if (!selectedTextElems.Any()) return false;
+            return selectedTextElems.All(e => e.IsBold);
+        }
+    }
+    
+    private bool IsFitActive
+    {
+        get
+        {
+            var editing = editElements.FirstOrDefault(el => el.IsEditing && el.Type == ElementType.Text);
+            if (editing != null) return editing.FitTextToArea;
+            var selectedTextElems = editElements.Where(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Text).ToList();
+            if (!selectedTextElems.Any()) return uiFitTextToArea;
+            return selectedTextElems.All(e => e.FitTextToArea);
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -396,14 +467,20 @@
             fontFamily = FontFamilyNotoSans;
         }
 
-        // 最大行幅を取得
-        var maxLineWidth = await JS.InvokeAsync<double>(
-            "measureMaxLineWidth",
-            element.Text,
-            element.FontSize * zoomLevel,
-            element.FontFamily
-        );
-        element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); // 余白分はfontSizeに比例
+        if (element.FitTextToArea)
+        {
+            // 最大行幅を取得
+            var maxLineWidth = await JS.InvokeAsync<double>(
+                "measureMaxLineWidth",
+                element.Text,
+                element.FontSize * zoomLevel,
+                element.FontFamily
+            );
+            element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); // 余白分はfontSizeに比例
+        }
+        else{
+
+        }
         await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef);
 
         StateHasChanged(); 
@@ -465,6 +542,7 @@
         public double ImageOriginalHeight { get; set; }
         public bool IsBold { get; set; } = false;
         public int Rotation { get; set; } = 0;
+        public bool FitTextToArea { get; set; } = false;
     }
 
     private string _textColor = "#000000";
@@ -598,7 +676,7 @@
     private async void OnElementMouseMove(MouseEventArgs e)
     {
         // フレームレート制限（60FPS以下にする）
-        var now = DateTime.UtcNow;
+        DateTime now = DateTime.UtcNow;
         if ((now - lastMouseMoveTime).TotalMilliseconds < MouseMoveThrottleMs)
         {
             return; // スキップ
@@ -630,16 +708,19 @@
                         // 右下基点（anchorX, anchorY固定）
                         newWidth = anchorX - mouseCanvasX;
                         newHeight = anchorY - mouseCanvasY;
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        // JSで最大行幅を取得
-                        var maxLineWidthNW = await JS.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthNW / zoomLevel) + (newFontSize * 0.5);
-                        // 右端(anchorX)を絶対固定
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                            // JSで最大行幅を取得
+                            var maxLineWidthNW = await JS.InvokeAsync<double>(
+                                "measureMaxLineWidth",
+                                element.Text,
+                                newFontSize * zoomLevel,
+                                element.FontFamily
+                            );
+                            newWidth = (maxLineWidthNW / zoomLevel) + (newFontSize * 0.5);
+                            // 右端(anchorX)を絶対固定
+                        }
                         newX = anchorX - newWidth;
                         newY = anchorY - newHeight;
                         break;
@@ -648,15 +729,18 @@
                         // 右上基点（anchorX, anchorY固定）
                         newWidth = anchorX - mouseCanvasX;
                         newHeight = mouseCanvasY - anchorY;
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSW = await JS.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthSW / zoomLevel) + (newFontSize * 0.5);
-                        // 右端(anchorX)を絶対固定
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                            var maxLineWidthSW = await JS.InvokeAsync<double>(
+                                "measureMaxLineWidth",
+                                element.Text,
+                                newFontSize * zoomLevel,
+                                element.FontFamily
+                            );
+                            newWidth = (maxLineWidthSW / zoomLevel) + (newFontSize * 0.5);
+                            // 右端(anchorX)を絶対固定
+                        }
                         newX = anchorX - newWidth;
                         newY = anchorY;
                         break;
@@ -665,15 +749,18 @@
                         // 左下基点（anchorX, anchorY固定）
                         newWidth = mouseCanvasX - anchorX;
                         newHeight = anchorY - mouseCanvasY;
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthNE = await JS.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthNE / zoomLevel) + (newFontSize * 0.5);
-                        // 左端(anchorX)を絶対固定
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                            var maxLineWidthNE = await JS.InvokeAsync<double>(
+                                "measureMaxLineWidth",
+                                element.Text,
+                                newFontSize * zoomLevel,
+                                element.FontFamily
+                            );
+                            newWidth = (maxLineWidthNE / zoomLevel) + (newFontSize * 0.5);
+                            // 左端(anchorX)を絶対固定
+                        }
                         newX = anchorX;
                         newY = anchorY - newHeight;
                         break;
@@ -682,15 +769,18 @@
                         // 左上基点（anchorX, anchorY固定）
                         newWidth = mouseCanvasX - anchorX;
                         newHeight = mouseCanvasY - anchorY;
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSE = await JS.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthSE / zoomLevel) + (newFontSize * 0.5);
-                        // 左端(anchorX)を絶対固定
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
+                            var maxLineWidthSE = await JS.InvokeAsync<double>(
+                                "measureMaxLineWidth",
+                                element.Text,
+                                newFontSize * zoomLevel,
+                                element.FontFamily
+                            );
+                            newWidth = (maxLineWidthSE / zoomLevel) + (newFontSize * 0.5);
+                            // 左端(anchorX)を絶対固定
+                        }
                         newX = anchorX;
                         newY = anchorY;
                         break;
@@ -704,9 +794,11 @@
                 element.Y = newY;
                 element.Width = newWidth;
                 element.Height = newHeight;
-                element.FontSize = newFontSize;
-                fontSize = newFontSize;
-
+                if (element.FitTextToArea)
+                {
+                    element.FontSize = newFontSize;
+                    fontSize = newFontSize;
+                }
                 changed = true;
             }
         }
@@ -802,27 +894,32 @@
         if (editingElement != null)
         {
             editingElement.FontSize = value;
-            // measureMaxLineWidthで幅を再計算
-            var maxLineWidth = await JS.InvokeAsync<double>(
-                "measureMaxLineWidth",
-                editingElement.Text,
-                editingElement.FontSize * zoomLevel,
-                editingElement.FontFamily
-            );
-            editingElement.Width = (maxLineWidth / zoomLevel) + (editingElement.FontSize * 0.5);
+            if (editingElement.FitTextToArea)
+            {
+                var maxLineWidth = await JS.InvokeAsync<double>(
+                    "measureMaxLineWidth",
+                    editingElement.Text,
+                    editingElement.FontSize * zoomLevel,
+                    editingElement.FontFamily
+                );
+                editingElement.Width = (maxLineWidth / zoomLevel) + (editingElement.FontSize * 0.5);
+            }
         }
         else if (selectedElementIds.Count > 0)
         {
             foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
             {
                 el.FontSize = value;
-                var maxLineWidth = await JS.InvokeAsync<double>(
-                    "measureMaxLineWidth",
-                    el.Text,
-                    el.FontSize * zoomLevel,
-                    el.FontFamily
-                );
-                el.Width = (maxLineWidth / zoomLevel) + (el.FontSize * 0.5);
+                if (el.FitTextToArea)
+                {
+                    var maxLineWidth = await JS.InvokeAsync<double>(
+                        "measureMaxLineWidth",
+                        el.Text,
+                        el.FontSize * zoomLevel,
+                        el.FontFamily
+                    );
+                    el.Width = (maxLineWidth / zoomLevel) + (el.FontSize * 0.5);
+                }
             }
         }
         else
@@ -843,6 +940,8 @@
 
         fontFamily = element.FontFamily;
         _fontSize = element.FontSize;
+
+        uiFitTextToArea = element.FitTextToArea;
 
         StateHasChanged();
         await Task.Yield(); // レンダリング待ち
@@ -1455,6 +1554,7 @@
                 Color = textColor,
                 IsEditing = true,
                 FontFamily = ContainsJapanese("テキスト") ? FontFamilyNotoSans : fontFamily,
+                FitTextToArea = uiFitTextToArea
             };
             editElements.Add(element);
 
@@ -1508,6 +1608,7 @@
             if (selected.Type == ElementType.Text)
             {
                 _fontSize = selected.FontSize;
+                uiFitTextToArea = selected.FitTextToArea;
             }
         }
 
