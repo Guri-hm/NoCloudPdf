@@ -748,51 +748,75 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
         console.error("editJson parse error", e, editJson);
     }
 
-    let notoFontRegular = null;
-    let notoFontBold = null;
+    // フォントキャッシュ（pdfDoc 単位で保持）
+    const fontCache = {
+        notoSansReg: null,
+        notoSansBold: null,
+        notoSerifReg: null,
+        notoSerifBold: null
+    };
+
+    async function getEmbeddedFontForElement(el) {
+        const containsJapanese = (text) => /[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF60]/.test(text || "");
+        const wantsSerif = (ff) => !!(ff && ff.toString().toLowerCase().indexOf("notoserif") >= 0);
+        const isJapanese = containsJapanese(el.Text);
+        const useSerif = isJapanese && wantsSerif(el.FontFamily);
+        const isBold = !!el.IsBold;
+
+        try {
+            if (isJapanese) {
+                if (useSerif) {
+                    if (isBold) {
+                        if (!fontCache.notoSerifBold) {
+                            const bytes = await fetch("/fonts/NotoSerifJP-Bold.ttf").then(r => r.arrayBuffer());
+                            fontCache.notoSerifBold = await pdfDoc.embedFont(bytes);
+                        }
+                        return fontCache.notoSerifBold;
+                    } else {
+                        if (!fontCache.notoSerifReg) {
+                            const bytes = await fetch("/fonts/NotoSerifJP-Regular.ttf").then(r => r.arrayBuffer());
+                            fontCache.notoSerifReg = await pdfDoc.embedFont(bytes);
+                        }
+                        return fontCache.notoSerifReg;
+                    }
+                } else {
+                    // Noto Sans fallback
+                    if (isBold) {
+                        if (!fontCache.notoSansBold) {
+                            const bytes = await fetch("/fonts/NotoSansJP-Bold.ttf").then(r => r.arrayBuffer());
+                            fontCache.notoSansBold = await pdfDoc.embedFont(bytes);
+                        }
+                        return fontCache.notoSansBold;
+                    } else {
+                        if (!fontCache.notoSansReg) {
+                            const bytes = await fetch("/fonts/NotoSansJP-Regular.ttf").then(r => r.arrayBuffer());
+                            fontCache.notoSansReg = await pdfDoc.embedFont(bytes);
+                        }
+                        return fontCache.notoSansReg;
+                    }
+                }
+            } else {
+                // 非日本語は標準フォントを利用
+                return el.IsBold ? await pdfDoc.embedFont(StandardFonts.HelveticaBold) : await pdfDoc.embedFont(StandardFonts.Helvetica);
+            }
+        } catch (err) {
+            console.error("font embed error", err);
+            return await pdfDoc.embedFont(StandardFonts.Helvetica);
+        }
+    }
 
     for (const el of editElements) {
         if (el.Type === 0 || el.Type === "Text") {
-            function containsJapanese(text) {
-                // 日本語・全角カナ・全角英数字・全角記号
-                return /[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF60]/.test(text);
-            }
 
-            let font;
-            if (containsJapanese(el.Text || "")) {
-                if (el.IsBold) {
-                    if (!notoFontBold) {
-                        const fontUrl = "/fonts/NotoSansJP-Bold.ttf";
-                        const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-                        notoFontBold = await pdfDoc.embedFont(fontBytes);
-                    }
-                    font = notoFontBold;
-                } else {
-                    if (!notoFontRegular) {
-                        const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
-                        const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-                        notoFontRegular = await pdfDoc.embedFont(fontBytes);
-                    }
-                    font = notoFontRegular;
-                }
-            } else {
-                // 日本語を含まない場合
-                if (el.IsBold) {
-                    font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-                } else {
-                    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-                }
-            }
+            const font = await getEmbeddedFontForElement(el);
 
             const rotateDegrees = PDFLib.degrees(el.Rotation || 0);
 
-            // フォント幅を使ってボックス幅内で折り返す実装
             const fontSize = Number(el.FontSize) || 16;
             const specifiedLineHeight = (typeof el.LineHeight !== "undefined" && el.LineHeight > 0) ? Number(el.LineHeight) : null;
             const lineHeightPx = specifiedLineHeight || fontSize;
-            const text = el.Text || "";
 
-            // ボックス最大幅（要素幅が無ければページ右端まで）
+            const text = el.Text || "";
             const startX = (typeof el.X === "number") ? el.X : 0;
             const maxWidth = (typeof el.Width === "number" && el.Width > 0)
                 ? Number(el.Width)
