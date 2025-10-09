@@ -12,7 +12,9 @@
 <HeadContent>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+
 </HeadContent>
 <div class="edit-page-container h-screen flex flex-col">
     <!-- ヘッダー -->
@@ -118,18 +120,20 @@
                     }
                     @if (targetElement != null && ContainsJapanese(targetElement.Text))
                     {
-                        <option value="@FontFamilyNotoSans">Noto Sans</option>
+                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
+                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
                     }
                     else
                     {
-                        <option value="@FontFamilyNotoSans">Noto Sans</option>
-                        <option value="sans-serif">標準（ゴシック）</option>
-                        <option value="serif">明朝体</option>
-                        <option value="monospace">等幅</option>
-                        <option value="Arial, Helvetica, sans-serif">Arial</option>
-                        <option value="Times New Roman, serif">Times New Roman</option>
-                        <option value="Meiryo, sans-serif">メイリオ</option>
-                        <option value="Yu Gothic, sans-serif">游ゴシック</option>
+                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
+                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
+                        <option value="sans-serif" title="ブラウザ既定のゴシック系（主に英数字）">システム ゴシック（英数字向け）</option>
+                        <option value="serif" title="ブラウザ既定の明朝系（主に英数字）">システム 明朝（英数字向け）</option>
+                        <option value="monospace" title="等幅フォント（コードや表記揃えに）">等幅（Monospace）</option>
+                        <option value="Arial, Helvetica, sans-serif" title="英字メインの欧文フォント">Arial（英字向け）</option>
+                        <option value="Times New Roman, serif" title="欧文の明朝系フォント">Times New Roman（英字向け）</option>
+                        <option value="Meiryo, sans-serif" title="メイリオ（Windows 日本語ゴシック）">Meiryo（Windows）</option>
+                        <option value="Yu Gothic, sans-serif" title="游ゴシック（Windows 日本語ゴシック）">游ゴシック（Windows）</option>
                     }
                 </select>
                 <span class="relative group ml-1">
@@ -410,7 +414,7 @@
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
 
-    private string fontFamily = "sans-serif";
+    private string fontFamily = "NotoSansJP, sans-serif";
 
     private string? canvasUniqueId;
     private bool _uiFitTextToArea = false;
@@ -464,6 +468,19 @@
         canvasUniqueId = Guid.NewGuid().ToString();
     }
 
+    private bool IsNotoFamily(string? ff)
+    {
+        if (string.IsNullOrWhiteSpace(ff)) return false;
+        var s = ff.Replace(" ", "").ToLowerInvariant();
+        return s.Contains("noto");
+    }
+    // 日本語を含む場合は、ユーザーが選んだフォントが Noto 系ならそれを使い、
+    // そうでなければ Noto Sans を強制する（非日本語なら選択をそのまま返す）
+    private string ResolveFontForText(string text, string? preferred)
+    {
+        if (!ContainsJapanese(text)) return preferred ?? DefaultFontFamily;
+        return IsNotoFamily(preferred) ? preferred! : FontFamilyNotoSans;
+    }
     private async Task OnTextAreaInput(ChangeEventArgs e, EditElement element)
     {
         element.Text = e.Value?.ToString() ?? "";
@@ -471,8 +488,9 @@
         // 日本語が含まれていたらNotoSansJPに強制
         if (ContainsJapanese(element.Text))
         {
-            element.FontFamily = FontFamilyNotoSans;
-            fontFamily = FontFamilyNotoSans;
+            var resolved = ResolveFontForText(element.Text, element.FontFamily ?? fontFamily);
+            element.FontFamily = resolved;
+            fontFamily = resolved;
         }
 
         if (element.FitTextToArea)
@@ -650,8 +668,9 @@
     }
 
     private const int DefaultFontSize = 16;
-    private const string DefaultFontFamily = "sans-serif";
+    private const string DefaultFontFamily = "NotoSansJP, sans-serif";
     private const string FontFamilyNotoSans = "NotoSansJP, sans-serif";
+    private const string FontFamilyNotoSerif = "NotoSerifJP, serif";
     private int _fontSize = DefaultFontSize;
     private void ResetFontToDefault()
     {
@@ -1859,11 +1878,11 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 Type = ElementType.Text,
                 X = coords.x,
                 Y = coords.y,
-                Text = "Input Text...",
+                Text = "入力...",
                 FontSize = fontSize,
                 Color = textColor,
                 IsEditing = true,
-                FontFamily = ContainsJapanese("テキスト") ? FontFamilyNotoSans : fontFamily,
+                FontFamily = DefaultFontFamily,
                 FitTextToArea = uiFitTextToArea
             };
             editElements.Add(element);
@@ -1910,9 +1929,9 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         var selected = editElements.FirstOrDefault(el => el.Id == elementId);
         if (selected != null)
         {
-            // 日本語が含まれていれば強制
+            // 日本語なら選択フォントが Noto 系なら尊重、そうでなければ Noto Sans を使う
             if (ContainsJapanese(selected.Text))
-                fontFamily = FontFamilyNotoSans;
+                fontFamily = IsNotoFamily(selected.FontFamily) ? selected.FontFamily : FontFamilyNotoSans;
             else
                 fontFamily = selected.FontFamily;
             if (selected.Type == ElementType.Text)
@@ -1935,11 +1954,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
 
         element.IsEditing = false;
-        // 日本語が含まれていれば強制
-        if (ContainsJapanese(element.Text))
-            fontFamily = FontFamilyNotoSans;
-        else
-            fontFamily = element.FontFamily;
+        fontFamily = ResolveFontForText(element.Text, element.FontFamily);
 
         // blur による直後の page click で新規追加されないようにする
         ignoreNextPageClick = true;
