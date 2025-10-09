@@ -190,20 +190,52 @@ window.selectAllTextarea = function (ref) {
 };
 
 window.autoResizeTextarea = function (ref) {
-    if (!ref) return;
-    ref.style.height = "1px";
-    const fontSize = parseFloat(window.getComputedStyle(ref).fontSize);
-    const value = ref.value || "";
-    const lines = value.split('\n');
-    if (value.trim() === "") {
-        // 空文字ならfontSizeで高さを強制
-        ref.style.height = fontSize + "px";
-    } else if (lines.length === 1) {
-        // 1行ならfontSizeで高さを強制
-        ref.style.height = fontSize + "px";
-    } else {
-        // 複数行ならscrollHeight
-        ref.style.height = Math.max(ref.scrollHeight, fontSize) + "px";
+    try {
+        const resolveEl = (r) => {
+            if (!r) return null;
+            if (typeof r === "string") return document.getElementById(r);
+            if (r instanceof HTMLElement) return r;
+            return r;
+        };
+        const el = resolveEl(ref);
+        if (!el || !el.style) {
+            console.debug("autoResizeTextarea: element not found:", ref);
+            return 0; // 常に数値を返す
+        }
+
+        return new Promise((resolve) => {
+            requestAnimationFrame(() => {
+                try {
+                    el.style.height = "auto";
+                    void el.getBoundingClientRect();
+                    const cs = window.getComputedStyle(el);
+                    const lineH = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) || 16;
+                    const contentH = Math.max(el.scrollHeight || 0, lineH);
+                    const textareaH = Math.ceil(contentH + 2);
+                    el.style.height = textareaH + "px";
+                    el.style.overflow = "hidden";
+
+                    // 親の枠（border）を加算して返す（存在しなければ 0 区分）
+                    let parentBorderV = 0;
+                    try {
+                        const parent = el.closest && el.closest(".edit-element");
+                        if (parent) {
+                            const pcs = window.getComputedStyle(parent);
+                            parentBorderV = (parseFloat(pcs.borderTopWidth) || 0) + (parseFloat(pcs.borderBottomWidth) || 0);
+                        }
+                    } catch (e) { /* ignore */ }
+
+                    const totalParentPx = textareaH + parentBorderV;
+                    resolve(totalParentPx || 0);
+                } catch (err) {
+                    console.error("autoResizeTextarea inner error", err);
+                    resolve(0);
+                }
+            });
+        });
+    } catch (err) {
+        console.error("autoResizeTextarea error", err);
+        return 0;
     }
 };
 
