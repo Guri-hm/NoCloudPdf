@@ -672,9 +672,6 @@ input[type=number] {
   .top-8 {
     top: calc(var(--spacing) * 8);
   }
-  .top-\[-4px\] {
-    top: -4px;
-  }
   .top-\[-20px\] {
     top: -20px;
   }
@@ -702,9 +699,6 @@ input[type=number] {
   .right-8 {
     right: calc(var(--spacing) * 8);
   }
-  .right-\[-4px\] {
-    right: -4px;
-  }
   .right-\[-5px\] {
     right: -5px;
   }
@@ -729,9 +723,6 @@ input[type=number] {
   .bottom-8 {
     bottom: calc(var(--spacing) * 8);
   }
-  .bottom-\[-4px\] {
-    bottom: -4px;
-  }
   .left-0 {
     left: calc(var(--spacing) * 0);
   }
@@ -746,9 +737,6 @@ input[type=number] {
   }
   .left-6 {
     left: calc(var(--spacing) * 6);
-  }
-  .left-\[-4px\] {
-    left: -4px;
   }
   .z-0 {
     z-index: 0;
@@ -1174,20 +1162,8 @@ input[type=number] {
   .cursor-move {
     cursor: move;
   }
-  .cursor-ne-resize {
-    cursor: ne-resize;
-  }
-  .cursor-nw-resize {
-    cursor: nw-resize;
-  }
   .cursor-pointer {
     cursor: pointer;
-  }
-  .cursor-se-resize {
-    cursor: se-resize;
-  }
-  .cursor-sw-resize {
-    cursor: sw-resize;
   }
   .cursor-text {
     cursor: text;
