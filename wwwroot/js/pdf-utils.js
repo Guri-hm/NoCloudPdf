@@ -786,14 +786,83 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 
             const rotateDegrees = PDFLib.degrees(el.Rotation || 0);
 
-            page.drawText(el.Text || "", {
-                x: el.X || 0,
-                y: pageHeight - (el.Y || 0) - (el.FontSize || 16),
-                size: el.FontSize || 16,
-                font: font,
-                color: rgbHexToRgb(el.Color || "#000000"),
-                rotate: rotateDegrees
-            });
+            // フォント幅を使ってボックス幅内で折り返す実装
+            const fontSize = Number(el.FontSize) || 16;
+            const specifiedLineHeight = (typeof el.LineHeight !== "undefined" && el.LineHeight > 0) ? Number(el.LineHeight) : null;
+            const lineHeightPx = specifiedLineHeight || fontSize;
+            const text = el.Text || "";
+
+            // ボックス最大幅（要素幅が無ければページ右端まで）
+            const startX = (typeof el.X === "number") ? el.X : 0;
+            const maxWidth = (typeof el.Width === "number" && el.Width > 0)
+                ? Number(el.Width)
+                : (page.getWidth() - startX);
+
+            // テキストを段落（\n）毎に分け、単語／文字で折り返す
+            function splitToLines(paragraph, font, size, maxW) {
+                if (!paragraph) return [''];
+                const lines = [];
+                // 単語単位（空白を保持）で分割して処理
+                const tokens = paragraph.split(/(\s+)/);
+                let current = '';
+                for (const token of tokens) {
+                    const tokenWidth = font.widthOfTextAtSize(token, size);
+                    const currentWidth = current ? font.widthOfTextAtSize(current, size) : 0;
+                    if (currentWidth + tokenWidth <= maxW) {
+                        current += token;
+                    } else {
+                        if (current) {
+                            lines.push(current);
+                        }
+                        // token 自体が長すぎる場合は文字単位で切る
+                        if (tokenWidth <= maxW) {
+                            current = token;
+                        } else {
+                            let chunk = '';
+                            for (let i = 0; i < token.length; i++) {
+                                chunk += token[i];
+                                const w = font.widthOfTextAtSize(chunk, size);
+                                if (w > maxW) {
+                                    // 直前の分を確定し、新しいチャンク開始
+                                    if (chunk.length > 1) {
+                                        lines.push(chunk.slice(0, -1));
+                                        chunk = chunk.slice(-1);
+                                    } else {
+                                        // 1文字でも超える場合は強制的に押し込む
+                                        lines.push(chunk);
+                                        chunk = '';
+                                    }
+                                }
+                            }
+                            current = chunk;
+                        }
+                    }
+                }
+                if (current) lines.push(current);
+                return lines;
+            }
+
+            // 全段落を行配列に展開
+            const paragraphs = text.split('\n');
+            const wrappedLines = [];
+            for (const p of paragraphs) {
+                const lines = splitToLines(p, font, fontSize, maxWidth);
+                // 空行の維持
+                if (lines.length === 0) wrappedLines.push('');
+                else wrappedLines.push(...lines);
+            }
+            // 描画：最初の行のベースライン位置
+            const startY = pageHeight - (el.Y || 0) - fontSize;
+            for (let i = 0; i < wrappedLines.length; i++) {
+                page.drawText(wrappedLines[i] || '', {
+                    x: startX,
+                    y: startY - (i * lineHeightPx),
+                    size: fontSize,
+                    font: font,
+                    color: rgbHexToRgb(el.Color || "#000000"),
+                    rotate: rotateDegrees
+                });
+            }
         } else if (el.Type === 1 || el.Type === "Image") {
             if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
                 let base64 = el.ImageUrl.split(',')[1] || el.ImageUrl;

@@ -100,6 +100,12 @@
                     @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
                 <span class="text-xs text-gray-500">px</span>
 
+                <input type="number" min="0" max="300" step="1"
+                   class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                   value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
+                   @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
+                <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
+
                 <select id="font-family-select"
                     class="text-sm border rounded px-2 py-1 w-28 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                     value="@fontFamily"
@@ -132,7 +138,7 @@
                         日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます。
                     </span>
                 </span>
-                <button
+                @* <button
                     class="@(IsFitActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")"
                     @onclick="() => uiFitTextToArea = !uiFitTextToArea" @onmousedown="() => ignoreTextBlur = true"
                     title="テキストにフィット：オンでエリアに合わせ自動調整（折返しなし）"
@@ -153,7 +159,7 @@
                             <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     }
-                </button>
+                </button> *@
                 <button
                     @onclick="ToggleBold"
                     title="太字"
@@ -228,7 +234,7 @@
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
                                         class="border-none outline-none bg-transparent resize-none overflow-hidden"
-                                        style="width: 100%; height: auto; min-height: @(element.FontSize * zoomLevel)px; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal"); @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; overflow: hidden;")"
+                                        style="width: 100%; height: auto; min-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; font-size: @(element.FontSize * zoomLevel)px; line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal"); @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; overflow: hidden;")"
                                         wrap="@(element.FitTextToArea ? "off" : "soft")"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
@@ -246,7 +252,7 @@
                                             width: 100%;
                                             height: 100%;
                                             font-size: @(element.FontSize * zoomLevel)px;
-                                            line-height: @(element.FontSize * zoomLevel)px;
+                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px;
                                             padding: 0;
                                             margin: 0;
                                             border: none;
@@ -524,6 +530,23 @@
         StateHasChanged();
     }
 
+    private void OnLineHeightChanged(ChangeEventArgs e)
+    {
+        int val = 0;
+        if (!int.TryParse(e.Value?.ToString(), out val)) val = 0;
+        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editingElement != null)
+        {
+            editingElement.LineHeight = val;
+        }
+        else if (selectedElementIds.Count > 0)
+        {
+            foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
+                el.LineHeight = val;
+        }
+        StateHasChanged();
+    }
+
     private List<EditElement> editElements = new();
 
     private ElementReference textInputRef;
@@ -541,6 +564,8 @@
         public double Height { get; set; } = 20;
         public string Text { get; set; } = "";
         public int FontSize { get; set; } = DefaultFontSize;
+        // 0 = 自動（FontSize を使う）、>0 で px 単位の行高（ページ座標）
+        public int LineHeight { get; set; } = 0;
         public string Color { get; set; } = "#000000";
         public string ImageUrl { get; set; } = "";
         public bool IsEditing { get; set; } = false;
@@ -1968,7 +1993,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 IsBold = el.IsBold,
                 ImageUrl = el.ImageUrl,
                 ImageOriginalWidth = el.ImageOriginalWidth,
-                ImageOriginalHeight = el.ImageOriginalHeight
+                ImageOriginalHeight = el.ImageOriginalHeight,
+                LineHeight = el.LineHeight
             };
 
             if (rotateAngle == 90)
