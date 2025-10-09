@@ -228,7 +228,7 @@
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
                                         class="border-none outline-none bg-transparent resize-none overflow-hidden"
-                                        style="width: 100%; height:100%; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal"); @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;")"
+                                        style="width: 100%; height: auto; min-height: @(element.FontSize * zoomLevel)px; font-size: @(element.FontSize * zoomLevel)px; line-height: @(element.FontSize * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal"); @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; overflow: hidden;")"
                                         wrap="@(element.FitTextToArea ? "off" : "soft")"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
@@ -483,8 +483,13 @@
         else{
 
         }
-        await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef);
+        await Task.Yield();
 
+        var scrollH = await JS.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+        if (scrollH > 0)
+        {
+            element.Height = Math.Max(6, scrollH / zoomLevel);
+        }
         StateHasChanged(); 
     }
     private bool ContainsJapanese(string text)
@@ -1057,7 +1062,8 @@
         try
         {
             await textInputRef.FocusAsync();
-            await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef); // ←ここで高さ調整
+            var totalParentPx = await JS.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+            if (totalParentPx > 0) element.Height = Math.Max(6, totalParentPx / zoomLevel);
         }
         catch
         {
