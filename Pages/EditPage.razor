@@ -73,8 +73,8 @@
         @if (currentTool == EditTool.Text)
         {
             <div class="h-6 w-px bg-gray-300"></div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 min-w-0">
                     <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                         value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
                         @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
