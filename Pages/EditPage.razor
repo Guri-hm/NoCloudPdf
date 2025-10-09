@@ -37,9 +37,9 @@
     </div>
 
     <!-- ツールバー -->
-    <div class="bg-gray-50 border-b px-4 py-2 flex items-center gap-4">
+    <div class="bg-gray-50 border-b px-4 py-2 flex flex-wrap items-center gap-4">
         <!-- ズーム -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-shrink-0">
             <button @onclick="ZoomOut" class="p-2 hover:bg-gray-200 rounded">
                 <i class="fa-solid fa-minus"></i>
             </button>
@@ -55,7 +55,7 @@
         <div class="h-6 w-px bg-gray-300"></div>
 
         <!-- ツール選択 -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-shrink-0">
             <button @onclick="() => SetTool(EditTool.Select)"
                 class="p-2 rounded @(currentTool == EditTool.Select ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
                 <i class="fa-solid fa-mouse-pointer"></i>
@@ -73,116 +73,118 @@
         @if (currentTool == EditTool.Text)
         {
             <div class="h-6 w-px bg-gray-300"></div>
-            <div class="flex items-center gap-2">
-                <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
-                    <option value="10">10px</option>
-                    <option value="11">11px</option>
-                    <option value="12">12px</option>
-                    <option value="13">13px</option>
-                    <option value="14">14px</option>
-                    <option value="15">15px</option>
-                    <option value="16">16px</option>
-                    <option value="18">18px</option>
-                    <option value="20">20px</option>
-                    <option value="22">22px</option>
-                    <option value="24">24px</option>
-                    <option value="28">28px</option>
-                    <option value="32">32px</option>
-                    <option value="36">36px</option>
-                    <option value="40">40px</option>
-                    <option value="48">48px</option>
-                    <option value="56">56px</option>
-                    <option value="64">64px</option>
-                </select>
-                <input type="number" min="6" max="128" step="1"
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                        value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
+                        @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
+                        <option value="10">10px</option>
+                        <option value="11">11px</option>
+                        <option value="12">12px</option>
+                        <option value="13">13px</option>
+                        <option value="14">14px</option>
+                        <option value="15">15px</option>
+                        <option value="16">16px</option>
+                        <option value="18">18px</option>
+                        <option value="20">20px</option>
+                        <option value="22">22px</option>
+                        <option value="24">24px</option>
+                        <option value="28">28px</option>
+                        <option value="32">32px</option>
+                        <option value="36">36px</option>
+                        <option value="40">40px</option>
+                        <option value="48">48px</option>
+                        <option value="56">56px</option>
+                        <option value="64">64px</option>
+                    </select>
+                    <input type="number" min="6" max="128" step="1"
+                        class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                        value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
+                        @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
+                    <span class="text-xs text-gray-500">px</span>
+
+                    <input type="number" min="0" max="300" step="1"
                     class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
-                <span class="text-xs text-gray-500">px</span>
+                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
+                    @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
+                    <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
 
-                <input type="number" min="0" max="300" step="1"
-                   class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                   value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
-                   @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
-                <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
-
-                <select id="font-family-select"
-                    class="text-sm border rounded px-2 py-1 w-28 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                    value="@fontFamily"
-                    @onchange="OnFontFamilyChanged" @onmousedown="() => ignoreTextBlur = true">
-                    @* 編集中の要素 or 選択中の要素を取得 *@
-                    @{
-                        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
-                        var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
-                        var targetElement = editingElement ?? selectedElement;
-                    }
-                    @if (targetElement != null && ContainsJapanese(targetElement.Text))
-                    {
-                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                    }
-                    else
-                    {
-                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                        <option value="sans-serif" title="ブラウザ既定のゴシック系（主に英数字）">システム ゴシック（英数字向け）</option>
-                        <option value="serif" title="ブラウザ既定の明朝系（主に英数字）">システム 明朝（英数字向け）</option>
-                        <option value="monospace" title="等幅フォント（コードや表記揃えに）">等幅（Monospace）</option>
-                        <option value="Arial, Helvetica, sans-serif" title="英字メインの欧文フォント">Arial（英字向け）</option>
-                        <option value="Times New Roman, serif" title="欧文の明朝系フォント">Times New Roman（英字向け）</option>
-                        <option value="Meiryo, sans-serif" title="メイリオ（Windows 日本語ゴシック）">Meiryo（Windows）</option>
-                        <option value="Yu Gothic, sans-serif" title="游ゴシック（Windows 日本語ゴシック）">游ゴシック（Windows）</option>
-                    }
-                </select>
-                <span class="relative group ml-1">
-                    <i class="fa fa-info-circle text-gray-500 cursor-pointer"></i>
-                    <span class="absolute left-6 top-1 z-10 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg">
-                        日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます。
+                    <select id="font-family-select"
+                        class="text-sm border rounded px-2 py-1 w-30 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                        value="@fontFamily"
+                        @onchange="OnFontFamilyChanged" @onmousedown="() => ignoreTextBlur = true">
+                        @* 編集中の要素 or 選択中の要素を取得 *@
+                        @{
+                            var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+                            var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
+                            var targetElement = editingElement ?? selectedElement;
+                        }
+                        @if (targetElement != null && ContainsJapanese(targetElement.Text))
+                        {
+                            <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
+                            <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
+                        }
+                        else
+                        {
+                            <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
+                            <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
+                            <option value="sans-serif" title="ブラウザ既定のゴシック系（主に英数字）">システム ゴシック（英数字向け）</option>
+                            <option value="serif" title="ブラウザ既定の明朝系（主に英数字）">システム 明朝（英数字向け）</option>
+                            <option value="monospace" title="等幅フォント（コードや表記揃えに）">等幅（Monospace）</option>
+                            <option value="Arial, Helvetica, sans-serif" title="英字メインの欧文フォント">Arial（英字向け）</option>
+                            <option value="Times New Roman, serif" title="欧文の明朝系フォント">Times New Roman（英字向け）</option>
+                            <option value="Meiryo, sans-serif" title="メイリオ（Windows 日本語ゴシック）">Meiryo（Windows）</option>
+                            <option value="Yu Gothic, sans-serif" title="游ゴシック（Windows 日本語ゴシック）">游ゴシック（Windows）</option>
+                        }
+                    </select>
+                    <span class="relative group ml-1">
+                        <i class="fa fa-info-circle text-gray-500 cursor-pointer"></i>
+                        <span class="absolute left-6 top-1 z-10 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg">
+                            日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます。
+                        </span>
                     </span>
-                </span>
-                @* <button
-                    class="@(IsFitActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")"
-                    @onclick="() => uiFitTextToArea = !uiFitTextToArea" @onmousedown="() => ignoreTextBlur = true"
-                    title="テキストにフィット：オンでエリアに合わせ自動調整（折返しなし）"
-                    aria-pressed="@IsFitActive" aria-label="テキストにフィット切替">
-                    @if (IsFitActive)
-                    {
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    }
-                    else
-                    {
-                        <svg class="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    }
-                </button> *@
-                <button
-                    @onclick="ToggleBold"
-                    title="太字"
-                    aria-pressed="@IsBoldActive"
-                    class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
-                    <i class="fa-solid fa-bold"></i>
-                </button>
-                <input type="color"
-                    class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                    value="@CurrentTextColor"
-                    @oninput="OnTextColorInput"
-                    @onfocus="() => ignoreNextPageClick = true"
-                    @onblur="OnColorPickerBlur"
-                    @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
+                    @* <button
+                        class="@(IsFitActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")"
+                        @onclick="() => uiFitTextToArea = !uiFitTextToArea" @onmousedown="() => ignoreTextBlur = true"
+                        title="テキストにフィット：オンでエリアに合わせ自動調整（折返しなし）"
+                        aria-pressed="@IsFitActive" aria-label="テキストにフィット切替">
+                        @if (IsFitActive)
+                        {
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        }
+                    </button> *@
+                    <button
+                        @onclick="ToggleBold"
+                        title="太字"
+                        aria-pressed="@IsBoldActive"
+                        class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
+                        <i class="fa-solid fa-bold"></i>
+                    </button>
+                    <input type="color"
+                        class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                        value="@CurrentTextColor"
+                        @oninput="OnTextColorInput"
+                        @onfocus="() => ignoreNextPageClick = true"
+                        @onblur="OnColorPickerBlur"
+                        @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
+                </div>
             </div>
         }
         @if (currentTool == EditTool.Image)
         {
-            <label class="flex items-center gap-1 text-sm">
+            <label class="flex items-center gap-1 text-sm flex-shrink-0">
                 <input type="checkbox" @bind="keepAspectRatio" />
                 アスペクト比固定
             </label>
