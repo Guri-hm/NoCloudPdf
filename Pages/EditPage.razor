@@ -95,13 +95,13 @@
                     <option value="64">64px</option>
                 </select>
                 <input type="number" min="6" max="128" step="1"
-                    class="text-sm border rounded px-2 py-1 w-16 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                    class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
                     @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
                 <span class="text-xs text-gray-500">px</span>
 
                 <input type="number" min="0" max="300" step="1"
-                   class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                   class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
                    @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
                 <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
