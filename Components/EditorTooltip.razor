@@ -1,0 +1,27 @@
+<span class="editor-tooltip-trigger" tabindex="@TabIndex"
+      onmouseenter="positionEditorTooltip(this,'@TooltipId')"
+      onfocus="positionEditorTooltip(this,'@TooltipId')"
+      onmouseleave="hideEditorTooltip('@TooltipId')"
+      onblur="hideEditorTooltip('@TooltipId')">
+    <i class="@IconClass"></i>
+    <span id="@TooltipId" class="editor-tooltip" role="tooltip" aria-hidden="true" style="display:none">
+        @if (ChildContent != null)
+        {
+            @ChildContent
+        }
+        else
+        {
+            @Text
+        }
+        <span class="arrow"></span>
+    </span>
+</span>
+
+@code {
+    [Parameter] public string? IconClass { get; set; } = "fa fa-info-circle text-gray-500 cursor-pointer";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public int TabIndex { get; set; } = 0;
+
+    private string TooltipId { get; set; } = "editor-tooltip-" + Guid.NewGuid().ToString("N");
+}
