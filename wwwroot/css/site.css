@@ -15,6 +15,12 @@ h1:focus {
 article {
   background-color: #F5F5F5;
 }
+button:not([disabled]),
+[role="button"]:not([disabled]),
+input[type="button"]:not([disabled]),
+input[type="submit"]:not([disabled]) {
+  cursor: pointer;
+}
 .btn:focus,
 .btn:active:focus,
 .btn-link.nav-link:focus,
