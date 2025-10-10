@@ -1,0 +1,8 @@
+.icon-btn:hover:enabled {
+    background: #333;
+}
+
+.icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}

@@ -1,3 +1,30 @@
 .bg-gradient-home {
     background: linear-gradient(to bottom, #d7dfe9 0%, #F8FBFF 50%, #F5F5F5 100%);
 }
+
+
+@keyframes ChangeColor {
+    0% {
+        margin-left: 30px;
+        margin-right: 30px;
+        border-radius: 100%
+    }
+
+    40% {
+        margin-left: 0px;
+        margin-right: 0px;
+        border-radius: 0%
+    }
+
+    60% {
+        margin-left: 0px;
+        margin-right: 0px;
+        border-radius: 0%
+    }
+
+    100% {
+        margin-left: 30px;
+        margin-right: 30px;
+        border-radius: 100%
+    }
+}
