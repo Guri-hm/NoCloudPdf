@@ -1,3 +1,58 @@
+/* /Components/EditorTooltip.razor.rz.scp.css */
+.editor-tooltip[b-3liwfw8v99] {
+    position: fixed;
+    z-index: 60;
+    background: #111827;
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 200px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    transition: opacity 120ms ease, transform 120ms ease;
+    opacity: 1;
+    pointer-events: none;
+}
+
+.editor-tooltip .arrow[b-3liwfw8v99] {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    transform: rotate(45deg);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+.editor-tooltip[data-dir="top"] .arrow[b-3liwfw8v99] {
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.editor-tooltip[data-dir="bottom"] .arrow[b-3liwfw8v99] {
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.editor-tooltip[data-dir="left"] .arrow[b-3liwfw8v99] {
+    right: -5px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.editor-tooltip[data-dir="right"] .arrow[b-3liwfw8v99] {
+    left: -5px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.editor-tooltip-trigger:focus[b-3liwfw8v99] {
+    outline: none;
+}
 /* /Layout/MainLayout.razor.rz.scp.css */
 .page[b-zdpdkgcm98] {
     position: relative;
