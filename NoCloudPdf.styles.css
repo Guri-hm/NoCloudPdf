@@ -1,3 +1,14 @@
+/* /Components/DropCover.razor.rz.scp.css */
+.checkerboard-bg[b-h0wia8zlkf] {
+    background-color: #fff;
+    background-image:
+        linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+    background-size: 24px 24px;
+    background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+}
 /* /Components/EditorTooltip.razor.rz.scp.css */
 .editor-tooltip[b-3liwfw8v99] {
     position: fixed;
@@ -52,6 +63,112 @@
 
 .editor-tooltip-trigger:focus[b-3liwfw8v99] {
     outline: none;
+}
+/* /Components/MessageBar.razor.rz.scp.css */
+@keyframes message-bar-shrink-b-62o14sny9t {
+    from {
+        width: 100%;
+    }
+
+    to {
+        width: 0%;
+    }
+}
+
+.message-bar-anim[b-62o14sny9t] {
+    animation: message-bar-shrink-b-62o14sny9t 5s linear forwards;
+}
+/* /Components/PreviewModal.razor.rz.scp.css */
+.icon-btn:hover:enabled[b-xruab1ww2f] {
+    background: #333;
+}
+
+.icon-btn:disabled[b-xruab1ww2f] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+/* /Components/ThumbnailCard.razor.rz.scp.css */
+/* サムネイル読み込み完了時のアニメーション */
+.thumbnail-loaded[b-y4yp1edxdh] {
+    animation: fadeIn-b-y4yp1edxdh 0.5s ease-in-out;
+}
+
+@keyframes fadeIn-b-y4yp1edxdh {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.page-error[b-y4yp1edxdh] {
+    position: relative;
+    background: #fef2f2;
+    border: 2px solid #fca5a5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 128px;
+    color: #dc2626;
+    font-size: 12px;
+    text-align: center;
+    padding: 8px;
+}
+
+/* ファイル情報表示スタイル */
+.file-info[b-y4yp1edxdh] {
+    margin-top: 4px;
+    text-align: center;
+    width: 100%;
+    max-width: 96px;
+    /* サムネイル幅(w-24 = 96px)に合わせる */
+    position: relative;
+}
+
+.file-name[b-y4yp1edxdh] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.page-number[b-y4yp1edxdh] {
+    color: #6b7280;
+    font-weight: 400;
+    line-height: 1.1;
+    margin-top: 1px;
+}
+
+
+/* Sortable.js styles */
+.sortable-item[b-y4yp1edxdh] {
+    transition: all 0.3s ease;
+}
+
+.sortable-item:hover[b-y4yp1edxdh] {
+    transform: scale(1.05);
+}
+
+/* サムネイル全体はスクロール許可 */
+.sortable-item-container[b-y4yp1edxdh] {
+    touch-action: pan-y !important;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+}
+
+.sortable-item-container:hover[b-y4yp1edxdh] {
+    z-index: 10;
+}
+
+.drag-handle:hover[b-y4yp1edxdh] {
+    cursor: move !important;
 }
 /* /Layout/MainLayout.razor.rz.scp.css */
 .page[b-zdpdkgcm98] {
@@ -167,4 +284,31 @@ main[b-zdpdkgcm98] {
 /* /Pages/Home.razor.rz.scp.css */
 .bg-gradient-home[b-8ebwfo5w87] {
     background: linear-gradient(to bottom, #d7dfe9 0%, #F8FBFF 50%, #F5F5F5 100%);
+}
+
+
+@keyframes ChangeColor-b-8ebwfo5w87 {
+    0% {
+        margin-left: 30px;
+        margin-right: 30px;
+        border-radius: 100%
+    }
+
+    40% {
+        margin-left: 0px;
+        margin-right: 0px;
+        border-radius: 0%
+    }
+
+    60% {
+        margin-left: 0px;
+        margin-right: 0px;
+        border-radius: 0%
+    }
+
+    100% {
+        margin-left: 30px;
+        margin-right: 30px;
+        border-radius: 100%
+    }
 }
