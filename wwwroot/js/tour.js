@@ -18,8 +18,7 @@
             isMobile
                 ? { id: 'nav-explain', selector: '#nav-hamburger', title: 'メニュー表示', text: '機能の切替メニューを表示できます。すぐに利用される方はこちらから。', position: 'right' }
                 : { id: 'nav-explain', selector: '#nav-main', title: '切替メニュー', text: '機能の切替メニューです。すぐに利用される方は，目的の機能をクリックしてください。', position: 'right' },
-            { id: 'home-tip', selector: '#home-summary-tip', title: '概要', text: 'このページ下部にアプリの概要があります。', position: 'top' },
-            { id: 'install-pwa', selector: '#install-pwa-btn', title: 'インストール', text: 'ここから アプリのインストールをおこなえます。<br/><label style="display:inline-flex;align-items:center;margin-top:8px;"><input id="ncp-tour-dontshow" type="checkbox" style="margin-right:8px;"> 次回から表示しない</label>', position: 'left' }
+            { id: 'home-tip', selector: '#home-summary-tip', title: '概要', text: 'このページ下部にアプリの概要があります。', position: 'top' }
         ];
 
         // DOM上の data-tg-tour 属性を持つ要素を自動検出してステップに追加
@@ -37,6 +36,34 @@
             });
         } catch (e) {
             console.debug('tour: buildSteps auto-detect failed', e);
+        }
+
+        try {
+            const installBtn = document.querySelector('#install-pwa-btn');
+            if (installBtn && isVisible(installBtn)) {
+                steps.push({
+                    id: 'install-pwa',
+                    selector: '#install-pwa-btn',
+                    title: 'インストール',
+                    text: 'ここから アプリのインストールをおこなえます。',
+                    position: 'left'
+                });
+            }
+        } catch (e) {
+            console.debug('tour: check install-pwa failed', e);
+        }
+
+        // 最後のステップに「次回から表示しない」チェックボックスを追加する（既に含めていた場合は二重追加を避ける）
+        try {
+            if (steps.length > 0) {
+                const checkboxHtml = '<br/><label style="display:inline-flex;align-items:center;margin-top:8px;"><input id="ncp-tour-dontshow" type="checkbox" style="margin-right:8px;"> 次回から表示しない</label>';
+                const last = steps[steps.length - 1];
+                if (typeof last.text === 'string' && last.text.indexOf('ncp-tour-dontshow') === -1) {
+                    last.text = (last.text || '') + checkboxHtml;
+                }
+            }
+        } catch (e) {
+            console.debug('tour: append checkbox failed', e);
         }
 
         return steps;
