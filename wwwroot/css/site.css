@@ -2354,6 +2354,11 @@ input[type=number] {
       right: calc(var(--spacing) * 2);
     }
   }
+  .md\:bottom-0 {
+    @media (width >= 48rem) {
+      bottom: calc(var(--spacing) * 0);
+    }
+  }
   .md\:order-1 {
     @media (width >= 48rem) {
       order: 1;
