@@ -88,7 +88,6 @@ window.mergePDFPages = async function (pdfPageDataList) {
             // 回転値が指定されていれば反映
             if (typeof pageInfo === 'object' && pageInfo.rotateAngle && pageInfo.rotateAngle % 360 !== 0) {
                 page.setRotation(degrees(pageInfo.rotateAngle));
-                console.log(`→ setRotation(${pageInfo.rotateAngle}) 実行`);
             }
 
             mergedPdf.addPage(page);
@@ -104,7 +103,7 @@ window.mergePDFPages = async function (pdfPageDataList) {
 };
 
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
-window.renderFirstPDFPage = async function (fileData, password, cacheKey = null) {
+window.renderFirstPDFPage = async function (fileData, password) {
 
     try {
         // BlazorからのデータがUint8Arrayかどうかチェック
@@ -129,7 +128,7 @@ window.renderFirstPDFPage = async function (fileData, password, cacheKey = null)
 
         // 抽出試行時に使用
         // PDF.jsによる読取後にuint8Arrayがdetachされるためコピーを用意
-        const freshArray = new Uint8Array(uint8Array);
+        // const freshArray = new Uint8Array(uint8Array);
 
         const header = String.fromCharCode.apply(null, uint8Array.slice(0, 8));
         if (!header.startsWith('%PDF-')) {
@@ -211,27 +210,26 @@ window.renderFirstPDFPage = async function (fileData, password, cacheKey = null)
         // 権限情報取得(基本取得できない)
         if (pdf && pdf._pdfInfo && pdf._pdfInfo.permissions) {
             // permissionsは配列で、印刷・編集禁止などの情報が入る
-            console.log("PDF permissions:", pdf._pdfInfo.permissions);
             isOperationRestricted = pdf._pdfInfo.permissions.length > 0;
             securityInfo += (isOperationRestricted ? " 操作制限あり" : "");
         }
 
-        // 編集禁止などが判定できないので抽出を試行して判定
-        try {
-            const { PDFDocument } = PDFLib;
-            const pdfDoc = await PDFDocument.load(freshArray);
-            window._pdfLibCache.set(cacheKey, pdfDoc);
-            // 1ページ目をコピー
-            const newPdf = await PDFDocument.create();
-            const [copiedPage] = await newPdf.copyPages(pdfDoc, [0]);
-            // ここまで成功すれば編集可能
-            newPdf.addPage(copiedPage);
-        } catch (extractError) {
-            // 編集不可（暗号化やパーミッション制限など）
-            console.warn("PDF extraction failed, likely due to restrictions:", extractError);
-            isOperationRestricted = true;
-            securityInfo += "編集不可PDF（画像PDFに変換）";
-        }
+        // 編集禁止などが判定できないので抽出を試行して判定→処理時間が長いのでコメントアウト
+        // try {
+        //     const { PDFDocument } = PDFLib;
+        //     const pdfDoc = await PDFDocument.load(freshArray);
+        //     window._pdfLibCache.set(cacheKey, pdfDoc);
+        //     // 1ページ目をコピー
+        //     const newPdf = await PDFDocument.create();
+        //     const [copiedPage] = await newPdf.copyPages(pdfDoc, [0]);
+        //     // ここまで成功すれば編集可能
+        //     newPdf.addPage(copiedPage);
+        // } catch (extractError) {
+        //     // 編集不可（暗号化やパーミッション制限など）
+        //     console.warn("PDF extraction failed, likely due to restrictions:", extractError);
+        //     isOperationRestricted = true;
+        //     securityInfo += "編集不可PDF（画像PDFに変換）";
+        // }
 
         // サムネイル生成
         try {
@@ -278,12 +276,12 @@ window.renderFirstPDFPage = async function (fileData, password, cacheKey = null)
                 try {
                     bookmarks = await mapOutlineItems(outline);
                 } catch (e) {
-                    console.debug('pdf: outline mapping failed', e);
+                    console.error('pdf: outline mapping failed', e);
                     bookmarks = [];
                 }
             }
         } catch (e) {
-            console.debug('pdf: getOutline failed or no outline', e);
+            console.error('pdf: getOutline failed or no outline', e);
             bookmarks = [];
         }
 
@@ -436,19 +434,27 @@ window.getPDFPageCount = async function (pdfData) {
 };
 
 window._pdfLibCache = window._pdfLibCache || new Map();
+// ファイルごとの「画像化フォールバックが発生した」フラグ
+window._pdfLibFileRestricted = window._pdfLibFileRestricted || new Set();
+// JS側から制限フラグを問い合わせるAPI
+window._pdfLibFileIsRestricted = function (key) {
+    try {
+        return !!(key && window._pdfLibFileRestricted && window._pdfLibFileRestricted.has(key));
+    } catch (e) {
+        return false;
+    }
+};
 
 // キャッシュ破棄API（PdfDataService.Clear から呼び出す用）
 window._pdfLibCacheClear = function () {
     try {
         if (window._pdfLibCache && typeof window._pdfLibCache.clear === 'function') {
             window._pdfLibCache.clear();
-            console.debug('_pdfLibCache cleared');
             return true;
         }
         window._pdfLibCache = new Map();
         return true;
     } catch (e) {
-        console.debug('_pdfLibCacheClear failed', e);
         return false;
     }
 };
@@ -463,10 +469,68 @@ window._pdfLibCacheDelete = function (key) {
         }
         return false;
     } catch (e) {
-        console.debug('_pdfLibCacheDelete failed', e);
         return false;
     }
 };
+
+window._pdfLibFileRestrictedClear = function () {
+    try {
+        if (window._pdfLibFileRestricted && typeof window._pdfLibFileRestricted.clear === 'function') {
+            window._pdfLibFileRestricted.clear();
+            return true;
+        }
+        window._pdfLibFileRestricted = new Set();
+        return true;
+    } catch (e) {
+        return false;
+    }
+};
+
+// PDFページを pdf.js でレンダリングして PNG を埋めた単一ページPDF（base64）を返す共通処理
+async function imageFallbackPdf(uint8Array, pageIndex, cacheKey = null) {
+    const pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) throw new Error('pdfjsLib not loaded for image fallback');
+
+    // マーク：画像化フォールバックが発生したファイルとして登録
+    if (cacheKey && window._pdfLibFileRestricted) {
+        try { window._pdfLibFileRestricted.add(cacheKey); } catch (e) { /* ignore */ }
+    }
+
+    const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+    });
+    const pdfForRender = await loadingTask.promise;
+    const page = await pdfForRender.getPage(pageIndex + 1);
+
+    const scale = (pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales && pdfConfig.pdfSettings.scales.unlock) || 1.5;
+    const viewport = page.getViewport({ scale: scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(viewport.width));
+    canvas.height = Math.max(1, Math.round(viewport.height));
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+    const imgDataUrl = canvas.toDataURL('image/png');
+    const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
+
+    const { PDFDocument } = PDFLib;
+    const imgPdf = await PDFDocument.create();
+    const embedded = await imgPdf.embedPng(imgBytes);
+    imgPdf.addPage([canvas.width, canvas.height]);
+    const [imgPage] = imgPdf.getPages();
+    imgPage.drawImage(embedded, { x: 0, y: 0, width: canvas.width, height: canvas.height });
+
+    const newPdfBytes = await imgPdf.save();
+    let bin = '';
+    for (let i = 0; i < newPdfBytes.length; i++) bin += String.fromCharCode(newPdfBytes[i]);
+    return btoa(bin);
+};
+
 // 個別のPDFデータとして抽出する関数
 window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
 
@@ -504,17 +568,12 @@ window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
                     window._pdfLibCache.set(cacheKey, srcPdfDoc);
                 }
             } catch (loadErr) {
-                console.error('extractPdfPage: PDFDocument.load failed, falling back to blank page', loadErr);
-                // ロードに失敗したら空白ページPDFを返す（既存の互換性を保つ）
+                // 該当ページだけ pdf.js でレンダリングして画像化したPDFを返す（画像フォールバック）
                 try {
-                    const blankPdf = await PDFDocument.create();
-                    blankPdf.addPage([595.28, 841.89]);
-                    const pdfBytes = await blankPdf.save();
-                    let binary = '';
-                    for (let j = 0; j < pdfBytes.length; j++) binary += String.fromCharCode(pdfBytes[j]);
-                    return btoa(binary);
-                } catch (fallbackError) {
-                    return '';
+                    return await imageFallbackPdf(uint8Array, pageIndex, cacheKey);
+                } catch (imgErr) {
+                    console.error('extractPdfPage: fallback render failed, returning blank page', imgErr);
+                    return await createBlankPage();
                 }
             }
         }
@@ -522,11 +581,18 @@ window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
         const newPdf = await PDFDocument.create();
 
         try {
+            if (cacheKey && window._pdfLibFileRestricted && window._pdfLibFileRestricted.has(cacheKey)) {
+            throw new Error('file-restricted-precheck');
+            }
             const [copiedPage] = await newPdf.copyPages(srcPdfDoc, [pageIndex]);
             newPdf.addPage(copiedPage);
         } catch (copyError) {
-            // ページコピーに失敗した場合は空白ページを追加
-            newPdf.addPage([595.28, 841.89]);
+            try {
+                return await imageFallbackPdf(uint8Array, pageIndex, cacheKey);
+            } catch (imgErr) {
+                console.error('extractPdfPage: image fallback failed', imgErr);
+                return await createBlankPage();
+            }
         }
 
         const pdfBytes = await newPdf.save();
@@ -541,36 +607,18 @@ window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
 
     } catch (error) {
         console.error(`Error extracting PDF page ${pageIndex}:`, error);
-
         // 完全にエラーが発生した場合は空白PDFを作成
-        try {
-            const { PDFDocument } = PDFLib;
-            const blankPdf = await PDFDocument.create();
-            blankPdf.addPage([595.28, 841.89]); // A4サイズの空白ページ
-            const pdfBytes = await blankPdf.save();
-
-            let binary = '';
-            for (let j = 0; j < pdfBytes.length; j++) {
-                binary += String.fromCharCode(pdfBytes[j]);
-            }
-
-            return btoa(binary);
-        } catch (fallbackError) {
-            return '';
-        }
+        return await createBlankPage();
     }
 };
 
 // 空白ページのPDFを作成
-window.createBlankPage = async function () {
+async function createBlankPage() {
     try {
-        const { PDFDocument, rgb } = PDFLib;
-        const pdfDoc = await PDFDocument.create();
-        const page = pdfDoc.addPage([595.28, 841.89]); // A4サイズ
-
-        // 空白ページなので何も描画しない
-
-        const pdfBytes = await pdfDoc.save();
+        const { PDFDocument} = PDFLib;
+        const blankPdf = await PDFDocument.create();
+        blankPdf.addPage([595.28, 841.89]);
+        const pdfBytes = await blankPdf.save();
 
         // base64エンコーディング
         let binary = '';

@@ -183,7 +183,7 @@ public class PdfDataService
             // パスワード付きPDF対応（最大3回リトライ）
             while (retryCount < 3)
             {
-                renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password,fileId);
+                renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password);
 
                 // パスワード付きPDFの場合
                 if (renderResult.isPasswordProtected)
@@ -202,7 +202,7 @@ public class PdfDataService
                     // passwordは以降不要になるので安全のためnullに設定
                     password = null;
 
-                    renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password,fileId);
+                    renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password);
                     if (!renderResult.isPasswordProtected)
                         break;
                     retryCount++;
@@ -210,11 +210,11 @@ public class PdfDataService
                 }
 
                 // 操作制限がある場合
-                if (renderResult.isOperationRestricted)
-                {
-                    var unlockedBase64 = await _jsRuntime.InvokeAsync<string>("unlockPdf", Convert.ToBase64String(fileData), password);
-                    fileData = Convert.FromBase64String(unlockedBase64);
-                }
+                // if (renderResult.isOperationRestricted)
+                // {
+                //     var unlockedBase64 = await _jsRuntime.InvokeAsync<string>("unlockPdf", Convert.ToBase64String(fileData), password);
+                //     fileData = Convert.FromBase64String(unlockedBase64);
+                // }
                 break;
             }
 
@@ -430,7 +430,7 @@ public class PdfDataService
                         try
                         {
                             var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
-                                "generatePdfThumbnailFromFileMetaData ", fileMetadata.FileData, pageItem.OriginalPageIndex);
+                                "generatePdfThumbnailFromFileMetaData", fileMetadata.FileData, pageItem.OriginalPageIndex);
                             pageItem.Thumbnail = renderResult.thumbnail;
                             pageItem.HasThumbnailError = renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail);
                             pageItem.IsLoading = false;
@@ -459,6 +459,26 @@ public class PdfDataService
                     pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex,fileMetadata.FileId);
                     pageItem.HasPageDataError = string.IsNullOrEmpty(pageItem.PageData);
                     pageItem.IsLoading = false;
+                    try
+                    {
+                        if (!fileMetadata.IsOperationRestricted)
+                        {
+                            var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                            if (isRestricted)
+                            {
+                                fileMetadata.IsOperationRestricted = true;
+                                pageItem.IsOperationRestricted = true;
+                            }
+                        }
+                        else
+                        {
+                            pageItem.IsOperationRestricted = true;
+                        }
+                    }
+                    catch
+                    {
+                        // 無視（冗長問い合わせは失敗しても処理続行）
+                    }
                     await InvokeOnChangeAsync();
                 }
                 catch
@@ -533,7 +553,27 @@ public class PdfDataService
                     }
                     else
                     {
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex,fileMetadata.FileId);
+                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                        try
+                        {
+                            if (!fileMetadata.IsOperationRestricted)
+                            {
+                                var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                                if (isRestricted)
+                                {
+                                    fileMetadata.IsOperationRestricted = true;
+                                    if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                }
+                            }
+                            else
+                            {
+                                if (pageItem != null) pageItem.IsOperationRestricted = true;
+                            }
+                        }
+                        catch
+                        {
+                            // 無視（冗長問い合わせは失敗しても処理続行）
+                        }
                     }
                     thumbError = string.IsNullOrEmpty(thumbnail);
                     dataError = string.IsNullOrEmpty(pageData);
@@ -578,7 +618,27 @@ public class PdfDataService
                         var dataCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                         try
                         {
-                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", dataCts.Token, fileMetadata.FileData, pageIndex,fileMetadata.FileId);
+                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", dataCts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                            try
+                            {
+                                if (!fileMetadata.IsOperationRestricted)
+                                {
+                                    var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                                    if (isRestricted)
+                                    {
+                                        fileMetadata.IsOperationRestricted = true;
+                                        if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                    }
+                                }
+                                else
+                                {
+                                    pageItem.IsOperationRestricted = true;
+                                }
+                            }
+                            catch
+                            {
+                                // 無視（冗長問い合わせは失敗しても処理続行）
+                            }
                         }
                         catch (OperationCanceledException)
                         {
@@ -589,6 +649,11 @@ public class PdfDataService
                     dataError = string.IsNullOrEmpty(pageData);
                 }
 
+                if (pageItem == null)
+                {
+                    // 競合や削除で pageItem が消えている可能性があるため保護
+                    continue;
+                }
                 pageItem.Thumbnail = thumbnail;
                 pageItem.PageData = pageData;
                 pageItem.IsLoading = false;
@@ -716,6 +781,28 @@ public class PdfDataService
                     pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex,fileMetadata.FileId);
                     thumbError = string.IsNullOrEmpty(thumbnail);
                     dataError = string.IsNullOrEmpty(pageData);
+
+                    if (!fileMetadata.IsOperationRestricted)
+                    {
+                        try
+                        {
+                            var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                            if (isRestricted)
+                            {
+                                fileMetadata.IsOperationRestricted = true;
+                                pageItem.IsOperationRestricted = true;
+                            }
+                        }
+                        catch
+                        {
+                            // 無視
+                        }
+                    }
+                    else
+                    {
+                        // 既に制限フラグが立っているなら pageItem にも反映しておく
+                        pageItem.IsOperationRestricted = true;
+                    }
                 }
                 else
                 {
@@ -728,6 +815,28 @@ public class PdfDataService
 
                         pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex,fileMetadata.FileId);
                         dataError = string.IsNullOrEmpty(pageData);
+                        
+                        if (!fileMetadata.IsOperationRestricted)
+                        {
+                            try
+                            {
+                                var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                                if (isRestricted)
+                                {
+                                    fileMetadata.IsOperationRestricted = true;
+                                    pageItem.IsOperationRestricted = true;
+                                }
+                            }
+                            catch
+                            {
+                                // 無視
+                            }
+                        }
+                        else
+                        {
+                            // 既に制限フラグが立っているなら pageItem にも反映しておく
+                            pageItem.IsOperationRestricted = true;
+                        }
                     }
                     catch (OperationCanceledException)
                     {
@@ -1189,6 +1298,7 @@ public class PdfDataService
         {
             // 呼び出しに await を使わないため戻り値は無視する
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibCacheClear");
+            _ = _jsRuntime.InvokeVoidAsync("_pdfLibFileRestrictedClear");
         }
         catch
         {
