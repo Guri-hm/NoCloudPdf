@@ -14,4 +14,7 @@ builder.Services.AddScoped<PdfDataService>();
 // 統一状態管理サービスを登録
 builder.Services.AddSingleton<CompletionStateService>();
 
+// モーダルダイアログサービスを登録
+builder.Services.AddSingleton<ModalService>();
+
 await builder.Build().RunAsync();

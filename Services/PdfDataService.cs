@@ -29,7 +29,8 @@ public class PdfDataService
 
     public SplitInfo SplitInfo { get; private set; } = new SplitInfo();
 
-    // PdfDataService.cs など
+    public Func<List<(string title, int pageIndex)>, Task<List<int>?>>? BookmarkSelectionDialogFunc { get; set; }
+
     internal static readonly string[] SupportedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" };
     internal static readonly string[] SupportedPdfExtensions = new[] { ".pdf" };
 
@@ -239,8 +240,10 @@ public class PdfDataService
                 IsFullyLoaded = false,
                 IsPasswordProtected = wasPasswordProtected,
                 IsOperationRestricted = renderResult.isOperationRestricted,
-                SecurityInfo = renderResult.securityInfo
+                SecurityInfo = renderResult.securityInfo,
+                Bookmarks = renderResult.bookmarks
             };
+
             _model.Files[fileId] = fileMetadata;
 
             // ページ分のItemを準備
@@ -264,6 +267,19 @@ public class PdfDataService
                     IsOperationRestricted = renderResult.isOperationRestricted,
                 };
                 _model.Pages.Insert(baseIndex + i, loadingItem);
+            }
+
+            try
+            {
+                if (fileMetadata?.Bookmarks != null && fileMetadata.Bookmarks.Count > 0)
+                {
+                    var baseIndex2 = insertPosition ?? _model.Pages.Count - pageCount;
+                    await HandleBookmarksForFileAsync(fileMetadata, baseIndex2);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Bookmark split prompt failed: {ex.Message}");
             }
 
             // バックグラウンドで全ページのPageData読み込みを開始
@@ -290,6 +306,57 @@ public class PdfDataService
         }
     }
 
+    // しおりの一覧を平坦化してダイアログ経由で選択を受け、SplitInfo を更新する処理を切り出し
+    private async Task HandleBookmarksForFileAsync(FileMetadata fileMetadata, int baseIndex)
+    {
+        try
+        {
+            var flat = new List<(string title, int pageIndex)>();
+            void Walk(List<Bookmark> items)
+            {
+                foreach (var b in items)
+                {
+                    flat.Add((b.Title ?? "", b.PageIndex));
+                    if (b.Items != null && b.Items.Count > 0) Walk(b.Items);
+                }
+            }
+            Walk(fileMetadata.Bookmarks);
+
+            var candidates = flat.Where(f => f.pageIndex > 0).ToList();
+            if (candidates.Count == 0) return;
+
+            List<int>? selected = null;
+            try
+            {
+                if (BookmarkSelectionDialogFunc != null)
+                {
+                    selected = await BookmarkSelectionDialogFunc(candidates);
+                }
+            }
+            catch
+            {
+                selected = null;
+            }
+
+            if (selected != null && selected.Count > 0)
+            {
+                var toAdd = selected.Select(sel => baseIndex + sel)
+                                    .Where(pos => pos > 0 && pos < _model.Pages.Count)
+                                    .Distinct()
+                                    .OrderBy(i => i);
+                foreach (var pos in toAdd)
+                {
+                    if (!SplitInfo.SplitPositions.Contains(pos)) SplitInfo.SplitPositions.Add(pos);
+                }
+                await InvokeOnChangeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"HandleBookmarksForFileAsync failed: {ex.Message}");
+        }
+    }
+
     public Func<string, Task<string?>>? PasswordInputDialogFunc { get; set; }
 
     private async Task<string?> ShowPasswordInputDialogAsync(string fileName)
@@ -312,7 +379,9 @@ public class PdfDataService
         public bool isPasswordProtected { get; set; }
         public bool isOperationRestricted { get; set; }
         public string securityInfo { get; set; } = "";
+        public List<Bookmark> bookmarks { get; set; } = [];
     }
+
     /// <summary>
     /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示，ファイル単位表示で処理切り分け）
     /// モード切替時に処理をキャンセル
@@ -1111,7 +1180,9 @@ public class PdfDataService
     {
         _model.Pages.Clear();
         _model.Files.Clear();
-        _model.CurrentMode = DisplayMode.File;
+        SplitInfo = new SplitInfo();
+        // 表示単位はクリアしない
+        // _model.CurrentMode = DisplayMode.File;
     }
 
     /// <summary>

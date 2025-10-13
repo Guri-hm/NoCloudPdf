@@ -1,0 +1,128 @@
+@inject NoCloudPdf.Services.ModalService ModalService
+@using NoCloudPdf.Components
+
+<!-- コンテナ: 常に最前面に出るよう大きな z-index を指定し、中央に配置 -->
+<div class="fixed inset-0 flex items-center justify-center p-4"
+    style="z-index:99999; display:@(Visible ? "flex" : "none")" aria-hidden="@(!Visible)">
+    <!-- backdrop: ポインターを遮断して下位の UI をクリックできないようにする -->
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @onclick="OnCancel" style="pointer-events:auto"></div>
+
+    <!-- モーダルカード: 幅を抑え、縦サイズはビューポートに合わせスクロール可能に -->
+    <div class="relative w-full max-w-lg max-h-[80vh] bg-white rounded-lg shadow-lg overflow-auto z-[100000]">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">
+            <BookRibbonIcon class="inline-block align-middle w-[1em] h-[1em]" />
+            しおりで分割しますか？
+            </h3>
+            <button class="text-gray-500 hover:text-gray-700 p-1" title="閉じる" @onclick="OnCancel" aria-label="閉じる">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="p-4">
+            <p class="text-sm text-gray-600 mb-3">ファイル内に目次（しおり）を検出しました。チェックした項目の直前でファイルを分割します。分割したい項目にチェックを入れ、「OK」を押してください（初期は全選択）。</p>
+
+            <div class="max-h-[54vh] overflow-auto border rounded bg-white">
+                @if (Items != null && Items.Count > 0)
+                {
+                    <ul class="divide-y">
+                        @for (int i = 0; i < Items.Count; i++)
+                        {
+                            var idx = i;
+                            <li class="px-4 py-3 flex items-start gap-3">
+                                <label class="flex items-center gap-3 w-full cursor-pointer">
+                                    <input type="checkbox" class="form-checkbox h-4 w-4 text-blue-600"
+                                        checked="@(GetChecked(idx))" @onchange="e => OnCheckedChanged(idx , e)" />
+                                    <div class="text-sm text-gray-800">
+                                        <div class="font-medium">@Items[idx].title</div>
+                                        <div class="text-xs text-gray-500">ページ @(Items[idx].pageIndex + 1)</div>
+                                    </div>
+                                </label>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="p-4 text-sm text-gray-500">しおりは見つかりませんでした。</div>
+                }
+            </div>
+        </div>
+
+        <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+            <button class="bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2 rounded"
+                @onclick="OnCancel">キャンセル</button>
+            <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" @onclick="OnOk">OK</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    
+    private List<(string title, int pageIndex)>? Items;
+    private bool Visible = false;
+    private List<bool> Checked = new();
+
+    protected override void OnInitialized()
+    {
+        ModalService.OnShowBookmarkDialog += ShowAsync;
+    }
+
+    // show 要求を受ける (ModalService が await する)
+    public async Task ShowAsync(List<(string title, int pageIndex)> items)
+    {
+        Items = items ?? new List<(string title, int pageIndex)>();
+        // 常に Items.Count に合わせる（デフォルト: 全て true）
+        Checked = Enumerable.Range(0, Items.Count).Select(_ => true).ToList();
+        Visible = true;
+        StateHasChanged();
+        // 戻るのは ModalService 側の TaskCompletionSource が完了したとき
+        await Task.Yield();
+    }
+
+    private bool GetChecked(int idx)
+    {
+        if (idx < 0 || idx >= Checked.Count) return true;
+        return Checked[idx];
+    }
+
+    private void OnCheckedChanged(int idx, ChangeEventArgs e)
+    {
+        if (Items == null) return;
+
+        if (idx < 0 || idx >= Checked.Count) return;
+        Checked[idx] = !Checked[idx];
+        StateHasChanged();
+    }
+
+    private void OnOk()
+    {
+        if (Items == null) { Close(null); return; }
+        var selected = new List<int>();
+        for (int i = 0; i < Items.Count; i++)
+        {
+            if (i < Checked.Count && Checked[i]) selected.Add(Items[i].pageIndex);
+        }
+        Close(selected);
+    }
+
+    private void OnCancel()
+    {
+        Close(null);
+    }
+
+    private void Close(List<int>? result)
+    {
+        Visible = false;
+        StateHasChanged();
+        ModalService.CloseBookmarkDialog(result);
+    }
+
+    public void Dispose()
+    {
+        try { ModalService.OnShowBookmarkDialog -= ShowAsync; } catch { }
+    }
+}

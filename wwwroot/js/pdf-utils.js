@@ -247,11 +247,51 @@ window.renderFirstPDFPage = async function (fileData, password) {
             thumbnail = "";
         }
 
+        let bookmarks = [];
+        try {
+            const outline = await pdf.getOutline(); // PDF.js の getOutline()
+            if (outline && outline.length) {
+                // 再帰でツリー構造をページ番号付きで取り出すヘルパー
+                async function mapOutlineItems(items) {
+                    const results = [];
+                    for (const it of items) {
+                        let pageIndex = null;
+                        try {
+                            let dest = it.dest;
+                            if (typeof dest === 'string') {
+                                dest = await pdf.getDestination(dest);
+                            }
+                            if (Array.isArray(dest) && dest.length > 0) {
+                                // dest[0] はページ参照オブジェクトのことが多い
+                                try { pageIndex = await pdf.getPageIndex(dest[0]); } catch (e) { pageIndex = null; }
+                            }
+                        } catch (e) { /* ignore */ }
+                        const node = { title: it.title || '', pageIndex: pageIndex, items: [] };
+                        if (it.items && it.items.length) {
+                            node.items = await mapOutlineItems(it.items);
+                        }
+                        results.push(node);
+                    }
+                    return results;
+                }
+                try {
+                    bookmarks = await mapOutlineItems(outline);
+                } catch (e) {
+                    console.debug('pdf: outline mapping failed', e);
+                    bookmarks = [];
+                }
+            }
+        } catch (e) {
+            console.debug('pdf: getOutline failed or no outline', e);
+            bookmarks = [];
+        }
+
         return {
             thumbnail,
             isPasswordProtected,
             isOperationRestricted,
-            securityInfo
+            securityInfo,
+            bookmarks
         };
 
     } catch (error) {
@@ -260,7 +300,8 @@ window.renderFirstPDFPage = async function (fileData, password) {
             thumbnail: "",
             isPasswordProtected: error && error.name === "PasswordException",
             isOperationRestricted: false,
-            securityInfo: error && error.name === "PasswordException" ? "パスワード付きPDF" : "解析失敗"
+            securityInfo: error && error.name === "PasswordException" ? "パスワード付きPDF" : "解析失敗",
+            bookmarks: []
         };
     }
 };

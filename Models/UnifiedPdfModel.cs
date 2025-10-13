@@ -62,6 +62,7 @@ public class FileMetadata
     public bool IsPasswordProtected { get; set; } // パスワード保護フラグ
     public bool IsOperationRestricted { get; set; } // 操作制限フラグ
     public string? SecurityInfo { get; set; } // 詳細なセキュリティ情報
+    public List<Bookmark> Bookmarks { get; set; } = []; // PDFのしおりツリー（存在しない場合は空）   
 }
 
 /// <summary>
