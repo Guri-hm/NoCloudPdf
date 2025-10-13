@@ -434,8 +434,9 @@ window.getPDFPageCount = async function (pdfData) {
     }
 };
 
+window._pdfLibCache = window._pdfLibCache || new Map();
 // 個別のPDFデータとして抽出する関数
-window.extractPdfPage = async function (pdfData, pageIndex) {
+window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
 
     try {
         const { PDFDocument } = PDFLib;
@@ -459,11 +460,37 @@ window.extractPdfPage = async function (pdfData, pageIndex) {
             uint8Array = new Uint8Array(pdfData);
         }
 
-        const pdfDoc = await PDFDocument.load(uint8Array);
+        // cacheKey がある場合はキャッシュから PDFDocument を取得、なければロードしてキャッシュ
+        let srcPdfDoc = null;
+        if (cacheKey && window._pdfLibCache.has(cacheKey)) {
+            srcPdfDoc = window._pdfLibCache.get(cacheKey);
+        } else {
+            try {
+                srcPdfDoc = await PDFDocument.load(uint8Array);
+                if (cacheKey) {
+                    // キャッシュに保存（必要なら後で明示的に削除できる）
+                    window._pdfLibCache.set(cacheKey, srcPdfDoc);
+                }
+            } catch (loadErr) {
+                console.error('extractPdfPage: PDFDocument.load failed, falling back to blank page', loadErr);
+                // ロードに失敗したら空白ページPDFを返す（既存の互換性を保つ）
+                try {
+                    const blankPdf = await PDFDocument.create();
+                    blankPdf.addPage([595.28, 841.89]);
+                    const pdfBytes = await blankPdf.save();
+                    let binary = '';
+                    for (let j = 0; j < pdfBytes.length; j++) binary += String.fromCharCode(pdfBytes[j]);
+                    return btoa(binary);
+                } catch (fallbackError) {
+                    return '';
+                }
+            }
+        }
+
         const newPdf = await PDFDocument.create();
 
         try {
-            const [copiedPage] = await newPdf.copyPages(pdfDoc, [pageIndex]);
+            const [copiedPage] = await newPdf.copyPages(srcPdfDoc, [pageIndex]);
             newPdf.addPage(copiedPage);
         } catch (copyError) {
             // ページコピーに失敗した場合は空白ページを追加
