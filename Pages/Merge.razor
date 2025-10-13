@@ -21,6 +21,11 @@
             <div
                 class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 <div class="flex flex-wrap gap-2 items-center">
+                    <ActionButtonGroup T="string" Actions="resetActions" />
+
+                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
+                    <div class="md:hidden w-2"></div>
+
                     <h1 class="hidden md:inline text-lg font-bold">結合</h1>
                     <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="CurrentDisplayModeString"
                         OnClick="OnToggleMode" />
@@ -170,7 +175,7 @@
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
-                        <i class="fa-solid fa-rotate-right mr-2"></i>
+                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
                         新規作成
                     </button>
                 </InfoPanel>
@@ -195,7 +200,7 @@
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
-                        <i class="fa-solid fa-rotate-right mr-2"></i>
+                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
                         新規作成
                     </button>
                 </div>
@@ -835,6 +840,22 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
         Title = "逆順",
         OnClick = EventCallback.Factory.Create(this, ReverseOrder)
+        }
+    };
+
+    private List<ActionButtonItem> resetActions => new()
+    {
+        new ActionButtonItem
+        {
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ResetIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5"); // 必要に応じてサイズ調整
+                builder.CloseComponent();
+            },
+            Title = "最初からやり直す",
+            OnClick = EventCallback.Factory.Create(this, StartNew),
+            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded"
         }
     };
 
