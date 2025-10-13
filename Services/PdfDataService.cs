@@ -183,7 +183,7 @@ public class PdfDataService
             // パスワード付きPDF対応（最大3回リトライ）
             while (retryCount < 3)
             {
-                renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password);
+                renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password,fileId);
 
                 // パスワード付きPDFの場合
                 if (renderResult.isPasswordProtected)
@@ -202,7 +202,7 @@ public class PdfDataService
                     // passwordは以降不要になるので安全のためnullに設定
                     password = null;
 
-                    renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password);
+                    renderResult = await _jsRuntime.InvokeAsync<RenderResult>("renderFirstPDFPage", fileData, password,fileId);
                     if (!renderResult.isPasswordProtected)
                         break;
                     retryCount++;
