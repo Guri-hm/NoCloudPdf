@@ -104,7 +104,7 @@ window.mergePDFPages = async function (pdfPageDataList) {
 };
 
 // 高速読み込み用 - 最初のページのサムネイルのみ生成
-window.renderFirstPDFPage = async function (fileData, password) {
+window.renderFirstPDFPage = async function (fileData, password, cacheKey = null) {
 
     try {
         // BlazorからのデータがUint8Arrayかどうかチェック
@@ -220,6 +220,7 @@ window.renderFirstPDFPage = async function (fileData, password) {
         try {
             const { PDFDocument } = PDFLib;
             const pdfDoc = await PDFDocument.load(freshArray);
+            window._pdfLibCache.set(cacheKey, pdfDoc);
             // 1ページ目をコピー
             const newPdf = await PDFDocument.create();
             const [copiedPage] = await newPdf.copyPages(pdfDoc, [0]);
