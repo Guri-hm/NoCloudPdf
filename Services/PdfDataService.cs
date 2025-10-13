@@ -1183,6 +1183,17 @@ public class PdfDataService
         SplitInfo = new SplitInfo();
         // 表示単位はクリアしない
         // _model.CurrentMode = DisplayMode.File;
+
+        // JS側の pdf-lib キャッシュを非同期でクリア
+        try
+        {
+            // 呼び出しに await を使わないため戻り値は無視する
+            _ = _jsRuntime.InvokeVoidAsync("_pdfLibCacheClear");
+        }
+        catch
+        {
+            // 何もしない（Clear は同期APIなので例外は抑える）
+        }
     }
 
     /// <summary>

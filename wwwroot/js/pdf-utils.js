@@ -436,6 +436,37 @@ window.getPDFPageCount = async function (pdfData) {
 };
 
 window._pdfLibCache = window._pdfLibCache || new Map();
+
+// キャッシュ破棄API（PdfDataService.Clear から呼び出す用）
+window._pdfLibCacheClear = function () {
+    try {
+        if (window._pdfLibCache && typeof window._pdfLibCache.clear === 'function') {
+            window._pdfLibCache.clear();
+            console.debug('_pdfLibCache cleared');
+            return true;
+        }
+        window._pdfLibCache = new Map();
+        return true;
+    } catch (e) {
+        console.debug('_pdfLibCacheClear failed', e);
+        return false;
+    }
+};
+
+// 任意で個別削除API（既存提案と互換）
+window._pdfLibCacheDelete = function (key) {
+    try {
+        if (!key) return false;
+        if (window._pdfLibCache && window._pdfLibCache.has(key)) {
+            window._pdfLibCache.delete(key);
+            return true;
+        }
+        return false;
+    } catch (e) {
+        console.debug('_pdfLibCacheDelete failed', e);
+        return false;
+    }
+};
 // 個別のPDFデータとして抽出する関数
 window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
 
