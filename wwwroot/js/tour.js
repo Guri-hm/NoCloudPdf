@@ -13,7 +13,6 @@
         try {
             if (!el) return false;
             const style = window.getComputedStyle(el);
-            console.log('isVisible:', style.display);
             return style && style.display !== 'none';
         } catch (e) {
             return false;
