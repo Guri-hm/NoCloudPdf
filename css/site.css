@@ -816,6 +816,9 @@ input[type=number] {
   .h-32 {
     height: calc(var(--spacing) * 32);
   }
+  .h-\[1em\] {
+    height: 1em;
+  }
   .h-\[44px\] {
     height: 44px;
   }
@@ -899,6 +902,9 @@ input[type=number] {
   }
   .w-80 {
     width: calc(var(--spacing) * 80);
+  }
+  .w-\[1em\] {
+    width: 1em;
   }
   .w-\[50px\] {
     width: 50px;
@@ -1333,6 +1339,9 @@ input[type=number] {
   }
   .bg-amber-50 {
     background-color: var(--color-amber-50);
+  }
+  .bg-amber-200 {
+    background-color: var(--color-amber-200);
   }
   .bg-amber-400 {
     background-color: var(--color-amber-400);
@@ -2010,6 +2019,13 @@ input[type=number] {
     &:hover {
       @media (hover: hover) {
         border-color: #d39e00;
+      }
+    }
+  }
+  .hover\:bg-amber-400 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-amber-400);
       }
     }
   }
