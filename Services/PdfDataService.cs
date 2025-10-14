@@ -1304,6 +1304,8 @@ public class PdfDataService
         {
             // 何もしない（Clear は同期APIなので例外は抑える）
         }
+        _trimRects.Clear();
+
     }
 
     /// <summary>
@@ -1670,5 +1672,38 @@ public class PdfDataService
     //         OnChange?.Invoke();
     //     }
     // }
+
+    private Dictionary<int, TrimRectInfo> _trimRects = new();
+    
+    public class TrimRectInfo
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+    
+    public Task SetTrimRect(int pageIndex, double x, double y, double width, double height)
+    {
+        _trimRects[pageIndex] = new TrimRectInfo { X = x, Y = y, Width = width, Height = height };
+        return Task.CompletedTask;
+    }
+    
+    public void ClearTrimRect(int pageIndex)
+    {
+        _trimRects.Remove(pageIndex);
+    }
+    
+    public TrimRectInfo? GetTrimRect(int pageIndex)
+    {
+        return _trimRects.TryGetValue(pageIndex, out var rect) ? rect : null;
+    }
+    
+    public Dictionary<int, TrimRectInfo> GetAllTrimRects()
+    {
+        return new Dictionary<int, TrimRectInfo>(_trimRects);
+    }
+    
+
 }
 

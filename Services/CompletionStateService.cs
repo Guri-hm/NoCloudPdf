@@ -2,12 +2,14 @@ public class CompletionStateService
 {
     public bool ShowSplitOrExtractResult { get; set; }
     public bool ShowMergedResult { get; set; }
+    public bool ShowTrimmedResult { get; set; }
 
     public enum CompletionType
     {
         None,
         SplitOrExtract,
         Merged,
+        Trimmed,
     }
 
     public CompletionType Current { get; private set; } = CompletionType.None;

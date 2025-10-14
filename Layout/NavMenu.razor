@@ -35,6 +35,11 @@
             <span class="text-[10px] mt-1 opacity-80">分割</span>
         </NavLink>
         <NavLink class="flex flex-col items-center w-full py-2 text-white hover:bg-gray-700/70 rounded-lg transition"
+            href="trim">
+            <SplitIcon Class="w-8 h-8" />
+            <span class="text-[10px] mt-1 opacity-80">トリミング</span>
+        </NavLink>
+        <NavLink class="flex flex-col items-center w-full py-2 text-white hover:bg-gray-700/70 rounded-lg transition"
             href="edit">
             <EditIcon Class="w-8 h-8" />
             <span class="text-[10px] mt-1 opacity-80">編集</span>
@@ -66,6 +71,7 @@
         if (uri.EndsWith("/merge")) return "結合";
         if (uri.EndsWith("/split")) return "分割";
         if (uri.EndsWith("/edit")) return "編集";
+        if (uri.EndsWith("/trim")) return "トリミング";
         if (uri.EndsWith("/")) return "NoCloudPDF";
         // 必要に応じて他のページも追加
         return "";

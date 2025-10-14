@@ -1,0 +1,155 @@
+@inject IJSRuntime JSRuntime
+
+<div class="h-full overflow-y-auto bg-gray-100" 
+     @ref="containerRef"
+     id="trim-preview-container">
+    @foreach (var item in PreviewItems)
+    {
+        <div class="relative bg-white my-4 mx-auto shadow-lg" 
+             style="max-width: 800px;"
+             id="preview-page-@item.Index"
+             @ref="item.ElementRef">
+            <div class="relative" 
+                 @ref="item.ImageContainerRef"
+                 @onmousedown="@(e => OnMouseDown(e, item))"
+                 @onmousemove="@(e => OnMouseMove(e, item))"
+                 @onmouseup="@(e => OnMouseUp(e, item))"
+                 @onmouseleave="@(e => OnMouseLeave(e, item))"
+                 style="cursor: @(IsDrawingMode ? "crosshair" : "default"); user-select: none;">
+                <img src="@item.ImageUrl" 
+                     class="w-full h-auto block"
+                     draggable="false"
+                     @onload="@(() => OnImageLoaded(item))" />
+                
+                @if (item.TrimRect != null && item.IsImageLoaded)
+                {
+                    <div class="absolute border-2 border-blue-500 bg-blue-500 bg-opacity-20"
+                         style="left: @(item.TrimRect.X)px; top: @(item.TrimRect.Y)px; width: @(item.TrimRect.Width)px; height: @(item.TrimRect.Height)px; pointer-events: none;">
+                    </div>
+                }
+            </div>
+            <div class="absolute top-2 left-2 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-sm">
+                ページ @(item.Index + 1)
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<PreviewItemData> PreviewItems { get; set; } = new();
+    [Parameter] public bool IsDrawingMode { get; set; }
+    [Parameter] public EventCallback<(int index, TrimRect rect)> OnTrimRectChanged { get; set; }
+    
+    private ElementReference containerRef;
+    private PreviewItemData? currentDrawingItem;
+    private bool isDrawing = false;
+    private double startX, startY;
+    
+    public class PreviewItemData
+    {
+        public int Index { get; set; }
+        public string ImageUrl { get; set; } = "";
+        public TrimRect? TrimRect { get; set; }
+        public ElementReference ElementRef { get; set; }
+        public ElementReference ImageContainerRef { get; set; }
+        public bool IsImageLoaded { get; set; }
+        public double ContainerWidth { get; set; }
+        public double ContainerHeight { get; set; }
+    }
+    
+    public class TrimRect
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+    
+    private async Task OnImageLoaded(PreviewItemData item)
+    {
+        item.IsImageLoaded = true;
+        var dimensions = await JSRuntime.InvokeAsync<double[]>("getElementDimensions", item.ImageContainerRef);
+        if (dimensions.Length >= 2)
+        {
+            item.ContainerWidth = dimensions[0];
+            item.ContainerHeight = dimensions[1];
+        }
+        StateHasChanged();
+    }
+    
+    private void OnMouseDown(MouseEventArgs e, PreviewItemData item)
+    {
+        if (!IsDrawingMode || !item.IsImageLoaded) return;
+        
+        isDrawing = true;
+        currentDrawingItem = item;
+        
+        var rect = GetRelativePosition(e, item);
+        startX = rect.x;
+        startY = rect.y;
+        
+        item.TrimRect = new TrimRect
+        {
+            X = startX,
+            Y = startY,
+            Width = 0,
+            Height = 0
+        };
+        StateHasChanged();
+    }
+    
+    private void OnMouseMove(MouseEventArgs e, PreviewItemData item)
+    {
+        if (!isDrawing || currentDrawingItem != item || item.TrimRect == null) return;
+        
+        var rect = GetRelativePosition(e, item);
+        var currentX = Math.Max(0, Math.Min(rect.x, item.ContainerWidth));
+        var currentY = Math.Max(0, Math.Min(rect.y, item.ContainerHeight));
+        
+        item.TrimRect.X = Math.Min(startX, currentX);
+        item.TrimRect.Y = Math.Min(startY, currentY);
+        item.TrimRect.Width = Math.Abs(currentX - startX);
+        item.TrimRect.Height = Math.Abs(currentY - startY);
+        
+        StateHasChanged();
+    }
+    
+    private async Task OnMouseUp(MouseEventArgs e, PreviewItemData item)
+    {
+        if (!isDrawing || currentDrawingItem != item) return;
+        
+        isDrawing = false;
+        currentDrawingItem = null;
+        
+        if (item.TrimRect != null && item.TrimRect.Width > 5 && item.TrimRect.Height > 5)
+        {
+            await OnTrimRectChanged.InvokeAsync((item.Index, item.TrimRect));
+        }
+        else
+        {
+            item.TrimRect = null;
+            StateHasChanged();
+        }
+    }
+    
+    private void OnMouseLeave(MouseEventArgs e, PreviewItemData item)
+    {
+        if (isDrawing && currentDrawingItem == item)
+        {
+            OnMouseUp(e, item);
+        }
+    }
+    
+    private (double x, double y) GetRelativePosition(MouseEventArgs e, PreviewItemData item)
+    {
+        return (e.OffsetX, e.OffsetY);
+    }
+    
+    public async Task ScrollToPage(int index)
+    {
+        if (index >= 0 && index < PreviewItems.Count)
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToElement", $"preview-page-{index}");
+        }
+    }
+}
