@@ -1,65 +1,66 @@
 @using NoCloudPdf.Models
 @inject IJSRuntime JSRuntime
 
-<div class="relative bg-white border rounded shadow hover:shadow-md transition cursor-pointer @(IsSelected ? "ring-2 ring-blue-500" : "")"
+<div class="relative transition cursor-pointer @(IsSelected ? "ring-2 ring-blue-500 bg-blue-50/40" : "")"
      @onclick="OnClick">
-    <div class="aspect-[3/4] relative">
-        @{
-            int angle = Item.RotateAngle % 360;
-            string rotateClass = angle switch
+    <div class="flex flex-col items-center p-2 w-28">
+        <div class="w-24 h-32 flex items-center justify-center mb-2">
+            @{
+                int angle = Item.RotateAngle % 360;
+                string rotateClass = angle switch
+                {
+                    0 => "rotate-0",
+                    90 => "rotate-90",
+                    180 => "rotate-180",
+                    270 => "rotate-270",
+                    _ => "rotate-0"
+                };
+                double scale = (angle == 90 || angle == 270)
+                    ? Math.Min(96.0 / 128.0, 128.0 / 96.0)
+                    : 1.0;
+                string transform = $"scale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
+            }
+
+            @if (Item.IsLoading)
             {
-                0 => "rotate-0",
-                90 => "rotate-90",
-                180 => "rotate-180",
-                270 => "rotate-270",
-                _ => "rotate-0"
-            };
-            double scale = (angle == 90 || angle == 270)
-                ? Math.Min(96.0 / 128.0, 128.0 / 96.0)
-                : 1.0;
-            string transform = $"scale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
-        }
-        
-        @if (Item.IsLoading)
-        {
-            <div class="absolute inset-0 flex items-center justify-center bg-gray-100">
-                <i class="fa-solid fa-spinner fa-spin text-2xl text-gray-400"></i>
-            </div>
-        }
-        else if (Item.HasError)
-        {
-            <div class="absolute inset-0 flex items-center justify-center bg-red-50">
-                <i class="fa-solid fa-triangle-exclamation text-2xl text-red-400"></i>
-            </div>
-        }
-        else if (!string.IsNullOrEmpty(Item.Thumbnail))
-        {
-            <canvas id="trim-thumb-@Item.Id" 
-                    class="w-full h-full object-contain border border-gray-200 bg-white @rotateClass"
-                    width="96" height="128"
-                    style="transform: @transform;"></canvas>
-        }
-        else
-        {
-            <div class="absolute inset-0 bg-gray-200"></div>
-        }
-        
-        @if (HasTrimRect)
-        {
-            <div class="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">
-                <i class="fa-solid fa-crop"></i>
-            </div>
-        }
-    </div>
-    
-    <div class="p-2 text-center">
-        <div class="text-xs font-semibold truncate px-1 rounded" 
-             title="@Item.FullFileName"
-             style="background: @Item.ColorHsl;">
-            @Item.DisplayName
+                <div class="w-full h-full flex items-center justify-center bg-gray-100">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-gray-400"></i>
+                </div>
+            }
+            else if (Item.HasError)
+            {
+                <div class="w-full h-full flex items-center justify-center bg-red-50">
+                    <i class="fa-solid fa-triangle-exclamation text-2xl text-red-400"></i>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(Item.Thumbnail))
+            {
+                <canvas id="trim-thumb-@Item.Id"
+                        class="w-full h-full object-contain border border-gray-200 bg-white @rotateClass"
+                        width="96" height="128"
+                        style="transform: @transform;"></canvas>
+            }
+            else
+            {
+                <div class="w-full h-full bg-gray-200 rounded"></div>
+            }
+
+            @if (HasTrimRect)
+            {
+                <div class="absolute top-2 right-2 bg-blue-500 text-white px-2 py-0.5 rounded text-xs font-bold">
+                    <i class="fa-solid fa-crop"></i>
+                </div>
+            }
         </div>
-        <div class="text-xs text-gray-500 mt-1">
-            @Item.PageInfo
+
+        <div class="w-full text-center">
+            <div class="text-xs font-semibold truncate px-1 rounded" title="@Item.FullFileName"
+                 style="background: @Item.ColorHsl;">
+                @Item.DisplayName
+            </div>
+            <div class="text-xs text-gray-500 mt-1">
+                @Item.PageInfo
+            </div>
         </div>
     </div>
 </div>
@@ -69,5 +70,4 @@
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public bool HasTrimRect { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
-    
 }

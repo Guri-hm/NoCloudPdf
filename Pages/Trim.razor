@@ -64,24 +64,24 @@
                         var index = i;
                         var item = DisplayItems[i];
                         <TrimThumbnailCard Item="@item"
-                                          IsSelected="@(selectedPageIndex == index)"
-                                          HasTrimRect="@(trimRects.ContainsKey(index))"
-                                          OnClick="@(() => SelectPage(index))" />
+                            IsSelected="@(selectedPageIndex == index)"
+                            HasTrimRect="@(trimRects.ContainsKey(index))"
+                            OnClick="@(() => SelectPage(index))" />
                     }
                 </div>
             </div>
             
             <!-- リサイズハンドル -->
             <div class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500"
-                 @onmousedown="StartResize"
-                 @onmousedown:preventDefault></div>
+                @onmousedown="StartResize"
+                @onmousedown:preventDefault></div>
             
             <!-- 右側：プレビューエリア -->
             <div class="flex-1">
                 <TrimPreviewArea PreviewItems="@previewItems"
-                               IsDrawingMode="@isDrawingMode"
-                               OnTrimRectChanged="@OnTrimRectChanged"
-                               @ref="trimPreviewArea" />
+                    IsDrawingMode="@isDrawingMode"
+                    OnTrimRectChanged="@OnTrimRectChanged"
+                    @ref="trimPreviewArea" />
             </div>
         </div>
     </div>
@@ -1127,15 +1127,15 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
             _dotNetRef = DotNetObjectReference.Create(this);
             
             // リサイズイベント登録（JSが未定義の場合は例外を食わせる）
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef);
-            }
-            catch (Exception ex)
-            {
-                // ログ出力して続行（開発環境でJSがロードされていないケースを許容）
-                Console.WriteLine($"registerPanelResize not available: {ex.Message}");
-            }
+            //try
+            //{
+            //    await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef);
+            //}
+            //catch (Exception ex)
+            //{
+            //    // ログ出力して続行（開発環境でJSがロードされていないケースを許容）
+            //    Console.WriteLine($"registerPanelResize not available: {ex.Message}");
+            //}
         }
         
         // 初期画面のときのみ登録
