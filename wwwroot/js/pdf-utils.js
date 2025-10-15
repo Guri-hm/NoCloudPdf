@@ -802,23 +802,69 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 // 編集画面のサムネイル描画（画像→canvas）
 // 編集画面は各ページデータには画像URLがあるので、
 // 画像をcanvasに描画する関数を用意
-window.drawImageToCanvas = function (canvasId, imageUrl) {
+// window.drawImageToCanvas = function (canvasId, imageUrl) {
+//     const canvas = document.getElementById(canvasId);
+//     if (!canvas) return;
+//     const ctx = canvas.getContext('2d');
+//     const img = new window.Image();
+//     img.onload = function () {
+//         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+//         // 枠いっぱいにアスペクト比を保って描画
+//         const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+//         const drawWidth = img.width * scale;
+//         const drawHeight = img.height * scale;
+//         ctx.drawImage(img,
+//             (canvas.width - drawWidth) / 2,
+//             (canvas.height - drawHeight) / 2,
+//             drawWidth, drawHeight);
+//     };
+//     img.src = imageUrl;
+// };
+window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const img = new window.Image();
-    img.onload = function () {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 枠いっぱいにアスペクト比を保って描画
-        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-        const drawWidth = img.width * scale;
-        const drawHeight = img.height * scale;
-        ctx.drawImage(img,
-            (canvas.width - drawWidth) / 2,
-            (canvas.height - drawHeight) / 2,
-            drawWidth, drawHeight);
+    img.onload = function () {
+        try {
+            // 表示サイズ（CSSピクセル）
+            const rect = canvas.getBoundingClientRect();
+            const cssW = Math.max(1, rect.width || canvas.clientWidth || 96);
+            const cssH = Math.max(1, rect.height || canvas.clientHeight || 128);
+
+            const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
+
+            // 内部ピクセルバッファを調整
+            canvas.width = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+
+            // CSS 表示サイズを保持
+            canvas.style.width = cssW + "px";
+            canvas.style.height = cssH + "px";
+
+            // 高DPI対応：コンテキストをスケール
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            // アスペクト比を維持して中央に描画
+            const scale = Math.min(cssW / img.width, cssH / img.height);
+            const drawW = img.width * scale;
+            const drawH = img.height * scale;
+            ctx.drawImage(img,
+                (cssW - drawW) / 2,
+                (cssH - drawH) / 2,
+                drawW, drawH);
+        } catch (e) {
+            console.debug('drawImageToCanvas error', e);
+        }
     };
+
+    img.onerror = function (e) {
+        console.debug('drawImageToCanvas image load error', e, imageUrl);
+    };
+
     img.src = imageUrl;
 };
 

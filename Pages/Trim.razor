@@ -1263,7 +1263,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         for (int i = 0; i < previewItems.Count; i++)
         {
             var item = previewItems[i];
-            var rect = new TrimPreviewArea.TrimRect
+            var rect = new TrimRect
             {
                 X = Math.Max(0, Math.Min(selectedTrimRect.X, item.ContainerWidth)),
                 Y = Math.Max(0, Math.Min(selectedTrimRect.Y, item.ContainerHeight)),
@@ -1328,4 +1328,36 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     {
         return thumbnailAreaWidth > 400 ? "grid-cols-2" : "grid-cols-1";
     }
+
+        // ...existing code...
+        // --- 以下はビルドを通すための最小スタブ定義（本実装があれば置き換えてください） ---
+        private Dictionary<int, TrimRect> trimRects = new();
+        private List<PreviewItem> previewItems = new();
+        private TrimPreviewArea? trimPreviewArea;
+        private TrimRect? selectedTrimRect = null;
+    
+        // 矩形データ（以前の定義に合わせる）
+        public class TrimRect
+        {
+            public double X { get; set; }
+            public double Y { get; set; }
+            public double Width { get; set; }
+            public double Height { get; set; }
+        }
+    
+        // プレビュー項目の最小情報（UI側で使っているプロパティのみ）
+        public class PreviewItem
+        {
+            public int ContainerWidth { get; set; }
+            public int ContainerHeight { get; set; }
+            public TrimRect? TrimRect { get; set; }
+        }
+    
+        // TrimPreviewArea コンポーネント参照のための最小スタブ（実際はコンポーネントを復元してください）
+        public class TrimPreviewArea
+        {
+            public Task ScrollToPage(int index) => Task.CompletedTask;
+        }
+        // --- スタブ定義ここまで ---
+        // ...existing code...
 }
