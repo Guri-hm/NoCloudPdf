@@ -1,0 +1,89 @@
+@using NoCloudPdf.Models
+@inject IJSRuntime JSRuntime
+@inject NoCloudPdf.Services.PdfDataService PdfDataService
+
+<div class="preview-page" style="position:relative;">
+    <canvas id="@CanvasId" @ref="canvasRef" class="w-full h-auto bg-white"></canvas>
+    <div class="loading-overlay absolute inset-0 flex items-center justify-center pointer-events-none" hidden="@(!isLoading)">
+        <div class="spinner">Loading...</div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public DisplayItem Item { get; set; } = default!;
+    [Parameter] public int Index { get; set; }
+
+    private ElementReference canvasRef;
+    private bool isLoading = false;
+    private CancellationTokenSource? cts;
+    private string CanvasId => $"trim-preview-canvas-{Index}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // 毎回ではなく変化があれば描画を試みる設計にする（シンプル版）
+        await EnsureRenderedAsync();
+    }
+
+    private async Task EnsureRenderedAsync()
+    {
+        // cancel previous
+        cts?.Cancel();
+        cts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        // 非同期でプレビュー生成＋描画（UIスレッドをブロックしない）
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (Item.RawData is not PageItem page) return;
+
+                // PageData が準備できていなければサムネイルで描画
+                string? src = null;
+                if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
+                {
+                    isLoading = true;
+                    await InvokeAsync(StateHasChanged);
+
+                    // キャッシュ済みならすぐ返る想定
+                    var imageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
+                    src = imageUrl;
+                }
+
+                // フォールバック: サムネイル
+                if (string.IsNullOrEmpty(src) && !string.IsNullOrEmpty(Item.Thumbnail))
+                    src = Item.Thumbnail;
+
+                if (string.IsNullOrEmpty(src)) return;
+
+                // normalize （必要なら）
+                if (!src.StartsWith("data:", StringComparison.OrdinalIgnoreCase) &&
+                    !src.StartsWith("blob:", StringComparison.OrdinalIgnoreCase) &&
+                    !src.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    src = $"data:image/jpeg;base64,{src}";
+                }
+
+                // canvas に描画（JS側で高速化/キャッシュ処理を用意しておくことを推奨）
+                await JSRuntime.InvokeVoidAsync("drawImageToCanvas", CanvasId, src);
+
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"TrimPreviewItem render error idx={Index}: {ex.Message}");
+            }
+            finally
+            {
+                isLoading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }, token);
+    }
+
+    public void Dispose()
+    {
+        try { cts?.Cancel(); } catch { }
+        cts?.Dispose();
+    }
+}

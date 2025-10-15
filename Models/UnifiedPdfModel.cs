@@ -44,6 +44,7 @@ public class PageItem
     public bool IsPasswordProtected { get; set; } // パスワード保護フラグ
 
     public bool IsOperationRestricted { get; set; } // 操作制限フラグ
+    public string? PreviewImage { get; set; } // プレビュー画像データ（Base64）
 }
 
 /// <summary>

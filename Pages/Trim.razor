@@ -34,20 +34,7 @@
                     
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     
-                    @if (selectedTrimRect != null)
-                    {
-                        <button class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-                                @onclick="ApplyTrimRectToAll">
-                            <i class="fa-solid fa-copy"></i>
-                            全ページに適用
-                        </button>
-                        
-                        <button class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                                @onclick="ClearCurrentTrimRect">
-                            <i class="fa-solid fa-eraser"></i>
-                            矩形解除
-                        </button>
-                    }
+                    
                 </div>
                 
                 <ActionButtonGroup T="string" Actions="primaryActions" />
@@ -78,10 +65,13 @@
             
             <!-- 右側：プレビューエリア -->
             <div class="flex-1">
-                <TrimPreviewArea PreviewItems="@previewItems"
-                    IsDrawingMode="@isDrawingMode"
-                    OnTrimRectChanged="@OnTrimRectChanged"
-                    @ref="trimPreviewArea" />
+                <div class="h-full overflow-y-auto bg-gray-100" id="trim-preview-container">
+                    @for (int i = 0; i < DisplayItems.Count; i++)
+                    {
+                        var item = DisplayItems[i];
+                        <TrimPreviewItem Item="@item" Index="@i" />
+                    }
+                </div>
             </div>
         </div>
     </div>
@@ -211,7 +201,7 @@
     {
         PdfDataService.OnChange -= OnServiceChanged;
         _dotNetRef?.Dispose();
-        
+
         if (_dropAreaRegistered)
         {
             JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
@@ -601,70 +591,17 @@
         isBusy = true;
         StateHasChanged();
         await Task.Yield();
-        
+
         await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
 
         isBusy = false;
         StateHasChanged();
-        
+
         // 回転後は矩形をクリア
         trimRects.Clear();
         foreach (var item in previewItems)
         {
             item.TrimRect = null;
-        }
-    }
-    private async void RemoveItemFromPreview()
-    {
-        if (CurrentDisplayMode == DisplayMode.File)
-        {
-            var fileId = DisplayItems[previewIndex].Id;
-            int removedPageIndex = filePageIndex;
-
-            PdfDataService.RemovePageFromFile(fileId, removedPageIndex);
-            await InvokeAsync(StateHasChanged);
-
-            var items = DisplayItems;
-            var newIndex = items.FindIndex(x => x.Id == fileId);
-
-            if (newIndex >= 0 && items[newIndex].PageCount > 0)
-            {
-                int pageCount = items[newIndex].PageCount;
-                // インデックス再計算
-                filePageIndex = (removedPageIndex >= pageCount) ? pageCount - 1 : removedPageIndex;
-                if (filePageIndex < 0) filePageIndex = 0;
-                previewIndex = newIndex;
-
-                await ShowPreviewAsync(previewIndex, filePageIndex);
-            }
-            else
-            {
-                // ファイル自体が消えた場合、次のインデックスにプレビューを移動
-                if (items.Count > 0)
-                {
-                    previewIndex = Math.Min(previewIndex, items.Count - 1);
-                    filePageIndex = 0;
-                    await ShowPreviewAsync(previewIndex, filePageIndex);
-                }
-                else
-                {
-                    ClosePreview();
-                }
-            }
-        }
-        else
-        {
-            PdfDataService.RemoveItem(previewIndex);
-            var items = DisplayItems;
-            if (items.Count > 0)
-            {
-                previewIndex = Math.Min(previewIndex, items.Count - 1);
-                await ShowPreviewAsync(previewIndex);
-            }
-            else
-            {
-                ClosePreview();
-            }
         }
     }
     private async Task DuplicateItem(int index)
@@ -731,7 +668,7 @@
 
         await PdfDataService.InsertBlankPageWithDisplayModeAsync(
             CurrentDisplayMode, DisplayItems, position);
-        
+
         isBusy = false;
         StateHasChanged();
     }
@@ -978,7 +915,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         StateHasChanged();
     }
 
-private bool showHeaderFooterDialog = false;
+    private bool showHeaderFooterDialog = false;
 
     // 既存のaddMenuItems配列に追加
     private List<DropdownMenuItem> addMenuItems => new()
@@ -1006,118 +943,120 @@ private bool showHeaderFooterDialog = false;
         StateHasChanged();
     }
 
-private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
-{
-    if (!setting.Stamps.Any())
+    private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
     {
-        ShowMessage("スタンプが設定されていません。", MessageType.Warn);
-        return;
-    }
-
-    try
-    {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
-
-        var model = PdfDataService.GetModel();
-        var pages = model.Pages;
-
-        if (!pages.Any())
+        if (!setting.Stamps.Any())
         {
-            ShowMessage("処理対象のページがありません。", MessageType.Warn);
+            ShowMessage("スタンプが設定されていません。", MessageType.Warn);
             return;
         }
 
-        // 準備できていないページがある場合は中断
-        var notReadyCount = pages.Count(p => string.IsNullOrEmpty(p.PageData) || p.HasError);
-        if (notReadyCount > 0)
+        try
         {
-            ShowMessage($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
-            return;
-        }
+            isBusy = true;
+            StateHasChanged();
+            await Task.Yield();
 
-        var totalPages = pages.Count;
+            var model = PdfDataService.GetModel();
+            var pages = model.Pages;
 
-        // 各ページにヘッダー・フッターを適用
-        for (int i = 0; i < pages.Count; i++)
-        {
-            var page = pages[i];
-            
-            try
+            if (!pages.Any())
             {
-                var stampData = CreateStampsForCoordinateTransform(setting.Stamps, page.RotateAngle, totalPages, i);
+                ShowMessage("処理対象のページがありません。", MessageType.Warn);
+                return;
+            }
 
-                var stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
-                    "addStampsToPdf", 
-                    page.PageData, 
-                    stampData
-                );
+            // 準備できていないページがある場合は中断
+            var notReadyCount = pages.Count(p => string.IsNullOrEmpty(p.PageData) || p.HasError);
+            if (notReadyCount > 0)
+            {
+                ShowMessage($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+                return;
+            }
 
-                var stampedBase64 = Convert.ToBase64String(stampedPdfBytes);
-                page.PageData = stampedBase64;
+            var totalPages = pages.Count;
 
-                // サムネイル再生成
-                var newThumbnail = await JSRuntime.InvokeAsync<string>(
-                    "generatePdfThumbnailFromPageData", 
-                    stampedBase64
-                );
-                
-                if (!string.IsNullOrEmpty(newThumbnail))
+            // 各ページにヘッダー・フッターを適用
+            for (int i = 0; i < pages.Count; i++)
+            {
+                var page = pages[i];
+
+                try
                 {
-                    page.Thumbnail = newThumbnail;
+                    var stampData = CreateStampsForCoordinateTransform(setting.Stamps, page.RotateAngle, totalPages, i);
+
+                    var stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
+                        "addStampsToPdf", 
+                        page.PageData, 
+                        stampData
+                    );
+
+                    var stampedBase64 = Convert.ToBase64String(stampedPdfBytes);
+                    page.PageData = stampedBase64;
+
+                    // サムネイル再生成
+                    var newThumbnail = await JSRuntime.InvokeAsync<string>(
+                        "generatePdfThumbnailFromPageData", 
+                        stampedBase64
+                    );
+
+                    if (!string.IsNullOrEmpty(newThumbnail))
+                    {
+                        page.Thumbnail = newThumbnail;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"ページ {i + 1} のヘッダー・フッター適用でエラー: {ex.Message}");
+                    ShowMessage($"ページ {i + 1} の処理中にエラーが発生しました。", MessageType.Error);
                 }
             }
-            catch (Exception ex)
+
+            ShowMessage($"{pages.Count} ページにヘッダー・フッターを適用しました。", MessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ヘッダー・フッター適用エラー: {ex.Message}");
+            ShowMessage("ヘッダー・フッターの適用中にエラーが発生しました。", MessageType.Error);
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<object> CreateStampsForCoordinateTransform(List<StampPosition> originalStamps, int rotateAngle, int totalPages, int currentPageIndex)
+    {
+        var stampData = new List<object>();
+
+        foreach (var stamp in originalStamps)
+        {
+            var stampObject = new
             {
-                Console.WriteLine($"ページ {i + 1} のヘッダー・フッター適用でエラー: {ex.Message}");
-                ShowMessage($"ページ {i + 1} の処理中にエラーが発生しました。", MessageType.Error);
-            }
+                corner = stamp.Corner.ToString(), // ← 画面上での位置指定
+                text = stamp.Text,
+                isSerial = stamp.IsSerial,
+                isZeroPadded = stamp.IsZeroPadded,
+                totalPages = totalPages,
+                currentPageIndex = currentPageIndex,
+                rotateAngle = rotateAngle, // ← JavaScript側で座標変換に使用
+                offsetX = stamp.OffsetX,
+                offsetY = stamp.OffsetY,
+                fontSize = stamp.FontSize,
+                color = new { r = stamp.Color.R / 255.0, g = stamp.Color.G / 255.0, b = stamp.Color.B / 255.0 }
+            };
+
+            stampData.Add(stampObject);
         }
 
-        ShowMessage($"{pages.Count} ページにヘッダー・フッターを適用しました。", MessageType.Success);
+        return stampData;
     }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"ヘッダー・フッター適用エラー: {ex.Message}");
-        ShowMessage("ヘッダー・フッターの適用中にエラーが発生しました。", MessageType.Error);
-    }
-    finally
-    {
-        isBusy = false;
-        StateHasChanged();
-    }
-}
-
-private List<object> CreateStampsForCoordinateTransform(List<StampPosition> originalStamps, int rotateAngle, int totalPages, int currentPageIndex)
-{
-    var stampData = new List<object>();
-
-    foreach (var stamp in originalStamps)
-    {
-        var stampObject = new
-        {
-            corner = stamp.Corner.ToString(), // ← 画面上での位置指定
-            text = stamp.Text,
-            isSerial = stamp.IsSerial,
-            isZeroPadded = stamp.IsZeroPadded,
-            totalPages = totalPages,
-            currentPageIndex = currentPageIndex,
-            rotateAngle = rotateAngle, // ← JavaScript側で座標変換に使用
-            offsetX = stamp.OffsetX,
-            offsetY = stamp.OffsetY,
-            fontSize = stamp.FontSize,
-            color = new { r = stamp.Color.R / 255.0, g = stamp.Color.G / 255.0, b = stamp.Color.B / 255.0 }
-        };
-        
-        stampData.Add(stampObject);
-    }
-
-    return stampData;
-}
 
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
+    private int lastDisplayItemsCount = 0;
+    private bool previewItemsLoaded = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1125,7 +1064,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
         {
             _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
-            
+
             // リサイズイベント登録（JSが未定義の場合は例外を食わせる）
             //try
             //{
@@ -1137,7 +1076,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
             //    Console.WriteLine($"registerPanelResize not available: {ex.Message}");
             //}
         }
-        
+
         // 初期画面のときのみ登録
         if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
         {
@@ -1155,6 +1094,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
             // drop-areaが消えたらフラグを戻す（必要ならJSでunregisterも）
             _dropAreaRegistered = false;
         }
+
         if (IsFilesLoaded && DisplayItems.Any())
         {
             // サムネイル描画
@@ -1248,7 +1188,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
 
     private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
         item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
-        
+
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)
@@ -1261,15 +1201,15 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
     }
 
     private async Task ForceReloadAllThumbnailsAsync()
-{
-    foreach (var item in DisplayItems)
     {
-        if (item.RawData is PageItem pageItem)
+        foreach (var item in DisplayItems)
         {
-            await ReloadPageItem(item);
+            if (item.RawData is PageItem pageItem)
+            {
+                await ReloadPageItem(item);
+            }
         }
     }
-}
     private async Task ReloadPageItem(DisplayItem item)
     {
         // ページ単位の場合のみ対応
@@ -1278,11 +1218,11 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
             pageItem.IsLoading = true;
             StateHasChanged();
             await Task.Yield();
-            
+
             var errorMsg = await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
 
             StateHasChanged();
-            
+
             if (!string.IsNullOrEmpty(errorMsg))
             {
                 ShowMessage(errorMsg, MessageType.Error);
@@ -1292,40 +1232,14 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
 
     private bool isDrawingMode = false;
     private int selectedPageIndex = -1;
-    private TrimPreviewArea? trimPreviewArea;
-    private List<TrimPreviewArea.PreviewItemData> previewItems = new();
-    private Dictionary<int, TrimPreviewArea.TrimRect> trimRects = new();
-    private TrimPreviewArea.TrimRect? selectedTrimRect => selectedPageIndex >= 0 && trimRects.ContainsKey(selectedPageIndex) ? trimRects[selectedPageIndex] : null;
-    
+
+
     // リサイズ関連
     private int thumbnailAreaWidth = 300;
     private bool isResizingPanel = false;
     private double resizeStartX = 0;
     private int resizeStartWidth = 0;
-    
-    protected override async Task OnInitializedAsync()
-    {
-        await base.OnInitializedAsync();
-        await LoadPreviewItems();
-    }
-    
-    private async Task LoadPreviewItems()
-    {
-        previewItems.Clear();
-        for (int i = 0; i < DisplayItems.Count; i++)
-        {
-            var item = DisplayItems[i];
-            var imageUrl = await PdfDataService.GetPreviewImageAsync(item.Id);
-            
-            previewItems.Add(new TrimPreviewArea.PreviewItemData
-            {
-                Index = i,
-                ImageUrl = imageUrl ?? "",
-                TrimRect = trimRects.ContainsKey(i) ? trimRects[i] : null
-            });
-        }
-        StateHasChanged();
-    }
+
     
     private void ToggleDrawingMode()
     {
@@ -1341,13 +1255,6 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
         }
     }
     
-    private async Task OnTrimRectChanged((int index, TrimPreviewArea.TrimRect rect) data)
-    {
-        trimRects[data.index] = data.rect;
-        selectedPageIndex = data.index;
-        await PdfDataService.SetTrimRect(data.index, data.rect.X, data.rect.Y, data.rect.Width, data.rect.Height);
-        StateHasChanged();
-    }
     
     private async Task ApplyTrimRectToAll()
     {

@@ -389,6 +389,7 @@ public class PdfDataService
     /// </summary>
     public async Task LoadAllPagesForFileAsync(string fileId, bool loadThumbnails = true)
     {
+
         // 既存の読み込みタスクがあればキャンセル
         if (_loadingTokens.TryGetValue(fileId, out var oldCts))
         {
@@ -405,9 +406,7 @@ public class PdfDataService
             return;
         }
 
-        // ファイル単位表示時は「束」ごとに先頭ページのサムネイル生成を意識する
-        // 現状ではページ単位表示からファイル単位表示に切り替えたときに，
-        // この関数は動かないので直下の処理はされないが今後のことも考えて残す
+        // ファイルのサムネイルがそろっていない
         if (!loadThumbnails)
         {
             // ファイルIDで該当ページを抽出
@@ -434,7 +433,7 @@ public class PdfDataService
                             pageItem.Thumbnail = renderResult.thumbnail;
                             pageItem.HasThumbnailError = renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail);
                             pageItem.IsLoading = false;
-                            await InvokeOnChangeAsync();
+                            await BufferedNotifyChangeAsync();
                         }
                         catch
                         {
@@ -456,7 +455,7 @@ public class PdfDataService
 
                 try
                 {
-                    pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex,fileMetadata.FileId);
+                    pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex, fileMetadata.FileId);
                     pageItem.HasPageDataError = string.IsNullOrEmpty(pageItem.PageData);
                     pageItem.IsLoading = false;
                     try
@@ -479,7 +478,7 @@ public class PdfDataService
                     {
                         // 無視（冗長問い合わせは失敗しても処理続行）
                     }
-                    await InvokeOnChangeAsync();
+                    await BufferedNotifyChangeAsync();
                 }
                 catch
                 {
@@ -554,6 +553,7 @@ public class PdfDataService
                     else
                     {
                         pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+
                         try
                         {
                             if (!fileMetadata.IsOperationRestricted)
@@ -654,6 +654,7 @@ public class PdfDataService
                     // 競合や削除で pageItem が消えている可能性があるため保護
                     continue;
                 }
+
                 pageItem.Thumbnail = thumbnail;
                 pageItem.PageData = pageData;
                 pageItem.IsLoading = false;
@@ -661,8 +662,8 @@ public class PdfDataService
                 pageItem.HasPageDataError = dataError;
 
                 // UI更新イベント発火
+                // await BufferedNotifyChangeAsync();
                 await InvokeOnChangeAsync();
-
                 if (!thumbError && !dataError)
                 {
                     successfulPages++;
@@ -778,7 +779,7 @@ public class PdfDataService
                 if (pageIndex == 0)
                 {
                     thumbnail = fileMetadata.CoverThumbnail;
-                    pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex,fileMetadata.FileId);
+                    pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
                     thumbError = string.IsNullOrEmpty(thumbnail);
                     dataError = string.IsNullOrEmpty(pageData);
 
@@ -813,9 +814,9 @@ public class PdfDataService
                         thumbnail = renderResult.thumbnail;
                         thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
 
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex,fileMetadata.FileId);
+                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
                         dataError = string.IsNullOrEmpty(pageData);
-                        
+
                         if (!fileMetadata.IsOperationRestricted)
                         {
                             try
@@ -1254,6 +1255,7 @@ public class PdfDataService
             var pageItem = _model.Pages[index];
             // ここでデータ自体は変更せず、回転角度だけを更新
             pageItem.RotateAngle = (pageItem.RotateAngle + angle + 360) % 360;
+            pageItem.PreviewImage = null;
 
             await InvokeOnChangeAsync();
             return true;
@@ -1305,7 +1307,7 @@ public class PdfDataService
             // 何もしない（Clear は同期APIなので例外は抑える）
         }
         _trimRects.Clear();
-
+        CancelBufferedNotify();
     }
 
     /// <summary>
@@ -1354,10 +1356,20 @@ public class PdfDataService
         if (pageItem == null || string.IsNullOrEmpty(pageItem.PageData))
             return null;
 
+        // キャッシュがあればそのまま返す（回転時はキャッシュをクリア）
+        if (!string.IsNullOrEmpty(pageItem.PreviewImage))
+        {
+            return pageItem.PreviewImage;
+        }
+
         try
         {
             var previewImage = await _jsRuntime.InvokeAsync<string>(
             "generatePreviewImage", pageItem.PageData, pageItem.RotateAngle);
+            if (!string.IsNullOrEmpty(previewImage))
+            {
+                pageItem.PreviewImage = previewImage;
+            }
             return previewImage;
         }
         catch
@@ -1674,7 +1686,7 @@ public class PdfDataService
     // }
 
     private Dictionary<int, TrimRectInfo> _trimRects = new();
-    
+
     public class TrimRectInfo
     {
         public double X { get; set; }
@@ -1682,28 +1694,75 @@ public class PdfDataService
         public double Width { get; set; }
         public double Height { get; set; }
     }
-    
+
     public Task SetTrimRect(int pageIndex, double x, double y, double width, double height)
     {
         _trimRects[pageIndex] = new TrimRectInfo { X = x, Y = y, Width = width, Height = height };
         return Task.CompletedTask;
     }
-    
+
     public void ClearTrimRect(int pageIndex)
     {
         _trimRects.Remove(pageIndex);
     }
-    
+
     public TrimRectInfo? GetTrimRect(int pageIndex)
     {
         return _trimRects.TryGetValue(pageIndex, out var rect) ? rect : null;
     }
-    
+
     public Dictionary<int, TrimRectInfo> GetAllTrimRects()
     {
         return new Dictionary<int, TrimRectInfo>(_trimRects);
     }
-    
+
+    // バッファリング用フィールド（クラス内）
+    private readonly object _notifyLock = new();
+    private CancellationTokenSource? _bufferNotifyCts;
+    private bool _bufferNotifyScheduled = false;
+   private readonly TimeSpan _bufferNotifyDelay = TimeSpan.FromMilliseconds(120); // 調整
+   /// <summary>
+   /// 頻繁に呼ばれる箇所用のバッファ通知（LoadAllPagesForFileAsync 等で使う）
+   /// 呼び出し側は await して問題なし。短時間内はまとめて 1 回だけ OnChange を発火する。
+   /// </summary>
+    private async Task BufferedNotifyChangeAsync()
+    {
+        lock (_notifyLock)
+        {
+            if (_bufferNotifyScheduled) return; // 既にスケジュール済みならまとめる
+            _bufferNotifyScheduled = true;
+            _bufferNotifyCts = new CancellationTokenSource();
+        }
+        try
+        {
+            var cts = _bufferNotifyCts;
+            await Task.Delay(_bufferNotifyDelay, cts.Token);
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            lock (_notifyLock)
+            {
+                _bufferNotifyScheduled = false;
+                _bufferNotifyCts?.Dispose();
+                _bufferNotifyCts = null;
+            }
+        }
+        OnChange?.Invoke();
+        await Task.CompletedTask;
+    }
+    /// <summary>
+    /// スケジュール済みのバッファ通知があればキャンセル（Clear 等で呼ぶ）
+    /// </summary>
+    private void CancelBufferedNotify()
+    {
+        lock (_notifyLock)
+        {
+            try { _bufferNotifyCts?.Cancel(); } catch { }
+            _bufferNotifyScheduled = false;
+            _bufferNotifyCts = null;
+        }
+    }
 
 }
 
