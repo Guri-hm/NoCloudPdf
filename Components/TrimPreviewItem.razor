@@ -7,7 +7,7 @@
         ページ @(!string.IsNullOrEmpty(Item?.PageInfo) ? Item.PageInfo : "")
     </div>
 
-    <canvas id="@CanvasId" @ref="canvasRef" class="w-full h-auto block"></canvas>
+    <canvas id="@CanvasId" @ref="canvasRef" class="w-auto max-w-full h-auto block"></canvas>
 
     <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-30"
          hidden="@(!isLoading)">

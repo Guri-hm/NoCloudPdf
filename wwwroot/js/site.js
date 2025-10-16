@@ -189,31 +189,58 @@ window.unregisterPanelResize = function () {
     }
 };
 
-window.setPreviewZoom = function (zoom, mode = 'contain') {
+window._previewZoomDebounce = window._previewZoomDebounce || { timer: null, lastZoom: 1 };
+
+window.setPreviewZoom = function (zoom, options = { mode: 'contain', redrawDelayMs: 250, forceRedraw: false }) {
     try {
-        console.log('setPreviewZoom start, zoom=', zoom, 'mode=', mode);
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
-        const canvases = document.querySelectorAll('#trim-preview-container canvas');
-        console.log('setPreviewZoom found canvases:', canvases.length);
-        
-        let redrawCount = 0;
-        canvases.forEach(c => {
-            const src = c.dataset ? c.dataset.src : null;
-            console.log('setPreviewZoom canvas', c.id, 'src exists=', !!src, 'drawImageToCanvas exists=', typeof window.drawImageToCanvas);
-            if (src && typeof window.drawImageToCanvas === 'function') {
-                try {
-                    window.drawImageToCanvas(c.id, src, true, zoom, mode);
-                    redrawCount++;
-                } catch (e) {
-                    console.error('drawImageToCanvas failed for', c.id, e);
-                }
-            } else {
-                console.warn('skip canvas', c.id, 'no src or drawImageToCanvas missing');
-            }
-        });
-        
-        console.log('setPreviewZoom done, redrawn', redrawCount, 'canvases');
+
+        // 1) 即時に CSS 変数でスケール（軽量）
+        const inner = document.querySelector('.preview-zoom-inner');
+        if (inner) {
+            inner.style.setProperty('--preview-zoom', String(zoom));
+        }
+
+        // 2) しきい値で再描画をスケジュール（高解像度でシャープにする）
+        //    オプションで forceRedraw を true にすれば即時再描画
+        if (options.forceRedraw) {
+            doRedrawCanvases(zoom, options.mode);
+            return;
+        }
+
+        // 前回ズームと同じなら再描画不要
+        if (window._previewZoomDebounce.lastZoom === zoom) {
+            return;
+        }
+        window._previewZoomDebounce.lastZoom = zoom;
+
+        if (window._previewZoomDebounce.timer) {
+            clearTimeout(window._previewZoomDebounce.timer);
+        }
+        window._previewZoomDebounce.timer = setTimeout(() => {
+            doRedrawCanvases(zoom, options.mode);
+            window._previewZoomDebounce.timer = null;
+        }, options.redrawDelayMs || 250);
     } catch (e) {
         console.error('setPreviewZoom error', e);
+    }
+
+    function doRedrawCanvases(zoomValue, mode) {
+        try {
+            const canvases = document.querySelectorAll('#trim-preview-container canvas');
+            canvases.forEach(c => {
+                const src = c.dataset ? c.dataset.src : null;
+                if (src && typeof window.drawImageToCanvas === 'function') {
+                    try {
+                        // drawImageToCanvas の inZoomInner ブランチを使える前提で zoom を渡す
+                        window.drawImageToCanvas(c.id, src, true, zoomValue, mode);
+                    } catch (err) {
+                        console.error('drawImageToCanvas failed for', c.id, err);
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('doRedrawCanvases error', err);
+        }
     }
 };
