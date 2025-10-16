@@ -34,6 +34,18 @@
                     
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     
+                    <!-- プレビューズームコントロール -->
+                    <div class="ml-3 flex items-center gap-2">
+                        <button class="bg-gray-200 hover:bg-gray-300 text-sm px-2 py-1 rounded" title="幅に合わせる" @onclick="FitPreviewWidth">
+                            <i class="fa-solid fa-expand-wide"></i>
+                        </button>
+                        <button class="bg-gray-200 hover:bg-gray-300 text-sm px-2 py-1 rounded" title="縮小" @onclick="ZoomOut">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                        <button class="bg-gray-200 hover:bg-gray-300 text-sm px-2 py-1 rounded" title="拡大" @onclick="ZoomIn">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
                     
                 </div>
                 
@@ -1064,6 +1076,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     private bool _dropAreaRegistered = false;
     private int lastDisplayItemsCount = 0;
     private bool previewItemsLoaded = false;
+    private bool previewZoomInitialized = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1094,6 +1107,12 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
 
         if (IsFilesLoaded && DisplayItems.Any())
         {
+            if (!previewZoomInitialized)
+            {
+                await ApplyPreviewZoomAsync();
+                previewZoomInitialized = true;
+            }
+
             // サムネイル描画
             foreach (var item in DisplayItems)
             {
@@ -1374,4 +1393,47 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         }
         // --- スタブ定義ここまで ---
         // ...existing code...
+
+    private double previewZoom = 1.0;
+    private const double ZoomStep = 0.1;
+    private const double MinZoom = 0.25;
+    private const double MaxZoom = 3.0;
+
+    private async Task ApplyPreviewZoomAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
+        }
+        catch { }
+    }
+
+    private async Task ZoomIn()
+    {
+        previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
+        await ApplyPreviewZoomAsync();
+    }
+
+    private async Task ZoomOut()
+    {
+        previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
+        await ApplyPreviewZoomAsync();
+    }
+
+    private async Task FitPreviewWidth()
+    {
+        previewZoom = 1.0;
+        await ApplyPreviewZoomAsync();
+    }
+
+    // 追加: トリミング用（正規化）ヘルパー（例）
+    private (double x, double y, double w, double h) ToNormalizedRect(double x, double y, double w, double h, double containerW, double containerH)
+    {
+        if (containerW <= 0 || containerH <= 0) return (0,0,0,0);
+        return (x / containerW, y / containerH, w / containerW, h / containerH);
+    }
+    private (int x, int y, int w, int h) FromNormalizedRect(double nx, double ny, double nw, double nh, double containerW, double containerH)
+    {
+        return ((int)Math.Round(nx * containerW), (int)Math.Round(ny * containerH), (int)Math.Round(nw * containerW), (int)Math.Round(nh * containerH));
+    }
 }

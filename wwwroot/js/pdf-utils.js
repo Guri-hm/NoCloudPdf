@@ -821,61 +821,68 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 //     };
 //     img.src = imageUrl;
 // };
-window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true, mode = 'cover') {
+window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true, zoom = 1.0, mode = 'contain') {
     try {
         const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d', { willReadFrequently: false });
+        if (!canvas) {
+            console.warn('drawImageToCanvas: canvas not found', canvasId);
+            return;
+        }
+        
+        // 重要: src を dataset に保存（再描画に必要）
+        canvas.dataset.src = imageUrl;
+        
+        const ctx = canvas.getContext('2d');
         const img = new window.Image();
         img.crossOrigin = 'anonymous';
-
+        
         img.onload = function () {
             try {
-                // レイアウトサイズ（表示領域）を取得
+                // 親（表示）領域サイズを取得
                 const rect = canvas.getBoundingClientRect();
-                const targetW = Math.max(1, Math.round(rect.width || canvas.clientWidth || 96));
-                const targetH = Math.max(1, Math.round(rect.height || canvas.clientHeight || 128));
+                const baseW = Math.max(1, Math.round(rect.width || canvas.clientWidth || 96));
+                const baseH = Math.max(1, Math.round(rect.height || canvas.clientHeight || 128));
 
                 const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
 
-                // 内部ピクセルバッファを DPR に合わせる
-                canvas.width = Math.round(targetW * dpr);
-                canvas.height = Math.round(targetH * dpr);
+                // 描画バッファは zoom × DPR に合わせる
+                canvas.width = Math.round(baseW * zoom * dpr);
+                canvas.height = Math.round(baseH * zoom * dpr);
 
-                // 表示サイズは CSS に任せる（不要な inline style は避ける）
-                // 重要: canvas の CSS 背景が白だと透明にならないので Razor 側で bg-white を削除してください
+                // 表示サイズを zoom に合わせて更新（これがないと見た目が変わらない）
+                canvas.style.width = (baseW * zoom) + 'px';
+                canvas.style.height = (baseH * zoom) + 'px';
+                canvas.style.display = 'block';
 
-                // 高DPI 対応
+                // 高DPI対応でコンテキストをスケール
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                // 透明でクリア
-                ctx.clearRect(0, 0, targetW, targetH);
+                ctx.clearRect(0, 0, baseW * zoom, baseH * zoom);
 
-                if (mode === 'contain') {
-                    // 全体を収める（余白ができる）
-                    const scale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
-                    const drawW = img.naturalWidth * scale;
-                    const drawH = img.naturalHeight * scale;
-                    const dx = Math.round((targetW - drawW) / 2);
-                    const dy = Math.round((targetH - drawH) / 2);
+                const iw = img.naturalWidth, ih = img.naturalHeight;
+                if (!iw || !ih) return;
+
+                if (mode === 'cover') {
+                    const scale = Math.max((baseW * zoom) / iw, (baseH * zoom) / ih);
+                    const drawW = iw * scale, drawH = ih * scale;
+                    const dx = (baseW * zoom - drawW) / 2, dy = (baseH * zoom - drawH) / 2;
                     ctx.drawImage(img, dx, dy, drawW, drawH);
                 } else {
-                    // cover: 表示領域を埋める（トリミングされることがある）
-                    const scale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
-                    const drawW = img.naturalWidth * scale;
-                    const drawH = img.naturalHeight * scale;
-                    const dx = Math.round((targetW - drawW) / 2);
-                    const dy = Math.round((targetH - drawH) / 2);
+                    const scale = Math.min((baseW * zoom) / iw, (baseH * zoom) / ih);
+                    const drawW = iw * scale, drawH = ih * scale;
+                    const dx = (baseW * zoom - drawW) / 2, dy = (baseH * zoom - drawH) / 2;
                     ctx.drawImage(img, dx, dy, drawW, drawH);
                 }
+                
+                console.log('drawImageToCanvas done:', canvasId, 'zoom=', zoom, 'styleW=', canvas.style.width);
             } catch (err) {
-                console.error('drawImageToCanvas error', err);
+                console.error('drawImageToCanvas img.onload error', err);
             }
         };
-
+        
         img.onerror = function (e) {
-            console.error('drawImageToCanvas image load error', e, imageUrl);
+            console.error('drawImageToCanvas img load error', e, imageUrl);
         };
-
+        
         img.src = imageUrl;
     } catch (e) {
         console.error('drawImageToCanvas outer error', e);

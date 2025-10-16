@@ -188,3 +188,32 @@ window.unregisterPanelResize = function () {
         console.error('unregisterPanelResize error', e);
     }
 };
+
+window.setPreviewZoom = function (zoom, mode = 'contain') {
+    try {
+        console.log('setPreviewZoom start, zoom=', zoom, 'mode=', mode);
+        zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
+        const canvases = document.querySelectorAll('#trim-preview-container canvas');
+        console.log('setPreviewZoom found canvases:', canvases.length);
+        
+        let redrawCount = 0;
+        canvases.forEach(c => {
+            const src = c.dataset ? c.dataset.src : null;
+            console.log('setPreviewZoom canvas', c.id, 'src exists=', !!src, 'drawImageToCanvas exists=', typeof window.drawImageToCanvas);
+            if (src && typeof window.drawImageToCanvas === 'function') {
+                try {
+                    window.drawImageToCanvas(c.id, src, true, zoom, mode);
+                    redrawCount++;
+                } catch (e) {
+                    console.error('drawImageToCanvas failed for', c.id, e);
+                }
+            } else {
+                console.warn('skip canvas', c.id, 'no src or drawImageToCanvas missing');
+            }
+        });
+        
+        console.log('setPreviewZoom done, redrawn', redrawCount, 'canvases');
+    } catch (e) {
+        console.error('setPreviewZoom error', e);
+    }
+};
