@@ -77,13 +77,20 @@
             </div>
             
             <!-- 右側：プレビューエリア -->
+            <!-- 右側：プレビューエリア（プレビュー領域は固定、内部で拡大縮小してスクロールさせる）-->
             <div class="flex-1 min-w-0">
-                <div id="trim-preview-container" class="h-full overflow-y-auto bg-gray-100 p-4 flex flex-col gap-4">
-                    @for (int i = 0; i < DisplayItems.Count; i++)
-                    {
-                        var item = DisplayItems[i];
-                        <TrimPreviewItem Item="@item" Index="@i" />
-                    }
+                <div id="trim-preview-container" class="h-full overflow-hidden bg-gray-100 p-4 flex flex-col gap-4">
+                    <!-- ビューポート：幅は固定（親に合わせる）、内部で横スクロールさせる -->
+                    <div class="preview-zoom-viewport w-full h-full overflow-auto">
+                        <!-- 内部コンテナをスケール。transform-origin: top left で左上基準に拡大 -->
+                        <div class="preview-zoom-inner" style="@($"display:inline-block; transform: scale({previewZoom}); transform-origin: 0 0;")">
+                            @for (int i = 0; i < DisplayItems.Count; i++)
+                            {
+                                var item = DisplayItems[i];
+                                <TrimPreviewItem Item="@item" Index="@i" />
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1399,13 +1406,15 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     private const double MinZoom = 0.25;
     private const double MaxZoom = 3.0;
 
-    private async Task ApplyPreviewZoomAsync()
+    private Task ApplyPreviewZoomAsync()
     {
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        }
-        catch { }
+        //try
+        //{
+        //    await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
+        //}
+        //catch { }
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task ZoomIn()
