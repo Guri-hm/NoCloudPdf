@@ -44,8 +44,8 @@
         <!-- 左右分割エリア -->
         <div class="flex-1 flex overflow-hidden">
             <!-- 左側：サムネイル一覧 -->
-            <div id="thumbnail-area" class="@GetThumbnailAreaClass() overflow-y-auto bg-gray-50 border-r border-gray-300 flex-none" style="--thumbnail-width: 300px; width: var(--thumbnail-width);">
-                <div class="grid @GetThumbnailGridClass() gap-4 p-4">
+            <div id="thumbnail-area" class="w-auto overflow-y-auto bg-gray-50 border-r border-gray-300 flex-none" style="--thumbnail-width: 300px; width: var(--thumbnail-width);">
+                <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var index = i;
@@ -66,7 +66,7 @@
             
             <!-- 右側：プレビューエリア -->
             <div class="flex-1 min-w-0">
-                <div class="h-full overflow-y-auto bg-gray-100" id="trim-preview-container">
+                <div id="trim-preview-container" class="h-full overflow-y-auto bg-gray-100 p-4 flex flex-col gap-4">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var item = DisplayItems[i];
@@ -1325,16 +1325,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     public void OnPanelMouseUp()
     {
         isResizingPanel = false;
-    }
-    
-    private string GetThumbnailAreaClass()
-    {
-        return thumbnailAreaWidth > 400 ? "w-auto" : "w-auto";
-    }
-    
-    private string GetThumbnailGridClass()
-    {
-        return thumbnailAreaWidth > 400 ? "grid-cols-2" : "grid-cols-1";
     }
 
     // JS 側で視覚的に幅を変更 -> 最終確定で JS がこのメソッドを呼ぶ

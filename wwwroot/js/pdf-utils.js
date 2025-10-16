@@ -821,51 +821,65 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 //     };
 //     img.src = imageUrl;
 // };
-window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const img = new window.Image();
+window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true, mode = 'cover') {
+    try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { willReadFrequently: false });
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
 
-    img.onload = function () {
-        try {
-            // 表示サイズ（CSSピクセル）
-            const rect = canvas.getBoundingClientRect();
-            const cssW = Math.max(1, rect.width || canvas.clientWidth || 96);
-            const cssH = Math.max(1, rect.height || canvas.clientHeight || 128);
+        img.onload = function () {
+            try {
+                // レイアウトサイズ（表示領域）を取得
+                const rect = canvas.getBoundingClientRect();
+                const targetW = Math.max(1, Math.round(rect.width || canvas.clientWidth || 96));
+                const targetH = Math.max(1, Math.round(rect.height || canvas.clientHeight || 128));
 
-            const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
+                const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
 
-            // 内部ピクセルバッファを調整
-            canvas.width = Math.round(cssW * dpr);
-            canvas.height = Math.round(cssH * dpr);
+                // 内部ピクセルバッファを DPR に合わせる
+                canvas.width = Math.round(targetW * dpr);
+                canvas.height = Math.round(targetH * dpr);
 
-            // CSS 表示サイズを保持
-            // canvas.style.width = cssW + "px";
-            // canvas.style.height = cssH + "px";
+                // 表示サイズは CSS に任せる（不要な inline style は避ける）
+                // 重要: canvas の CSS 背景が白だと透明にならないので Razor 側で bg-white を削除してください
 
-            // 高DPI対応：コンテキストをスケール
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, cssW, cssH);
+                // 高DPI 対応
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                // 透明でクリア
+                ctx.clearRect(0, 0, targetW, targetH);
 
-            // アスペクト比を維持して中央に描画
-            const scale = Math.min(cssW / img.width, cssH / img.height);
-            const drawW = img.width * scale;
-            const drawH = img.height * scale;
-            ctx.drawImage(img,
-                (cssW - drawW) / 2,
-                (cssH - drawH) / 2,
-                drawW, drawH);
-        } catch (e) {
-            console.debug('drawImageToCanvas error', e);
-        }
-    };
+                if (mode === 'contain') {
+                    // 全体を収める（余白ができる）
+                    const scale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+                    const drawW = img.naturalWidth * scale;
+                    const drawH = img.naturalHeight * scale;
+                    const dx = Math.round((targetW - drawW) / 2);
+                    const dy = Math.round((targetH - drawH) / 2);
+                    ctx.drawImage(img, dx, dy, drawW, drawH);
+                } else {
+                    // cover: 表示領域を埋める（トリミングされることがある）
+                    const scale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
+                    const drawW = img.naturalWidth * scale;
+                    const drawH = img.naturalHeight * scale;
+                    const dx = Math.round((targetW - drawW) / 2);
+                    const dy = Math.round((targetH - drawH) / 2);
+                    ctx.drawImage(img, dx, dy, drawW, drawH);
+                }
+            } catch (err) {
+                console.error('drawImageToCanvas error', err);
+            }
+        };
 
-    img.onerror = function (e) {
-        console.debug('drawImageToCanvas image load error', e, imageUrl);
-    };
+        img.onerror = function (e) {
+            console.error('drawImageToCanvas image load error', e, imageUrl);
+        };
 
-    img.src = imageUrl;
+        img.src = imageUrl;
+    } catch (e) {
+        console.error('drawImageToCanvas outer error', e);
+    }
 };
 
 window.unlockPdf = async function (pdfData, password) {

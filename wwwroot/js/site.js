@@ -118,7 +118,7 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                             // compute new width based on clientX and thumbnail area container left
                             const containerRect = thumbArea ? thumbArea.getBoundingClientRect() : handle.parentElement.getBoundingClientRect();
                             // clamp to sensible range
-                            const minWidth = 200;
+                            const minWidth = 150;
                             const minRightWidth = 260;
                             const splitterWidth = handle.getBoundingClientRect().width || 8;
                             const maxWidth = Math.max(minWidth, window.innerWidth - minRightWidth - splitterWidth);
@@ -140,7 +140,7 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                         handle.releasePointerCapture?.(ev.pointerId);
                         // final width compute and inform C# once
                         const containerRect = thumbArea ? thumbArea.getBoundingClientRect() : handle.parentElement.getBoundingClientRect();
-                        const minWidth = 200;
+                        const minWidth = 150;
                         const minRightWidth = 260;
                         const splitterWidth = handle.getBoundingClientRect().width || 8;
                         const maxWidth = Math.max(minWidth, window.innerWidth - minRightWidth - splitterWidth);

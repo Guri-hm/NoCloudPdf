@@ -2,18 +2,20 @@
 @inject IJSRuntime JSRuntime
 @inject NoCloudPdf.Services.PdfDataService PdfDataService
 
-<div class="tp-preview-page" style="position:relative;">
-    <div class="absolute top-2 left-2 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-sm">
+<div class="relative">
+    <div class="absolute top-2 left-2 z-20 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-sm">
         ページ @(!string.IsNullOrEmpty(Item?.PageInfo) ? Item.PageInfo : "")
     </div>
-    <canvas id="@CanvasId" @ref="canvasRef" class="w-full h-auto bg-white"></canvas>
-        <div class="tp-loading-overlay absolute inset-0 flex items-center justify-center pointer-events-none" hidden="@(!isLoading)">
-        <div class="tp-ring-spinner" role="status" aria-label="Loading preview">
-            <svg viewBox="0 0 50 50" class="tp-ring" aria-hidden="true">
-                <circle class="tp-ring-bg" cx="25" cy="25" r="20" fill="none" stroke-width="4"/>
-                <circle class="tp-ring-fg" cx="25" cy="25" r="20" fill="none" stroke-width="4"/>
-            </svg>
-        </div>
+
+    <canvas id="@CanvasId" @ref="canvasRef" class="w-full h-auto block"></canvas>
+
+    <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-30"
+         hidden="@(!isLoading)">
+        <!-- シンプルな Tailwind スピナー（Tailwind の ring と衝突しない） -->
+        <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
+            <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+        </svg>
     </div>
 </div>
 
@@ -32,7 +34,6 @@
 
     private async Task TryRenderAsync()
     {
-
         try
         {
             if (Item.RawData is not PageItem page) return;
@@ -40,12 +41,10 @@
             string? src = null;
             if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
             {
-                // キャッシュ済みならすぐ返る想定
                 var imageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
                 src = imageUrl;
             }
 
-            // プレビュー未準備なら一度だけローディング表示を出す
             if (string.IsNullOrEmpty(src))
             {
                 return;
@@ -59,7 +58,6 @@
             }
 
             await JSRuntime.InvokeVoidAsync("drawImageToCanvas", CanvasId, src);
-
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -67,5 +65,4 @@
             Console.WriteLine($"TrimPreviewItem render error idx={Index}: {ex.Message}");
         }
     }
-
 }

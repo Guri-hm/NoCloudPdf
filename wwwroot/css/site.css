@@ -629,6 +629,9 @@ input[type=number] {
   .z-20 {
     z-index: 20;
   }
+  .z-30 {
+    z-index: 30;
+  }
   .z-40 {
     z-index: 40;
   }
@@ -785,6 +788,9 @@ input[type=number] {
   .table-cell {
     display: table-cell;
   }
+  .aspect-\[4\/3\] {
+    aspect-ratio: 4/3;
+  }
   .h-2 {
     height: calc(var(--spacing) * 2);
   }
@@ -914,9 +920,6 @@ input[type=number] {
   .w-24 {
     width: calc(var(--spacing) * 24);
   }
-  .w-28 {
-    width: calc(var(--spacing) * 28);
-  }
   .w-30 {
     width: calc(var(--spacing) * 30);
   }
@@ -959,6 +962,9 @@ input[type=number] {
   .max-w-\[90vw\] {
     max-width: 90vw;
   }
+  .max-w-\[112px\] {
+    max-width: 112px;
+  }
   .max-w-\[200px\] {
     max-width: 200px;
   }
@@ -997,6 +1003,9 @@ input[type=number] {
   }
   .flex-1 {
     flex: 1;
+  }
+  .flex-none {
+    flex: none;
   }
   .flex-shrink-0 {
     flex-shrink: 0;
@@ -1085,9 +1094,6 @@ input[type=number] {
   }
   .grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
-  }
-  .grid-cols-2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .flex-col {
     flex-direction: column;
