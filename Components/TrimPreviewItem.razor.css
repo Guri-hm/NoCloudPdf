@@ -1,0 +1,50 @@
+.tp-loading-overlay {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.tp-ring-spinner {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tp-ring {
+    width: 100%;
+    height: 100%;
+    /* ensure rotation uses SVG bounding box center */
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: tp-spin 1s linear infinite;
+}
+
+.tp-ring-bg {
+    stroke: rgba(0, 0, 0, 0.08);
+}
+
+.tp-ring-fg {
+    stroke: #2563eb;
+    stroke-linecap: round;
+    stroke-dasharray: 90;
+    stroke-dashoffset: 60;
+}
+
+@keyframes tp-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.tp-preview-page canvas,
+.tp-preview-page canvas[width] {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    display: block;
+}
+
+/* 各プレビュー項目自体も横ははみ出さないように */
+.tp-preview-page {
+    overflow: hidden;
+    box-sizing: border-box;
+}

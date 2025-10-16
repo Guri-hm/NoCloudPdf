@@ -74,24 +74,117 @@ window.scrollToElement = function(elementId) {
     }
 };
 
-window.registerPanelResize = function(dotNetRef) {
-    let isResizing = false;
-    
-    document.addEventListener('mousemove', (e) => {
-        if (isResizing) {
-            dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX);
+
+window._trimResize = window._trimResize || {
+    dotNetRef: null,
+    cleanupForHandle: null
+};
+
+
+window.registerPanelResize = function (dotNetRef, handleId) {
+    try {
+        // cleanup previous
+        if (window._trimResize.cleanupForHandle) {
+            try { window._trimResize.cleanupForHandle(); } catch (e) { }
+            window._trimResize.cleanupForHandle = null;
         }
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (isResizing) {
-            isResizing = false;
-            dotNetRef.invokeMethodAsync('OnPanelMouseUp');
+
+        window._trimResize.dotNetRef = dotNetRef;
+
+        const handle = document.getElementById(handleId);
+        const thumbArea = document.getElementById('thumbnail-area');
+        if (!handle) {
+            console.warn('registerPanelResize: handle element not found:', handleId);
+            return;
         }
-    });
-    
-    // Store resize state for component access
-    window.trimPanelResizeState = {
-        startResize: () => { isResizing = true; }
-    };
+        if (!thumbArea) {
+            console.warn('registerPanelResize: thumbnail-area not found');
+        }
+
+        // rAF-based throttle state
+        let pending = false;
+        let latestClientX = 0;
+
+        const onPointerDown = function (e) {
+            try {
+                handle.setPointerCapture?.(e.pointerId);
+
+                const onPointerMove = function (ev) {
+                    latestClientX = ev.clientX;
+                    if (!pending) {
+                        pending = true;
+                        requestAnimationFrame(function () {
+                            pending = false;
+                            // compute new width based on clientX and thumbnail area container left
+                            const containerRect = thumbArea ? thumbArea.getBoundingClientRect() : handle.parentElement.getBoundingClientRect();
+                            // clamp to sensible range
+                            const minWidth = 200;
+                            const minRightWidth = 260;
+                            const splitterWidth = handle.getBoundingClientRect().width || 8;
+                            const maxWidth = Math.max(minWidth, window.innerWidth - minRightWidth - splitterWidth);
+                            const computed = Math.round(latestClientX - containerRect.left);
+                            const newWidth = Math.max(minWidth, Math.min(maxWidth, computed));
+                            if (thumbArea) {
+                                thumbArea.style.setProperty('--thumbnail-width', newWidth + 'px');
+                            } else {
+                                // fallback: adjust handle.parentElement width inline
+                                handle.parentElement.style.width = newWidth + 'px';
+                            }
+                        });
+                    }
+                    // do NOT call C# on every move — visual change handled by JS
+                };
+
+                const onPointerUp = function (ev) {
+                    try {
+                        handle.releasePointerCapture?.(ev.pointerId);
+                        // final width compute and inform C# once
+                        const containerRect = thumbArea ? thumbArea.getBoundingClientRect() : handle.parentElement.getBoundingClientRect();
+                        const minWidth = 200;
+                        const minRightWidth = 260;
+                        const splitterWidth = handle.getBoundingClientRect().width || 8;
+                        const maxWidth = Math.max(minWidth, window.innerWidth - minRightWidth - splitterWidth);
+                        const finalWidth = Math.max(minWidth, Math.min(maxWidth, Math.round(ev.clientX - containerRect.left)));
+
+                        if (window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
+                            window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalWidth);
+                        }
+                    } catch (err) {
+                        console.error('onPointerUp error', err);
+                    }
+                    // cleanup listeners
+                    handle.removeEventListener('pointermove', onPointerMove);
+                    handle.removeEventListener('pointerup', onPointerUp);
+                };
+
+                handle.addEventListener('pointermove', onPointerMove);
+                handle.addEventListener('pointerup', onPointerUp);
+            } catch (e) {
+                console.error('onPointerDown error', e);
+            }
+        };
+
+        handle.addEventListener('pointerdown', onPointerDown);
+
+        window._trimResize.cleanupForHandle = function () {
+            try {
+                handle.removeEventListener('pointerdown', onPointerDown);
+            } catch (e) { }
+            window._trimResize.dotNetRef = null;
+        };
+    } catch (e) {
+        console.error('registerPanelResize error', e);
+    }
+};
+
+window.unregisterPanelResize = function () {
+    try {
+        if (window._trimResize.cleanupForHandle) {
+            window._trimResize.cleanupForHandle();
+            window._trimResize.cleanupForHandle = null;
+        }
+        window._trimResize.dotNetRef = null;
+    } catch (e) {
+        console.error('unregisterPanelResize error', e);
+    }
 };

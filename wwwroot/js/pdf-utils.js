@@ -841,8 +841,8 @@ window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = t
             canvas.height = Math.round(cssH * dpr);
 
             // CSS 表示サイズを保持
-            canvas.style.width = cssW + "px";
-            canvas.style.height = cssH + "px";
+            // canvas.style.width = cssW + "px";
+            // canvas.style.height = cssH + "px";
 
             // 高DPI対応：コンテキストをスケール
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

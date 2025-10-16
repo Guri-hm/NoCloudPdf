@@ -2,10 +2,18 @@
 @inject IJSRuntime JSRuntime
 @inject NoCloudPdf.Services.PdfDataService PdfDataService
 
-<div class="preview-page" style="position:relative;">
+<div class="tp-preview-page" style="position:relative;">
+    <div class="absolute top-2 left-2 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-sm">
+        ページ @(!string.IsNullOrEmpty(Item?.PageInfo) ? Item.PageInfo : "")
+    </div>
     <canvas id="@CanvasId" @ref="canvasRef" class="w-full h-auto bg-white"></canvas>
-    <div class="loading-overlay absolute inset-0 flex items-center justify-center pointer-events-none" hidden="@(!isLoading)">
-        <div class="spinner">Loading...</div>
+        <div class="tp-loading-overlay absolute inset-0 flex items-center justify-center pointer-events-none" hidden="@(!isLoading)">
+        <div class="tp-ring-spinner" role="status" aria-label="Loading preview">
+            <svg viewBox="0 0 50 50" class="tp-ring" aria-hidden="true">
+                <circle class="tp-ring-bg" cx="25" cy="25" r="20" fill="none" stroke-width="4"/>
+                <circle class="tp-ring-fg" cx="25" cy="25" r="20" fill="none" stroke-width="4"/>
+            </svg>
+        </div>
     </div>
 </div>
 

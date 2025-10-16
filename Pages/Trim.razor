@@ -44,7 +44,7 @@
         <!-- 左右分割エリア -->
         <div class="flex-1 flex overflow-hidden">
             <!-- 左側：サムネイル一覧 -->
-            <div class="@GetThumbnailAreaClass() overflow-y-auto bg-gray-50 border-r border-gray-300" style="width: @(thumbnailAreaWidth)px;">
+            <div id="thumbnail-area" class="@GetThumbnailAreaClass() overflow-y-auto bg-gray-50 border-r border-gray-300 flex-none" style="--thumbnail-width: 300px; width: var(--thumbnail-width);">
                 <div class="grid @GetThumbnailGridClass() gap-4 p-4">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
@@ -59,12 +59,13 @@
             </div>
             
             <!-- リサイズハンドル -->
-            <div class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500"
-                @onmousedown="StartResize"
-                @onmousedown:preventDefault></div>
+            <div id="splitter-handle" class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500 flex-none"
+                style="touch-action: none;"
+                @onpointerdown="@(e => StartResize((PointerEventArgs)e))">
+            </div>
             
             <!-- 右側：プレビューエリア -->
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
                 <div class="h-full overflow-y-auto bg-gray-100" id="trim-preview-container">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
@@ -201,6 +202,12 @@
     {
         PdfDataService.OnChange -= OnServiceChanged;
         _dotNetRef?.Dispose();
+
+        try
+        {
+            _ = JSRuntime.InvokeVoidAsync("unregisterPanelResize");
+        }
+        catch { }
 
         if (_dropAreaRegistered)
         {
@@ -1065,16 +1072,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
 
-            // リサイズイベント登録（JSが未定義の場合は例外を食わせる）
-            //try
-            //{
-            //    await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef);
-            //}
-            //catch (Exception ex)
-            //{
-            //    // ログ出力して続行（開発環境でJSがロードされていないケースを許容）
-            //    Console.WriteLine($"registerPanelResize not available: {ex.Message}");
-            //}
         }
 
         // 初期画面のときのみ登録
@@ -1101,6 +1098,17 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             foreach (var item in DisplayItems)
             {
                 await JSRuntime.InvokeVoidAsync("drawImageToCanvas", $"trim-thumb-{item.Id}", item.Thumbnail);
+            }
+            
+            // パネルリサイズ用のグローバルポインタリスナを登録
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef, "splitter-handle");
+            }
+            catch (Exception ex)
+            {
+                // 開発環境等でJSが無い場合はログだけ出して継続
+                Console.WriteLine($"registerPanelResize not available: {ex.Message}");
             }
         }
 
@@ -1295,7 +1303,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         }
     }
     
-    private void StartResize(MouseEventArgs e)
+    private void StartResize(PointerEventArgs e)
     {
         isResizingPanel = true;
         resizeStartX = e.ClientX;
@@ -1327,6 +1335,22 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     private string GetThumbnailGridClass()
     {
         return thumbnailAreaWidth > 400 ? "grid-cols-2" : "grid-cols-1";
+    }
+
+    // JS 側で視覚的に幅を変更 -> 最終確定で JS がこのメソッドを呼ぶ
+    [JSInvokable("CommitPanelWidth")]
+    public void CommitPanelWidth(int width)
+    {
+        // 必要な最小/最大チェックを行って UI に反映（1回の StateHasChanged）
+        thumbnailAreaWidth = Math.Max(200, Math.Min( Math.Min(600, width), (int) (BrowserViewportWidth() - 260) ));
+        StateHasChanged();
+    }
+
+    // （補助）ブラウザ幅を使った上限算出に安全に使えるようにする簡易ヘルパー
+    private int BrowserViewportWidth()
+    {
+        // JS 経由で取る実装が望ましい。ここは既定値フォールバック
+        return 1200;
     }
 
         // ...existing code...
