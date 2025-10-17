@@ -115,39 +115,65 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                         pending = true;
                         requestAnimationFrame(function () {
                             pending = false;
-                            // compute new width based on clientX and thumbnail area container left
-                            const containerRect = thumbArea ? thumbArea.getBoundingClientRect() : handle.parentElement.getBoundingClientRect();
-                            // clamp to sensible range
-                            const minWidth = 150;
-                            const minRightWidth = 260;
+
+                            const splitContainerRect = handle.parentElement.getBoundingClientRect();
+                            const minLeft = 150;
+                            const minRight = 260;
                             const splitterWidth = handle.getBoundingClientRect().width || 8;
-                            const maxWidth = Math.max(minWidth, window.innerWidth - minRightWidth - splitterWidth);
-                            const computed = Math.round(latestClientX - containerRect.left);
-                            const newWidth = Math.max(minWidth, Math.min(maxWidth, computed));
+
+                            // compute left width (clamped to split container width)
+                            const maxLeft = Math.max(minLeft, Math.round(splitContainerRect.width - minRight - splitterWidth));
+                            const computedLeft = Math.round(latestClientX - splitContainerRect.left);
+                            const newLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedLeft));
+
+                            // compute right width so left+splitter+right == splitContainerRect.width (clamped)
+                            const newRightWidthUnclamped = Math.round(splitContainerRect.width - newLeftWidth - splitterWidth);
+                            const newRightWidth = Math.max(minRight, Math.min(Math.round(splitContainerRect.width - minLeft - splitterWidth), newRightWidthUnclamped));
+
+                            // apply to left pane
                             if (thumbArea) {
-                                thumbArea.style.setProperty('--thumbnail-width', newWidth + 'px');
+                                thumbArea.style.setProperty('--thumbnail-width', newLeftWidth + 'px');
+                                thumbArea.style.width = newLeftWidth + 'px';
+                                thumbArea.style.maxWidth = maxLeft + 'px';
                             } else {
-                                // fallback: adjust handle.parentElement width inline
-                                handle.parentElement.style.width = newWidth + 'px';
+                                handle.parentElement.style.width = newLeftWidth + 'px';
+                            }
+                            // apply to right pane (handle.nextElementSibling is the right pane)
+                            const rightPane = handle.nextElementSibling;
+                            if (rightPane) {
+                                rightPane.style.width = newRightWidth + 'px';
+                                rightPane.style.flex = '0 0 auto';
                             }
                         });
                     }
-                    // do NOT call C# on every move — visual change handled by JS
                 };
-
                 const onPointerUp = function (ev) {
                     try {
                         handle.releasePointerCapture?.(ev.pointerId);
-                        // final width compute and inform C# once
-                        const containerRect = thumbArea ? thumbArea.getBoundingClientRect() : handle.parentElement.getBoundingClientRect();
+                        
+                        const splitContainerRect = handle.parentElement.getBoundingClientRect();
                         const minWidth = 150;
                         const minRightWidth = 260;
                         const splitterWidth = handle.getBoundingClientRect().width || 8;
-                        const maxWidth = Math.max(minWidth, window.innerWidth - minRightWidth - splitterWidth);
-                        const finalWidth = Math.max(minWidth, Math.min(maxWidth, Math.round(ev.clientX - containerRect.left)));
 
+                        const maxLeft = Math.max(minLeft, Math.round(splitContainerRect.width - minRight - splitterWidth));
+                        const computedFinalLeft = Math.round(ev.clientX - splitContainerRect.left);
+                        const finalLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedFinalLeft));
+                        const finalRightUnclamped = Math.round(splitContainerRect.width - finalLeftWidth - splitterWidth);
+                    
                         if (window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                            window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalWidth);
+                            window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth);
+                        }
+                        // persist styles on final commit
+                        if (thumbArea) {
+                            thumbArea.style.setProperty('--thumbnail-width', finalLeftWidth + 'px');
+                            thumbArea.style.width = finalLeftWidth + 'px';
+                            thumbArea.style.maxWidth = maxLeft + 'px';
+                        }
+                        const rightPaneFinal = handle.nextElementSibling;
+                        if (rightPaneFinal) {
+                            rightPaneFinal.style.width = finalRightWidth + 'px';
+                            rightPaneFinal.style.flex = '0 0 auto';
                         }
                     } catch (err) {
                         console.error('onPointerUp error', err);

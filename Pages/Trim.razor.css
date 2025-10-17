@@ -1,5 +1,7 @@
 /* プレビュー全体のスケーリング（カスタムプロパティで制御） */
 .preview-zoom-inner {
+    width: 100%;               /* 重要: 親幅に収める */
+    box-sizing: border-box;
     transform: scale(var(--preview-zoom, 1));
     transform-origin: 0 0;
 }
@@ -7,4 +9,11 @@
 .preview-zoom-viewport {
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+}
+#thumbnail-area {
+    /* --thumbnail-width を flex-basis にして親からはみ出さないようにする */
+    flex: 0 0 var(--thumbnail-width);
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden; /* 横ははみ出さない */
 }

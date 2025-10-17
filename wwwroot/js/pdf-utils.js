@@ -899,7 +899,6 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
 
             // store src for potential redraws
             try { canvas.dataset.src = imageUrl; } catch (e) { /* ignore */ }
-            console.log('drawImageToCanvas: drawn', canvasId, iw, ih);
         } catch (e) {
             console.error('drawImageToCanvas error', e);
         }

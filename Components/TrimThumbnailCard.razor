@@ -1,9 +1,9 @@
 @using NoCloudPdf.Models
 @inject IJSRuntime JSRuntime
 
-<div class="relative transition cursor-pointer @(IsSelected ? "ring-2 ring-blue-500 bg-blue-50/40" : "")"
-     @onclick="OnClick">
-    <div class="flex flex-col items-center p-2 w-full max-w-[112px]">
+<div class="relative transition cursor-pointer"
+    @onclick="OnClick">
+    <div class="flex flex-col items-center p-2 w-full max-w-[112px] @(IsSelected ? "ring-2 ring-blue-500 bg-blue-50/40" : "")">
         <!-- overflow-hidden を追加して canvas の transform はみ出しを切る -->
         <div class="w-full aspect-[4/3] relative mb-2 overflow-hidden">
             <div class="absolute inset-0 flex items-center justify-center">
