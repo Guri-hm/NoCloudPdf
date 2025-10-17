@@ -193,47 +193,52 @@ window._previewZoomDebounce = window._previewZoomDebounce || { timer: null, last
 
 window.setPreviewZoom = function (zoom, mode = 'contain') {
     try {
-        console.log('setPreviewZoom start, zoom=', zoom, 'mode=', mode);
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
 
         const viewport = document.querySelector('.preview-zoom-viewport');
         const inner = document.getElementById('preview-zoom-inner');
-        if (!inner || !viewport) {
-            console.warn('setPreviewZoom: preview elements not found');
-            return;
-        }
+        if (!inner || !viewport) return;
 
-        // 前回のズームを参照（存在しなければ1）
-        const prev = (window._previewZoomDebounce && window._previewZoomDebounce.lastZoom) ? window._previewZoomDebounce.lastZoom : 1;
+        // 前回のズーム（なければ1）
+        const prev = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
 
-        // ビューポート中心（CSSピクセル）を取得し、"非スケール(元座標)" に変換
-        const vpClientW = viewport.clientWidth || 1;
-        const vpClientH = viewport.clientHeight || 1;
-        const centerX_css = (viewport.scrollLeft || 0) + vpClientW / 2;
-        const centerY_css = (viewport.scrollTop || 0) + vpClientH / 2;
-        const centerX_unscaled = centerX_css / prev;
-        const centerY_unscaled = centerY_css / prev;
+        // 1) ビューポートの画面上中心を inner のクライアント座標系に変換（現在のスケール prev のまま）
+        const vpRect = viewport.getBoundingClientRect();
+        const innerRect = inner.getBoundingClientRect();
+        const centerClientX = vpRect.left + vpRect.width / 2;
+        const centerClientY = vpRect.top + vpRect.height / 2;
+        // center position inside inner's client rect (still scaled by prev)
+        const centerInnerClientX = centerClientX - innerRect.left;
+        const centerInnerClientY = centerClientY - innerRect.top;
+        // convert to unscaled (logical) coordinates
+        const centerUnscaledX = centerInnerClientX / prev;
+        const centerUnscaledY = centerInnerClientY / prev;
 
-        // update transform (use CSS variable + explicit transform for robustness)
+        // 2) apply transform (scale) using top-left origin
         inner.style.setProperty('--preview-zoom', String(zoom));
         inner.style.transform = `scale(${zoom})`;
-        // Use top-left origin to make scroll math straightforward
         inner.style.transformOrigin = '0 0';
 
-        // 計算した非スケール中心を新スケールに戻し、スクロール位置をセット
-        // clamp to valid range
-        const newScrollLeft = Math.max(0, Math.min(inner.scrollWidth * zoom - vpClientW, centerX_unscaled * zoom - vpClientW / 2));
-        const newScrollTop = Math.max(0, Math.min(inner.scrollHeight * zoom - vpClientH, centerY_unscaled * zoom - vpClientH / 2));
+        // 3) compute new scroll so that the same content-center stays centered in viewport
+        const vpW = vpRect.width;
+        const vpH = vpRect.height;
+        // scaled content size (use inner.scrollWidth/Height * zoom as fallback)
+        const contentScaledW = (inner.scrollWidth || innerRect.width) * zoom;
+        const contentScaledH = (inner.scrollHeight || innerRect.height) * zoom;
 
-        // apply scroll (instant). If you want smooth, use behavior: 'smooth' via scrollTo.
+        let newScrollLeft = centerUnscaledX * zoom - vpW / 2;
+        let newScrollTop  = centerUnscaledY * zoom - vpH / 2;
+
+        // clamp
+        newScrollLeft = Math.max(0, Math.min(contentScaledW - vpW, newScrollLeft));
+        newScrollTop  = Math.max(0, Math.min(contentScaledH - vpH, newScrollTop));
+
         viewport.scrollLeft = Math.round(newScrollLeft);
         viewport.scrollTop = Math.round(newScrollTop);
 
-        // store lastZoom
-        window._previewZoomDebounce = window._previewZoomDebounce || { timer: null, lastZoom: 1 };
-        window._previewZoomDebounce.lastZoom = zoom;
-
-        console.log('setPreviewZoom done, zoom=', zoom, 'scrollLeft=', viewport.scrollLeft, 'scrollTop=', viewport.scrollTop);
+        // store last zoom
+        window._previewZoomState = window._previewZoomState || {};
+        window._previewZoomState.lastZoom = zoom;
     } catch (e) {
         console.error('setPreviewZoom error', e);
     }

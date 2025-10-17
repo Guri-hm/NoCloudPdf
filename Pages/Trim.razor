@@ -34,24 +34,7 @@
                     
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     
-                    <!-- プレビューズームコントロール -->
-                    <div class="ml-3 flex items-center gap-2">
-                        <div class="flex items-center gap-1">
-                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(0.5)">50%</button>
-                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(0.75)">75%</button>
-                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(1.0)">100%</button>
-                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(1.5)">150%</button>
-                        </div>
-                        <button class="bg-gray-200 hover:bg-gray-300 text-sm px-2 py-1 rounded" title="幅に合わせる" @onclick="FitPreviewWidth">
-                            <i class="fa-solid fa-expand-wide"></i>
-                        </button>
-                        <button class="bg-gray-200 hover:bg-gray-300 text-sm px-2 py-1 rounded" title="縮小" @onclick="ZoomOut">
-                            <i class="fa-solid fa-minus"></i>
-                        </button>
-                        <button class="bg-gray-200 hover:bg-gray-300 text-sm px-2 py-1 rounded" title="拡大" @onclick="ZoomIn">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
-                    </div>
+                    <ActionButtonGroup T="string" Actions="zoomActions" />
                     
                 </div>
                 
@@ -736,33 +719,6 @@
         StateHasChanged();
     }
 
-    private List<DropdownMenuItem> sortMenuItems => new()
-{
-new DropdownMenuItem
-{
-Label = "名前（昇順）",
-OnClick = EventCallback.Factory.Create(this, () => SelectSort(true))
-},
-new DropdownMenuItem
-{
-Label = "名前（降順）",
-OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
-}
-};
-
-    private List<ActionButtonItem> reverseActions => new()
-    {
-        new ActionButtonItem
-        {
-        Label = "逆順",
-        IconHtml = @"<svg width='20' height='20' viewBox='0 0 21 21' fill='none' class='inline-block align-middle'><g
-        stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'><path d='M4.5 8.5l-4 4 4 4' /><path d='M12.5
-        12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
-        Title = "逆順",
-        OnClick = EventCallback.Factory.Create(this, ReverseOrder)
-        }
-    };
-
     private List<ActionButtonItem> resetActions => new()
     {
         new ActionButtonItem
@@ -816,6 +772,30 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
             },
             Title = "右回転",
             OnClick = EventCallback.Factory.Create(this, RotateAllRight),
+            IconPosition = "left"
+        }
+    };
+
+    private List<ActionButtonItem> zoomActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "幅に合わせる",
+            Title = "幅に合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewWidth),
+        },
+        new ActionButtonItem
+        {
+            Label = "縮小",
+            Title = "縮小",
+            OnClick = EventCallback.Factory.Create(this, ZoomOut),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Label = "拡大",
+            Title = "拡大",
+            OnClick = EventCallback.Factory.Create(this, ZoomIn),
             IconPosition = "left"
         }
     };

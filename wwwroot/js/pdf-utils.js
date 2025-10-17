@@ -868,6 +868,50 @@ window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = t
     img.src = imageUrl;
 };
 
+window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixelRatio = true) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = function () {
+        try {
+            const iw = Math.max(1, Math.round(img.naturalWidth));
+            const ih = Math.max(1, Math.round(img.naturalHeight));
+            const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
+
+            // 内部ピクセルバッファを元画像サイズ * DPR にする
+            canvas.width = Math.round(iw * dpr);
+            canvas.height = Math.round(ih * dpr);
+
+            // 表示サイズ（CSS）は元画像の論理ピクセルサイズに設定する
+            canvas.style.width = iw + 'px';
+            canvas.style.height = ih + 'px';
+            canvas.style.display = 'block';
+
+            // 高DPI対応：コンテキストのスケールを設定（CSSピクセル単位で描画する）
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, iw, ih);
+
+            // 画像をキャンバスいっぱいに描く（アスペクトは img 自体のサイズなのでフィット）
+            ctx.drawImage(img, 0, 0, iw, ih);
+
+            // store src for potential redraws
+            try { canvas.dataset.src = imageUrl; } catch (e) { /* ignore */ }
+            console.log('drawImageToCanvas: drawn', canvasId, iw, ih);
+        } catch (e) {
+            console.error('drawImageToCanvas error', e);
+        }
+    };
+
+    img.onerror = function (e) {
+        console.error('drawImageToCanvas image load error', e, imageUrl);
+    };
+
+    img.src = imageUrl;
+};
+
 window.unlockPdf = async function (pdfData, password) {
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js library not loaded');

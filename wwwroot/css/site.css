@@ -752,9 +752,6 @@ input[type=number] {
   .ml-2 {
     margin-left: calc(var(--spacing) * 2);
   }
-  .ml-3 {
-    margin-left: calc(var(--spacing) * 3);
-  }
   .ml-4 {
     margin-left: calc(var(--spacing) * 4);
   }
@@ -961,6 +958,9 @@ input[type=number] {
   }
   .max-w-6xl {
     max-width: var(--container-6xl);
+  }
+  .max-w-\[80vw\] {
+    max-width: 80vw;
   }
   .max-w-\[90vw\] {
     max-width: 90vw;

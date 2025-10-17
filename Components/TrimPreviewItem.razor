@@ -2,13 +2,19 @@
 @inject IJSRuntime JSRuntime
 @inject NoCloudPdf.Services.PdfDataService PdfDataService
 
-<div class="relative mb-4">
-    <div class="absolute top-2 left-2 z-20 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-sm"
-         data-no-scale>
-        ページ @(!string.IsNullOrEmpty(Item?.PageInfo) ? Item.PageInfo : "")
+<div class="relative mb-4 w-full flex justify-center">
+    <div class="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-2 py-1 rounded text-sm" data-no-scale>
+        <div class="flex items-center gap-2 text-xs font-semibold px-2 py-0.5 rounded max-w-[80vw]"
+             title="@Item.FullFileName"
+             style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "rgba(0,0,0,0.7)" : Item.ColorHsl)">
+            <span class="truncate">@Item.DisplayName</span>
+            <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo)</span>
+        </div>
     </div>
 
-    <canvas id="@CanvasId" @ref="canvasRef" class="w-auto max-w-full h-auto block"></canvas>
+     <div class="w-full flex items-center justify-center">
+        <canvas id="@CanvasId" @ref="canvasRef" class="block mx-auto"></canvas>
+    </div>
 
     <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-30"
          hidden="@(!isLoading)">
@@ -54,7 +60,7 @@
             }
 
             // 重要: zoom は渡さない（EditPage 方式では canvas は実サイズ固定）
-            await JSRuntime.InvokeVoidAsync("drawImageToCanvas", CanvasId, src, true, 1.0, "contain");
+            await JSRuntime.InvokeVoidAsync("drawImageToCanvasForPreview", CanvasId, src, true, 1.0, "contain");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
