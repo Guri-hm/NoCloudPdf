@@ -25,8 +25,8 @@
                     <div class="h-6 w-px bg-gray-300 mx-2"></div>
                     <h1 class="text-lg font-bold">トリミング</h1>
                     
-                    @* <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="isDrawingMode"
-                        OnClick="OnToggleMode" /> *@
+                    <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
+                        OnClick="OnToggleDrawingMode" />
 
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     
@@ -282,21 +282,35 @@
         return DisplayItems[previewIndex].PageCount;
     }
 
-private List<ToggleButtonItem<string>> toggleItems = new()
-{
-new ToggleButtonItem<string>
-{
-Value = "true",
-Label = "トリミング",
-IconSvg = @"<i class=""fa-solid fa-scissors""></i>"
-},
-new ToggleButtonItem<string>
-{
-Value = "false",
-Label = "パン",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path fill='currentColor' fill-rule='evenodd' d='M14 4h5v6h-5zm-1-1h7v8h-7zm7 10h-7v8h7zm-10 1H5v6h5zm-5-1H4v8h7v-8zm6-10H4v8h7z' clip-rule='evenodd'></path></svg>"
-}
-};
+    private List<ToggleButtonItem<bool>> toggleItems = new()
+    {
+        new ToggleButtonItem<bool>
+        {
+            Value = false,
+            Label = "トリミング",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(TrimIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<bool>
+        {
+            Value = true,
+            Label = "パン",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(PanIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            }
+        }
+    };
+    private void OnToggleDrawingMode(bool drawingMode)
+    {
+        isDrawingMode = drawingMode;
+    }
 
     private List<SplitButton.MenuActionItem> downloadMenuItems => new()
     {
@@ -884,26 +898,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             StateHasChanged();
         }
     }
-
-    private List<ToggleButtonItem<string>> toggleItems = new()
-{
-new ToggleButtonItem<string>
-{
-Value = "File",
-Label = "ファイル",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='currentColor' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path
-fill-rule='evenodd' d='M2 2.002h14v2h2l4 4v14H8v-2H2zm1 17h5v-2H5v-1h3v-2H5v-1h3v-2H5v-1h3v-6h7v-1H3zm6
-0v2h12v-12h-4v-4H9zm9-11V5.417l2.586 2.585zm-7 4h8v1h-8zm8 3h-8v1h8zm-2 3h-6v1h6z'></path></svg>"
-},
-new ToggleButtonItem<string>
-{
-Value = "Page",
-Label = "ページ",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='currentColor' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path
-fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7h5zm-6-1v9h7v-9zm10 1h5v7h-5zm-1
-8v-9h7v9z' clip-rule='evenodd'></path></svg>"
-}
-};
 
     private string CurrentDisplayModeString => CurrentDisplayMode == DisplayMode.File ? "File" : "Page";
 
