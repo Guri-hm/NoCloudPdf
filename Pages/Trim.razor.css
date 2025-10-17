@@ -1,9 +1,7 @@
 /* プレビュー全体のスケーリング（カスタムプロパティで制御） */
 .preview-zoom-inner {
-    transform-origin: 0 0;
     transform: scale(var(--preview-zoom, 1));
-    transition: transform 160ms ease;
-    display: inline-block;
+    transform-origin: 0 0;
 }
 /* ビューポート側の振る舞い（横スクロールを内側に閉じる） */
 .preview-zoom-viewport {

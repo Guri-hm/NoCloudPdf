@@ -191,56 +191,72 @@ window.unregisterPanelResize = function () {
 
 window._previewZoomDebounce = window._previewZoomDebounce || { timer: null, lastZoom: 1 };
 
-window.setPreviewZoom = function (zoom, options = { mode: 'contain', redrawDelayMs: 250, forceRedraw: false }) {
+window.setPreviewZoom = function (zoom, mode = 'contain') {
     try {
+        console.log('setPreviewZoom start, zoom=', zoom, 'mode=', mode);
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
 
-        // 1) 即時に CSS 変数でスケール（軽量）
-        const inner = document.querySelector('.preview-zoom-inner');
-        if (inner) {
-            inner.style.setProperty('--preview-zoom', String(zoom));
-        }
-
-        // 2) しきい値で再描画をスケジュール（高解像度でシャープにする）
-        //    オプションで forceRedraw を true にすれば即時再描画
-        if (options.forceRedraw) {
-            doRedrawCanvases(zoom, options.mode);
+        const viewport = document.querySelector('.preview-zoom-viewport');
+        const inner = document.getElementById('preview-zoom-inner');
+        if (!inner || !viewport) {
+            console.warn('setPreviewZoom: preview elements not found');
             return;
         }
 
-        // 前回ズームと同じなら再描画不要
-        if (window._previewZoomDebounce.lastZoom === zoom) {
-            return;
-        }
+        // 前回のズームを参照（存在しなければ1）
+        const prev = (window._previewZoomDebounce && window._previewZoomDebounce.lastZoom) ? window._previewZoomDebounce.lastZoom : 1;
+
+        // ビューポート中心（CSSピクセル）を取得し、"非スケール(元座標)" に変換
+        const vpClientW = viewport.clientWidth || 1;
+        const vpClientH = viewport.clientHeight || 1;
+        const centerX_css = (viewport.scrollLeft || 0) + vpClientW / 2;
+        const centerY_css = (viewport.scrollTop || 0) + vpClientH / 2;
+        const centerX_unscaled = centerX_css / prev;
+        const centerY_unscaled = centerY_css / prev;
+
+        // update transform (use CSS variable + explicit transform for robustness)
+        inner.style.setProperty('--preview-zoom', String(zoom));
+        inner.style.transform = `scale(${zoom})`;
+        // Use top-left origin to make scroll math straightforward
+        inner.style.transformOrigin = '0 0';
+
+        // 計算した非スケール中心を新スケールに戻し、スクロール位置をセット
+        // clamp to valid range
+        const newScrollLeft = Math.max(0, Math.min(inner.scrollWidth * zoom - vpClientW, centerX_unscaled * zoom - vpClientW / 2));
+        const newScrollTop = Math.max(0, Math.min(inner.scrollHeight * zoom - vpClientH, centerY_unscaled * zoom - vpClientH / 2));
+
+        // apply scroll (instant). If you want smooth, use behavior: 'smooth' via scrollTo.
+        viewport.scrollLeft = Math.round(newScrollLeft);
+        viewport.scrollTop = Math.round(newScrollTop);
+
+        // store lastZoom
+        window._previewZoomDebounce = window._previewZoomDebounce || { timer: null, lastZoom: 1 };
         window._previewZoomDebounce.lastZoom = zoom;
 
-        if (window._previewZoomDebounce.timer) {
-            clearTimeout(window._previewZoomDebounce.timer);
-        }
-        window._previewZoomDebounce.timer = setTimeout(() => {
-            doRedrawCanvases(zoom, options.mode);
-            window._previewZoomDebounce.timer = null;
-        }, options.redrawDelayMs || 250);
+        console.log('setPreviewZoom done, zoom=', zoom, 'scrollLeft=', viewport.scrollLeft, 'scrollTop=', viewport.scrollTop);
     } catch (e) {
         console.error('setPreviewZoom error', e);
     }
+};
 
-    function doRedrawCanvases(zoomValue, mode) {
-        try {
-            const canvases = document.querySelectorAll('#trim-preview-container canvas');
-            canvases.forEach(c => {
-                const src = c.dataset ? c.dataset.src : null;
-                if (src && typeof window.drawImageToCanvas === 'function') {
-                    try {
-                        // drawImageToCanvas の inZoomInner ブランチを使える前提で zoom を渡す
-                        window.drawImageToCanvas(c.id, src, true, zoomValue, mode);
-                    } catch (err) {
-                        console.error('drawImageToCanvas failed for', c.id, err);
-                    }
-                }
-            });
-        } catch (err) {
-            console.error('doRedrawCanvases error', err);
+// 初期フィット計算（オプション：EditPage と同様に container に合わせる）
+window.computeAndApplyFitZoom = function () {
+    try {
+        const container = document.getElementById('trim-preview-container');
+        const inner = document.getElementById('preview-zoom-inner');
+        if (!container || !inner) return;
+        
+        const containerW = container.clientWidth || 1;
+        const innerW = inner.scrollWidth || inner.getBoundingClientRect().width || 1;
+        
+        // フィット倍率（内部が container より大きければ縮小）
+        const fit = Math.min(1.0, containerW / innerW);
+        
+        if (typeof window.setPreviewZoom === 'function') {
+            window.setPreviewZoom(fit);
         }
+        console.log('computeAndApplyFitZoom ->', { containerW, innerW, fit });
+    } catch (e) {
+        console.error('computeAndApplyFitZoom error', e);
     }
 };

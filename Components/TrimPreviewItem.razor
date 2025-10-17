@@ -2,8 +2,9 @@
 @inject IJSRuntime JSRuntime
 @inject NoCloudPdf.Services.PdfDataService PdfDataService
 
-<div class="relative">
-    <div class="absolute top-2 left-2 z-20 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-sm">
+<div class="relative mb-4">
+    <div class="absolute top-2 left-2 z-20 bg-gray-800 bg-opacity-70 text-white px-2 py-1 rounded text-sm"
+         data-no-scale>
         ページ @(!string.IsNullOrEmpty(Item?.PageInfo) ? Item.PageInfo : "")
     </div>
 
@@ -11,7 +12,6 @@
 
     <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-30"
          hidden="@(!isLoading)">
-        <!-- シンプルな Tailwind スピナー（Tailwind の ring と衝突しない） -->
         <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
             <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
             <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
@@ -45,19 +45,16 @@
                 src = imageUrl;
             }
 
-            if (string.IsNullOrEmpty(src))
-            {
-                return;
-            }
+            if (string.IsNullOrEmpty(src)) return;
 
             if (isLoading)
             {
                 isLoading = false;
                 await InvokeAsync(StateHasChanged);
-                return;
             }
 
-            await JSRuntime.InvokeVoidAsync("drawImageToCanvas", CanvasId, src);
+            // 重要: zoom は渡さない（EditPage 方式では canvas は実サイズ固定）
+            await JSRuntime.InvokeVoidAsync("drawImageToCanvas", CanvasId, src, true, 1.0, "contain");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)

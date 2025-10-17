@@ -821,107 +821,51 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 //     };
 //     img.src = imageUrl;
 // };
-window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true, zoom = 1.0, mode = 'contain') {
-    try {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) {
-            console.warn('drawImageToCanvas: canvas not found', canvasId);
-            return;
+window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const img = new window.Image();
+
+    img.onload = function () {
+        try {
+            // 表示サイズ（CSSピクセル）
+            const rect = canvas.getBoundingClientRect();
+            const cssW = Math.max(1, rect.width || canvas.clientWidth || 96);
+            const cssH = Math.max(1, rect.height || canvas.clientHeight || 128);
+
+            const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
+
+            // 内部ピクセルバッファを調整
+            canvas.width = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+
+            // CSS 表示サイズを保持
+            // canvas.style.width = cssW + "px";
+            // canvas.style.height = cssH + "px";
+
+            // 高DPI対応：コンテキストをスケール
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            // アスペクト比を維持して中央に描画
+            const scale = Math.min(cssW / img.width, cssH / img.height);
+            const drawW = img.width * scale;
+            const drawH = img.height * scale;
+            ctx.drawImage(img,
+                (cssW - drawW) / 2,
+                (cssH - drawH) / 2,
+                drawW, drawH);
+        } catch (e) {
+            console.debug('drawImageToCanvas error', e);
         }
+    };
 
-        // 重要: src を dataset に保存（再描画に必要）
-        canvas.dataset.src = imageUrl;
+    img.onerror = function (e) {
+        console.debug('drawImageToCanvas image load error', e, imageUrl);
+    };
 
-        const ctx = canvas.getContext('2d');
-        const img = new window.Image();
-        img.crossOrigin = 'anonymous';
-
-        img.onload = function () {
-            try {
-                // レイアウト幅（transform の影響を受けない clientWidth を優先）
-                const clientW = Math.max(1, Math.round(canvas.clientWidth || 0));
-                const clientH = Math.max(1, Math.round(canvas.clientHeight || 0));
-                const baseW = clientW || Math.max(1, Math.round((canvas.getBoundingClientRect().width || 96)));
-                const baseH = clientH || Math.max(1, Math.round((canvas.getBoundingClientRect().height || 128)));
-
-                const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
-                const inZoomInner = !!canvas.closest('.preview-zoom-inner');
-
-                if (inZoomInner) {
-                    // 親で transform(scale) を使っている場合：
-                    // - CSS 表示幅は baseW/baseH のままにする（レイアウト幅を変えない）
-                    // - 内部バッファを zoom * dpr に合わせる
-                    const bufferW = Math.max(1, Math.round(baseW * zoom * dpr));
-                    const bufferH = Math.max(1, Math.round(baseH * zoom * dpr));
-                    canvas.width = bufferW;
-                    canvas.height = bufferH;
-
-                    canvas.style.width = baseW + 'px';
-                    canvas.style.height = baseH + 'px';
-                    canvas.style.display = 'block';
-
-                    // スケールして描画（CSS単位＝baseW/baseH を基準に描画）
-                    ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, 0, 0);
-                    ctx.clearRect(0, 0, baseW, baseH);
-
-                    const iw = img.naturalWidth || img.width;
-                    const ih = img.naturalHeight || img.height;
-                    if (!iw || !ih) return;
-
-                    if (mode === 'cover') {
-                        const scale = Math.max(baseW / iw, baseH / ih);
-                        const drawW = iw * scale, drawH = ih * scale;
-                        const dx = (baseW - drawW) / 2, dy = (baseH - drawH) / 2;
-                        ctx.drawImage(img, dx, dy, drawW, drawH);
-                    } else {
-                        const scale = Math.min(baseW / iw, baseH / ih);
-                        const drawW = iw * scale, drawH = ih * scale;
-                        const dx = (baseW - drawW) / 2, dy = (baseH - drawH) / 2;
-                        ctx.drawImage(img, dx, dy, drawW, drawH);
-                    }
-                } else {
-                    // 既存（個別キャンバス自体を拡大するケース）
-                    const cssW = Math.max(1, Math.round(baseW * zoom));
-                    const cssH = Math.max(1, Math.round(baseH * zoom));
-                    canvas.width = Math.round(cssW * dpr);
-                    canvas.height = Math.round(cssH * dpr);
-
-                    canvas.style.width = cssW + 'px';
-                    canvas.style.height = cssH + 'px';
-                    canvas.style.display = 'block';
-
-                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                    ctx.clearRect(0, 0, cssW, cssH);
-
-                    const iw = img.naturalWidth || img.width;
-                    const ih = img.naturalHeight || img.height;
-                    if (!iw || !ih) return;
-
-                    if (mode === 'cover') {
-                        const scale = Math.max(cssW / iw, cssH / ih);
-                        const drawW = iw * scale, drawH = ih * scale;
-                        const dx = (cssW - drawW) / 2, dy = (cssH - drawH) / 2;
-                        ctx.drawImage(img, dx, dy, drawW, drawH);
-                    } else {
-                        const scale = Math.min(cssW / iw, cssH / ih);
-                        const drawW = iw * scale, drawH = ih * scale;
-                        const dx = (cssW - drawW) / 2, dy = (cssH - drawH) / 2;
-                        ctx.drawImage(img, dx, dy, drawW, drawH);
-                    }
-                }
-            } catch (err) {
-                console.error('drawImageToCanvas img.onload error', err);
-            }
-        };
-
-        img.onerror = function (e) {
-            console.error('drawImageToCanvas img load error', e, imageUrl);
-        };
-
-        img.src = imageUrl;
-    } catch (e) {
-        console.error('drawImageToCanvas outer error', e);
-    }
+    img.src = imageUrl;
 };
 
 window.unlockPdf = async function (pdfData, password) {

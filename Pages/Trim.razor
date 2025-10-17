@@ -36,6 +36,12 @@
                     
                     <!-- プレビューズームコントロール -->
                     <div class="ml-3 flex items-center gap-2">
+                        <div class="flex items-center gap-1">
+                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(0.5)">50%</button>
+                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(0.75)">75%</button>
+                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(1.0)">100%</button>
+                            <button class="text-xs px-2 py-1 bg-gray-100 rounded" @onclick="() => SetPreviewZoomPreset(1.5)">150%</button>
+                        </div>
                         <button class="bg-gray-200 hover:bg-gray-300 text-sm px-2 py-1 rounded" title="幅に合わせる" @onclick="FitPreviewWidth">
                             <i class="fa-solid fa-expand-wide"></i>
                         </button>
@@ -79,10 +85,10 @@
             <!-- 右側：プレビューエリア -->
             <!-- 右側：プレビューエリア（プレビュー領域は固定、内部で拡大縮小してスクロールさせる）-->
             <div class="flex-1 min-w-0">
-                <div id="trim-preview-container" class="h-full overflow-hidden bg-gray-100 p-4 flex flex-col gap-4">
+                <div id="trim-preview-container" class="h-full overflow-auto bg-gray-100 p-4 flex flex-col gap-4">
                     <!-- ビューポート：幅は固定（親に合わせる）、内部で横スクロールさせる -->
-                    <div class="preview-zoom-viewport w-full h-full overflow-auto">
-                        <div id="preview-zoom-inner" class="preview-zoom-inner">
+                    <div class="preview-zoom-viewport w-full h-full">
+                        <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
                             @for (int i = 0; i < DisplayItems.Count; i++)
                             {
                                 var item = DisplayItems[i];
@@ -1093,6 +1099,15 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
 
         }
 
+        if (!previewZoomInitialized)
+        {
+            // 既存の初期ズーム適用（サーバ側値を使う場合）に加えて、クライアント側でフィットを算出
+            await ApplyPreviewZoomAsync();
+            // クライアントで実際のフィット倍率を計算して適用（横幅に合わせる）
+            try { await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom"); } catch { }
+            previewZoomInitialized = true;
+        }
+
         // 初期画面のときのみ登録
         if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
         {
@@ -1401,7 +1416,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         // ...existing code...
 
     private double previewZoom = 1.0;
-    private const double ZoomStep = 0.1;
+    private const double ZoomStep = 0.25;
     private const double MinZoom = 0.25;
     private const double MaxZoom = 3.0;
 
@@ -1444,5 +1459,11 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     private (int x, int y, int w, int h) FromNormalizedRect(double nx, double ny, double nw, double nh, double containerW, double containerH)
     {
         return ((int)Math.Round(nx * containerW), (int)Math.Round(ny * containerH), (int)Math.Round(nw * containerW), (int)Math.Round(nh * containerH));
+    }
+
+    private async Task SetPreviewZoomPreset(double z)
+    {
+        previewZoom = Math.Max(MinZoom, Math.Min(MaxZoom, z));
+        await ApplyPreviewZoomAsync();
     }
 }
