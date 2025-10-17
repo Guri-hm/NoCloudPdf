@@ -25,13 +25,9 @@
                     <div class="h-6 w-px bg-gray-300 mx-2"></div>
                     <h1 class="text-lg font-bold">トリミング</h1>
                     
-                    <!-- 描画モード切替 -->
-                    <button class="@(isDrawingMode ? "bg-blue-600" : "bg-gray-600") hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                            @onclick="ToggleDrawingMode">
-                        <i class="fa-solid @(isDrawingMode ? "fa-crop" : "fa-hand")"></i>
-                        @(isDrawingMode ? "描画モード" : "スクロールモード")
-                    </button>
-                    
+                    @* <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="isDrawingMode"
+                        OnClick="OnToggleMode" /> *@
+
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     
                     <ActionButtonGroup T="string" Actions="zoomActions" />
@@ -285,6 +281,22 @@
             return 1;
         return DisplayItems[previewIndex].PageCount;
     }
+
+private List<ToggleButtonItem<string>> toggleItems = new()
+{
+new ToggleButtonItem<string>
+{
+Value = "true",
+Label = "トリミング",
+IconSvg = @"<i class=""fa-solid fa-scissors""></i>"
+},
+new ToggleButtonItem<string>
+{
+Value = "false",
+Label = "パン",
+IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path fill='currentColor' fill-rule='evenodd' d='M14 4h5v6h-5zm-1-1h7v8h-7zm7 10h-7v8h7zm-10 1H5v6h5zm-5-1H4v8h7v-8zm6-10H4v8h7z' clip-rule='evenodd'></path></svg>"
+}
+};
 
     private List<SplitButton.MenuActionItem> downloadMenuItems => new()
     {

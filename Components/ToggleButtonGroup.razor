@@ -7,7 +7,7 @@
         var isActive = EqualityComparer<T>.Default.Equals(item.Value, ActiveValue);
         <button
             class="px-4 py-1 focus:outline-none transition border h-full flex items-center gap-2 @(isActive ? "bg-blue-100 text-blue-900 font-bold shadow-sm border-blue-400 z-10" : "bg-white text-gray-500 border-gray-300 hover:bg-gray-100 font-normal") @(i == 0 ? "rounded-s-lg" : (i == Items.Count - 1 ? "rounded-e-lg" : ""))"
-            @onclick="() => OnClick.InvokeAsync(item.Value)">
+            @onclick="() => HandleClick(item.Value)">
             @if (!string.IsNullOrEmpty(item.IconSvg))
             {
                 @((MarkupString)item.IconSvg)
@@ -21,9 +21,38 @@
     [Parameter]
     public List<ToggleButtonItem<T>> Items { get; set; } = new();
 
+    // 既存の API （互換性維持）
     [Parameter]
     public T ActiveValue { get; set; } = default!;
 
     [Parameter]
     public EventCallback<T> OnClick { get; set; }
+
+    // 追加: 双方向バインド用の Value / ValueChanged を提供
+    // 呼び出し側は @bind-Value を使って直接 bool 等をバインドできます。
+    [Parameter]
+    public T Value
+    {
+        get => ActiveValue;
+        set => ActiveValue = value;
+    }
+
+    [Parameter]
+    public EventCallback<T> ValueChanged { get; set; }
+
+    private async Task HandleClick(T clickedValue)
+    {
+        // Value/ActiveValue を更新して双方向バインドイベントを発火
+        if (!EqualityComparer<T>.Default.Equals(clickedValue, ActiveValue))
+        {
+            ActiveValue = clickedValue;
+            await ValueChanged.InvokeAsync(clickedValue);
+        }
+
+        // 既存の OnClick コールバックも呼ぶ（互換性）
+        if (OnClick.HasDelegate)
+        {
+            await OnClick.InvokeAsync(clickedValue);
+        }
+    }
 }
