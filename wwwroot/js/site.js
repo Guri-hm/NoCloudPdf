@@ -278,7 +278,6 @@ window.computeAndApplyFitZoom = function () {
         if (typeof window.setPreviewZoom === 'function') {
             window.setPreviewZoom(fit);
         }
-        console.log('computeAndApplyFitZoom ->', { containerW, innerW, fit });
     } catch (e) {
         console.error('computeAndApplyFitZoom error', e);
     }
