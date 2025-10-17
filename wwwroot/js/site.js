@@ -283,3 +283,90 @@ window.computeAndApplyFitZoom = function () {
         console.error('computeAndApplyFitZoom error', e);
     }
 };
+
+window._previewPan = window._previewPan || { enabled: false, handlers: null, state: null };
+
+window.setPreviewPanEnabled = function (enabled) {
+    try {
+        const viewport = document.querySelector('.preview-zoom-viewport');
+        if (!viewport) return;
+
+        // disable existing
+        if (window._previewPan.handlers) {
+            try {
+                const h = window._previewPan.handlers;
+                viewport.removeEventListener('pointerdown', h.down);
+                viewport.removeEventListener('pointermove', h.move);
+                viewport.removeEventListener('pointerup', h.up);
+                viewport.removeEventListener('pointercancel', h.up);
+            } catch (e) { /* ignore */ }
+            window._previewPan.handlers = null;
+            window._previewPan.state = null;
+            viewport.classList.remove('pan-active');
+            viewport.style.touchAction = ''; // restore
+        }
+
+        if (!enabled) {
+            window._previewPan.enabled = false;
+            // set default cursor when pan disabled
+            viewport.style.cursor = '';
+            return;
+        }
+
+        // enable pan
+        window._previewPan.enabled = true;
+        viewport.style.cursor = 'grab';
+        viewport.style.touchAction = 'none'; // allow pointer dragging
+        viewport.classList.add('pan-active');
+
+        const state = { active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0, pointerId: null };
+        window._previewPan.state = state;
+
+        const onPointerDown = function (ev) {
+            try {
+                // only left button or primary pointer
+                if (ev.button !== 0) return;
+                state.active = true;
+                state.pointerId = ev.pointerId;
+                state.startX = ev.clientX;
+                state.startY = ev.clientY;
+                state.scrollLeft = viewport.scrollLeft;
+                state.scrollTop = viewport.scrollTop;
+                viewport.setPointerCapture && viewport.setPointerCapture(ev.pointerId);
+                viewport.classList.add('panning'); // for cursor change
+            } catch (e) { console.error('pan down error', e); }
+        };
+
+        const onPointerMove = function (ev) {
+            try {
+                if (!state.active || state.pointerId !== ev.pointerId) return;
+                const dx = ev.clientX - state.startX;
+                const dy = ev.clientY - state.startY;
+                // invert movement to emulate hand-drag (dragging moves content oppositely)
+                viewport.scrollLeft = state.scrollLeft - dx;
+                viewport.scrollTop = state.scrollTop - dy;
+            } catch (e) { /* ignore */ }
+        };
+
+        const onPointerUp = function (ev) {
+            try {
+                if (state.active && state.pointerId === ev.pointerId) {
+                    state.active = false;
+                    try { viewport.releasePointerCapture && viewport.releasePointerCapture(ev.pointerId); } catch {}
+                    viewport.classList.remove('panning');
+                }
+            } catch (e) { /* ignore */ }
+        };
+
+        // attach
+        viewport.addEventListener('pointerdown', onPointerDown);
+        viewport.addEventListener('pointermove', onPointerMove);
+        viewport.addEventListener('pointerup', onPointerUp);
+        viewport.addEventListener('pointercancel', onPointerUp);
+
+        window._previewPan.handlers = { down: onPointerDown, move: onPointerMove, up: onPointerUp };
+    } catch (e) {
+        console.error('setPreviewPanEnabled error', e);
+    }
+};
+// ...existing code...

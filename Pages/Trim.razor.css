@@ -9,6 +9,17 @@
 .preview-zoom-viewport {
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+    cursor: default;
+}
+.preview-zoom-viewport.pan-active {
+    cursor: grab;
+}
+.preview-zoom-viewport.pan-active.panning,
+.preview-zoom-viewport.panning {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
 }
 #thumbnail-area {
     /* --thumbnail-width を flex-basis にして親からはみ出さないようにする */

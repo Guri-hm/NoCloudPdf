@@ -286,7 +286,7 @@
     {
         new ToggleButtonItem<bool>
         {
-            Value = false,
+            Value = true,
             Label = "トリミング",
             IconFragment = builder =>
             {
@@ -297,7 +297,7 @@
         },
         new ToggleButtonItem<bool>
         {
-            Value = true,
+            Value = false,
             Label = "パン",
             IconFragment = builder =>
             {
@@ -307,9 +307,16 @@
             }
         }
     };
-    private void OnToggleDrawingMode(bool drawingMode)
+
+    private async Task OnToggleDrawingMode(bool drawingMode)
     {
+        // drawingMode == false のときパンを有効にする
         isDrawingMode = drawingMode;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setPreviewPanEnabled", !drawingMode);
+        }
+        catch { }
     }
 
     private List<SplitButton.MenuActionItem> downloadMenuItems => new()
@@ -1086,9 +1093,7 @@
 
         if (!previewZoomInitialized)
         {
-            // 既存の初期ズーム適用（サーバ側値を使う場合）に加えて、クライアント側でフィットを算出
             await ApplyPreviewZoomAsync();
-            // クライアントで実際のフィット倍率を計算して適用（横幅に合わせる）
             try { await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom"); } catch { }
             previewZoomInitialized = true;
         }
@@ -1165,6 +1170,12 @@
         {
             _renderedMergedPages = false;
         }
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setPreviewPanEnabled", !isDrawingMode);
+        }
+        catch { }
     }
     [JSInvokable]
     public void SetDragOver(bool over)
@@ -1263,7 +1274,7 @@
         }
     }
 
-    private bool isDrawingMode = false;
+    private bool isDrawingMode = true;
     private int selectedPageIndex = -1;
 
 
@@ -1272,12 +1283,6 @@
     private bool isResizingPanel = false;
     private double resizeStartX = 0;
     private int resizeStartWidth = 0;
-
-    
-    private void ToggleDrawingMode()
-    {
-        isDrawingMode = !isDrawingMode;
-    }
     
     private Task SelectPage(int index)
     {
