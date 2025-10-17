@@ -1273,13 +1273,15 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         isDrawingMode = !isDrawingMode;
     }
     
-    private async Task SelectPage(int index)
+    private Task SelectPage(int index)
     {
+        // 先にスクロール命令を投げる（非同期・待たない）
+        _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", index);
+
+        // 選択状態は後で反映（再描画は必要なら）
         selectedPageIndex = index;
-        if (trimPreviewArea != null)
-        {
-            await trimPreviewArea.ScrollToPage(index);
-        }
+        StateHasChanged();
+        return Task.CompletedTask;
     }
     
     
@@ -1366,7 +1368,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         // --- 以下はビルドを通すための最小スタブ定義（本実装があれば置き換えてください） ---
         private Dictionary<int, TrimRect> trimRects = new();
         private List<PreviewItem> previewItems = new();
-        private TrimPreviewArea? trimPreviewArea;
         private TrimRect? selectedTrimRect = null;
     
         // 矩形データ（以前の定義に合わせる）
@@ -1385,14 +1386,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             public int ContainerHeight { get; set; }
             public TrimRect? TrimRect { get; set; }
         }
-    
-        // TrimPreviewArea コンポーネント参照のための最小スタブ（実際はコンポーネントを復元してください）
-        public class TrimPreviewArea
-        {
-            public Task ScrollToPage(int index) => Task.CompletedTask;
-        }
-        // --- スタブ定義ここまで ---
-        // ...existing code...
 
     private double previewZoom = 1.0;
     private const double ZoomStep = 0.25;

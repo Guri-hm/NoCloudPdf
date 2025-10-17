@@ -67,14 +67,6 @@ window.getElementDimensions = function(element) {
     return [element.offsetWidth, element.offsetHeight];
 };
 
-window.scrollToElement = function(elementId) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-};
-
-
 window._trimResize = window._trimResize || {
     dotNetRef: null,
     cleanupForHandle: null
