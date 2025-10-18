@@ -45,6 +45,23 @@ public class PageItem
 
     public bool IsOperationRestricted { get; set; } // 操作制限フラグ
     public string? PreviewImage { get; set; } // プレビュー画像データ（Base64）
+    public List<TrimRectInfo> TrimRects { get; set; } = new(); // トリミング矩形情報リスト
+}
+
+/// <summary>
+/// 単一のトリム矩形情報（正規化座標）
+/// </summary>
+public class TrimRectInfo
+{
+    // 正規化座標（0..1）
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+
+    // 任意のメタ情報
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? Tag { get; set; }
 }
 
 /// <summary>

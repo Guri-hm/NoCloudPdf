@@ -8,7 +8,7 @@
              title="@Item.FullFileName"
              style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "rgba(0,0,0,0.7)" : Item.ColorHsl)">
             <span class="truncate">@Item.DisplayName</span>
-            <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo)</span>
+            <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo) @(IsDrawingMode ? "Drawing" : "Not Drawing")</span>
         </div>
     </div>
 
@@ -34,24 +34,82 @@
     private bool isLoading = true;
     private string CanvasId => $"trim-preview-canvas-{Index}";
 
+    private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // まず描画処理を試みる（これで isLoading が false に変わることがある）
         await TryRenderAsync();
+
+        // 画像がまだロード中ならここで終了。リソースが整うまで attach/draw を行わない。
+        if (isLoading)
+        {
+            // 次のレンダーで再試行される想定なので何もしない
+            return;
+        }
+
         try
         {
+            // DotNetObjectReference を作って JS に渡す（JS はこの ref を使って CommitTrimRectFromJs を呼ぶ）
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+
             if (IsDrawingMode)
             {
-                try { await JSRuntime.InvokeVoidAsync("attachTrimListeners", CanvasId); } catch { }
+                Console.WriteLine($"TrimPreviewItem attach listeners idx={Index}");
+
+                try { await JSRuntime.InvokeVoidAsync("attachTrimListeners", CanvasId, _dotNetRef); } catch {
+                    Console.WriteLine($"TrimPreviewItem attach listeners failed idx={Index}");
+                }
             }
             else
             {
+                Console.WriteLine($"TrimPreviewItem detach listeners idx={Index}");
                 try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
+            }
+
+            // サービスに保存されている矩形があれば JS に描画させる
+            try
+            {
+                var r = PdfDataService.GetTrimRect(Index);
+                if (r != null)
+                {
+                    // drawTrimOverlay expects an array of normalized rects
+                    var rect = new { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height };
+                    Console.WriteLine($"TrimPreviewItem draw existing rect idx={Index}: {rect}");
+                    // canvas のサイズが安定している前提なので直接呼ぶ
+                    await JSRuntime.InvokeVoidAsync("drawTrimOverlay", CanvasId, new[] { rect });
+                }
+                else
+                {
+                    Console.WriteLine($"TrimPreviewItem no existing rect idx={Index}");
+                    // clear overlay
+                    await JSRuntime.InvokeVoidAsync("drawTrimOverlay", CanvasId, Array.Empty<object>());
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"TrimPreviewItem draw existing rect failed idx={Index}: {ex.Message}");
             }
         }
         catch { }
     }
 
-    private async Task TryRenderAsync()
+    // JS から確定矩形が届いたらサービスに保存して UI を更新
+    [JSInvokable("CommitTrimRectFromJs")]
+    public async Task CommitTrimRectFromJs(double x, double y, double width, double height)
+    {
+        try
+        {
+            await PdfDataService.SetTrimRect(Index, x, y, width, height);
+            // SetTrimRect は UI通知を行うので StateHasChanged はサービス側で引き起こされます。
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CommitTrimRectFromJs failed idx={Index}: {ex.Message}");
+        }
+    }
+
+        private async Task TryRenderAsync()
     {
         try
         {
@@ -66,14 +124,31 @@
 
             if (string.IsNullOrEmpty(src)) return;
 
-            if (isLoading)
+            // 変更: JS の描画完了 Promise を await してから isLoading を解除する
+            bool drawOk = false;
+            try
             {
-                isLoading = false;
-                await InvokeAsync(StateHasChanged);
+                drawOk = await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
+            }
+            catch (Exception jsEx)
+            {
+                Console.WriteLine($"TrimPreviewItem drawImageToCanvasForPreview invoke failed idx={Index}: {jsEx.Message}");
+                drawOk = false;
             }
 
-            // 重要: zoom は渡さない（EditPage 方式では canvas は実サイズ固定）
-            await JSRuntime.InvokeVoidAsync("drawImageToCanvasForPreview", CanvasId, src, true, 1.0, "contain");
+            if (drawOk)
+            {
+                if (isLoading)
+                {
+                    isLoading = false;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            else
+            {
+                // 描画失敗なら isLoading を維持して次のレンダーで再試行させる
+                Console.WriteLine($"TrimPreviewItem: drawImageToCanvasForPreview returned false idx={Index}");
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -81,8 +156,10 @@
             Console.WriteLine($"TrimPreviewItem render error idx={Index}: {ex.Message}");
         }
     }
+
     public void Dispose()
     {
         try { _ = JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
+        try { _dotNetRef?.Dispose(); } catch { }
     }
 }

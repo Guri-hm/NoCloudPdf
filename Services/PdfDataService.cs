@@ -1306,7 +1306,6 @@ public class PdfDataService
         {
             // 何もしない（Clear は同期APIなので例外は抑える）
         }
-        _trimRects.Clear();
         CancelBufferedNotify();
     }
 
@@ -1685,35 +1684,52 @@ public class PdfDataService
     //     }
     // }
 
-    private Dictionary<int, TrimRectInfo> _trimRects = new();
-
-    public class TrimRectInfo
+    public async Task SetTrimRect(int pageIndex, double x, double y, double width, double height)
     {
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double Width { get; set; }
-        public double Height { get; set; }
-    }
+        // 優先して PageItem 側に格納する
+        if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
+        {
+            var page = _model.Pages[pageIndex];
+            page.TrimRects.Clear();
+            page.TrimRects.Add(new TrimRectInfo { X = x, Y = y, Width = width, Height = height });
+        }
 
-    public Task SetTrimRect(int pageIndex, double x, double y, double width, double height)
-    {
-        _trimRects[pageIndex] = new TrimRectInfo { X = x, Y = y, Width = width, Height = height };
-        return Task.CompletedTask;
+        await InvokeOnChangeAsync();
     }
 
     public void ClearTrimRect(int pageIndex)
     {
-        _trimRects.Remove(pageIndex);
+        if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
+        {
+            var page = _model.Pages[pageIndex];
+            page.TrimRects.Clear();
+        }
     }
 
     public TrimRectInfo? GetTrimRect(int pageIndex)
     {
-        return _trimRects.TryGetValue(pageIndex, out var rect) ? rect : null;
+        if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
+        {
+            var page = _model.Pages[pageIndex];
+            if (page.TrimRects != null && page.TrimRects.Count > 0)
+                return page.TrimRects[0];
+        }
+
+        return null;
     }
 
     public Dictionary<int, TrimRectInfo> GetAllTrimRects()
     {
-        return new Dictionary<int, TrimRectInfo>(_trimRects);
+        var result = new Dictionary<int, TrimRectInfo>();
+        for (int i = 0; i < _model.Pages.Count; i++)
+        {
+            var p = _model.Pages[i];
+            if (p.TrimRects != null && p.TrimRects.Count > 0)
+            {
+                result[i] = p.TrimRects[0];
+            }
+        }
+        return result;
     }
 
     // バッファリング用フィールド（クラス内）

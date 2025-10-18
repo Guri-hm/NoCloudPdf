@@ -869,46 +869,61 @@ window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = t
 };
 
 window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixelRatio = true) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-
-    img.onload = function () {
+    // 変更: Promise を返すようにして、描画・レイアウト安定を待てるようにする
+    return new Promise((resolve) => {
         try {
-            const iw = Math.max(1, Math.round(img.naturalWidth));
-            const ih = Math.max(1, Math.round(img.naturalHeight));
-            const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) { resolve(false); return; }
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { resolve(false); return; }
 
-            // 内部ピクセルバッファを元画像サイズ * DPR にする
-            canvas.width = Math.round(iw * dpr);
-            canvas.height = Math.round(ih * dpr);
+            const img = new window.Image();
+            img.crossOrigin = 'anonymous';
 
-            // 表示サイズ（CSS）は元画像の論理ピクセルサイズに設定する
-            canvas.style.width = iw + 'px';
-            canvas.style.height = ih + 'px';
-            canvas.style.display = 'block';
+            img.onload = function () {
+                try {
+                    const iw = Math.max(1, Math.round(img.naturalWidth));
+                    const ih = Math.max(1, Math.round(img.naturalHeight));
+                    const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
 
-            // 高DPI対応：コンテキストのスケールを設定（CSSピクセル単位で描画する）
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, iw, ih);
+                    // 内部ピクセルバッファを元画像サイズ * DPR にする
+                    canvas.width = Math.round(iw * dpr);
+                    canvas.height = Math.round(ih * dpr);
 
-            // 画像をキャンバスいっぱいに描く（アスペクトは img 自体のサイズなのでフィット）
-            ctx.drawImage(img, 0, 0, iw, ih);
+                    // 表示サイズ（CSS）は元画像の論理ピクセルサイズに設定する
+                    canvas.style.width = iw + 'px';
+                    canvas.style.height = ih + 'px';
+                    canvas.style.display = 'block';
 
-            // store src for potential redraws
-            try { canvas.dataset.src = imageUrl; } catch (e) { /* ignore */ }
+                    // 高DPI対応：コンテキストのスケールを設定（CSSピクセル単位で描画する）
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    ctx.clearRect(0, 0, iw, ih);
+
+                    // 画像をキャンバスいっぱいに描く（アスペクトは img 自体のサイズなのでフィット）
+                    ctx.drawImage(img, 0, 0, iw, ih);
+
+                    // layout が安定するまで少し待つ（2フレーム）してから成功を返す
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        console.log('drawImageToCanvasForPreview: resolved true for', canvasId);
+                        resolve(true);
+                    }));
+                } catch (e) {
+                    console.error('drawImageToCanvasForPreview draw error', e);
+                    resolve(false);
+                }
+            };
+
+            img.onerror = function (e) {
+                console.error('drawImageToCanvasForPreview image load error', e, imageUrl);
+                resolve(false);
+            };
+
+            img.src = imageUrl;
         } catch (e) {
-            console.error('drawImageToCanvas error', e);
+            console.error('drawImageToCanvasForPreview error', e);
+            resolve(false);
         }
-    };
-
-    img.onerror = function (e) {
-        console.error('drawImageToCanvas image load error', e, imageUrl);
-    };
-
-    img.src = imageUrl;
+    });
 };
 
 window.unlockPdf = async function (pdfData, password) {
