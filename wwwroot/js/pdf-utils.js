@@ -868,64 +868,6 @@ window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = t
     img.src = imageUrl;
 };
 
-window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixelRatio = true) {
-    // 変更: Promise を返すようにして、描画・レイアウト安定を待てるようにする
-    return new Promise((resolve) => {
-        try {
-            const canvas = document.getElementById(canvasId);
-            if (!canvas) { resolve(false); return; }
-            const ctx = canvas.getContext('2d');
-            if (!ctx) { resolve(false); return; }
-
-            const img = new window.Image();
-            img.crossOrigin = 'anonymous';
-
-            img.onload = function () {
-                try {
-                    const iw = Math.max(1, Math.round(img.naturalWidth));
-                    const ih = Math.max(1, Math.round(img.naturalHeight));
-                    const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
-
-                    // 内部ピクセルバッファを元画像サイズ * DPR にする
-                    canvas.width = Math.round(iw * dpr);
-                    canvas.height = Math.round(ih * dpr);
-
-                    // 表示サイズ（CSS）は元画像の論理ピクセルサイズに設定する
-                    canvas.style.width = iw + 'px';
-                    canvas.style.height = ih + 'px';
-                    canvas.style.display = 'block';
-
-                    // 高DPI対応：コンテキストのスケールを設定（CSSピクセル単位で描画する）
-                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                    ctx.clearRect(0, 0, iw, ih);
-
-                    // 画像をキャンバスいっぱいに描く（アスペクトは img 自体のサイズなのでフィット）
-                    ctx.drawImage(img, 0, 0, iw, ih);
-
-                    // layout が安定するまで少し待つ（2フレーム）してから成功を返す
-                    requestAnimationFrame(() => requestAnimationFrame(() => {
-                        console.log('drawImageToCanvasForPreview: resolved true for', canvasId);
-                        resolve(true);
-                    }));
-                } catch (e) {
-                    console.error('drawImageToCanvasForPreview draw error', e);
-                    resolve(false);
-                }
-            };
-
-            img.onerror = function (e) {
-                console.error('drawImageToCanvasForPreview image load error', e, imageUrl);
-                resolve(false);
-            };
-
-            img.src = imageUrl;
-        } catch (e) {
-            console.error('drawImageToCanvasForPreview error', e);
-            resolve(false);
-        }
-    });
-};
-
 window.unlockPdf = async function (pdfData, password) {
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js library not loaded');

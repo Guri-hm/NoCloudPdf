@@ -77,26 +77,57 @@
 
             if (string.IsNullOrEmpty(src)) return;
 
-            bool drawOk = false;
+            // start draw task but don't block UI for too long
+            var drawTask = JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true).AsTask();
+
+            // wait briefly for canvas layout to stabilize (fast path)
+            bool ready = false;
             try
             {
-                // pdf-utils.js の drawImageToCanvasForPreview は Promise<bool> を返す想定
-                drawOk = await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
+                ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, 200);
             }
-            catch (Exception jsEx)
-            {
-                Console.WriteLine($"TrimPreviewItem: drawImageToCanvasForPreview invoke failed idx={Index}: {jsEx.Message}");
-                drawOk = false;
-            }
+            catch { ready = false; }
 
-            if (drawOk && isLoading)
+            if (ready && isLoading)
             {
+                // fast path: canvas is ready -> hide spinner and let OnAfterRender proceed
                 isLoading = false;
                 await InvokeAsync(StateHasChanged);
+                // still allow drawTask to complete in background (no-op if already done)
             }
-            else if (!drawOk)
+            else
             {
-                Console.WriteLine($"TrimPreviewItem: drawImageToCanvasForPreview returned false idx={Index}");
+                // slow path: don't block UI long. hide spinner to shorten perceived wait,
+                // but continue waiting for actual draw to finish in background and then ensure listeners/overlay.
+                if (isLoading)
+                {
+                    isLoading = false;
+                    await InvokeAsync(StateHasChanged);
+                }
+
+                // background continuation: when drawTask completes or after a fallback timeout,
+                // ensure listeners/overlay are applied once canvas is stable.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // wait for draw to finish but with an upper cap to avoid indefinite wait
+                        var completed = await Task.WhenAny(drawTask, Task.Delay(3000));
+                        // ensure canvas size stable (longer timeout)
+                        var stable = false;
+                        try { stable = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, 500); } catch { stable = false; }
+                        // invoke UI work on main thread
+                        await InvokeAsync(async () =>
+                        {
+                            try
+                            {
+                                await EnsureListenersAndOverlayAsync();
+                            }
+                            catch { }
+                        });
+                    }
+                    catch (Exception ex) { Console.WriteLine($"Background drawTask continuation failed idx={Index}: {ex.Message}"); }
+                });
             }
         }
         catch (OperationCanceledException) { }
@@ -124,7 +155,6 @@
                 try
                 {
                     var attached = await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef);
-                    Console.WriteLine($"TrimPreviewItem attach listeners idx={Index} result={attached}");
                 }
                 catch (Exception ex)
                 {
@@ -147,12 +177,10 @@
                 if (r != null)
                 {
                     var rect = new { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height };
-                    Console.WriteLine($"TrimPreviewItem draw existing rect idx={Index}: {rect}");
                     await JSRuntime.InvokeVoidAsync("drawTrimOverlay", CanvasId, new[] { rect });
                 }
                 else
                 {
-                    Console.WriteLine($"TrimPreviewItem no existing rect idx={Index}");
                     await JSRuntime.InvokeVoidAsync("drawTrimOverlay", CanvasId, Array.Empty<object>());
                 }
             }
