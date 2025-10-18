@@ -624,7 +624,6 @@ window.setPreviewPanEnabled = function (enabled) {
             }
 
             const onPointerDown = function (ev) {
-                console.log("attachTrimListeners")
                 try {
                     if (ev.button !== undefined && ev.button !== 0) return;
                     state.active = true;
@@ -650,12 +649,10 @@ window.setPreviewPanEnabled = function (enabled) {
                         state.resizeHandle = hit;
                         state.startRectPx = existingRectPx ? { ...existingRectPx } : { x:px, y:py, w:0, h:0 };
                         state.startClientLocal = { x: px, y: py };
-                        console.log(`[trim][${canvasId}] resize start handle=${hit} client=${ev.clientX},${ev.clientY} local=${Math.round(px)},${Math.round(py)}`);
                     } else {
                         state.mode = 'draw';
                         state.startClientLocal = { x: px, y: py };
                         state.currentRectPx = { x: px, y: py, w:0, h:0 };
-                        console.log(`[trim][${canvasId}] draw start client=${ev.clientX},${ev.clientY} local=${Math.round(px)},${Math.round(py)}`);
                         drawRectFromPx(state.currentRectPx);
                     }
 
@@ -666,11 +663,9 @@ window.setPreviewPanEnabled = function (enabled) {
                         try { state.base.releasePointerCapture && state.base.releasePointerCapture(state.pointerId); } catch(e){}
 
                         const raw = state.currentRectPx || { x: 0, y: 0, w: 0, h: 0 };
-                        try { console.log(`[trim][${canvasId}] end RAW px = ${raw.x},${raw.y},${raw.w},${raw.h}`); } catch(e){}
 
                         if (raw.w > 0 && raw.h > 0) {
                             const norm = rectPxToNormalized(raw);
-                            try { console.log(`[trim][${canvasId}] end normalized=${norm.X.toFixed(4)},${norm.Y.toFixed(4)},${norm.Width.toFixed(4)},${norm.Height.toFixed(4)}`); } catch(e){}
                             try { if (window._simpleTrim && window._simpleTrim[canvasId]) window._simpleTrim[canvasId].lastRawRect = raw; } catch(e){}
                             if (state.dotNetRef && state.dotNetRef.invokeMethodAsync) {
                                 try { state.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', norm.X, norm.Y, norm.Width, norm.Height); } catch(e){ console.warn('CommitTrimRectFromJs invoke failed', e); }
@@ -776,8 +771,6 @@ window.drawTrimOverlay = function(canvasId, rects) {
         overlay.width  = Math.min(16384, Math.round(cssW * dpr));
         overlay.height = Math.min(16384, Math.round(cssH * dpr));
 
-        console.log(`[trim][${canvasId}] drawTrimOverlay overlay size=${overlay.width}x${overlay.height} css=${cssW}x${cssH} dpr=${dpr}`);
-
         const ctx = overlay.getContext('2d');
         if (!ctx) return false;
 
@@ -836,7 +829,6 @@ window.drawTrimOverlay = function(canvasId, rects) {
             ];
             points.forEach(p => ctx.fillRect(Math.round(p[0]-half), Math.round(p[1]-half), HANDLE_SIZE, HANDLE_SIZE));
 
-            console.log(`[trim][${canvasId}] drawTrimOverlay points=${JSON.stringify(points)}`);
             try {
                 if (window._simpleTrim && window._simpleTrim[canvasId]) {
                     // sync logical-px rect into internal state so resize handles match
@@ -933,7 +925,6 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
 
                     // layout が安定するまで少し待つ（2フレーム）してから成功を返す
                     requestAnimationFrame(() => requestAnimationFrame(() => {
-                        console.log('drawImageToCanvasForPreview: resolved true for', canvasId);
                         resolve(true);
                     }));
                 } catch (e) {
