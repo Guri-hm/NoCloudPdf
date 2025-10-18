@@ -65,6 +65,11 @@
 
     private async Task EnsureImageRenderedAsync()
     {
+        // 調整しやすい定数
+        const int FAST_WAIT_MS = 100;      // 速戻し判定（ユーザーの待ち時間を短縮）
+        const int STABLE_WAIT_MS = 400;    // 長めの安定判定（裏で確実に安定を待つ）
+        const int DRAW_TASK_TIMEOUT_MS = 1500; // drawTask の最大待ち時間（バックグラウンド）
+
         try
         {
             if (Item.RawData is not PageItem page) return;
@@ -80,43 +85,40 @@
             // start draw task but don't block UI for too long
             var drawTask = JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true).AsTask();
 
-            // wait briefly for canvas layout to stabilize (fast path)
+            // fast path: まず短時間待って見た目を早く戻す
             bool ready = false;
             try
             {
-                ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, 200);
+                ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, FAST_WAIT_MS);
             }
             catch { ready = false; }
 
             if (ready && isLoading)
             {
-                // fast path: canvas is ready -> hide spinner and let OnAfterRender proceed
                 isLoading = false;
                 await InvokeAsync(StateHasChanged);
-                // still allow drawTask to complete in background (no-op if already done)
+                // drawTask は裏で完了する
             }
             else
             {
-                // slow path: don't block UI long. hide spinner to shorten perceived wait,
-                // but continue waiting for actual draw to finish in background and then ensure listeners/overlay.
+                // hide spinner ASAP so UI is responsive
                 if (isLoading)
                 {
                     isLoading = false;
                     await InvokeAsync(StateHasChanged);
                 }
 
-                // background continuation: when drawTask completes or after a fallback timeout,
-                // ensure listeners/overlay are applied once canvas is stable.
+                // background continuation: wait for drawTask (capped) and a longer stability check,
+                // then attach/listen/draw overlay on UI thread.
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        // wait for draw to finish but with an upper cap to avoid indefinite wait
-                        var completed = await Task.WhenAny(drawTask, Task.Delay(3000));
-                        // ensure canvas size stable (longer timeout)
+                        var completed = await Task.WhenAny(drawTask, Task.Delay(DRAW_TASK_TIMEOUT_MS));
+                        // 長めに安定確認
                         var stable = false;
-                        try { stable = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, 500); } catch { stable = false; }
-                        // invoke UI work on main thread
+                        try { stable = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, STABLE_WAIT_MS); } catch { stable = false; }
+
                         await InvokeAsync(async () =>
                         {
                             try
@@ -136,7 +138,7 @@
             Console.WriteLine($"TrimPreviewItem render error idx={Index}: {ex.Message}");
         }
     }
-
+    
     private async Task EnsureListenersAndOverlayAsync()
     {
         try

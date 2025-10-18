@@ -850,36 +850,31 @@ window.drawTrimOverlay = function(canvasId, rects) {
     }
 };
 
-// ...existing code...
-window.waitForCanvasReady = async function(canvasId, timeoutMs = 250) {
+window.waitForCanvasReady = async function(canvasId, timeoutMs = 120) {
     try {
         if (!canvasId) return false;
         const start = performance.now();
         const el = document.getElementById(canvasId);
         if (!el) return false;
 
-        // quick check: already stable
+        // quick check: already stable (1 frame confirmation for speed)
         const w0 = el.clientWidth, h0 = el.clientHeight;
         if (w0 > 0 && h0 > 0) {
-            // require two animation frames with same size to avoid transient
             await new Promise(r => requestAnimationFrame(r));
-            await new Promise(r => requestAnimationFrame(r));
-            const w2 = el.clientWidth, h2 = el.clientHeight;
-            if (w0 === w2 && h0 === h2) return true;
+            const w1 = el.clientWidth, h1 = el.clientHeight;
+            if (w0 === w1 && h0 === h1) return true;
         }
 
         // poll until size stabilizes or timeout
-        let lastW = el.clientWidth, lastH = el.clientHeight;
-        while (performance.now() - start < (timeoutMs || 250)) {
+        while (performance.now() - start < (timeoutMs || 120)) {
             await new Promise(r => requestAnimationFrame(r));
             const w = el.clientWidth, h = el.clientHeight;
             if (w > 0 && h > 0) {
-                // confirm stable across two frames
+                // confirm stable across one extra frame (faster)
                 await new Promise(r => requestAnimationFrame(r));
                 const w2 = el.clientWidth, h2 = el.clientHeight;
                 if (w === w2 && h === h2) return true;
             }
-            lastW = w; lastH = h;
         }
         return false;
     } catch (e) {
@@ -887,7 +882,6 @@ window.waitForCanvasReady = async function(canvasId, timeoutMs = 250) {
         return false;
     }
 };
-// ...existing code...
 
 window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixelRatio = true) {
     // 変更: Promise を返すようにして、描画・レイアウト安定を待てるようにする
@@ -924,9 +918,9 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
                     ctx.drawImage(img, 0, 0, iw, ih);
 
                     // layout が安定するまで少し待つ（2フレーム）してから成功を返す
-                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
                         resolve(true);
-                    }));
+                    });
                 } catch (e) {
                     console.error('drawImageToCanvasForPreview draw error', e);
                     resolve(false);
