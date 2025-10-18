@@ -375,29 +375,186 @@ window.setPreviewPanEnabled = function (enabled) {
 // ...existing code...
 
 // ...existing code...
-
+// ...existing code...
+// ...existing code...
 (function(){
-    // Enhanced trim listener: start -> window move/up so end always fires, logs coords
-    window.attachTrimListeners = function(canvasId) {
+    // attachTrimListeners/detachTrimListeners - overlay as sibling of canvas.parentElement so it scrolls/ scales with canvas
+    window._simpleTrim = window._simpleTrim || {};
+
+    window.attachTrimListeners = function(canvasId, dotNetRef) {
         try {
             if (!canvasId) return false;
-            const el = document.getElementById(canvasId);
-            if (!el) {
-                console.warn('attachTrimListeners: element not found', canvasId);
+            const base = document.getElementById(canvasId);
+            if (!base) {
+                console.warn('attachTrimListeners: canvas not found', canvasId);
                 return false;
             }
 
-            if (!window._simpleTrim) window._simpleTrim = {};
+            // already attached
             if (window._simpleTrim[canvasId]) return true;
 
+            // parent element to host overlay — must be ancestor that moves/ scales with canvas
+            const host = base.parentElement || base.closest('.tp-preview-page') || base.closest('.preview-zoom-inner') || document.body;
+            if (!host) return false;
+            // ensure host is a positioned container
+            try { if (getComputedStyle(host).position === 'static') host.style.position = 'relative'; } catch(e){}
+
+            // create overlay canvas as child of host so it scrolls/scales with canvas
+            const overlayId = canvasId + '-overlay';
+            let overlay = document.getElementById(overlayId);
+            if (!overlay) {
+                overlay = document.createElement('canvas');
+                overlay.id = overlayId;
+                overlay.style.position = 'absolute';
+                overlay.style.pointerEvents = 'none';
+                overlay.style.zIndex = '40';
+                host.appendChild(overlay);
+            }
+
             const state = {
-                el,
-                handlers: {},
+                base,
+                host,
+                overlay,
+                dotNetRef,
                 active: false,
                 pointerId: null,
                 startClientX: 0,
-                startClientY: 0
+                startClientY: 0,
+                lastMoveEv: null,
+                pendingMove: false,
+                handlers: {},
+                internal: {}
             };
+            window._simpleTrim[canvasId] = state;
+            const dpr = window.devicePixelRatio || 1;
+
+            function updateOverlaySize() {
+                try {
+                    const baseRect = state.base.getBoundingClientRect();
+                    const hostRect = state.host.getBoundingClientRect();
+
+                    // compute position of canvas relative to host
+                    const relLeft = Math.round(baseRect.left - hostRect.left);
+                    const relTop  = Math.round(baseRect.top  - hostRect.top);
+                    const cssW = Math.max(1, Math.round(baseRect.width || state.base.clientWidth || 0));
+                    const cssH = Math.max(1, Math.round(baseRect.height || state.base.clientHeight || 0));
+
+                    state.overlay.style.left = relLeft + 'px';
+                    state.overlay.style.top  = relTop + 'px';
+                    state.overlay.style.width = cssW + 'px';
+                    state.overlay.style.height = cssH + 'px';
+                    state.overlay.width  = Math.min(16384, Math.round(cssW * dpr));
+                    state.overlay.height = Math.min(16384, Math.round(cssH * dpr));
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            // throttled scroll/resize handler
+            let scrollPending = false;
+            function onAnyScrollOrResize() {
+                if (scrollPending) return;
+                scrollPending = true;
+                requestAnimationFrame(() => { scrollPending = false; updateOverlaySize(); });
+            }
+
+            function clearOverlay() {
+                try {
+                    const ctx = state.overlay.getContext('2d');
+                    if (ctx) { ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,state.overlay.width,state.overlay.height); }
+                } catch(e){}
+            }
+
+            function drawRect(normRect) {
+                try {
+                    updateOverlaySize();
+                    const ov = state.overlay;
+                    const ctx = ov.getContext('2d');
+                    if (!ctx) return;
+                    ctx.setTransform(1,0,0,1,0,0);
+                    ctx.clearRect(0,0,ov.width,ov.height);
+                    ctx.scale(dpr, dpr);
+
+                    const cssW = Math.max(1, Math.round(state.base.getBoundingClientRect().width || state.base.clientWidth || 0));
+                    const cssH = Math.max(1, Math.round(state.base.getBoundingClientRect().height || state.base.clientHeight || 0));
+
+                    if (!normRect) return;
+                    const nx = Number(normRect.X)||0;
+                    const ny = Number(normRect.Y)||0;
+                    const nw = Number(normRect.Width)||0;
+                    const nh = Number(normRect.Height)||0;
+
+                    let rx = Math.round(nx * cssW);
+                    let ry = Math.round(ny * cssH);
+                    let rw = Math.round(nw * cssW);
+                    let rh = Math.round(nh * cssH);
+
+                    rx = Math.max(0, Math.min(cssW, rx));
+                    ry = Math.max(0, Math.min(cssH, ry));
+                    rw = Math.max(0, Math.min(cssW - rx, rw));
+                    rh = Math.max(0, Math.min(cssH - ry, rh));
+
+                    const strokeColor = 'rgba(59,130,246,0.95)';
+                    const fillColor = 'rgba(59,130,246,0.12)';
+
+                    ctx.fillStyle = fillColor;
+                    ctx.fillRect(rx, ry, rw, rh);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = strokeColor;
+                    ctx.strokeRect(rx + 0.5, ry + 0.5, Math.max(0, rw - 1), Math.max(0, rh - 1));
+
+                    const handleSize = 8;
+                    ctx.fillStyle = strokeColor;
+                    const half = Math.round(handleSize/2);
+                    const corners = [
+                        [rx-half, ry-half],
+                        [rx+rw-half, ry-half],
+                        [rx-half, ry+rh-half],
+                        [rx+rw-half, ry+rh-half]
+                    ];
+                    corners.forEach(c => ctx.fillRect(c[0], c[1], handleSize, handleSize));
+                } catch(e){
+                    console.error('drawRect error', e);
+                }
+            }
+
+            function toNormalized(clientX, clientY) {
+                const b = state.base.getBoundingClientRect();
+                const cssW = Math.max(1, b.width || state.base.clientWidth || 0);
+                const cssH = Math.max(1, b.height || state.base.clientHeight || 0);
+                const localX = clientX - b.left;
+                const localY = clientY - b.top;
+                const nx = Math.max(0, Math.min(1, localX / cssW));
+                const ny = Math.max(0, Math.min(1, localY / cssH));
+                return { nx, ny, cssW, cssH, localX, localY };
+            }
+
+            function scheduleMove(ev) {
+                state.lastMoveEv = ev;
+                if (state.pendingMove) return;
+                state.pendingMove = true;
+                requestAnimationFrame(() => {
+                    state.pendingMove = false;
+                    if (!state.active || !state.lastMoveEv) return;
+                    const s = toNormalized(state.startClientX, state.startClientY);
+                    const c = toNormalized(state.lastMoveEv.clientX, state.lastMoveEv.clientY);
+                    const x = Math.min(s.nx, c.nx);
+                    const y = Math.min(s.ny, c.ny);
+                    const w = Math.abs(c.nx - s.nx);
+                    const h = Math.abs(c.ny - s.ny);
+
+                    // draw and log
+                    try {
+                        const px = Math.round(x * s.cssW);
+                        const py = Math.round(y * s.cssH);
+                        const pw = Math.round(w * s.cssW);
+                        const ph = Math.round(h * s.cssH);
+                        console.log(`[trim][${canvasId}] move normalized=${x.toFixed(4)},${y.toFixed(4)},${w.toFixed(4)},${h.toFixed(4)}  px=${px},${py},${pw},${ph}`);
+                    } catch(e){}
+
+                    drawRect({ X: x, Y: y, Width: w, Height: h });
+                });
+            }
 
             const onPointerDown = function(ev) {
                 try {
@@ -406,58 +563,58 @@ window.setPreviewPanEnabled = function (enabled) {
                     state.pointerId = ev.pointerId ?? 'mouse';
                     state.startClientX = ev.clientX;
                     state.startClientY = ev.clientY;
+                    try { state.base.setPointerCapture && state.base.setPointerCapture(ev.pointerId); } catch(e){}
+                    updateOverlaySize();
+                    const s = toNormalized(ev.clientX, ev.clientY);
+                    console.log(`[trim][${canvasId}] down client=${ev.clientX},${ev.clientY} local=${Math.round(s.localX)},${Math.round(s.localY)}`);
+                    drawRect({ X: s.nx, Y: s.ny, Width: 0, Height: 0 });
 
-                    // capture pointer so events route to element when supported
-                    try { el.setPointerCapture && el.setPointerCapture(ev.pointerId); } catch(e){}
-
-                    const b = el.getBoundingClientRect();
-                    const localX = Math.round(ev.clientX - b.left);
-                    const localY = Math.round(ev.clientY - b.top);
-                    console.log(`[trim][${canvasId}] down client=${ev.clientX},${ev.clientY} local=${localX},${localY}`);
-
-                    // window-level move handler
-                    state.handlers.move = function(mEv) {
-                        if (!state.active) return;
-                        const clientX = mEv.clientX;
-                        const clientY = mEv.clientY;
-                        const rect = el.getBoundingClientRect();
-                        const lx = Math.round(clientX - rect.left);
-                        const ly = Math.round(clientY - rect.top);
-                        console.log(`[trim][${canvasId}] move client=${clientX},${clientY} local=${lx},${ly}`);
-                    };
-
-                    // window-level up handler (always fires even if pointer leaves canvas)
+                    // window handlers so up fires even if pointer leaves canvas
+                    state.handlers.move = function(mEv) { scheduleMove(mEv); };
                     state.handlers.up = function(uEv) {
                         if (!state.active) return;
                         state.active = false;
-                        try { el.releasePointerCapture && el.releasePointerCapture(state.pointerId); } catch(e){}
-                        const rect = el.getBoundingClientRect();
-                        const lx = Math.round(uEv.clientX - rect.left);
-                        const ly = Math.round(uEv.clientY - rect.top);
-                        console.log(`[trim][${canvasId}] up client=${uEv.clientX},${uEv.clientY} local=${lx},${ly}`);
+                        try { state.base.releasePointerCapture && state.base.releasePointerCapture(state.pointerId); } catch(e){}
+                        const s2 = toNormalized(state.startClientX, state.startClientY);
+                        const c2 = toNormalized(uEv.clientX, uEv.clientY);
+                        const x = Math.min(s2.nx, c2.nx);
+                        const y = Math.min(s2.ny, c2.ny);
+                        const w = Math.abs(c2.nx - s2.nx);
+                        const h = Math.abs(c2.ny - s2.ny);
 
-                        // remove window listeners
+                        try {
+                            const px = Math.round(x * s2.cssW);
+                            const py = Math.round(y * s2.cssH);
+                            const pw = Math.round(w * s2.cssW);
+                            const ph = Math.round(h * s2.cssH);
+                            console.log(`[trim][${canvasId}] up normalized=${x.toFixed(4)},${y.toFixed(4)},${w.toFixed(4)},${h.toFixed(4)}  px=${px},${py},${pw},${ph}`);
+                        } catch(e){}
+
+                        drawRect({ X:x, Y:y, Width:w, Height:h });
+
+                        if (state.dotNetRef && state.dotNetRef.invokeMethodAsync) {
+                            try { state.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', x, y, w, h); } catch(e){ console.warn('CommitTrimRectFromJs invoke failed', e); }
+                        }
+
                         try {
                             window.removeEventListener('pointermove', state.handlers.move, { passive: false });
                             window.removeEventListener('pointerup', state.handlers.up, { passive: false });
                         } catch(e){}
                     };
 
-                    // attach to window so events are caught outside canvas
                     window.addEventListener('pointermove', state.handlers.move, { passive: false });
                     window.addEventListener('pointerup', state.handlers.up, { passive: false });
 
-                } catch (e) {
+                    ev.preventDefault?.();
+                } catch(e) {
                     console.error('attachTrimListeners onPointerDown error', e);
                 }
             };
 
-            // Touch fallback mapping to same flow (for older browsers)
             const onTouchStart = function(tEv) {
                 try {
                     if (!tEv.touches || tEv.touches.length === 0) return;
                     const t = tEv.touches[0];
-                    // reuse pointer flow by synthesizing an event-like object
                     onPointerDown({ clientX: t.clientX, clientY: t.clientY, pointerId: 'touch', button: 0, preventDefault: () => tEv.preventDefault() });
                     tEv.preventDefault();
                 } catch(e) {
@@ -465,13 +622,33 @@ window.setPreviewPanEnabled = function (enabled) {
                 }
             };
 
-            // register element listeners
-            el.addEventListener('pointerdown', onPointerDown, { passive: false });
-            el.addEventListener('touchstart', onTouchStart, { passive: false });
+            // attach element listeners
+            state.base.addEventListener('pointerdown', onPointerDown, { passive: false });
+            state.base.addEventListener('touchstart', onTouchStart, { passive: false });
 
-            window._simpleTrim[canvasId] = { el, handlers: { pointerDown: onPointerDown, touchStart: onTouchStart }, state: state };
+            // scroll/resize listeners (host, container viewport, window)
+            try {
+                state.internal.hostScroll = onAnyScrollOrResize;
+                state.host.addEventListener('scroll', state.internal.hostScroll, { passive: true });
+            } catch(e){}
+            try {
+                const container = document.getElementById('trim-preview-container') || state.host.closest('.preview-zoom-viewport');
+                if (container) {
+                    state.internal.containerScroll = onAnyScrollOrResize;
+                    container.addEventListener('scroll', state.internal.containerScroll, { passive: true });
+                }
+            } catch(e){}
+            try {
+                state.internal.windowScroll = onAnyScrollOrResize;
+                window.addEventListener('scroll', state.internal.windowScroll, { passive: true });
+                state.internal.resize = onAnyScrollOrResize;
+                window.addEventListener('resize', state.internal.resize, { passive: true });
+            } catch(e){}
+
+            // initial sizing
+            updateOverlaySize();
             return true;
-        } catch (e) {
+        } catch(e) {
             console.error('attachTrimListeners error', e);
             return false;
         }
@@ -479,25 +656,43 @@ window.setPreviewPanEnabled = function (enabled) {
 
     window.detachTrimListeners = function(canvasId) {
         try {
-            if (!window._simpleTrim || !window._simpleTrim[canvasId]) return false;
-            const entry = window._simpleTrim[canvasId];
+            const entry = window._simpleTrim && window._simpleTrim[canvasId];
+            if (!entry) return false;
+
             try {
-                entry.el.removeEventListener('pointerdown', entry.handlers.pointerDown);
-                entry.el.removeEventListener('touchstart', entry.handlers.touchStart);
+                entry.base.removeEventListener('pointerdown', entry.handlers.pointerDown);
+                entry.base.removeEventListener('touchstart', entry.handlers.touchStart);
             } catch(e){}
 
-            // if drag active, remove window listeners too
             try {
-                const st = entry.state;
-                if (st && st.handlers) {
-                    if (st.handlers.move) window.removeEventListener('pointermove', st.handlers.move, { passive: false });
-                    if (st.handlers.up) window.removeEventListener('pointerup', st.handlers.up, { passive: false });
+                if (entry.handlers && entry.handlers.move) window.removeEventListener('pointermove', entry.handlers.move, { passive: false });
+                if (entry.handlers && entry.handlers.up) window.removeEventListener('pointerup', entry.handlers.up, { passive: false });
+            } catch(e){}
+
+            try {
+                if (entry.internal && entry.internal.hostScroll) entry.host.removeEventListener('scroll', entry.internal.hostScroll, { passive: true });
+                if (entry.internal && entry.internal.containerScroll) {
+                    const container = document.getElementById('trim-preview-container') || entry.host.closest('.preview-zoom-viewport');
+                    if (container) container.removeEventListener('scroll', entry.internal.containerScroll, { passive: true });
+                }
+                if (entry.internal && entry.internal.windowScroll) window.removeEventListener('scroll', entry.internal.windowScroll, { passive: true });
+                if (entry.internal && entry.internal.resize) window.removeEventListener('resize', entry.internal.resize, { passive: true });
+            } catch(e){}
+
+            // clear overlay buffer
+            try {
+                const ov = entry.overlay || document.getElementById(canvasId + '-overlay');
+                if (ov && ov.getContext) {
+                    const ctx = ov.getContext('2d'); ctx && ctx.clearRect(0,0,ov.width,ov.height);
                 }
             } catch(e){}
 
+            // remove overlay element if desired (keep commented if you prefer reuse)
+            try { if (entry.overlay && entry.overlay.parentElement) entry.overlay.parentElement.removeChild(entry.overlay); } catch(e){}
+
             delete window._simpleTrim[canvasId];
             return true;
-        } catch (e) {
+        } catch(e) {
             console.error('detachTrimListeners error', e);
             return false;
         }
