@@ -16,7 +16,7 @@
         string gapClass = string.IsNullOrWhiteSpace(action.Label) ? "" : "gap-3";
 
         <button
-            class="@($"{effectiveBtnClass} px-4 py-1 font-bold focus:outline-none transition flex items-center {gapClass} {roundedClass} {borderClass}")"
+            class="@($"{effectiveBtnClass} {textColor} px-4 py-1 font-bold focus:outline-none transition flex items-center {gapClass} {roundedClass} {borderClass}")"
             @onclick="() => action.OnClick.InvokeAsync()"
             @onclick:stopPropagation="action.StopPropagation" title="@action.Title">
 
@@ -28,18 +28,18 @@
                 }
                 else if (!string.IsNullOrEmpty(action.IconHtml))
                 {
-                    <span class="@textColor">
+                    <span>
                         @((MarkupString)action.IconHtml)
                     </span>
                 }
             }
 
-            <span class="flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "") @textColor">
+            <span class="flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "")">
                 @action.Label
             </span>
             @if (action.IconPosition == "right" && !string.IsNullOrEmpty(action.IconHtml))
             {
-                <span class="@textColor">
+                <span>
                     @((MarkupString)action.IconHtml)
                 </span>
             }

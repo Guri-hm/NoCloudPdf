@@ -813,12 +813,24 @@
         new ActionButtonItem
         {
             Label = "幅に合わせる",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitWidthIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
             Title = "幅に合わせる",
             OnClick = EventCallback.Factory.Create(this, FitPreviewWidth),
         },
         new ActionButtonItem
         {
             Label = "縮小",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomOutIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
             Title = "縮小",
             OnClick = EventCallback.Factory.Create(this, ZoomOut),
             IconPosition = "left"
@@ -826,6 +838,12 @@
         new ActionButtonItem
         {
             Label = "拡大",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomInIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
             Title = "拡大",
             OnClick = EventCallback.Factory.Create(this, ZoomIn),
             IconPosition = "left"
