@@ -28,6 +28,7 @@
 @code {
     [Parameter] public DisplayItem Item { get; set; } = default!;
     [Parameter] public int Index { get; set; }
+    [Parameter] public bool IsDrawingMode { get; set; } = false;
 
     private ElementReference canvasRef;
     private bool isLoading = true;
@@ -36,6 +37,18 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await TryRenderAsync();
+        try
+        {
+            if (IsDrawingMode)
+            {
+                try { await JSRuntime.InvokeVoidAsync("attachTrimListeners", CanvasId); } catch { }
+            }
+            else
+            {
+                try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
+            }
+        }
+        catch { }
     }
 
     private async Task TryRenderAsync()
@@ -67,5 +80,9 @@
         {
             Console.WriteLine($"TrimPreviewItem render error idx={Index}: {ex.Message}");
         }
+    }
+    public void Dispose()
+    {
+        try { _ = JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
     }
 }

@@ -368,4 +368,138 @@ window.setPreviewPanEnabled = function (enabled) {
         console.error('setPreviewPanEnabled error', e);
     }
 };
+
+
+
+
 // ...existing code...
+
+// ...existing code...
+
+(function(){
+    // Enhanced trim listener: start -> window move/up so end always fires, logs coords
+    window.attachTrimListeners = function(canvasId) {
+        try {
+            if (!canvasId) return false;
+            const el = document.getElementById(canvasId);
+            if (!el) {
+                console.warn('attachTrimListeners: element not found', canvasId);
+                return false;
+            }
+
+            if (!window._simpleTrim) window._simpleTrim = {};
+            if (window._simpleTrim[canvasId]) return true;
+
+            const state = {
+                el,
+                handlers: {},
+                active: false,
+                pointerId: null,
+                startClientX: 0,
+                startClientY: 0
+            };
+
+            const onPointerDown = function(ev) {
+                try {
+                    if (ev.button !== undefined && ev.button !== 0) return;
+                    state.active = true;
+                    state.pointerId = ev.pointerId ?? 'mouse';
+                    state.startClientX = ev.clientX;
+                    state.startClientY = ev.clientY;
+
+                    // capture pointer so events route to element when supported
+                    try { el.setPointerCapture && el.setPointerCapture(ev.pointerId); } catch(e){}
+
+                    const b = el.getBoundingClientRect();
+                    const localX = Math.round(ev.clientX - b.left);
+                    const localY = Math.round(ev.clientY - b.top);
+                    console.log(`[trim][${canvasId}] down client=${ev.clientX},${ev.clientY} local=${localX},${localY}`);
+
+                    // window-level move handler
+                    state.handlers.move = function(mEv) {
+                        if (!state.active) return;
+                        const clientX = mEv.clientX;
+                        const clientY = mEv.clientY;
+                        const rect = el.getBoundingClientRect();
+                        const lx = Math.round(clientX - rect.left);
+                        const ly = Math.round(clientY - rect.top);
+                        console.log(`[trim][${canvasId}] move client=${clientX},${clientY} local=${lx},${ly}`);
+                    };
+
+                    // window-level up handler (always fires even if pointer leaves canvas)
+                    state.handlers.up = function(uEv) {
+                        if (!state.active) return;
+                        state.active = false;
+                        try { el.releasePointerCapture && el.releasePointerCapture(state.pointerId); } catch(e){}
+                        const rect = el.getBoundingClientRect();
+                        const lx = Math.round(uEv.clientX - rect.left);
+                        const ly = Math.round(uEv.clientY - rect.top);
+                        console.log(`[trim][${canvasId}] up client=${uEv.clientX},${uEv.clientY} local=${lx},${ly}`);
+
+                        // remove window listeners
+                        try {
+                            window.removeEventListener('pointermove', state.handlers.move, { passive: false });
+                            window.removeEventListener('pointerup', state.handlers.up, { passive: false });
+                        } catch(e){}
+                    };
+
+                    // attach to window so events are caught outside canvas
+                    window.addEventListener('pointermove', state.handlers.move, { passive: false });
+                    window.addEventListener('pointerup', state.handlers.up, { passive: false });
+
+                } catch (e) {
+                    console.error('attachTrimListeners onPointerDown error', e);
+                }
+            };
+
+            // Touch fallback mapping to same flow (for older browsers)
+            const onTouchStart = function(tEv) {
+                try {
+                    if (!tEv.touches || tEv.touches.length === 0) return;
+                    const t = tEv.touches[0];
+                    // reuse pointer flow by synthesizing an event-like object
+                    onPointerDown({ clientX: t.clientX, clientY: t.clientY, pointerId: 'touch', button: 0, preventDefault: () => tEv.preventDefault() });
+                    tEv.preventDefault();
+                } catch(e) {
+                    console.error('attachTrimListeners onTouchStart error', e);
+                }
+            };
+
+            // register element listeners
+            el.addEventListener('pointerdown', onPointerDown, { passive: false });
+            el.addEventListener('touchstart', onTouchStart, { passive: false });
+
+            window._simpleTrim[canvasId] = { el, handlers: { pointerDown: onPointerDown, touchStart: onTouchStart }, state: state };
+            return true;
+        } catch (e) {
+            console.error('attachTrimListeners error', e);
+            return false;
+        }
+    };
+
+    window.detachTrimListeners = function(canvasId) {
+        try {
+            if (!window._simpleTrim || !window._simpleTrim[canvasId]) return false;
+            const entry = window._simpleTrim[canvasId];
+            try {
+                entry.el.removeEventListener('pointerdown', entry.handlers.pointerDown);
+                entry.el.removeEventListener('touchstart', entry.handlers.touchStart);
+            } catch(e){}
+
+            // if drag active, remove window listeners too
+            try {
+                const st = entry.state;
+                if (st && st.handlers) {
+                    if (st.handlers.move) window.removeEventListener('pointermove', st.handlers.move, { passive: false });
+                    if (st.handlers.up) window.removeEventListener('pointerup', st.handlers.up, { passive: false });
+                }
+            } catch(e){}
+
+            delete window._simpleTrim[canvasId];
+            return true;
+        } catch (e) {
+            console.error('detachTrimListeners error', e);
+            return false;
+        }
+    };
+})();
