@@ -62,6 +62,21 @@
             Console.WriteLine($"CommitTrimRectFromJs failed idx={Index}: {ex.Message}");
         }
     }
+    // JS側から「削除（クリア）」を要求されたときに呼ばれるメソッド
+    [JSInvokable("ClearTrimRectFromJs")]
+    public Task ClearTrimRectFromJs()
+    {
+        try
+        {
+            PdfDataService.ClearTrimRect(Index);
+            InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ClearTrimRectFromJs failed idx={Index}: {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
 
     private async Task EnsureImageRenderedAsync()
     {
