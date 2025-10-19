@@ -8,7 +8,7 @@
              title="@Item.FullFileName"
              style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "rgba(0,0,0,0.7)" : Item.ColorHsl)">
             <span class="truncate">@Item.DisplayName</span>
-            <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo) @(IsDrawingMode ? "Drawing" : "Not Drawing")</span>
+            <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo)</span>
         </div>
     </div>
 
@@ -36,6 +36,9 @@
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
 
+    private bool _listenersAttached = false;
+    private bool _lastIsDrawingMode = false;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // まず描画処理を試行
@@ -45,7 +48,12 @@
         if (isLoading) return;
 
         // リスナ登録
-        await EnsureListenersAndOverlayAsync();
+        if (!_listenersAttached || _lastIsDrawingMode != IsDrawingMode)
+        {
+            await EnsureListenersAndOverlayAsync();
+            _listenersAttached = true;
+            _lastIsDrawingMode = IsDrawingMode;
+        }
     }
 
     // JS から確定矩形が届いたらサービスに保存して UI を更新
@@ -160,12 +168,7 @@
         {
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
-            // 先に確実に古いリスナ/overlay を削除してから attach（JS 側でも二重ガードあり）
-            try
-            {
-                await JSRuntime.InvokeAsync<bool>("detachTrimListeners", CanvasId);
-            }
-            catch { /* ignore if detach not available */ }
+            try { await JSRuntime.InvokeAsync<bool>("detachTrimListeners", CanvasId); } catch { /* ignore */ }
 
             if (IsDrawingMode)
             {
