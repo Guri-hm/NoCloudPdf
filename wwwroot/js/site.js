@@ -72,15 +72,15 @@ window._trimResize = window._trimResize || {
     cleanupForHandle: null
 };
 
-
 window.registerPanelResize = function (dotNetRef, handleId) {
     try {
         // cleanup previous
-        if (window._trimResize.cleanupForHandle) {
+        if (window._trimResize && window._trimResize.cleanupForHandle) {
             try { window._trimResize.cleanupForHandle(); } catch (e) { }
             window._trimResize.cleanupForHandle = null;
         }
 
+        window._trimResize = window._trimResize || {};
         window._trimResize.dotNetRef = dotNetRef;
 
         const handle = document.getElementById(handleId);
@@ -89,9 +89,64 @@ window.registerPanelResize = function (dotNetRef, handleId) {
             console.warn('registerPanelResize: handle element not found:', handleId);
             return;
         }
-        if (!thumbArea) {
-            console.warn('registerPanelResize: thumbnail-area not found');
+
+        // Helper: update all trim overlays to reflect new sizes
+        function updateAllTrimOverlays() {
+            try {
+                if (!window._simpleTrim) return;
+                for (const canvasId in window._simpleTrim) {
+                    try {
+                        const entry = window._simpleTrim[canvasId];
+                        if (!entry) continue;
+                        const base = document.getElementById(canvasId);
+                        if (!base) {
+                            try { if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, []); } catch (e) {}
+                            continue;
+                        }
+
+                        const logicalW = Math.max(1, Math.round(base.clientWidth || base.getBoundingClientRect().width || 1));
+                        const logicalH = Math.max(1, Math.round(base.clientHeight || base.getBoundingClientRect().height || 1));
+                        const raw = entry.currentRectPx;
+                        if (!raw || raw.w <= 0 || raw.h <= 0) {
+                            try { if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, []); } catch (e) {}
+                            continue;
+                        }
+
+                        const left = Number(raw.x || 0);
+                        const top = Number(raw.y || 0);
+                        const right = left + Number(raw.w || 0);
+                        const bottom = top + Number(raw.h || 0);
+
+                        const leftClamped = Math.max(0, Math.min(logicalW, left));
+                        const topClamped = Math.max(0, Math.min(logicalH, top));
+                        const rightClamped = Math.max(0, Math.min(logicalW, right));
+                        const bottomClamped = Math.max(0, Math.min(logicalH, bottom));
+
+                        const widthClamped = Math.max(0, rightClamped - leftClamped);
+                        const heightClamped = Math.max(0, bottomClamped - topClamped);
+
+                        const norm = {
+                            X: leftClamped / logicalW,
+                            Y: topClamped / logicalH,
+                            Width: widthClamped / logicalW,
+                            Height: heightClamped / logicalH
+                        };
+
+                        try { if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [norm]); } catch (e) { }
+                    } catch (e) { /* per-entry ignore */ }
+                }
+            } catch (e) { /* ignore global */ }
         }
+
+        // 公開: 外部から明示的にオーバーレイ更新できるようにする
+        try {
+            window.updateTrimOverlays = updateAllTrimOverlays;
+            window._trimResize = window._trimResize || {};
+            window._trimResize.updateAllTrimOverlays = updateAllTrimOverlays;
+        } catch (e) { /* ignore */ }
+
+        const minLeft = 150;
+        const minRight = 260;
 
         // rAF-based throttle state
         let pending = false;
@@ -107,34 +162,35 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                         pending = true;
                         requestAnimationFrame(function () {
                             pending = false;
+                            try {
+                                const splitContainerRect = handle.parentElement.getBoundingClientRect();
+                                const splitterWidth = handle.getBoundingClientRect().width || 8;
 
-                            const splitContainerRect = handle.parentElement.getBoundingClientRect();
-                            const minLeft = 150;
-                            const minRight = 260;
-                            const splitterWidth = handle.getBoundingClientRect().width || 8;
+                                const maxLeft = Math.max(minLeft, Math.round(splitContainerRect.width - minRight - splitterWidth));
+                                const computedLeft = Math.round(latestClientX - splitContainerRect.left);
+                                const newLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedLeft));
 
-                            // compute left width (clamped to split container width)
-                            const maxLeft = Math.max(minLeft, Math.round(splitContainerRect.width - minRight - splitterWidth));
-                            const computedLeft = Math.round(latestClientX - splitContainerRect.left);
-                            const newLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedLeft));
+                                const newRightWidthUnclamped = Math.round(splitContainerRect.width - newLeftWidth - splitterWidth);
+                                const newRightWidth = Math.max(minRight, Math.min(Math.round(splitContainerRect.width - minLeft - splitterWidth), newRightWidthUnclamped));
 
-                            // compute right width so left+splitter+right == splitContainerRect.width (clamped)
-                            const newRightWidthUnclamped = Math.round(splitContainerRect.width - newLeftWidth - splitterWidth);
-                            const newRightWidth = Math.max(minRight, Math.min(Math.round(splitContainerRect.width - minLeft - splitterWidth), newRightWidthUnclamped));
+                                if (thumbArea) {
+                                    thumbArea.style.setProperty('--thumbnail-width', newLeftWidth + 'px');
+                                    thumbArea.style.width = newLeftWidth + 'px';
+                                    thumbArea.style.maxWidth = maxLeft + 'px';
+                                } else {
+                                    handle.parentElement.style.width = newLeftWidth + 'px';
+                                }
 
-                            // apply to left pane
-                            if (thumbArea) {
-                                thumbArea.style.setProperty('--thumbnail-width', newLeftWidth + 'px');
-                                thumbArea.style.width = newLeftWidth + 'px';
-                                thumbArea.style.maxWidth = maxLeft + 'px';
-                            } else {
-                                handle.parentElement.style.width = newLeftWidth + 'px';
-                            }
-                            // apply to right pane (handle.nextElementSibling is the right pane)
-                            const rightPane = handle.nextElementSibling;
-                            if (rightPane) {
-                                rightPane.style.width = newRightWidth + 'px';
-                                rightPane.style.flex = '0 0 auto';
+                                const rightPane = handle.nextElementSibling;
+                                if (rightPane) {
+                                    rightPane.style.width = newRightWidth + 'px';
+                                    rightPane.style.flex = '0 0 auto';
+                                }
+
+                                // update overlays to match new layout
+                                updateAllTrimOverlays();
+                            } catch (err) {
+                                // ignore per-frame errors
                             }
                         });
                     }
@@ -144,19 +200,18 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                         handle.releasePointerCapture?.(ev.pointerId);
 
                         const splitContainerRect = handle.parentElement.getBoundingClientRect();
-                        const minWidth = 150;
-                        const minRightWidth = 260;
                         const splitterWidth = handle.getBoundingClientRect().width || 8;
 
                         const maxLeft = Math.max(minLeft, Math.round(splitContainerRect.width - minRight - splitterWidth));
                         const computedFinalLeft = Math.round(ev.clientX - splitContainerRect.left);
                         const finalLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedFinalLeft));
                         const finalRightUnclamped = Math.round(splitContainerRect.width - finalLeftWidth - splitterWidth);
+                        const finalRightWidth = Math.max(minRight, Math.min(Math.round(splitContainerRect.width - minLeft - splitterWidth), finalRightUnclamped));
 
-                        if (window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
+                        if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
                             window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth);
                         }
-                        // persist styles on final commit
+
                         if (thumbArea) {
                             thumbArea.style.setProperty('--thumbnail-width', finalLeftWidth + 'px');
                             thumbArea.style.width = finalLeftWidth + 'px';
@@ -167,12 +222,15 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                             rightPaneFinal.style.width = finalRightWidth + 'px';
                             rightPaneFinal.style.flex = '0 0 auto';
                         }
+
+                        // final overlay update after layout stabilized
+                        requestAnimationFrame(updateAllTrimOverlays);
                     } catch (err) {
                         console.error('onPointerUp error', err);
+                    } finally {
+                        handle.removeEventListener('pointermove', onPointerMove);
+                        handle.removeEventListener('pointerup', onPointerUp);
                     }
-                    // cleanup listeners
-                    handle.removeEventListener('pointermove', onPointerMove);
-                    handle.removeEventListener('pointerup', onPointerUp);
                 };
 
                 handle.addEventListener('pointermove', onPointerMove);
@@ -799,9 +857,13 @@ window.setPreviewPanEnabled = function (enabled) {
                     requestAnimationFrame(() => {
                         scrollPending = false;
                         try {
-                            if (state.overlayDom && window.drawTrimOverlayAsSvg) {
+
+                            if (typeof window.updateTrimOverlays === 'function') {
+                                try { window.updateTrimOverlays(); } catch (e) { /* ignore per-entry errors */ }
+                            } else if (state.overlayDom && window.drawTrimOverlayAsSvg) {
                                 window.drawTrimOverlayAsSvg(canvasId, []);
                             }
+
                         } catch (e) { /* ignore */ }
                     });
                 } catch (e) { /* ignore */ }
