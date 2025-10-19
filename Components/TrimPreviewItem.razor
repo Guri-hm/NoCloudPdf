@@ -138,7 +138,7 @@
             Console.WriteLine($"TrimPreviewItem render error idx={Index}: {ex.Message}");
         }
     }
-    
+
     private async Task EnsureListenersAndOverlayAsync()
     {
         try
@@ -179,11 +179,11 @@
                 if (r != null)
                 {
                     var rect = new { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height };
-                    await JSRuntime.InvokeVoidAsync("drawTrimOverlay", CanvasId, new[] { rect });
+                    await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", CanvasId, new[] { rect });
                 }
                 else
                 {
-                    await JSRuntime.InvokeVoidAsync("drawTrimOverlay", CanvasId, Array.Empty<object>());
+                    await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", CanvasId, Array.Empty<object>());
                 }
             }
             catch (Exception ex)
