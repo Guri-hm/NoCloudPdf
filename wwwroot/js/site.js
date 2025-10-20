@@ -1145,8 +1145,15 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
         const baseRect = base.getBoundingClientRect();
         const hostRect = host.getBoundingClientRect();
-        const relLeft = Math.round(baseRect.left - hostRect.left);
-        const relTop = Math.round(baseRect.top - hostRect.top);
+
+        // previewScale: 現在のプレビュー縮尺（デフォルト1）
+        const previewScale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
+
+        // relLeft/Top は getBoundingClientRect がスケール済みの値を返すため
+        // オーバーレイを host 内で正しく配置するには縮尺で逆除算する
+        const relLeft = Math.round((baseRect.left - hostRect.left) / previewScale);
+        const relTop = Math.round((baseRect.top - hostRect.top) / previewScale);
+
         const cssW = Math.max(1, Math.round(base.clientWidth || Math.round(baseRect.width || 0)));
         const cssH = Math.max(1, Math.round(base.clientHeight || Math.round(baseRect.height || 0)));
 
@@ -1160,6 +1167,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('width', '100%');
             svg.setAttribute('height', '100%');
+            // viewBox を設定して内部座標を論理ピクセルに合わせる
+            svg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
+            svg.setAttribute('preserveAspectRatio', 'none');
             svg.style.pointerEvents = 'none';
             container.appendChild(svg);
         }
@@ -1188,6 +1198,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         const nw = Number(r.Width ?? r.width ?? 0);
         const nh = Number(r.Height ?? r.height ?? 0);
 
+        // logical (非スケール) 座標に基づく矩形
         const rx = Math.round(nx * cssW);
         const ry = Math.round(ny * cssH);
         const rw = Math.round(nw * cssW);
@@ -1213,7 +1224,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         rect.setAttribute('width', String(Math.max(0, rw)));
         rect.setAttribute('height', String(Math.max(0, rh)));
         rect.setAttribute('fill', 'rgba(59,130,246,0.12)');
-
+        
         // selected visual
         const isSelected = !!(entry && entry.selected);
         rect.setAttribute('stroke', isSelected ? 'rgba(37,99,235,1)' : 'rgba(59,130,246,0.95)');
