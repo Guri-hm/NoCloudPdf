@@ -898,7 +898,18 @@
         },
         new ActionButtonItem
         {
-            Label = "縮小",
+            Label = "実際のサイズ",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ViewRealSizeIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
+            Title = "実際のサイズ",
+            OnClick = EventCallback.Factory.Create(this, SetPreviewToActualSize),
+        },
+        new ActionButtonItem
+        {
             Icon = builder =>
             {
                 builder.OpenComponent(0, typeof(ZoomOutIcon));
@@ -911,7 +922,6 @@
         },
         new ActionButtonItem
         {
-            Label = "拡大",
             Icon = builder =>
             {
                 builder.OpenComponent(0, typeof(ZoomInIcon));
@@ -1252,7 +1262,7 @@
             {
                 try
                 {
-                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container", 500);
+                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container", 1000);
                     _visibleObserverLastCount = DisplayItems.Count;
                 }
                 catch { _visibleObserverLastCount = -1; }
@@ -1634,6 +1644,24 @@
     }
 
     private async Task FitPreviewWidth()
+    {
+        try
+        {
+            Console.WriteLine("FitPreviewWidth called");
+            // JS 側でコンテナ幅に合わせた倍率を計算し setPreviewZoom を呼ぶ実装を流用
+            await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
+            // もし C# 側の previewZoom と同期したければ JSから現在値を取得する helper を用意して同期する実装にできます。
+        }
+        catch
+        {
+            Console.WriteLine("FitPreviewWidth failed");
+            // フォールバック: 直接倍率 1 を設定
+            previewZoom = 1.0;
+            await ApplyPreviewZoomAsync();
+        }
+    }
+
+    private async Task SetPreviewToActualSize()
     {
         previewZoom = 1.0;
         await ApplyPreviewZoomAsync();

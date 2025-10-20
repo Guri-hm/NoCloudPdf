@@ -341,18 +341,40 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
     }
 };
 
-// 初期フィット計算（オプション：EditPage と同様に container に合わせる）
 window.computeAndApplyFitZoom = function () {
     try {
         const container = document.getElementById('trim-preview-container');
         const inner = document.getElementById('preview-zoom-inner');
-        if (!container || !inner) return;
-
+        if (!container || !inner) {
+            return;
+        }
+        
         const containerW = container.clientWidth || 1;
-        const innerW = inner.scrollWidth || inner.getBoundingClientRect().width || 1;
 
-        // フィット倍率（内部が container より大きければ縮小）
-        const fit = Math.min(1.0, containerW / innerW);
+        const prev = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
+
+        let contentLogicalW = 0;
+        const canvases = inner.querySelectorAll('canvas');
+        if (canvases && canvases.length > 0) {
+            canvases.forEach((c, i) => {
+                try {
+                    const rect = c.getBoundingClientRect();
+                    const logical = (rect.width || c.clientWidth || 0) / prev;
+                    if (logical > contentLogicalW) contentLogicalW = logical;
+                } catch (e) { console.warn('computeAndApplyFitZoom: canvas measurement error', e); }
+            });
+        }
+
+        // フォールバック: canvas が見つからなければ inner の実測幅を使用（縮尺で逆除算）
+        if (contentLogicalW <= 0) {
+            const innerRect = inner.getBoundingClientRect();
+            contentLogicalW = (inner.scrollWidth || innerRect.width || inner.clientWidth || 1) / prev;
+        }
+
+        if (!contentLogicalW || contentLogicalW <= 0) contentLogicalW = 1;
+
+        const rawFit = containerW / contentLogicalW;
+        const fit = Math.max(0.25, Math.min(3.0, rawFit));
 
         if (typeof window.setPreviewZoom === 'function') {
             window.setPreviewZoom(fit);
@@ -361,6 +383,7 @@ window.computeAndApplyFitZoom = function () {
         console.error('computeAndApplyFitZoom error', e);
     }
 };
+// ...existing code...
 
 window._previewPan = window._previewPan || { enabled: false, handlers: null, state: null };
 
@@ -1224,7 +1247,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         rect.setAttribute('width', String(Math.max(0, rw)));
         rect.setAttribute('height', String(Math.max(0, rh)));
         rect.setAttribute('fill', 'rgba(59,130,246,0.12)');
-        
+
         // selected visual
         const isSelected = !!(entry && entry.selected);
         rect.setAttribute('stroke', isSelected ? 'rgba(37,99,235,1)' : 'rgba(59,130,246,0.95)');
@@ -1381,7 +1404,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
 window._visiblePageObserver = window._visiblePageObserver || {};
 
-window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 500) {
+window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 1000) {
     try {
         // cleanup existing if any
         try { window.unregisterVisiblePageObserver(containerId); } catch (e) { }
@@ -1488,9 +1511,6 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
                 // authoritative available width = viewport - sidebar (この値で配分する)
                 const avail = Math.max(0, vw - sidebarW);
 
-                console.log('[registerWindowResize] measureAndNotify', { viewportWidth: vw, isMobileHeaderSidebar: IS_MOBILE_HEADER_SIDEBAR, sidebarWidth: sidebarW, chosenAvailableWidth: avail, timestamp: Date.now() });
-
-                // --- apply layout (use avail, do NOT trust split-container clientWidth) ---
                 try {
                     const splitEl = document.getElementById('split-container');
                     const thumb = document.getElementById('thumbnail-area');
@@ -1536,7 +1556,6 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
                     try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
                     try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
 
-                    console.log('[registerWindowResize] applied widths', { avail, leftPx, rightPx });
                 } catch (e) {
                     console.error('apply resize layout error', e);
                 }
@@ -1608,7 +1627,6 @@ window.applyThumbnailWidth = function (leftPx) {
     }
 };
 
-// utility: returns { avail, sidebarW, vw }
 window.getAvailableWidth = function () {
     try {
         const sidebarEl = document.querySelector('.sidebar');
@@ -1620,4 +1638,3 @@ window.getAvailableWidth = function () {
         return { avail: (window.innerWidth || document.documentElement.clientWidth), sidebarW: 0, vw: (window.innerWidth || document.documentElement.clientWidth) };
     }
 };
-// ...existing code...
