@@ -72,7 +72,7 @@ window._trimResize = window._trimResize || {
     cleanupForHandle: null
 };
 
-window.registerPanelResize = function (dotNetRef, handleId) {
+window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 500) {
     try {
         // cleanup previous
         if (window._trimResize && window._trimResize.cleanupForHandle) {
@@ -109,11 +109,40 @@ window.registerPanelResize = function (dotNetRef, handleId) {
             return measured.sidebarW || 0;
         }
 
-        // rAF-based throttle state
+        // rAF-based throttle state (visual updates)
         let pending = false;
         let latestClientX = 0;
 
-        // Apply widths using authoritative avail (vw - sidebar)
+        // Panel -> .NET notify throttle state
+        const PANEL_DEBOUNCE = Number(panelDebounceMs) || 500; // ms
+        let lastNotify = 0;
+        let notifyTimer = null;
+        let pendingClientXForNotify = null;
+
+        function scheduleDotNetNotify(clientX) {
+            pendingClientXForNotify = clientX;
+            const now = Date.now();
+            if (!lastNotify || (now - lastNotify) >= PANEL_DEBOUNCE) {
+                lastNotify = now;
+                if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
+                    try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', clientX).catch(()=>{}); } catch (e) { /* ignore */ }
+                }
+            } else {
+                // schedule trailing call
+                const remaining = PANEL_DEBOUNCE - (now - lastNotify);
+                if (notifyTimer) clearTimeout(notifyTimer);
+                notifyTimer = setTimeout(() => {
+                    lastNotify = Date.now();
+                    if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
+                        try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', pendingClientXForNotify).catch(()=>{}); } catch (e) { /* ignore */ }
+                    }
+                    notifyTimer = null;
+                    pendingClientXForNotify = null;
+                }, remaining);
+            }
+        }
+
+        // Apply widths using authoritative avail (viewport - sidebar)
         function applyWidthsUsingAvail(requestedLeft) {
             try {
                 const measured = measureAvail();
@@ -122,14 +151,11 @@ window.registerPanelResize = function (dotNetRef, handleId) {
 
                 const availableForLeft = Math.max(minLeft, Math.round(avail - minRight - splitterW));
                 let left = Math.max(minLeft, Math.min(availableForLeft, Math.round(requestedLeft)));
-                left = Math.min(left, availableForLeft); // be safe
+                left = Math.min(left, availableForLeft);
 
                 const right = Math.max(minRight, Math.round(avail - left - splitterW));
 
-                // ensure split-container doesn't fight layout: set max-width to avail so children compute against this space
-                const splitEl = document.getElementById('split-container');
-
-                // set left/thumb area
+                // apply left/thumb area
                 if (thumbArea) {
                     thumbArea.style.setProperty('--thumbnail-width', left + 'px');
                     thumbArea.style.width = left + 'px';
@@ -138,6 +164,7 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                 }
 
                 // set right pane to remaining space derived from avail (user requested behavior)
+                const splitEl = document.getElementById('split-container');
                 const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (handle.nextElementSibling || null);
                 if (rightPane) {
                     rightPane.style.width = right + 'px';
@@ -150,7 +177,6 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                 try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
                 try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
 
-                // store last applied values for potential later use
                 window._trimResize.lastAppliedLeft = left;
                 window._trimResize.lastAvail = avail;
             } catch (e) {
@@ -172,14 +198,11 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                                 const measured = measureAvail();
                                 const originLeft = computeOriginLeft(measured);
                                 const computedLeft = Math.round(latestClientX - originLeft);
-                                // IMPORTANT: use viewport-sub-sidebar avail based apply (not parentElement width)
+                                // Visual update: immediate and smooth
                                 applyWidthsUsingAvail(computedLeft);
 
-                                // notify .NET of pointer move (optional)
-                                if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                                    try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', latestClientX); } catch (e) { /* ignore */ }
-                                }
-
+                                // Schedule .NET notify but throttled
+                                scheduleDotNetNotify(latestClientX);
                             } catch (err) {
                                 console.error('onPointerMove error', err);
                             }
@@ -191,6 +214,16 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                     try {
                         handle.releasePointerCapture?.(ev.pointerId);
 
+                        // ensure any pending notify fires immediately (flush)
+                        if (notifyTimer) {
+                            clearTimeout(notifyTimer);
+                            notifyTimer = null;
+                        }
+                        if (pendingClientXForNotify != null && window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
+                            try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', pendingClientXForNotify).catch(()=>{}); } catch (e) { /* ignore */ }
+                            pendingClientXForNotify = null;
+                        }
+
                         const measured = measureAvail();
                         const originLeft = computeOriginLeft(measured);
                         const splitterW = handle.getBoundingClientRect().width || 8;
@@ -200,9 +233,9 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                         const computedFinalLeft = Math.round(ev.clientX - originLeft);
                         const finalLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedFinalLeft));
 
-                        // persist to .NET if available
+                        // persist to .NET if available (CommitPanelWidth)
                         if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                            try { window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth); } catch (e) { /* ignore */ }
+                            try { window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth).catch(()=>{}); } catch (e) { /* ignore */ }
                         }
 
                         // final apply using avail-based sizing
@@ -1416,7 +1449,7 @@ window.unregisterVisiblePageObserver = function (containerId) {
     }
 };
 
-window.registerWindowResize = function (dotNetRef, debounceMs = 120) {
+window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
     try {
         if (!dotNetRef) return;
 
