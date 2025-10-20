@@ -19,34 +19,49 @@
         
         <!-- 上部固定バー -->
         <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
-            <div class="flex items-center justify-between px-4 py-2">
-                <div class="flex gap-2 items-center">
-                    <ActionButtonGroup T="string" Actions="resetActions" />
-                    <div class="h-6 w-px bg-gray-300 mx-2"></div>
-                    <h1 class="text-lg font-bold">トリミング</h1>
-                
-                    <div class="ml-4 flex items-center gap-2">
-                        <input type="number"
-                            min="1"
-                            max="@Math.Max(1, DisplayItems.Count)"
-                            value="@displayedPageNumber"
-                            @onchange="OnTopBarPageInputChanged"
-                            class="w-20 px-2 py-1 rounded border border-gray-300 text-sm"
-                            title="ページ番号を入力してEnterで移動" />
-                        <span class="text-sm">/ @DisplayItems.Count</span>
+            <div class="px-4 py-2">
+                <div class="topbar-columns">
+                    <!-- 左列: 固定幅 or コンテンツ幅 -->
+                    <div class="topbar-left-col">
+                        <div class="group-first">
+                            <ActionButtonGroup T="string" Actions="resetActions" />
+                        </div>
+                        <div class="separator-vertical" aria-hidden="true"></div>
+                        <div class="group-rest-left">
+                            <!-- ここに左列内の追加要素（タイトルや入力など）を入れる -->
+                            <h1 class="text-lg font-bold">トリミング</h1>
+                            <div class="ml-4 flex items-center gap-2">
+                                <input type="number"
+                                    min="1"
+                                    max="@Math.Max(1, DisplayItems.Count)"
+                                    value="@displayedPageNumber"
+                                    @onchange="OnTopBarPageInputChanged"
+                                    class="w-20 px-2 py-1 rounded border border-gray-300 text-sm"
+                                    title="ページ番号を入力してEnterで移動" />
+                                <span class="text-sm">/ @DisplayItems.Count</span>
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- 仕切り線 -->
+                    <div class="topbar-divider" aria-hidden="true"></div>
 
-                    <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
-                        OnClick="OnToggleDrawingMode" />
+                    <!-- 右列: 可変幅、内部で折り返し -->
+                    <div class="topbar-right-col">
+                        <div class="topbar-actions-wrap">
+                            <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
+                                OnClick="OnToggleDrawingMode" />
+                            <ActionButtonGroup T="string" Actions="rotateActions" />
+                            <ActionButtonGroup T="string" Actions="zoomActions" />
+                            <ActionButtonGroup T="string" Actions="applyTrimActions" />
+                        </div>
 
-                    <ActionButtonGroup T="string" Actions="rotateActions" />
-                    
-                    <ActionButtonGroup T="string" Actions="zoomActions" />
-                    
+                        <!-- 右端の主要アクション（例: 完了ボタン）は右端に常に表示 -->
+                        <div class="topbar-primary">
+                            <ActionButtonGroup T="string" Actions="primaryActions" />
+                        </div>
+                    </div>
                 </div>
-                
-                <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
         </div>
         
@@ -898,6 +913,58 @@
             IconPosition = "left"
         }
     };
+
+    // 全ページ適用用アクション（トップバー表示）
+    private List<ActionButtonItem> applyTrimActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "",
+            Title = "現在ページに描かれているトリミング範囲をすべてのページにコピーします",
+            OnClick = EventCallback.Factory.Create(this, ApplyCurrentTrimToAll),
+            IconHtml = "現在範囲を全ページに適用"
+        }
+    };
+
+    // 現在表示ページのトリム矩形を取得して全ページへ適用する
+    private async Task ApplyCurrentTrimToAll()
+    {
+        if (DisplayItems == null || DisplayItems.Count == 0)
+        {
+            ShowMessage("適用対象がありません。", MessageType.Warn);
+            return;
+        }
+
+        var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
+        var trimInfo = PdfDataService.GetTrimRect(idx); // TrimRectInfo? (normalized 0..1)
+        if (trimInfo == null)
+        {
+            ShowMessage("現在ページにトリミング範囲が設定されていません。", MessageType.Warn);
+            return;
+        }
+
+        isBusy = true;
+        StateHasChanged();
+        try
+        {
+            for (int i = 0; i < DisplayItems.Count; i++)
+            {
+                // SetTrimRect expects normalized coords (PdfDataService API uses normalized TrimRectInfo)
+                await PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
+            }
+            ShowMessage("現在のトリム範囲をすべてのページに適用しました。", MessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ApplyCurrentTrimToAll error: {ex.Message}");
+            ShowMessage("全ページへの適用に失敗しました。", MessageType.Error);
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task ReverseOrder()
     {
