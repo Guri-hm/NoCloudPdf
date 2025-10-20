@@ -34,7 +34,7 @@
                 }
             }
 
-            <span class="flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "")">
+            <span class="break-keep flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "")">
                 @action.Label
             </span>
             @if (action.IconPosition == "right" && !string.IsNullOrEmpty(action.IconHtml))

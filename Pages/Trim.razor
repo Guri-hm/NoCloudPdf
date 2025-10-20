@@ -18,50 +18,31 @@
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
         
         <!-- 上部固定バー -->
-        <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50">
-            <div class="px-4 py-2">
-                <div class="topbar-columns">
-                    <!-- 左列: 固定幅 or コンテンツ幅 -->
-                    <div class="topbar-left-col">
-                        <div class="group-first">
-                            <ActionButtonGroup T="string" Actions="resetActions" />
-                        </div>
-                        <div class="separator-vertical" aria-hidden="true"></div>
-                        <div class="group-rest-left">
-                            <!-- ここに左列内の追加要素（タイトルや入力など）を入れる -->
-                            <h1 class="hidden md:inline text-lg font-bold">トリミング</h1>
-                            <div class="ml-4 flex items-center gap-2">
-                                <input type="number"
-                                    min="1"
-                                    max="@Math.Max(1, DisplayItems.Count)"
-                                    value="@displayedPageNumber"
-                                    @onchange="OnTopBarPageInputChanged"
-                                    class="w-20 px-2 py-1 rounded border border-gray-300 text-sm"
-                                    title="ページ番号を入力してEnterで移動" />
-                                <span class="text-sm">/ @DisplayItems.Count</span>
-                            </div>
-                        </div>
+        <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
+            <div
+                class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+                <div class="flex flex-wrap gap-2 items-center">
+                    <ActionButtonGroup T="string" Actions="resetActions" />
+                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
+                    <h1 class="hidden md:inline text-lg font-bold">トリミング</h1>
+                    <div class="ml-4 flex items-center gap-2">
+                        <input type="number"
+                            min="1"
+                            max="@Math.Max(1, DisplayItems.Count)"
+                            value="@displayedPageNumber"
+                            @onchange="OnTopBarPageInputChanged"
+                            class="w-20 px-2 py-1 rounded border border-gray-300 text-sm"
+                            title="ページ番号を入力してEnterで移動" />
+                        <span class="text-sm">/ @DisplayItems.Count</span>
                     </div>
+                    <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
+                        OnClick="OnToggleDrawingMode" />
+                    <ActionButtonGroup T="string" Actions="rotateActions" />
+                    <ActionButtonGroup T="string" Actions="zoomActions" />
+                    <ActionButtonGroup T="string" Actions="applyTrimActions" />
 
-                    <!-- 仕切り線 -->
-                    <div class="topbar-divider" aria-hidden="true"></div>
-
-                    <!-- 右列: 可変幅、内部で折り返し -->
-                    <div class="topbar-right-col">
-                        <div class="topbar-actions-wrap">
-                            <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
-                                OnClick="OnToggleDrawingMode" />
-                            <ActionButtonGroup T="string" Actions="rotateActions" />
-                            <ActionButtonGroup T="string" Actions="zoomActions" />
-                            <ActionButtonGroup T="string" Actions="applyTrimActions" />
-                        </div>
-
-                        <!-- 右端の主要アクション（例: 完了ボタン）は右端に常に表示 -->
-                        <div class="topbar-primary">
-                            <ActionButtonGroup T="string" Actions="primaryActions" />
-                        </div>
-                    </div>
                 </div>
+                <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
         </div>
         
@@ -415,7 +396,7 @@
             IconHtml = "<i class='fa-solid fa-arrow-right text-xl ml-2'></i>",
             Title = "完了",
             OnClick = EventCallback.Factory.Create(this, MergePDFs),
-            ButtonClass = "bg-blue-600 hover:bg-blue-700 py-2 px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
             IconPosition = "right"
         }
     };
@@ -898,7 +879,18 @@
         },
         new ActionButtonItem
         {
-            Label = "縮小",
+            Label = "実際のサイズ",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ViewRealSizeIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
+            Title = "実際のサイズ",
+            OnClick = EventCallback.Factory.Create(this, SetPreviewToActualSize),
+        },
+        new ActionButtonItem
+        {
             Icon = builder =>
             {
                 builder.OpenComponent(0, typeof(ZoomOutIcon));
@@ -911,7 +903,6 @@
         },
         new ActionButtonItem
         {
-            Label = "拡大",
             Icon = builder =>
             {
                 builder.OpenComponent(0, typeof(ZoomInIcon));
@@ -1252,7 +1243,7 @@
             {
                 try
                 {
-                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container", 500);
+                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container", 1000);
                     _visibleObserverLastCount = DisplayItems.Count;
                 }
                 catch { _visibleObserverLastCount = -1; }
@@ -1634,6 +1625,24 @@
     }
 
     private async Task FitPreviewWidth()
+    {
+        try
+        {
+            Console.WriteLine("FitPreviewWidth called");
+            // JS 側でコンテナ幅に合わせた倍率を計算し setPreviewZoom を呼ぶ実装を流用
+            await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
+            // もし C# 側の previewZoom と同期したければ JSから現在値を取得する helper を用意して同期する実装にできます。
+        }
+        catch
+        {
+            Console.WriteLine("FitPreviewWidth failed");
+            // フォールバック: 直接倍率 1 を設定
+            previewZoom = 1.0;
+            await ApplyPreviewZoomAsync();
+        }
+    }
+
+    private async Task SetPreviewToActualSize()
     {
         previewZoom = 1.0;
         await ApplyPreviewZoomAsync();

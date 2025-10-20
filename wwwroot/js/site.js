@@ -341,18 +341,40 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
     }
 };
 
-// 初期フィット計算（オプション：EditPage と同様に container に合わせる）
 window.computeAndApplyFitZoom = function () {
     try {
         const container = document.getElementById('trim-preview-container');
         const inner = document.getElementById('preview-zoom-inner');
-        if (!container || !inner) return;
-
+        if (!container || !inner) {
+            return;
+        }
+        
         const containerW = container.clientWidth || 1;
-        const innerW = inner.scrollWidth || inner.getBoundingClientRect().width || 1;
 
-        // フィット倍率（内部が container より大きければ縮小）
-        const fit = Math.min(1.0, containerW / innerW);
+        const prev = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
+
+        let contentLogicalW = 0;
+        const canvases = inner.querySelectorAll('canvas');
+        if (canvases && canvases.length > 0) {
+            canvases.forEach((c, i) => {
+                try {
+                    const rect = c.getBoundingClientRect();
+                    const logical = (rect.width || c.clientWidth || 0) / prev;
+                    if (logical > contentLogicalW) contentLogicalW = logical;
+                } catch (e) { console.warn('computeAndApplyFitZoom: canvas measurement error', e); }
+            });
+        }
+
+        // フォールバック: canvas が見つからなければ inner の実測幅を使用（縮尺で逆除算）
+        if (contentLogicalW <= 0) {
+            const innerRect = inner.getBoundingClientRect();
+            contentLogicalW = (inner.scrollWidth || innerRect.width || inner.clientWidth || 1) / prev;
+        }
+
+        if (!contentLogicalW || contentLogicalW <= 0) contentLogicalW = 1;
+
+        const rawFit = containerW / contentLogicalW;
+        const fit = Math.max(0.25, Math.min(3.0, rawFit));
 
         if (typeof window.setPreviewZoom === 'function') {
             window.setPreviewZoom(fit);
@@ -361,6 +383,7 @@ window.computeAndApplyFitZoom = function () {
         console.error('computeAndApplyFitZoom error', e);
     }
 };
+// ...existing code...
 
 window._previewPan = window._previewPan || { enabled: false, handlers: null, state: null };
 
@@ -1145,8 +1168,15 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
         const baseRect = base.getBoundingClientRect();
         const hostRect = host.getBoundingClientRect();
-        const relLeft = Math.round(baseRect.left - hostRect.left);
-        const relTop = Math.round(baseRect.top - hostRect.top);
+
+        // previewScale: 現在のプレビュー縮尺（デフォルト1）
+        const previewScale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
+
+        // relLeft/Top は getBoundingClientRect がスケール済みの値を返すため
+        // オーバーレイを host 内で正しく配置するには縮尺で逆除算する
+        const relLeft = Math.round((baseRect.left - hostRect.left) / previewScale);
+        const relTop = Math.round((baseRect.top - hostRect.top) / previewScale);
+
         const cssW = Math.max(1, Math.round(base.clientWidth || Math.round(baseRect.width || 0)));
         const cssH = Math.max(1, Math.round(base.clientHeight || Math.round(baseRect.height || 0)));
 
@@ -1160,6 +1190,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('width', '100%');
             svg.setAttribute('height', '100%');
+            // viewBox を設定して内部座標を論理ピクセルに合わせる
+            svg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
+            svg.setAttribute('preserveAspectRatio', 'none');
             svg.style.pointerEvents = 'none';
             container.appendChild(svg);
         }
@@ -1188,6 +1221,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         const nw = Number(r.Width ?? r.width ?? 0);
         const nh = Number(r.Height ?? r.height ?? 0);
 
+        // logical (非スケール) 座標に基づく矩形
         const rx = Math.round(nx * cssW);
         const ry = Math.round(ny * cssH);
         const rw = Math.round(nw * cssW);
@@ -1370,7 +1404,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
 window._visiblePageObserver = window._visiblePageObserver || {};
 
-window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 500) {
+window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 1000) {
     try {
         // cleanup existing if any
         try { window.unregisterVisiblePageObserver(containerId); } catch (e) { }
@@ -1590,7 +1624,6 @@ window.applyThumbnailWidth = function (leftPx) {
     }
 };
 
-// utility: returns { avail, sidebarW, vw }
 window.getAvailableWidth = function () {
     try {
         const sidebarEl = document.querySelector('.sidebar');
@@ -1602,4 +1635,3 @@ window.getAvailableWidth = function () {
         return { avail: (window.innerWidth || document.documentElement.clientWidth), sidebarW: 0, vw: (window.innerWidth || document.documentElement.clientWidth) };
     }
 };
-// ...existing code...
