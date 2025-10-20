@@ -90,67 +90,73 @@ window.registerPanelResize = function (dotNetRef, handleId) {
             return;
         }
 
-        // Helper: update all trim overlays to reflect new sizes
-        function updateAllTrimOverlays() {
-            try {
-                if (!window._simpleTrim) return;
-                for (const canvasId in window._simpleTrim) {
-                    try {
-                        const entry = window._simpleTrim[canvasId];
-                        if (!entry) continue;
-                        const base = document.getElementById(canvasId);
-                        if (!base) {
-                            try { if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, []); } catch (e) { }
-                            continue;
-                        }
-
-                        const logicalW = Math.max(1, Math.round(base.clientWidth || base.getBoundingClientRect().width || 1));
-                        const logicalH = Math.max(1, Math.round(base.clientHeight || base.getBoundingClientRect().height || 1));
-                        const raw = entry.currentRectPx;
-                        if (!raw || raw.w <= 0 || raw.h <= 0) {
-                            try { if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, []); } catch (e) { }
-                            continue;
-                        }
-
-                        const left = Number(raw.x || 0);
-                        const top = Number(raw.y || 0);
-                        const right = left + Number(raw.w || 0);
-                        const bottom = top + Number(raw.h || 0);
-
-                        const leftClamped = Math.max(0, Math.min(logicalW, left));
-                        const topClamped = Math.max(0, Math.min(logicalH, top));
-                        const rightClamped = Math.max(0, Math.min(logicalW, right));
-                        const bottomClamped = Math.max(0, Math.min(logicalH, bottom));
-
-                        const widthClamped = Math.max(0, rightClamped - leftClamped);
-                        const heightClamped = Math.max(0, bottomClamped - topClamped);
-
-                        const norm = {
-                            X: leftClamped / logicalW,
-                            Y: topClamped / logicalH,
-                            Width: widthClamped / logicalW,
-                            Height: heightClamped / logicalH
-                        };
-
-                        try { if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [norm]); } catch (e) { }
-                    } catch (e) { /* per-entry ignore */ }
-                }
-            } catch (e) { /* ignore global */ }
-        }
-
-        // 公開: 外部から明示的にオーバーレイ更新できるようにする
-        try {
-            window.updateTrimOverlays = updateAllTrimOverlays;
-            window._trimResize = window._trimResize || {};
-            window._trimResize.updateAllTrimOverlays = updateAllTrimOverlays;
-        } catch (e) { /* ignore */ }
-
+        // keep existing min values (do not change)
         const minLeft = 150;
         const minRight = 260;
+
+        // Helper: measure authoritative available width = viewport - sidebar (ignore sidebar <768)
+        function measureAvail() {
+            const vw = window.innerWidth || document.documentElement.clientWidth;
+            const isMobileHeaderSidebar = vw < 768; // tailwind md breakpoint
+            const sidebarEl = document.querySelector('.sidebar');
+            const sidebarW = (sidebarEl && !isMobileHeaderSidebar) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
+            const avail = Math.max(0, vw - sidebarW);
+            return { vw, sidebarW, isMobileHeaderSidebar, avail };
+        }
+
+        // origin for clientX -> leftPx: content starts after sidebar (if visible) otherwise 0
+        function computeOriginLeft(measured) {
+            return measured.sidebarW || 0;
+        }
 
         // rAF-based throttle state
         let pending = false;
         let latestClientX = 0;
+
+        // Apply widths using authoritative avail (vw - sidebar)
+        function applyWidthsUsingAvail(requestedLeft) {
+            try {
+                const measured = measureAvail();
+                const avail = measured.avail;
+                const splitterW = handle.getBoundingClientRect().width || 8;
+
+                const availableForLeft = Math.max(minLeft, Math.round(avail - minRight - splitterW));
+                let left = Math.max(minLeft, Math.min(availableForLeft, Math.round(requestedLeft)));
+                left = Math.min(left, availableForLeft); // be safe
+
+                const right = Math.max(minRight, Math.round(avail - left - splitterW));
+
+                // ensure split-container doesn't fight layout: set max-width to avail so children compute against this space
+                const splitEl = document.getElementById('split-container');
+
+                // set left/thumb area
+                if (thumbArea) {
+                    thumbArea.style.setProperty('--thumbnail-width', left + 'px');
+                    thumbArea.style.width = left + 'px';
+                    thumbArea.style.flex = `0 0 ${left}px`;
+                    thumbArea.style.maxWidth = Math.max(left, avail - minLeft) + 'px';
+                }
+
+                // set right pane to remaining space derived from avail (user requested behavior)
+                const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (handle.nextElementSibling || null);
+                if (rightPane) {
+                    rightPane.style.width = right + 'px';
+                    rightPane.style.flex = '0 0 auto';
+                    rightPane.style.minWidth = '0';
+                }
+
+                // force reflow and overlay / zoom updates
+                try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
+                try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
+                try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
+
+                // store last applied values for potential later use
+                window._trimResize.lastAppliedLeft = left;
+                window._trimResize.lastAvail = avail;
+            } catch (e) {
+                console.error('applyWidthsUsingAvail error', e);
+            }
+        }
 
         const onPointerDown = function (e) {
             try {
@@ -163,68 +169,49 @@ window.registerPanelResize = function (dotNetRef, handleId) {
                         requestAnimationFrame(function () {
                             pending = false;
                             try {
-                                const splitContainerRect = handle.parentElement.getBoundingClientRect();
-                                const splitterWidth = handle.getBoundingClientRect().width || 8;
+                                const measured = measureAvail();
+                                const originLeft = computeOriginLeft(measured);
+                                const computedLeft = Math.round(latestClientX - originLeft);
+                                // IMPORTANT: use viewport-sub-sidebar avail based apply (not parentElement width)
+                                applyWidthsUsingAvail(computedLeft);
 
-                                const maxLeft = Math.max(minLeft, Math.round(splitContainerRect.width - minRight - splitterWidth));
-                                const computedLeft = Math.round(latestClientX - splitContainerRect.left);
-                                const newLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedLeft));
-
-                                const newRightWidthUnclamped = Math.round(splitContainerRect.width - newLeftWidth - splitterWidth);
-                                const newRightWidth = Math.max(minRight, Math.min(Math.round(splitContainerRect.width - minLeft - splitterWidth), newRightWidthUnclamped));
-
-                                if (thumbArea) {
-                                    thumbArea.style.setProperty('--thumbnail-width', newLeftWidth + 'px');
-                                    thumbArea.style.width = newLeftWidth + 'px';
-                                    thumbArea.style.maxWidth = maxLeft + 'px';
-                                } else {
-                                    handle.parentElement.style.width = newLeftWidth + 'px';
+                                // notify .NET of pointer move (optional)
+                                if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
+                                    try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', latestClientX); } catch (e) { /* ignore */ }
                                 }
 
-                                const rightPane = handle.nextElementSibling;
-                                if (rightPane) {
-                                    rightPane.style.width = newRightWidth + 'px';
-                                    rightPane.style.flex = '0 0 auto';
-                                }
-
-                                // update overlays to match new layout
-                                updateAllTrimOverlays();
                             } catch (err) {
-                                // ignore per-frame errors
+                                console.error('onPointerMove error', err);
                             }
                         });
                     }
                 };
+
                 const onPointerUp = function (ev) {
                     try {
                         handle.releasePointerCapture?.(ev.pointerId);
 
-                        const splitContainerRect = handle.parentElement.getBoundingClientRect();
-                        const splitterWidth = handle.getBoundingClientRect().width || 8;
+                        const measured = measureAvail();
+                        const originLeft = computeOriginLeft(measured);
+                        const splitterW = handle.getBoundingClientRect().width || 8;
 
-                        const maxLeft = Math.max(minLeft, Math.round(splitContainerRect.width - minRight - splitterWidth));
-                        const computedFinalLeft = Math.round(ev.clientX - splitContainerRect.left);
+                        const availForCalc = measured.avail;
+                        const maxLeft = Math.max(minLeft, Math.round(availForCalc - minRight - splitterW));
+                        const computedFinalLeft = Math.round(ev.clientX - originLeft);
                         const finalLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedFinalLeft));
-                        const finalRightUnclamped = Math.round(splitContainerRect.width - finalLeftWidth - splitterWidth);
-                        const finalRightWidth = Math.max(minRight, Math.min(Math.round(splitContainerRect.width - minLeft - splitterWidth), finalRightUnclamped));
 
+                        // persist to .NET if available
                         if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                            window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth);
+                            try { window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth); } catch (e) { /* ignore */ }
                         }
 
-                        if (thumbArea) {
-                            thumbArea.style.setProperty('--thumbnail-width', finalLeftWidth + 'px');
-                            thumbArea.style.width = finalLeftWidth + 'px';
-                            thumbArea.style.maxWidth = maxLeft + 'px';
-                        }
-                        const rightPaneFinal = handle.nextElementSibling;
-                        if (rightPaneFinal) {
-                            rightPaneFinal.style.width = finalRightWidth + 'px';
-                            rightPaneFinal.style.flex = '0 0 auto';
-                        }
+                        // final apply using avail-based sizing
+                        applyWidthsUsingAvail(finalLeftWidth);
 
                         // final overlay update after layout stabilized
-                        requestAnimationFrame(updateAllTrimOverlays);
+                        requestAnimationFrame(function () {
+                            if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays();
+                        });
                     } catch (err) {
                         console.error('onPointerUp error', err);
                     } finally {
@@ -242,10 +229,11 @@ window.registerPanelResize = function (dotNetRef, handleId) {
 
         handle.addEventListener('pointerdown', onPointerDown);
 
+        // expose cleanup
         window._trimResize.cleanupForHandle = function () {
             try {
                 handle.removeEventListener('pointerdown', onPointerDown);
-            } catch (e) { }
+            } catch (e) { /* ignore */ }
             window._trimResize.dotNetRef = null;
         };
     } catch (e) {
@@ -1428,79 +1416,89 @@ window.unregisterVisiblePageObserver = function (containerId) {
     }
 };
 
-// ...existing code...
 window.registerWindowResize = function (dotNetRef, debounceMs = 120) {
     try {
         if (!dotNetRef) return;
+
+        // cleanup previous registration if any
         if (window._trimResize && window._trimResize.unregisterWindowResize) {
             try { window._trimResize.unregisterWindowResize(); } catch (e) { /* ignore */ }
             window._trimResize.unregisterWindowResize = null;
         }
+
         window._trimResize = window._trimResize || {};
         window._trimResize.windowResizeDotNetRef = dotNetRef;
 
         let timer = null;
+
         function measureAndNotify() {
             try {
-                const sidebarEl = document.querySelector('.sidebar');
                 const vw = window.innerWidth || document.documentElement.clientWidth;
-                const sidebarW = sidebarEl ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
+
+                // Tailwind md breakpoint 未満ではサイドバーはヘッダー化 -> 幅から差し引かない
+                const IS_MOBILE_HEADER_SIDEBAR = vw < 768;
+
+                const sidebarEl = document.querySelector('.sidebar');
+                const sidebarW = (sidebarEl && !IS_MOBILE_HEADER_SIDEBAR) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
+
+                // authoritative available width = viewport - sidebar (この値で配分する)
                 const avail = Math.max(0, vw - sidebarW);
 
-                // debug log (will show e.g. availableWidth: 735)
-                console.log('[registerWindowResize] measureAndNotify', {
-                    viewportWidth: vw,
-                    sidebarWidth: sidebarW,
-                    availableWidth: avail,
-                    timestamp: Date.now()
-                });
+                console.log('[registerWindowResize] measureAndNotify', { viewportWidth: vw, isMobileHeaderSidebar: IS_MOBILE_HEADER_SIDEBAR, sidebarWidth: sidebarW, chosenAvailableWidth: avail, timestamp: Date.now() });
 
-                // --- apply layout adjustments (only on window resize) ---
+                // --- apply layout (use avail, do NOT trust split-container clientWidth) ---
                 try {
                     const splitEl = document.getElementById('split-container');
                     const thumb = document.getElementById('thumbnail-area');
                     const handle = document.getElementById('splitter-handle');
-                    const rightPane = document.getElementById('trim-preview-container')?.closest('.flex-1') || document.getElementById('trim-preview-container');
+                    // right pane: prefer direct child of split-container
+                    const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (document.getElementById('trim-preview-container')?.closest('.flex-1') || null);
 
                     const splitterW = handle ? (handle.getBoundingClientRect().width || 8) : 8;
 
-                    // 1:3 左右比率 -> 左 = 25% (round), 右 = remaining
+                    // 左右比 1:3 -> left = 25% of avail
                     const leftPxRaw = Math.round(avail * 0.25);
-                    // clamp to sensible mins/maxs (keep in sync with C#)
                     const MIN_LEFT = 200;
                     const MAX_LEFT = 600;
                     const leftPx = Math.max(MIN_LEFT, Math.min(MAX_LEFT, leftPxRaw));
 
                     const rightPx = Math.max(0, Math.round(avail - leftPx - splitterW));
 
-                    // ensure split container reflects available width (so children computed widths are based on avail)
-                    if (splitEl) {
-                        splitEl.style.width = avail + 'px';
-                        splitEl.style.maxWidth = avail + 'px';
-                    }
-
-                    // apply thumbnail (left) width via CSS var + inline width
+                    // apply thumbnail robustly
                     if (thumb) {
                         thumb.style.setProperty('--thumbnail-width', leftPx + 'px');
                         thumb.style.width = leftPx + 'px';
-                        thumb.style.maxWidth = Math.max(leftPx, avail - MIN_LEFT) + 'px';
+                        // enforce flex-basis so layout respects new left size
+                        thumb.style.flex = `0 0 ${leftPx}px`;
                     }
 
-                    // set right pane inline width so left/right become fixed after resize
+                    // pin right pane only to avoid page-level horizontal scroll when necessary.
+                    // We prefer keeping right pane flexible if layout already provides adequate container width.
                     if (rightPane) {
+                        // If avail is computed from viewport-sub-sidebar, it's authoritative for distribution -> pin right pane
                         rightPane.style.width = rightPx + 'px';
                         rightPane.style.flex = '0 0 auto';
                     }
 
-                    // notify .NET but do not await
+                    // notify .NET (non-blocking)
                     if (window._trimResize && window._trimResize.windowResizeDotNetRef) {
-                        try { window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(()=>{}); } catch (e) { /* ignore */ }
+                        try {
+                            window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(()=>{});
+                        } catch (e) { /* ignore */ }
                     }
+
+                    // force reflow so changes apply immediately, then update overlays/fit-zoom
+                    try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
+                    try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
+                    try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
+
+                    console.log('[registerWindowResize] applied widths', { avail, leftPx, rightPx });
                 } catch (e) {
                     console.error('apply resize layout error', e);
                 }
-
-            } catch (e) { console.error('measureAndNotify error', e); }
+            } catch (e) {
+                console.error('measureAndNotify error', e);
+            }
         }
 
         const handler = function () {
@@ -1528,13 +1526,12 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 120) {
             } catch (e) { /* ignore */ }
         };
 
-        // initial notify once
+        // initial run
         measureAndNotify();
     } catch (e) {
         console.error('registerWindowResize error', e);
     }
 };
-// ...existing code...
 
 window.unregisterWindowResize = function () {
     try {
