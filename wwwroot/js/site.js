@@ -1427,4 +1427,156 @@ window.unregisterVisiblePageObserver = function (containerId) {
         console.error('unregisterVisiblePageObserver error', e);
     }
 };
+
+// ...existing code...
+window.registerWindowResize = function (dotNetRef, debounceMs = 120) {
+    try {
+        if (!dotNetRef) return;
+        if (window._trimResize && window._trimResize.unregisterWindowResize) {
+            try { window._trimResize.unregisterWindowResize(); } catch (e) { /* ignore */ }
+            window._trimResize.unregisterWindowResize = null;
+        }
+        window._trimResize = window._trimResize || {};
+        window._trimResize.windowResizeDotNetRef = dotNetRef;
+
+        let timer = null;
+        function measureAndNotify() {
+            try {
+                const sidebarEl = document.querySelector('.sidebar');
+                const vw = window.innerWidth || document.documentElement.clientWidth;
+                const sidebarW = sidebarEl ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
+                const avail = Math.max(0, vw - sidebarW);
+
+                // debug log (will show e.g. availableWidth: 735)
+                console.log('[registerWindowResize] measureAndNotify', {
+                    viewportWidth: vw,
+                    sidebarWidth: sidebarW,
+                    availableWidth: avail,
+                    timestamp: Date.now()
+                });
+
+                // --- apply layout adjustments (only on window resize) ---
+                try {
+                    const splitEl = document.getElementById('split-container');
+                    const thumb = document.getElementById('thumbnail-area');
+                    const handle = document.getElementById('splitter-handle');
+                    const rightPane = document.getElementById('trim-preview-container')?.closest('.flex-1') || document.getElementById('trim-preview-container');
+
+                    const splitterW = handle ? (handle.getBoundingClientRect().width || 8) : 8;
+
+                    // 1:3 左右比率 -> 左 = 25% (round), 右 = remaining
+                    const leftPxRaw = Math.round(avail * 0.25);
+                    // clamp to sensible mins/maxs (keep in sync with C#)
+                    const MIN_LEFT = 200;
+                    const MAX_LEFT = 600;
+                    const leftPx = Math.max(MIN_LEFT, Math.min(MAX_LEFT, leftPxRaw));
+
+                    const rightPx = Math.max(0, Math.round(avail - leftPx - splitterW));
+
+                    // ensure split container reflects available width (so children computed widths are based on avail)
+                    if (splitEl) {
+                        splitEl.style.width = avail + 'px';
+                        splitEl.style.maxWidth = avail + 'px';
+                    }
+
+                    // apply thumbnail (left) width via CSS var + inline width
+                    if (thumb) {
+                        thumb.style.setProperty('--thumbnail-width', leftPx + 'px');
+                        thumb.style.width = leftPx + 'px';
+                        thumb.style.maxWidth = Math.max(leftPx, avail - MIN_LEFT) + 'px';
+                    }
+
+                    // set right pane inline width so left/right become fixed after resize
+                    if (rightPane) {
+                        rightPane.style.width = rightPx + 'px';
+                        rightPane.style.flex = '0 0 auto';
+                    }
+
+                    // notify .NET but do not await
+                    if (window._trimResize && window._trimResize.windowResizeDotNetRef) {
+                        try { window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(()=>{}); } catch (e) { /* ignore */ }
+                    }
+                } catch (e) {
+                    console.error('apply resize layout error', e);
+                }
+
+            } catch (e) { console.error('measureAndNotify error', e); }
+        }
+
+        const handler = function () {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => { measureAndNotify(); timer = null; }, Number(debounceMs) || 120);
+        };
+
+        window.addEventListener('resize', handler);
+        if (window.visualViewport && window.visualViewport.addEventListener) {
+            window.visualViewport.addEventListener('resize', handler);
+            window.visualViewport.addEventListener('scroll', handler);
+        }
+        window.addEventListener('orientationchange', handler);
+
+        window._trimResize.unregisterWindowResize = function () {
+            try {
+                window.removeEventListener('resize', handler);
+                if (window.visualViewport && window.visualViewport.removeEventListener) {
+                    window.visualViewport.removeEventListener('resize', handler);
+                    window.visualViewport.removeEventListener('scroll', handler);
+                }
+                window.removeEventListener('orientationchange', handler);
+                if (timer) { clearTimeout(timer); timer = null; }
+                window._trimResize.windowResizeDotNetRef = null;
+            } catch (e) { /* ignore */ }
+        };
+
+        // initial notify once
+        measureAndNotify();
+    } catch (e) {
+        console.error('registerWindowResize error', e);
+    }
+};
+// ...existing code...
+
+window.unregisterWindowResize = function () {
+    try {
+        if (window._trimResize && window._trimResize.unregisterWindowResize) {
+            window._trimResize.unregisterWindowResize();
+            window._trimResize.unregisterWindowResize = null;
+        }
+    } catch (e) {
+        console.error('unregisterWindowResize error', e);
+    }
+};
+
+// apply thumbnail width (called from .NET when recomputing)
+window.applyThumbnailWidth = function (leftPx) {
+    try {
+        const thumb = document.getElementById('thumbnail-area');
+        const handle = document.getElementById('splitter-handle');
+        if (!thumb) return;
+        const splitterW = handle ? (handle.getBoundingClientRect().width || 8) : 8;
+
+        // set CSS var + inline width so layout follows
+        thumb.style.setProperty('--thumbnail-width', Math.round(leftPx) + 'px');
+        thumb.style.width = Math.round(leftPx) + 'px';
+        // Do not forcibly pin right pane here; keep its flex behavior unless it already has inline width.
+        // This function only runs on window resize (per spec), so we avoid breaking zoom behavior.
+        return true;
+    } catch (e) {
+        console.error('applyThumbnailWidth error', e);
+        return false;
+    }
+};
+
+// utility: returns { avail, sidebarW, vw }
+window.getAvailableWidth = function () {
+    try {
+        const sidebarEl = document.querySelector('.sidebar');
+        const vw = window.innerWidth || document.documentElement.clientWidth;
+        const sidebarW = sidebarEl ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
+        const avail = Math.max(0, vw - sidebarW);
+        return { avail, sidebarW, vw };
+    } catch (e) {
+        return { avail: (window.innerWidth || document.documentElement.clientWidth), sidebarW: 0, vw: (window.innerWidth || document.documentElement.clientWidth) };
+    }
+};
 // ...existing code...

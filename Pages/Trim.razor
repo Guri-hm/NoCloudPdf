@@ -66,7 +66,7 @@
         </div>
         
         <!-- 左右分割エリア -->
-        <div class="flex-1 flex overflow-hidden">
+        <div id="split-container" class="flex-1 flex overflow-hidden">
             <!-- 左側：サムネイル一覧 -->
             <div id="thumbnail-area" class="w-auto overflow-y-auto bg-gray-50 border-r border-gray-300 flex-none" style="--thumbnail-width: 300px; width: var(--thumbnail-width);">
                 <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
@@ -265,6 +265,16 @@
     {
         PdfDataService.OnChange -= OnServiceChanged;
         _dotNetRef?.Dispose();
+
+        try
+        {
+            if (_windowResizeRegistered)
+            {
+                _ = JSRuntime.InvokeVoidAsync("unregisterWindowResize");
+                _windowResizeRegistered = false;
+            }
+        }
+        catch { }
 
         try { _ = JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
         _visibleObserverLastCount = -1;
@@ -1214,17 +1224,26 @@
     private bool _dropAreaRegistered = false;
     private bool previewItemsLoaded = false;
     private bool previewZoomInitialized = false;
-
     private int displayedPageNumber = 1;
-
     private int _visibleObserverLastCount = -1;
+    private bool _windowResizeRegistered = false;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
-
+            try
+            {
+                // register window resize notifier (JS -> .NET: OnWindowResizedFromJs)
+                await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
+                _windowResizeRegistered = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"registerWindowResize failed: {ex.Message}");
+            }
         }
 
         if (IsFilesLoaded && DisplayItems.Any())
@@ -1335,6 +1354,35 @@
         }
         catch { }
     }
+
+    [JSInvokable("OnWindowResizedFromJs")]
+    public Task OnWindowResizedFromJs(int availableWidth, int sidebarWidth)
+    {
+        try
+        {
+            // Only recalc when not currently dragging panel
+            if (isResizingPanel) return Task.CompletedTask;
+
+            // desired ratio: thumb:preview = 1:3 => thumb = avail * (1/(1+3)) = 0.25
+            var computed = (int)Math.Round(availableWidth * 0.25);
+
+            // clamp to same min/max as CommitPanelWidth does
+            var clamped = Math.Max(200, Math.Min( Math.Min(600, computed), (int)(BrowserViewportWidth() - 260) ));
+
+            // update server state and reflect immediately in DOM
+            thumbnailAreaWidth = clamped;
+            StateHasChanged();
+
+            // Reflect in DOM (no blocking)
+            _ = JSRuntime.InvokeVoidAsync("applyThumbnailWidth", clamped);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
+
     [JSInvokable]
     public void SetDragOver(bool over)
     {
