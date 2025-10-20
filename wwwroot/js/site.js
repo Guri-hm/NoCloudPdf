@@ -1453,7 +1453,6 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
     try {
         if (!dotNetRef) return;
 
-        // cleanup previous registration if any
         if (window._trimResize && window._trimResize.unregisterWindowResize) {
             try { window._trimResize.unregisterWindowResize(); } catch (e) { /* ignore */ }
             window._trimResize.unregisterWindowResize = null;
@@ -1468,18 +1467,13 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
             try {
                 const vw = window.innerWidth || document.documentElement.clientWidth;
 
-                // Tailwind md breakpoint 未満ではサイドバーはヘッダー化 -> 幅から差し引かない
                 const IS_MOBILE_HEADER_SIDEBAR = vw < 768;
 
                 const sidebarEl = document.querySelector('.sidebar');
                 const sidebarW = (sidebarEl && !IS_MOBILE_HEADER_SIDEBAR) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
 
-                // authoritative available width = viewport - sidebar (この値で配分する)
                 const avail = Math.max(0, vw - sidebarW);
 
-                console.log('[registerWindowResize] measureAndNotify', { viewportWidth: vw, isMobileHeaderSidebar: IS_MOBILE_HEADER_SIDEBAR, sidebarWidth: sidebarW, chosenAvailableWidth: avail, timestamp: Date.now() });
-
-                // --- apply layout (use avail, do NOT trust split-container clientWidth) ---
                 try {
                     const splitEl = document.getElementById('split-container');
                     const thumb = document.getElementById('thumbnail-area');
@@ -1525,7 +1519,6 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
                     try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
                     try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
 
-                    console.log('[registerWindowResize] applied widths', { avail, leftPx, rightPx });
                 } catch (e) {
                     console.error('apply resize layout error', e);
                 }
