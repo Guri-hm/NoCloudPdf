@@ -1,51 +1,45 @@
-// wwwroot/js/site.js
-
 window.trimPreviewArea = {
     dotNetRef: null,
+    handlers: null,
 
     initialize: function (dotNetRef) {
-        this.dotNetRef = dotNetRef;
+        try {
+            // ensure previous handlers are removed to avoid duplicates
+            this.unregister && this.unregister();
 
-        document.addEventListener('mousemove', (e) => {
-            if (this.dotNetRef) {
-                this.dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX);
-            }
-        });
+            this.dotNetRef = dotNetRef;
 
-        document.addEventListener('mouseup', () => {
-            if (this.dotNetRef) {
-                this.dotNetRef.invokeMethodAsync('OnPanelMouseUp');
-            }
-        });
+            const onMouseMove = (e) => {
+                try {
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX).catch(()=>{});
+                } catch (ex) { /* ignore */ }
+            };
+            const onMouseUp = (e) => {
+                try {
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseUp').catch(()=>{});
+                } catch (ex) { /* ignore */ }
+            };
 
-        // プレビュー画像のマウスイベント
-        document.querySelectorAll('[id^="preview-img-"]').forEach(img => {
-            const container = img.parentElement;
-            const pageIndex = parseInt(img.id.split('-')[2]);
+            this.handlers = { onMouseMove, onMouseUp };
 
-            container.addEventListener('mousedown', (e) => {
-                const rect = img.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                this.dotNetRef.invokeMethodAsync('OnMouseDown', pageIndex, x, y);
-            });
-        });
+            document.addEventListener('mousemove', onMouseMove, { passive: true });
+            document.addEventListener('mouseup', onMouseUp, { passive: true });
 
-        document.addEventListener('mousemove', (e) => {
-            const activeImg = document.querySelector('[id^="preview-img-"]:hover');
-            if (activeImg) {
-                const rect = activeImg.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                this.dotNetRef.invokeMethodAsync('OnMouseMove', x, y);
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            this.dotNetRef.invokeMethodAsync('OnMouseUp');
-        });
+        } catch (e) {
+            console.error('trimPreviewArea.initialize error', e);
+        }
     },
 
+    unregister: function () {
+        try {
+            if (this.handlers) {
+                document.removeEventListener('mousemove', this.handlers.onMouseMove);
+                document.removeEventListener('mouseup', this.handlers.onMouseUp);
+                this.handlers = null;
+            }
+            this.dotNetRef = null;
+        } catch (e) { console.error('trimPreviewArea.unregister error', e); }
+    },
     getImageDimensions: function (imgId) {
         const img = document.getElementById(imgId);
         if (img) {
@@ -160,7 +154,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                     thumbArea.style.setProperty('--thumbnail-width', left + 'px');
                     thumbArea.style.width = left + 'px';
                     thumbArea.style.flex = `0 0 ${left}px`;
-                    thumbArea.style.maxWidth = Math.max(left, avail - minLeft) + 'px';
+                    // thumbArea.style.maxWidth = Math.max(left, avail - minLeft) + 'px';
                 }
 
                 // set right pane to remaining space derived from avail (user requested behavior)
@@ -170,6 +164,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                     rightPane.style.width = right + 'px';
                     rightPane.style.flex = '0 0 auto';
                     rightPane.style.minWidth = '0';
+                    rightPane.style.maxWidth = right + 'px';
                 }
 
                 // force reflow and overlay / zoom updates
@@ -1005,7 +1000,6 @@ window.setPreviewPanEnabled = function (enabled) {
                 } catch (e) { console.error(e); }
             }
 
-            // scroll/resize listeners
             let scrollPending = false;
             function onAnyScrollOrResize() {
                 try {
@@ -1018,19 +1012,25 @@ window.setPreviewPanEnabled = function (enabled) {
                     requestAnimationFrame(() => {
                         scrollPending = false;
                         try {
-                            if (typeof window.updateTrimOverlays === 'function') {
-                                try { window.updateTrimOverlays(); } catch (e) { /* ignore per-entry errors */ }
-                            } else if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                window.drawTrimOverlayAsSvg(canvasId, []);
-                            }
+                            // update overlay size/position
+                            if (typeof updateOverlaySize === 'function') updateOverlaySize();
                         } catch (e) { /* ignore */ }
                     });
                 } catch (e) { /* ignore */ }
             }
 
-            try { state.internal.hostScroll = onAnyScrollOrResize; state.host.addEventListener('scroll', state.internal.hostScroll, { passive: true }); } catch (e) { }
-            try { const container = document.getElementById('trim-preview-container') || state.host.closest('.preview-zoom-viewport'); if (container) { state.internal.containerScroll = onAnyScrollOrResize; container.addEventListener('scroll', state.internal.containerScroll, { passive: true }); } } catch (e) { }
-            try { state.internal.windowScroll = onAnyScrollOrResize; window.addEventListener('scroll', state.internal.windowScroll, { passive: true }); state.internal.resize = onAnyScrollOrResize; window.addEventListener('resize', state.internal.resize, { passive: true }); } catch (e) { }
+            try {
+                state.internal.hostScroll = onAnyScrollOrResize; state.host.addEventListener('scroll', state.internal.hostScroll, { passive: true });
+            } catch (e) { }
+            try {
+                const container = document.getElementById('trim-preview-container') || state.host.closest('.preview-zoom-viewport');
+                if (container) { state.internal.containerScroll = onAnyScrollOrResize; container.addEventListener('scroll', state.internal.containerScroll, { passive: true }); }
+            } catch (e) { }
+            try {
+                state.internal.windowScroll = onAnyScrollOrResize;
+                state.internal.resize = onAnyScrollOrResize;
+                ensureSharedTrimResizeHandler();
+            } catch (e) { }
 
             try {
                 if (!state.overlayDom && typeof updateOverlaySize === 'function') updateOverlaySize();
@@ -1039,7 +1039,6 @@ window.setPreviewPanEnabled = function (enabled) {
             return true;
         } catch (e) { console.error('attachTrimListeners error', e); return false; }
     };
-    // ...existing code...
 
     window.detachTrimListeners = function (canvasId) {
         try {
@@ -1487,107 +1486,84 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
     try {
         if (!dotNetRef) return;
 
-        if (window._trimResize && window._trimResize.unregisterWindowResize) {
-            try { window._trimResize.unregisterWindowResize(); } catch (e) { /* ignore */ }
-            window._trimResize.unregisterWindowResize = null;
-        }
-
         window._trimResize = window._trimResize || {};
-        window._trimResize.windowResizeDotNetRef = dotNetRef;
 
-        let timer = null;
+        // unregister previous callback if any
+        try { if (window._trimResize.windowResizeCallback) window._trimResize.windowResizeCallback = null; } catch (e) { /* ignore */ }
+
+        window._trimResize.windowResizeDotNetRef = dotNetRef;
 
         function measureAndNotify() {
             try {
                 const vw = window.innerWidth || document.documentElement.clientWidth;
-
                 const IS_MOBILE_HEADER_SIDEBAR = vw < 768;
-
                 const sidebarEl = document.querySelector('.sidebar');
                 const sidebarW = (sidebarEl && !IS_MOBILE_HEADER_SIDEBAR) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
-
                 const avail = Math.max(0, vw - sidebarW);
 
+                // (existing apply layout/notify logic)
                 try {
-                    const splitEl = document.getElementById('split-container');
-                    const thumb = document.getElementById('thumbnail-area');
-                    const handle = document.getElementById('splitter-handle');
-                    // right pane: prefer direct child of split-container
-                    const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (document.getElementById('trim-preview-container')?.closest('.flex-1') || null);
-
-                    const splitterW = handle ? (handle.getBoundingClientRect().width || 8) : 8;
-
-                    // 左右比 1:3 -> left = 25% of avail
-                    const leftPxRaw = Math.round(avail * 0.25);
                     const MIN_LEFT = 200;
                     const MAX_LEFT = 600;
-                    const leftPx = Math.max(MIN_LEFT, Math.min(MAX_LEFT, leftPxRaw));
+                    const MIN_RIGHT = 260;
+                    const handle = document.getElementById('splitter-handle');
+                    const splitterW = handle ? (handle.getBoundingClientRect().width || 8) : 8;
+
+                    let leftPx = Math.round(avail * 0.25);
+                    leftPx = Math.max(MIN_LEFT, Math.min(MAX_LEFT, leftPx));
+                    leftPx = Math.min(leftPx, Math.max(MIN_LEFT, Math.round(avail - MIN_RIGHT - splitterW)));
 
                     const rightPx = Math.max(0, Math.round(avail - leftPx - splitterW));
 
-                    // apply thumbnail robustly
+                    const thumb = document.getElementById('thumbnail-area');
                     if (thumb) {
                         thumb.style.setProperty('--thumbnail-width', leftPx + 'px');
                         thumb.style.width = leftPx + 'px';
-                        // enforce flex-basis so layout respects new left size
                         thumb.style.flex = `0 0 ${leftPx}px`;
                     }
 
-                    // pin right pane only to avoid page-level horizontal scroll when necessary.
-                    // We prefer keeping right pane flexible if layout already provides adequate container width.
+                    const splitEl = document.getElementById('split-container');
+                    const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (document.getElementById('trim-preview-container')?.closest('.flex-1') || null);
                     if (rightPane) {
-                        // If avail is computed from viewport-sub-sidebar, it's authoritative for distribution -> pin right pane
-                        rightPane.style.width = rightPx + 'px';
-                        rightPane.style.flex = '0 0 auto';
+                        rightPane.style.width = '';
+                        rightPane.style.flex = '1 1 0%';
+                        rightPane.style.minWidth = '0';
+                        rightPane.style.maxWidth = rightPx + 'px';
                     }
 
-                    // notify .NET (non-blocking)
                     if (window._trimResize && window._trimResize.windowResizeDotNetRef) {
-                        try {
-                            window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(()=>{});
-                        } catch (e) { /* ignore */ }
+                        try { window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(()=>{}); } catch (e) { /* ignore */ }
                     }
 
-                    // force reflow so changes apply immediately, then update overlays/fit-zoom
                     try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
                     try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
                     try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
-
                 } catch (e) {
-                    console.error('apply resize layout error', e);
+                    console.error('measureAndNotify inner error', e);
                 }
             } catch (e) {
                 console.error('measureAndNotify error', e);
             }
         }
 
-        const handler = function () {
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(() => { measureAndNotify(); timer = null; }, Number(debounceMs) || 120);
-        };
+        // expose callback to shared handler (debounce comes from shared._trimShared.debounceMs or local debounce if needed)
+        window._trimResize.windowResizeCallback = measureAndNotify;
 
-        window.addEventListener('resize', handler);
-        if (window.visualViewport && window.visualViewport.addEventListener) {
-            window.visualViewport.addEventListener('resize', handler);
-            window.visualViewport.addEventListener('scroll', handler);
-        }
-        window.addEventListener('orientationchange', handler);
+        // ensure shared handler exists and will call our callback
+        if (typeof ensureSharedTrimResizeHandler === 'function') ensureSharedTrimResizeHandler();
 
+        // run once immediately
+        try { measureAndNotify(); } catch (e) { /* ignore */ }
+
+        // provide unregister that only clears our callback (shared handler remains)
         window._trimResize.unregisterWindowResize = function () {
             try {
-                window.removeEventListener('resize', handler);
-                if (window.visualViewport && window.visualViewport.removeEventListener) {
-                    window.visualViewport.removeEventListener('resize', handler);
-                    window.visualViewport.removeEventListener('scroll', handler);
+                if (window._trimResize) {
+                    window._trimResize.windowResizeCallback = null;
+                    window._trimResize.windowResizeDotNetRef = null;
                 }
-                window.removeEventListener('orientationchange', handler);
-                if (timer) { clearTimeout(timer); timer = null; }
-                window._trimResize.windowResizeDotNetRef = null;
             } catch (e) { /* ignore */ }
         };
-
-        // initial run
-        measureAndNotify();
     } catch (e) {
         console.error('registerWindowResize error', e);
     }
@@ -1635,3 +1611,46 @@ window.getAvailableWidth = function () {
         return { avail: (window.innerWidth || document.documentElement.clientWidth), sidebarW: 0, vw: (window.innerWidth || document.documentElement.clientWidth) };
     }
 };
+
+window._trimShared = window._trimShared || { resizeHandler: null, timer: null, debounceMs: 120 };
+function ensureSharedTrimResizeHandler() {
+    try {
+        if (window._trimShared && window._trimShared.resizeHandler) return;
+        const handler = function () {
+            try {
+                if (window._trimShared.timer) clearTimeout(window._trimShared.timer);
+                window._trimShared.timer = setTimeout(() => {
+                    try {
+                        // call per-entry callbacks
+                        const keys = Object.keys(window._simpleTrim || {});
+                        keys.forEach(id => {
+                            try {
+                                const entry = (window._simpleTrim || {})[id];
+                                if (entry && entry.internal && typeof entry.internal.onAnyScrollOrResize === 'function') {
+                                    try { entry.internal.onAnyScrollOrResize(); } catch (e) { /* ignore per-entry */ }
+                                } else if (entry && entry.internal && typeof entry.internal.resize === 'function') {
+                                    try { entry.internal.resize(); } catch (e) { /* ignore per-entry */ }
+                                }
+                            } catch (e) { /* ignore */ }
+                        });
+
+                        // call optional global callback (e.g. registerWindowResize's measureAndNotify)
+                        try {
+                            if (window._trimResize && typeof window._trimResize.windowResizeCallback === 'function') {
+                                try { window._trimResize.windowResizeCallback(); } catch (e) { /* ignore */ }
+                            }
+                        } catch (e) { /* ignore */ }
+                    } catch (e) { /* ignore */ }
+                }, window._trimShared.debounceMs);
+            } catch (e) { /* ignore */ }
+        };
+        window._trimShared.resizeHandler = handler;
+        window.addEventListener('resize', handler, { passive: true });
+        if (window.visualViewport && window.visualViewport.addEventListener) {
+            window.visualViewport.addEventListener('resize', handler, { passive: true });
+            window.visualViewport.addEventListener('scroll', handler, { passive: true });
+        }
+    } catch (e) {
+        console.error('ensureSharedTrimResizeHandler error', e);
+    }
+}

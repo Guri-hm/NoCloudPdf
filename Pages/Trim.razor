@@ -266,6 +266,8 @@
         }
         catch { }
 
+        try { _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
+
         if (_dropAreaRegistered)
         {
             JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
@@ -393,10 +395,10 @@
         new ActionButtonItem
         {
             Label = "完了",
-            IconHtml = "<i class='fa-solid fa-arrow-right text-xl ml-2'></i>",
+            IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
             Title = "完了",
             OnClick = EventCallback.Factory.Create(this, MergePDFs),
-            ButtonClass = "bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 rounded-lg min-w-[44px] transition hidden md:flex h-[44px]",
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-[44px]",
             IconPosition = "right"
         }
     };
