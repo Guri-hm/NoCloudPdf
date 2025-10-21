@@ -31,7 +31,7 @@
                             max="@Math.Max(1, DisplayItems.Count)"
                             value="@displayedPageNumber"
                             @onchange="OnTopBarPageInputChanged"
-                            class="w-20 px-2 py-1 rounded border border-gray-300 text-sm"
+                            class="w-10 px-2 py-1 rounded border border-gray-300 text-sm"
                             title="ページ番号を入力してEnterで移動" />
                         <span class="text-sm">/ @DisplayItems.Count</span>
                     </div>
@@ -39,7 +39,15 @@
                         OnClick="OnToggleDrawingMode" />
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     <ActionButtonGroup T="string" Actions="zoomActions" />
-                    <ActionButtonGroup T="string" Actions="applyTrimActions" />
+
+                    <DropdownButton T="string" MenuId="trimMenu" MenuItems="applyTrimItems">
+                        <Trigger>
+                            <DropdownTriggerButton>
+                                <ActivityZoneIcon/>
+                                <span class="hidden xl:inline">トリミング範囲</span>
+                            </DropdownTriggerButton>
+                        </Trigger>
+                    </DropdownButton>
 
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
@@ -292,14 +300,12 @@
     }
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
-    private OperationMode CurrentOperationMode = OperationMode.Trim;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
     private bool IsFilesLoaded => DisplayItems.Any();
 
     private int previewIndex = -1;
 
     private string? previewImageUrl = null;
-    private bool isPreviewLoading = false;
     // ファイル単位表示時の現在ページ番号（0始まり）
     private int CurrentFilePageIndex => GetCurrentFilePageIndex();
     // ファイル単位表示時の総ページ数
@@ -467,7 +473,6 @@
         previewIndex = fileIndex;
         filePageIndex = pageIndex;
         previewImageUrl = null;
-        isPreviewLoading = true;
         StateHasChanged();
         try
         {
@@ -506,7 +511,6 @@
             previewImageUrl = DisplayItems[fileIndex].Thumbnail;
         }
 
-        isPreviewLoading = false;
         StateHasChanged();
     }
 
@@ -588,7 +592,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            ShowMessage("PDF/画像の結合中にエラーが発生しました。", MessageType.Error);
+            ShowMessage("PDF/画像の結合中にエラーが発生しました", MessageType.Error);
         }
         finally
         {
@@ -917,15 +921,17 @@
         }
     };
 
-    // 全ページ適用用アクション（トップバー表示）
-    private List<ActionButtonItem> applyTrimActions => new()
+    private List<DropdownMenuItem> applyTrimItems => new()
     {
-        new ActionButtonItem
+        new DropdownMenuItem
         {
-            Label = "",
-            Title = "現在ページに描かれているトリミング範囲をすべてのページにコピーします",
-            OnClick = EventCallback.Factory.Create(this, ApplyCurrentTrimToAll),
-            IconHtml = "現在範囲を全ページに適用"
+        Label = "現在ページの範囲を全ページに適用",
+        OnClick = EventCallback.Factory.Create(this,ApplyCurrentTrimToAll)
+        },
+        new DropdownMenuItem
+        {
+        Label = "すべての範囲をクリア",
+        OnClick = EventCallback.Factory.Create(this, ClearAllTrims)
         }
     };
 
@@ -955,12 +961,12 @@
                 // SetTrimRect expects normalized coords (PdfDataService API uses normalized TrimRectInfo)
                 await PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
             }
-            ShowMessage("現在のトリム範囲をすべてのページに適用しました。", MessageType.Success);
+            ShowMessage("現在のトリム範囲をすべてのページに適用しました", MessageType.Success);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ApplyCurrentTrimToAll error: {ex.Message}");
-            ShowMessage("全ページへの適用に失敗しました。", MessageType.Error);
+            ShowMessage("全ページへの適用に失敗しました", MessageType.Error);
         }
         finally
         {
@@ -968,6 +974,55 @@
             StateHasChanged();
         }
     }
+
+    private async Task ClearAllTrims()
+    {
+        try
+        {
+            // 1) サービス上の矩形データを全件クリア
+            var count = DisplayItems?.Count ?? 0;
+            for (int i = 0; i < count; i++)
+            {
+                try { PdfDataService.ClearTrimRect(i); } catch { /* ignore per-index errors */ }
+            }
+
+            // 2) コンポーネント内のキャッシュもクリア
+            try { trimRects.Clear(); } catch { }
+            try
+            {
+                if (previewItems != null)
+                {
+                    for (int i = 0; i < previewItems.Count; i++)
+                    {
+                        previewItems[i].TrimRect = null;
+                    }
+                }
+            }
+            catch { }
+
+            // 3) 表示中のオーバーレイを JS 側で全て削除（空配列を渡す）
+            for (int i = 0; i < count; i++)
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", Array.Empty<object>());
+                }
+                catch
+                {
+                    // 個別失敗は無視
+                }
+            }
+
+            // 4) UI 更新・メッセージ表示
+            ShowMessage("すべてのトリミング範囲をクリアしました", MessageType.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ShowMessage("トリミング範囲のクリアに失敗しました", MessageType.Error);
+            StateHasChanged();
+        }
+    }    
 
     private async Task ReverseOrder()
     {
@@ -1168,16 +1223,16 @@
                 catch (Exception ex)
                 {
                     Console.WriteLine($"ページ {i + 1} のヘッダー・フッター適用でエラー: {ex.Message}");
-                    ShowMessage($"ページ {i + 1} の処理中にエラーが発生しました。", MessageType.Error);
+                    ShowMessage($"ページ {i + 1} の処理中にエラーが発生しました", MessageType.Error);
                 }
             }
 
-            ShowMessage($"{pages.Count} ページにヘッダー・フッターを適用しました。", MessageType.Success);
+            ShowMessage($"{pages.Count} ページにヘッダー・フッターを適用しました", MessageType.Success);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ヘッダー・フッター適用エラー: {ex.Message}");
-            ShowMessage("ヘッダー・フッターの適用中にエラーが発生しました。", MessageType.Error);
+            ShowMessage("ヘッダー・フッターの適用中にエラーが発生しました", MessageType.Error);
         }
         finally
         {
@@ -1215,7 +1270,6 @@
 
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
-    private bool previewItemsLoaded = false;
     private bool previewZoomInitialized = false;
     private int displayedPageNumber = 1;
     private int _visibleObserverLastCount = -1;

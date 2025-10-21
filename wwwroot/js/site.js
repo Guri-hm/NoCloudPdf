@@ -22,12 +22,12 @@ window.trimPreviewArea = {
 
             const onMouseMove = (e) => {
                 try {
-                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX).catch(()=>{});
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX).catch(() => { });
                 } catch (ex) { /* ignore */ }
             };
             const onMouseUp = (e) => {
                 try {
-                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseUp').catch(()=>{});
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseUp').catch(() => { });
                 } catch (ex) { /* ignore */ }
             };
 
@@ -65,11 +65,6 @@ window.trimPreviewArea = {
             container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }
-};
-
-window.getElementDimensions = function (element) {
-    if (!element) return [0, 0];
-    return [element.offsetWidth, element.offsetHeight];
 };
 
 window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 500) {
@@ -121,7 +116,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
             if (!lastNotify || (now - lastNotify) >= PANEL_DEBOUNCE) {
                 lastNotify = now;
                 if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                    try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', clientX).catch(()=>{}); } catch (e) { /* ignore */ }
+                    try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', clientX).catch(() => { }); } catch (e) { /* ignore */ }
                 }
             } else {
                 const remaining = PANEL_DEBOUNCE - (now - lastNotify);
@@ -129,7 +124,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                 notifyTimer = setTimeout(() => {
                     lastNotify = Date.now();
                     if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                        try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', pendingClientXForNotify).catch(()=>{}); } catch (e) { /* ignore */ }
+                        try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', pendingClientXForNotify).catch(() => { }); } catch (e) { /* ignore */ }
                     }
                     notifyTimer = null;
                     pendingClientXForNotify = null;
@@ -164,7 +159,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                     rightPane.style.maxWidth = right + 'px';
                 }
 
-                try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
+                splitEl && splitEl.offsetHeight;
                 try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
 
                 window._trimResize.lastAppliedLeft = left;
@@ -208,7 +203,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                             notifyTimer = null;
                         }
                         if (pendingClientXForNotify != null && window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                            try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', pendingClientXForNotify).catch(()=>{}); } catch (e) { /* ignore */ }
+                            try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', pendingClientXForNotify).catch(() => { }); } catch (e) { /* ignore */ }
                             pendingClientXForNotify = null;
                         }
 
@@ -222,7 +217,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                         const finalLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedFinalLeft));
 
                         if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
-                            try { window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth).catch(()=>{}); } catch (e) { /* ignore */ }
+                            try { window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth).catch(() => { }); } catch (e) { /* ignore */ }
                         }
 
                         applyWidthsUsingAvail(finalLeftWidth);
@@ -270,8 +265,6 @@ window.unregisterPanelResize = function () {
         console.error('unregisterPanelResize error', e);
     }
 };
-
-window._previewZoomDebounce = window._previewZoomDebounce || { timer: null, lastZoom: 1 };
 
 window.setPreviewZoom = function (zoom, mode = 'contain') {
     console.log('Setting preview zoom:', zoom, 'Mode:', mode);
@@ -334,7 +327,7 @@ window.computeAndApplyFitZoom = function () {
         if (!container || !inner) {
             return;
         }
-        
+
         const containerW = container.clientWidth || 1;
 
         const prev = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
@@ -387,6 +380,7 @@ window.setPreviewPanEnabled = function (enabled) {
                 viewport.removeEventListener('pointerup', h.up);
                 viewport.removeEventListener('pointercancel', h.up);
             } catch (e) { /* ignore */ }
+
             window._previewPan.handlers = null;
             window._previewPan.state = null;
             viewport.classList.remove('pan-active');
@@ -470,43 +464,33 @@ window.setPreviewPanEnabled = function (enabled) {
         try {
             const entry = window._simpleTrim && window._simpleTrim[canvasId];
             if (!entry) return;
+            // remove overlay canvas
             try {
-                // preserve selection flag onto base element so reattach can restore it
-                try {
-                    if (entry.base && entry.base.dataset) {
-                        entry.base.dataset.trimSelected = entry.selected ? '1' : '0';
-                    }
-                } catch (e) { /* ignore */ }
-
-                if (entry.base && entry.handlers && entry.handlers.pointerDown) entry.base.removeEventListener('pointerdown', entry.handlers.pointerDown);
-            } catch (e) { }
-            try { if (entry.base && entry.handlers && entry.handlers.touchStart) entry.base.removeEventListener('touchstart', entry.handlers.touchStart); } catch (e) { }
-            try { if (entry.handlers && entry.handlers.move) window.removeEventListener('pointermove', entry.handlers.move, { passive: false }); } catch (e) { }
-            try { if (entry.handlers && entry.handlers.up) window.removeEventListener('pointerup', entry.handlers.up, { passive: false }); } catch (e) { }
-            try { if (entry.internal && entry.internal.hostScroll) entry.host.removeEventListener('scroll', entry.internal.hostScroll, { passive: true }); } catch (e) { }
-            try {
-                if (entry.internal && entry.internal.containerScroll) {
-                    const container = document.getElementById('trim-preview-container') || (entry.host && entry.host.closest && entry.host.closest('.preview-zoom-viewport'));
-                    if (container) container.removeEventListener('scroll', entry.internal.containerScroll, { passive: true });
+                const ov = entry.overlay || document.getElementById(canvasId + '-overlay');
+                if (ov) {
+                    try { ov.remove && ov.remove(); } catch (e) { }
+                    try { ov.width = 0; ov.height = 0; } catch (e) { }
                 }
             } catch (e) { }
-            try { if (entry.internal && entry.internal.windowScroll) window.removeEventListener('scroll', entry.internal.windowScroll, { passive: true }); } catch (e) { }
-            try { if (entry.internal && entry.internal.resize) window.removeEventListener('resize', entry.internal.resize, { passive: true }); } catch (e) { }
-
-            // keydown listener cleanup (for Delete)
-            try { if (entry.internal && entry.internal.keydown) document.removeEventListener('keydown', entry.internal.keydown); } catch (e) { }
-
+            // remove svg/dom overlay and stored handlers
             try {
-                // canvas overlay cleanup (existing)
-                const ov = entry.overlay || document.getElementById(canvasId + '-overlay');
-                if (ov && ov.getContext) { const ctx = ov.getContext('2d'); ctx && ctx.clearRect(0, 0, ov.width, ov.height); }
-                if (entry.overlay && entry.overlay.parentElement) entry.overlay.parentElement.removeChild(entry.overlay);
-            } catch (e) { }
-            try {
-                // SVG/DOM overlay cleanup (new)
                 const od = entry.overlayDom || document.getElementById(canvasId + '-overlay-svg');
-                if (od && od.parentElement) od.parentElement.removeChild(od);
+                if (od) {
+                    try {
+                        if (entry.internal) {
+                            if (entry.internal.overlayPointerDown) od.removeEventListener('pointerdown', entry.internal.overlayPointerDown, true);
+                            if (entry.internal.overlayPointerDown) od.removeEventListener('touchstart', entry.internal.overlayPointerDown, true);
+                            if (entry.internal.overlayMove) od.removeEventListener('pointermove', entry.internal.overlayMove, true);
+                            if (entry.internal.overlayOver) od.removeEventListener('pointerover', entry.internal.overlayOver, true);
+                            if (entry.internal.overlayOut) od.removeEventListener('pointerout', entry.internal.overlayOut, true);
+                        }
+                        od.remove && od.remove();
+                    } catch (e) {
+                        console.error('cleanupTrimEntry: error removing overlay handlers', e);
+                    }
+                }
             } catch (e) { }
+            // clear stored state
             try { delete window._simpleTrim[canvasId]; } catch (e) { }
         } catch (e) { console.error('cleanupTrimEntry error', e); }
     }
@@ -1366,18 +1350,26 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             }
         } catch (e) { }
 
-        // hook overlay events to forward into attachTrimListeners handlers (if present)
         try {
             const entry2 = window._simpleTrim[canvasId];
             if (entry2 && !container.__trimHooked) {
-                if (entry2.handlers && entry2.handlers.pointerDown) {
-                    container.addEventListener('pointerdown', function (ev) { try { entry2.handlers.pointerDown(ev); } catch (e) { } }, { passive: false, capture: true });
-                    container.addEventListener('touchstart', function (ev) { try { entry2.handlers.touchStart && entry2.handlers.touchStart(ev); } catch (e) { } }, { passive: false, capture: true });
+                entry2.internal = entry2.internal || {};
+                if (!entry2.internal.overlayPointerDown) {
+                    entry2.internal.overlayPointerDown = function (ev) { try { entry2.handlers.pointerDown(ev); } catch (e) { } };
+                    container.addEventListener('pointerdown', entry2.internal.overlayPointerDown, { passive: false, capture: true });
+                    container.addEventListener('touchstart', entry2.internal.overlayPointerDown, { passive: false, capture: true });
                 }
-                if (entry2.handlers && entry2.handlers.overlayMove) {
-                    container.addEventListener('pointermove', function (ev) { try { entry2.handlers.overlayMove(ev); } catch (e) { } }, { passive: true, capture: true });
-                    container.addEventListener('pointerover', function (ev) { try { entry2.handlers.overlayOver && entry2.handlers.overlayOver(ev); } catch (e) { } }, { passive: true, capture: true });
-                    container.addEventListener('pointerout', function (ev) { try { entry2.handlers.overlayOut && entry2.handlers.overlayOut(ev); } catch (e) { } }, { passive: true, capture: true });
+                if (!entry2.internal.overlayMove) {
+                    entry2.internal.overlayMove = function (ev) { try { entry2.handlers.overlayMove(ev); } catch (e) { } };
+                    container.addEventListener('pointermove', entry2.internal.overlayMove, { passive: true, capture: true });
+                }
+                if (!entry2.internal.overlayOver) {
+                    entry2.internal.overlayOver = function (ev) { try { entry2.handlers.overlayOver && entry2.handlers.overlayOver(ev); } catch (e) { } };
+                    container.addEventListener('pointerover', entry2.internal.overlayOver, { passive: true, capture: true });
+                }
+                if (!entry2.internal.overlayOut) {
+                    entry2.internal.overlayOut = function (ev) { try { entry2.handlers.overlayOut && entry2.handlers.overlayOut(ev); } catch (e) { } };
+                    container.addEventListener('pointerout', entry2.internal.overlayOut, { passive: true, capture: true });
                 }
                 container.__trimHooked = true;
             }
@@ -1477,7 +1469,7 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
     try {
         if (!dotNetRef) return;
 
-        try { if (window._trimResize.windowResizeCallback) window._trimResize.windowResizeCallback = null; } catch (e) { /* ignore */ }
+        window._trimResize.windowResizeCallback = null;
         window._trimResize.windowResizeDotNetRef = dotNetRef;
 
         function measureAndNotify() {
@@ -1519,11 +1511,15 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
                     }
 
                     if (window._trimResize && window._trimResize.windowResizeDotNetRef) {
-                        try { window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(()=>{}); } catch (e) { /* ignore */ }
+                        try { window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(() => { }); } catch (e) { /* ignore */ }
                     }
 
                     try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
-                    try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
+                    
+                    if (window._trimResize?.updateAllTrimOverlays) {
+                        try { window._trimResize.updateAllTrimOverlays(); } catch (e) { console.error(e); }
+                    }
+
                     try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
                 } catch (e) {
                     console.error('measureAndNotify inner error', e);
