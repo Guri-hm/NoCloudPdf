@@ -1,3 +1,14 @@
+window._trimResize = window._trimResize || {
+    dotNetRef: null,
+    cleanupForHandle: null,
+    windowResizeDotNetRef: null,
+    windowResizeCallback: null,
+    updateAllTrimOverlays: null,
+    lastAppliedLeft: null,
+    lastAvail: null,
+    suspendFitZoom: false
+};
+
 window.trimPreviewArea = {
     dotNetRef: null,
     handlers: null,
@@ -61,20 +72,14 @@ window.getElementDimensions = function (element) {
     return [element.offsetWidth, element.offsetHeight];
 };
 
-window._trimResize = window._trimResize || {
-    dotNetRef: null,
-    cleanupForHandle: null
-};
-
 window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 500) {
+    console.log('Registering panel resize:', handleId);
     try {
-        // cleanup previous
         if (window._trimResize && window._trimResize.cleanupForHandle) {
             try { window._trimResize.cleanupForHandle(); } catch (e) { }
             window._trimResize.cleanupForHandle = null;
         }
 
-        window._trimResize = window._trimResize || {};
         window._trimResize.dotNetRef = dotNetRef;
 
         const handle = document.getElementById(handleId);
@@ -84,31 +89,28 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
             return;
         }
 
-        // keep existing min values (do not change)
         const minLeft = 150;
         const minRight = 260;
 
-        // Helper: measure authoritative available width = viewport - sidebar (ignore sidebar <768)
         function measureAvail() {
             const vw = window.innerWidth || document.documentElement.clientWidth;
-            const isMobileHeaderSidebar = vw < 768; // tailwind md breakpoint
+            // tailwindのmdブレークポイント
+            const isMobileHeaderSidebar = vw < 768;
             const sidebarEl = document.querySelector('.sidebar');
             const sidebarW = (sidebarEl && !isMobileHeaderSidebar) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
             const avail = Math.max(0, vw - sidebarW);
             return { vw, sidebarW, isMobileHeaderSidebar, avail };
         }
 
-        // origin for clientX -> leftPx: content starts after sidebar (if visible) otherwise 0
         function computeOriginLeft(measured) {
             return measured.sidebarW || 0;
         }
 
-        // rAF-based throttle state (visual updates)
         let pending = false;
         let latestClientX = 0;
 
-        // Panel -> .NET notify throttle state
-        const PANEL_DEBOUNCE = Number(panelDebounceMs) || 500; // ms
+        // ms
+        const PANEL_DEBOUNCE = Number(panelDebounceMs) || 500;
         let lastNotify = 0;
         let notifyTimer = null;
         let pendingClientXForNotify = null;
@@ -122,7 +124,6 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                     try { window._trimResize.dotNetRef.invokeMethodAsync('OnPanelMouseMove', clientX).catch(()=>{}); } catch (e) { /* ignore */ }
                 }
             } else {
-                // schedule trailing call
                 const remaining = PANEL_DEBOUNCE - (now - lastNotify);
                 if (notifyTimer) clearTimeout(notifyTimer);
                 notifyTimer = setTimeout(() => {
@@ -136,7 +137,6 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
             }
         }
 
-        // Apply widths using authoritative avail (viewport - sidebar)
         function applyWidthsUsingAvail(requestedLeft) {
             try {
                 const measured = measureAvail();
@@ -149,15 +149,12 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
 
                 const right = Math.max(minRight, Math.round(avail - left - splitterW));
 
-                // apply left/thumb area
                 if (thumbArea) {
                     thumbArea.style.setProperty('--thumbnail-width', left + 'px');
                     thumbArea.style.width = left + 'px';
                     thumbArea.style.flex = `0 0 ${left}px`;
-                    // thumbArea.style.maxWidth = Math.max(left, avail - minLeft) + 'px';
                 }
 
-                // set right pane to remaining space derived from avail (user requested behavior)
                 const splitEl = document.getElementById('split-container');
                 const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (handle.nextElementSibling || null);
                 if (rightPane) {
@@ -167,10 +164,8 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                     rightPane.style.maxWidth = right + 'px';
                 }
 
-                // force reflow and overlay / zoom updates
                 try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
                 try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
-                try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }
 
                 window._trimResize.lastAppliedLeft = left;
                 window._trimResize.lastAvail = avail;
@@ -181,6 +176,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
 
         const onPointerDown = function (e) {
             try {
+                try { window._trimResize.suspendFitZoom = true; } catch (ex) { /* ignore */ }
                 handle.setPointerCapture?.(e.pointerId);
 
                 const onPointerMove = function (ev) {
@@ -193,10 +189,8 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                                 const measured = measureAvail();
                                 const originLeft = computeOriginLeft(measured);
                                 const computedLeft = Math.round(latestClientX - originLeft);
-                                // Visual update: immediate and smooth
                                 applyWidthsUsingAvail(computedLeft);
 
-                                // Schedule .NET notify but throttled
                                 scheduleDotNetNotify(latestClientX);
                             } catch (err) {
                                 console.error('onPointerMove error', err);
@@ -209,7 +203,6 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                     try {
                         handle.releasePointerCapture?.(ev.pointerId);
 
-                        // ensure any pending notify fires immediately (flush)
                         if (notifyTimer) {
                             clearTimeout(notifyTimer);
                             notifyTimer = null;
@@ -228,21 +221,19 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                         const computedFinalLeft = Math.round(ev.clientX - originLeft);
                         const finalLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedFinalLeft));
 
-                        // persist to .NET if available (CommitPanelWidth)
                         if (window._trimResize && window._trimResize.dotNetRef && window._trimResize.dotNetRef.invokeMethodAsync) {
                             try { window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth).catch(()=>{}); } catch (e) { /* ignore */ }
                         }
 
-                        // final apply using avail-based sizing
                         applyWidthsUsingAvail(finalLeftWidth);
 
-                        // final overlay update after layout stabilized
                         requestAnimationFrame(function () {
                             if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays();
                         });
                     } catch (err) {
                         console.error('onPointerUp error', err);
                     } finally {
+                        try { window._trimResize.suspendFitZoom = false; } catch (ex) { /* ignore */ }
                         handle.removeEventListener('pointermove', onPointerMove);
                         handle.removeEventListener('pointerup', onPointerUp);
                     }
@@ -257,7 +248,6 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
 
         handle.addEventListener('pointerdown', onPointerDown);
 
-        // expose cleanup
         window._trimResize.cleanupForHandle = function () {
             try {
                 handle.removeEventListener('pointerdown', onPointerDown);
@@ -284,6 +274,7 @@ window.unregisterPanelResize = function () {
 window._previewZoomDebounce = window._previewZoomDebounce || { timer: null, lastZoom: 1 };
 
 window.setPreviewZoom = function (zoom, mode = 'contain') {
+    console.log('Setting preview zoom:', zoom, 'Mode:', mode);
     try {
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
 
@@ -1486,11 +1477,7 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
     try {
         if (!dotNetRef) return;
 
-        window._trimResize = window._trimResize || {};
-
-        // unregister previous callback if any
         try { if (window._trimResize.windowResizeCallback) window._trimResize.windowResizeCallback = null; } catch (e) { /* ignore */ }
-
         window._trimResize.windowResizeDotNetRef = dotNetRef;
 
         function measureAndNotify() {
