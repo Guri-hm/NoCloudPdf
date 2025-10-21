@@ -68,7 +68,6 @@ window.trimPreviewArea = {
 };
 
 window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 500) {
-    console.log('Registering panel resize:', handleId);
     try {
         if (window._trimResize && window._trimResize.cleanupForHandle) {
             try { window._trimResize.cleanupForHandle(); } catch (e) { }
@@ -267,7 +266,6 @@ window.unregisterPanelResize = function () {
 };
 
 window.setPreviewZoom = function (zoom, mode = 'contain') {
-    console.log('Setting preview zoom:', zoom, 'Mode:', mode);
     try {
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
 
