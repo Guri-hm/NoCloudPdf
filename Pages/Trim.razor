@@ -1,5 +1,5 @@
 ﻿@page "/trim"
-@implements IDisposable
+@implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
 @inject CompletionStateService CompletionState
@@ -54,53 +54,40 @@
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
         </div>
-        
-        <!-- 左右分割エリア -->
-        <div id="split-container" class="flex-1 flex overflow-hidden">
-            <!-- 左側：サムネイル一覧 -->
-            <div id="thumbnail-area" class="w-auto overflow-y-auto bg-gray-50 border-r border-gray-300 flex-none" style="--thumbnail-width: 300px; width: var(--thumbnail-width);">
-                <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
+        <SplitPane LeftWidth="@thumbnailAreaWidth" LeftWidthChanged="@(async w => { thumbnailAreaWidth = w; StateHasChanged(); })">
+        <Left>
+            <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
+                @for (int i = 0; i < DisplayItems.Count; i++)
+                {
+                    var index = i;
+                    var item = DisplayItems[i];
+                    <TrimThumbnailCard Item="@item"
+                                    IsSelected="@(selectedPageIndex == index)"
+                                    HasTrimRect="@(trimRects.ContainsKey(index))"
+                                    OnClick="@(() => SelectPage(index))" />
+                }
+            </div>
+        </Left>
+        <Right>
+            <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
+                <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
+                    <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
+                    <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+                </svg>
+            </div>
+
+            <div class="preview-zoom-viewport w-full h-full">
+                <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
-                        var index = i;
                         var item = DisplayItems[i];
-                        <TrimThumbnailCard Item="@item"
-                            IsSelected="@(selectedPageIndex == index)"
-                            HasTrimRect="@(trimRects.ContainsKey(index))"
-                            OnClick="@(() => SelectPage(index))" />
+                        <TrimPreviewItem Item="@item" Index="@i"  IsDrawingMode="@isDrawingMode" />
                     }
                 </div>
             </div>
-            
-            <!-- リサイズハンドル -->
-            <div id="splitter-handle" class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500 flex-none"
-                style="touch-action: none;"
-                @onpointerdown="@(e => StartResize((PointerEventArgs)e))">
-            </div>
-            
-            <!-- 右側：プレビューエリア（プレビュー領域は固定、内部で拡大縮小してスクロールさせる）-->
-            <div class="flex-1 min-w-0">
-                <div id="trim-preview-container" class="relative h-full overflow-auto bg-gray-100 p-4 flex flex-col gap-4">
-                    <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
-                        <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
-                            <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
-                            <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
-                        </svg>
-                    </div>
-
-                    <!-- ビューポート：幅は固定（親に合わせる）、内部で横スクロールさせる -->
-                    <div class="preview-zoom-viewport w-full h-full">
-                        <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
-                            @for (int i = 0; i < DisplayItems.Count; i++)
-                            {
-                                var item = DisplayItems[i];
-                                <TrimPreviewItem Item="@item" Index="@i"  IsDrawingMode="@isDrawingMode" />
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </Right>
+    </SplitPane>
+        
     </div>
 }
 @if (previewIndex >= 0)
@@ -258,41 +245,44 @@
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         PdfDataService.OnChange -= OnServiceChanged;
-        _dotNetRef?.Dispose();
 
         try
         {
             if (_windowResizeRegistered)
             {
-                _ = JSRuntime.InvokeVoidAsync("unregisterWindowResize");
+                try { await JSRuntime.InvokeVoidAsync("unregisterWindowResize"); } catch { }
                 _windowResizeRegistered = false;
             }
         }
         catch { }
 
-        try { _ = JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
+        try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
         _visibleObserverLastCount = -1;
+
+        try { await JSRuntime.InvokeVoidAsync("unregisterPanelResize"); } catch { }
+        try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
 
         try
         {
-            _ = JSRuntime.InvokeVoidAsync("unregisterPanelResize");
+            if (_dropAreaRegistered)
+            {
+                try { await JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area"); } catch { }
+                _dropAreaRegistered = false;
+            }
         }
         catch { }
 
-        try { _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
-
-        if (_dropAreaRegistered)
-        {
-            JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
-            _dropAreaRegistered = false;
-        }
-
-        passwordTcs?.TrySetCanceled();
+        try { passwordTcs?.TrySetCanceled(); } catch { }
         passwordTcs = null;
+
+        try { _dotNetRef?.Dispose(); } catch { }
+        _dotNetRef = null;
     }
+
+
     private bool isBusy = false;
     private string? mergedPdfUrl;
     private MessageInfo? message;
@@ -1363,16 +1353,6 @@
                 await JSRuntime.InvokeVoidAsync("drawImageToCanvas", $"trim-thumb-{item.Id}", item.Thumbnail);
             }
             
-            // パネルリサイズ用のグローバルポインタリスナを登録
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef, "splitter-handle");
-            }
-            catch (Exception ex)
-            {
-                // 開発環境等でJSが無い場合はログだけ出して継続
-                Console.WriteLine($"registerPanelResize not available: {ex.Message}");
-            }
         }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
