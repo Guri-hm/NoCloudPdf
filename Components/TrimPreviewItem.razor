@@ -38,8 +38,6 @@
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
 
-    private bool _lastIsDrawingMode = false;
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // 描画処理を試行
@@ -132,18 +130,14 @@
                         try { stable = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, STABLE_WAIT_MS); } catch { stable = false; }
 
                         // リスナ登録
-                        if (_lastIsDrawingMode != IsDrawingMode)
+                        await InvokeAsync(async () =>
                         {
-                            await InvokeAsync(async () =>
+                            try
                             {
-                                try
-                                {
-                                    await EnsureListenersAndOverlayAsync();
-                                    _lastIsDrawingMode = IsDrawingMode;
-                                }
-                                catch { }
-                            });
-                        }
+                                await EnsureListenersAndOverlayAsync();
+                            }
+                            catch { }
+                        });
                     }
                     catch (Exception ex) { Console.WriteLine($"Background drawTask continuation failed idx={Index}: {ex.Message}"); }
                 });
