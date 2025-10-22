@@ -42,20 +42,8 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // まず描画処理を試行
+        // 描画処理を試行
         await EnsureImageRenderedAsync();
-
-        // 画像がまだロード中ならここで終了
-        if (isLoading) return;
-
-        // リスナ登録
-        if (_lastIsDrawingMode != IsDrawingMode)
-        {
-            var aaa = IsDrawingMode ? "トリミングモード" : "パン";
-            Console.WriteLine($"Drawing mode changed: {aaa}");
-            await EnsureListenersAndOverlayAsync();
-            _lastIsDrawingMode = IsDrawingMode;
-        }
     }
 
     // JS から確定矩形が届いたらサービスに保存して UI を更新
@@ -107,7 +95,6 @@
 
             if (string.IsNullOrEmpty(src)) return;
 
-            // start draw task but don't block UI for too long
             var drawTask = JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true).AsTask();
 
             // fast path: まず短時間待って見た目を早く戻す
@@ -144,14 +131,19 @@
                         var stable = false;
                         try { stable = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, STABLE_WAIT_MS); } catch { stable = false; }
 
-                        await InvokeAsync(async () =>
+                        // リスナ登録
+                        if (_lastIsDrawingMode != IsDrawingMode)
                         {
-                            try
+                            await InvokeAsync(async () =>
                             {
-                                await EnsureListenersAndOverlayAsync();
-                            }
-                            catch { }
-                        });
+                                try
+                                {
+                                    await EnsureListenersAndOverlayAsync();
+                                    _lastIsDrawingMode = IsDrawingMode;
+                                }
+                                catch { }
+                            });
+                        }
                     }
                     catch (Exception ex) { Console.WriteLine($"Background drawTask continuation failed idx={Index}: {ex.Message}"); }
                 });
@@ -174,8 +166,6 @@
             {
                 try
                 {
-                    Console.WriteLine($"attachTrimListeners called idx={Index}");
-
                     var attached = await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef);
                 }
                 catch (Exception ex)
