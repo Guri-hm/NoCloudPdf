@@ -15,7 +15,7 @@ window.trimPreviewArea = {
 
     initialize: function (dotNetRef) {
         try {
-            // ensure previous handlers are removed to avoid duplicates
+
             this.unregister && this.unregister();
 
             this.dotNetRef = dotNetRef;
@@ -103,7 +103,6 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
         let pending = false;
         let latestClientX = 0;
 
-        // ms
         const PANEL_DEBOUNCE = Number(panelDebounceMs) || 500;
         let lastNotify = 0;
         let notifyTimer = null;
@@ -281,36 +280,32 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         const innerRect = inner.getBoundingClientRect();
         const centerClientX = vpRect.left + vpRect.width / 2;
         const centerClientY = vpRect.top + vpRect.height / 2;
-        // center position inside inner's client rect (still scaled by prev)
+
         const centerInnerClientX = centerClientX - innerRect.left;
         const centerInnerClientY = centerClientY - innerRect.top;
-        // convert to unscaled (logical) coordinates
+
         const centerUnscaledX = centerInnerClientX / prev;
         const centerUnscaledY = centerInnerClientY / prev;
 
-        // 2) apply transform (scale) using top-left origin
         inner.style.setProperty('--preview-zoom', String(zoom));
         inner.style.transform = `scale(${zoom})`;
         inner.style.transformOrigin = '0 0';
 
-        // 3) compute new scroll so that the same content-center stays centered in viewport
         const vpW = vpRect.width;
         const vpH = vpRect.height;
-        // scaled content size (use inner.scrollWidth/Height * zoom as fallback)
+
         const contentScaledW = (inner.scrollWidth || innerRect.width) * zoom;
         const contentScaledH = (inner.scrollHeight || innerRect.height) * zoom;
 
         let newScrollLeft = centerUnscaledX * zoom - vpW / 2;
         let newScrollTop = centerUnscaledY * zoom - vpH / 2;
 
-        // clamp
         newScrollLeft = Math.max(0, Math.min(contentScaledW - vpW, newScrollLeft));
         newScrollTop = Math.max(0, Math.min(contentScaledH - vpH, newScrollTop));
 
         viewport.scrollLeft = Math.round(newScrollLeft);
         viewport.scrollTop = Math.round(newScrollTop);
 
-        // store last zoom
         window._previewZoomState = window._previewZoomState || {};
         window._previewZoomState.lastZoom = zoom;
     } catch (e) {
@@ -342,7 +337,6 @@ window.computeAndApplyFitZoom = function () {
             });
         }
 
-        // フォールバック: canvas が見つからなければ inner の実測幅を使用（縮尺で逆除算）
         if (contentLogicalW <= 0) {
             const innerRect = inner.getBoundingClientRect();
             contentLogicalW = (inner.scrollWidth || innerRect.width || inner.clientWidth || 1) / prev;
@@ -360,7 +354,6 @@ window.computeAndApplyFitZoom = function () {
         console.error('computeAndApplyFitZoom error', e);
     }
 };
-// ...existing code...
 
 window._previewPan = window._previewPan || { enabled: false, handlers: null, state: null };
 
@@ -369,7 +362,6 @@ window.setPreviewPanEnabled = function (enabled) {
         const viewport = document.querySelector('.preview-zoom-viewport');
         if (!viewport) return;
 
-        // disable existing
         if (window._previewPan.handlers) {
             try {
                 const h = window._previewPan.handlers;
@@ -387,12 +379,11 @@ window.setPreviewPanEnabled = function (enabled) {
 
         if (!enabled) {
             window._previewPan.enabled = false;
-            // set default cursor when pan disabled
+
             viewport.style.cursor = '';
             return;
         }
 
-        // enable pan
         window._previewPan.enabled = true;
         viewport.style.cursor = 'grab';
         viewport.style.touchAction = 'none'; // allow pointer dragging
@@ -403,7 +394,7 @@ window.setPreviewPanEnabled = function (enabled) {
 
         const onPointerDown = function (ev) {
             try {
-                // only left button or primary pointer
+
                 if (ev.button !== 0) return;
                 state.active = true;
                 state.pointerId = ev.pointerId;
@@ -421,7 +412,7 @@ window.setPreviewPanEnabled = function (enabled) {
                 if (!state.active || state.pointerId !== ev.pointerId) return;
                 const dx = ev.clientX - state.startX;
                 const dy = ev.clientY - state.startY;
-                // invert movement to emulate hand-drag (dragging moves content oppositely)
+
                 viewport.scrollLeft = state.scrollLeft - dx;
                 viewport.scrollTop = state.scrollTop - dy;
             } catch (e) { /* ignore */ }
@@ -437,7 +428,6 @@ window.setPreviewPanEnabled = function (enabled) {
             } catch (e) { /* ignore */ }
         };
 
-        // attach
         viewport.addEventListener('pointerdown', onPointerDown);
         viewport.addEventListener('pointermove', onPointerMove);
         viewport.addEventListener('pointerup', onPointerUp);
@@ -449,17 +439,13 @@ window.setPreviewPanEnabled = function (enabled) {
     }
 };
 
-
-// ...existing code...
 (function () {
-    // attachTrimListeners/detachTrimListeners with 8-handle resize support
     window._simpleTrim = window._simpleTrim || {};
 
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-    // --- 共通クリーンアップ関数: 既存 entry のイベント/overlay を確実に除去 ---
     function cleanupTrimEntry(canvasId) {
-        // safe helpers to avoid deep try nesting
+
         const safe = {
             removeListener(el, ev, fn, opts) {
                 try { if (el && fn) el.removeEventListener(ev, fn, opts); } catch (e) { /* ignore */ }
@@ -475,7 +461,7 @@ window.setPreviewPanEnabled = function (enabled) {
                     if (!el) return;
                     try { if (el.style) el.style.pointerEvents = 'none'; } catch (e) { }
                     try { if (typeof el.remove === 'function') el.remove(); } catch (e) { }
-                    // clear canvas pixel buffer if applicable
+
                     try { if (el.width !== undefined) { el.width = 0; el.height = 0; } } catch (e) { }
                 } catch (e) { /* ignore */ }
             }
@@ -485,18 +471,14 @@ window.setPreviewPanEnabled = function (enabled) {
             const entry = window._simpleTrim && window._simpleTrim[canvasId];
             if (!entry) return;
 
-            // 1) base (canvas) permanent handlers
             safe.removeListener(entry.base, 'pointerdown', entry.handlers?.pointerDown, { passive: false });
             safe.removeListener(entry.base, 'touchstart', entry.handlers?.touchStart, { passive: false });
 
-            // 2) any window-level move/up handlers
             safe.removeWindowListener('pointermove', entry.handlers?.move, { passive: false });
             safe.removeWindowListener('pointerup', entry.handlers?.up, { passive: false });
 
-            // 3) overlay canvas element
             safe.removeElement(entry.overlay || document.getElementById(canvasId + '-overlay'));
 
-            // 4) svg/dom overlay and its named handlers
             const od = entry.overlayDom || document.getElementById(canvasId + '-overlay-svg');
             if (od) {
                 safe.removeListener(od, 'pointerdown', entry.internal?.overlayPointerDown, true);
@@ -507,16 +489,13 @@ window.setPreviewPanEnabled = function (enabled) {
                 safe.removeElement(od);
             }
 
-            // 5) document keydown
             safe.removeDocumentListener('keydown', entry.internal?.keydown);
 
-            // 6) host/container scroll handlers (per-entry)
             safe.removeListener(entry.host, 'scroll', entry.internal?.hostScroll, { passive: true });
             if (entry.internal && entry.internal.container) {
                 safe.removeListener(entry.internal.container, 'scroll', entry.internal?.containerScroll, { passive: true });
             }
 
-            // 7) clear stored refs to avoid reuse and help GC
             try {
                 if (entry.handlers) {
                     entry.handlers.pointerDown = null;
@@ -537,14 +516,12 @@ window.setPreviewPanEnabled = function (enabled) {
                 }
             } catch (e) { /* ignore */ }
 
-            // finally remove entry state
             try { delete window._simpleTrim[canvasId]; } catch (e) { /* ignore */ }
         } catch (e) {
             console.error('cleanupTrimEntry error', e);
         }
     }
 
-    // ...existing code...
     window.attachTrimListeners = function (canvasId, dotNetRef) {
         try {
             if (!canvasId) return false;
@@ -554,7 +531,6 @@ window.setPreviewPanEnabled = function (enabled) {
                 return false;
             }
 
-            // restore selection hint from dataset if present (will be consumed below into state)
             const preservedSelected = (() => {
                 try {
                     if (base.dataset && base.dataset.trimSelected) {
@@ -664,18 +640,17 @@ window.setPreviewPanEnabled = function (enabled) {
                     const prevRect = state.currentRectPx ? { ...state.currentRectPx } : null;
                     let alreadyDrawn = false;
 
-                    // maybe-draw: only start drawing after small movement threshold
                     if (state.mode === 'maybe-draw') {
                         const dx = loc.x - state.startClientLocal.x;
                         const dy = loc.y - state.startClientLocal.y;
                         const distSq = dx * dx + dy * dy;
                         const THRESHOLD_PX = 8; // squared threshold uses 8px
                         if (distSq >= THRESHOLD_PX * THRESHOLD_PX) {
-                            // convert to actual draw
+
                             state.mode = 'draw';
                             state.currentRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
                         } else {
-                            // not yet moved enough -> do nothing (do not clear existing overlay)
+
                             return;
                         }
                     }
@@ -863,20 +838,19 @@ window.setPreviewPanEnabled = function (enabled) {
                                 try { if (state.currentRectPx && state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(state.currentRectPx)]); } catch (e) { }
                             } catch (e) { state.startRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 }; }
                         } else {
-                            // clicked outside overlay rect -> do NOT immediately clear or overwrite currentRectPx
-                            // mark as deselected but allow starting a new draw only after a small drag (maybe-draw)
+
                             state.mode = 'maybe-draw';
                             try {
                                 const entry = window._simpleTrim && window._simpleTrim[canvasId];
                                 if (entry) {
                                     entry.selected = false;
-                                    // 即時に再描画して「選択解除」を反映（矩形自体は残す）
+
                                     try {
                                         if (entry.currentRectPx && window.drawTrimOverlayAsSvg) {
                                             const norm = rectPxToNormalized(entry.currentRectPx);
                                             window.drawTrimOverlayAsSvg(canvasId, [norm]);
                                         } else if (window.drawTrimOverlayAsSvg) {
-                                            // 現在の内部矩形がない場合は空配列でクリア（従来挙動）
+
                                             window.drawTrimOverlayAsSvg(canvasId, []);
                                         }
                                     } catch (e) { /* ignore per-entry redraw errors */ }
@@ -884,7 +858,7 @@ window.setPreviewPanEnabled = function (enabled) {
                             } catch (e) { /* ignore */ }
                         }
                     } else {
-                        // no overlay DOM -> treat as maybe-draw (preserve existing overlay)
+
                         state.mode = 'maybe-draw';
                         try {
                             const entry = window._simpleTrim && window._simpleTrim[canvasId];
@@ -936,9 +910,8 @@ window.setPreviewPanEnabled = function (enabled) {
 
                         try { if (state.overlayDom) state.overlayDom.style.cursor = ''; } catch (e) { /* ignore */ }
 
-                        // If user never moved enough to start drawing (maybe-draw), do not clear or overwrite currentRectPx.
                         if (state.mode === 'maybe-draw') {
-                            // simply reset mode and leave overlay/currentRectPx as-is (selection already cleared on pointerdown)
+
                             state.mode = null;
                             state.didDrag = false;
                             try { window.removeEventListener('pointermove', state.handlers.move, { passive: false }); } catch (e) { }
@@ -953,7 +926,7 @@ window.setPreviewPanEnabled = function (enabled) {
                             if (state.dotNetRef && state.dotNetRef.invokeMethodAsync) {
                                 try { state.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', norm.X, norm.Y, norm.Width, norm.Height); } catch (e) { /* ignore */ }
                             }
-                            // clear selection only if an actual drag/resize/move occurred
+
                             try {
                                 const entry = window._simpleTrim && window._simpleTrim[canvasId];
                                 if (entry && state.didDrag) {
@@ -1036,7 +1009,7 @@ window.setPreviewPanEnabled = function (enabled) {
                     requestAnimationFrame(() => {
                         scrollPending = false;
                         try {
-                            // update overlay size/position
+
                             if (typeof updateOverlaySize === 'function') updateOverlaySize();
                         } catch (e) { /* ignore */ }
                     });
@@ -1068,12 +1041,11 @@ window.setPreviewPanEnabled = function (enabled) {
         try {
             const entry = window._simpleTrim && window._simpleTrim[canvasId];
             if (!entry) {
-                // Ensure any stray state removed
+
                 try { cleanupTrimEntry(canvasId); } catch (e) { }
                 return false;
             }
 
-            // use cleanup helper
             cleanupTrimEntry(canvasId);
             return true;
         } catch (e) { console.error('detachTrimListeners error', e); return false; }
@@ -1087,7 +1059,6 @@ window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
         const el = document.getElementById(canvasId);
         if (!el) return false;
 
-        // quick check: already stable (1 frame confirmation for speed)
         const w0 = el.clientWidth, h0 = el.clientHeight;
         if (w0 > 0 && h0 > 0) {
             await new Promise(r => requestAnimationFrame(r));
@@ -1095,12 +1066,11 @@ window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
             if (w0 === w1 && h0 === h1) return true;
         }
 
-        // poll until size stabilizes or timeout
         while (performance.now() - start < (timeoutMs || 120)) {
             await new Promise(r => requestAnimationFrame(r));
             const w = el.clientWidth, h = el.clientHeight;
             if (w > 0 && h > 0) {
-                // confirm stable across one extra frame (faster)
+
                 await new Promise(r => requestAnimationFrame(r));
                 const w2 = el.clientWidth, h2 = el.clientHeight;
                 if (w === w2 && h === h2) return true;
@@ -1114,7 +1084,7 @@ window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
 };
 
 window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixelRatio = true) {
-    // 変更: Promise を返すようにして、描画・レイアウト安定を待てるようにする
+    // Promise を返すようにして、描画・レイアウト安定を待てるようにする
     return new Promise((resolve) => {
         try {
             const canvas = document.getElementById(canvasId);
@@ -1147,7 +1117,6 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
                     // 画像をキャンバスいっぱいに描く（アスペクトは img 自体のサイズなのでフィット）
                     ctx.drawImage(img, 0, 0, iw, ih);
 
-                    // layout が安定するまで少し待つ（2フレーム）してから成功を返す
                     requestAnimationFrame(() => {
                         resolve(true);
                     });
@@ -1226,7 +1195,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         if (!window._simpleTrim[canvasId]) window._simpleTrim[canvasId] = {};
         const entry = window._simpleTrim[canvasId];
 
-        // if no rects -> clear overlay but keep entry.overlayDom reference
         if (!Array.isArray(rects) || rects.length === 0) {
             entry.overlayDom = container;
             entry.currentRectPx = null;
@@ -1250,7 +1218,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         const rw = Math.round(nw * cssW);
         const rh = Math.round(nh * cssH);
 
-        // background group
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('transform', `translate(0,0)`);
 
@@ -1263,7 +1230,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         bg.style.pointerEvents = 'none';
         g.appendChild(bg);
 
-        // rectangle visual
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         rect.setAttribute('x', String(rx));
         rect.setAttribute('y', String(ry));
@@ -1271,7 +1237,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         rect.setAttribute('height', String(Math.max(0, rh)));
         rect.setAttribute('fill', 'rgba(59,130,246,0.12)');
 
-        // selected visual
         const isSelected = !!(entry && entry.selected);
         rect.setAttribute('stroke', isSelected ? 'rgba(37,99,235,1)' : 'rgba(59,130,246,0.95)');
         rect.setAttribute('stroke-width', isSelected ? '3' : '2');
@@ -1280,7 +1245,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         rect.setAttribute('data-rect', 'true');
         g.appendChild(rect);
 
-        // handles (unchanged)
         const HANDLE = 12;
         const half = Math.round(HANDLE / 2);
         const points = [
@@ -1309,7 +1273,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             g.appendChild(h);
         });
 
-        // close/delete button when selected
         if (isSelected) {
             let cx = rx + rw + 10;
             let cy = ry - 10;
@@ -1339,7 +1302,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             txt.textContent = '×';
             btnG.appendChild(txt);
 
-            // click handler: clear overlay + notify .NET to remove saved rect
             btnG.addEventListener('pointerdown', function (ev) {
                 try {
                     ev.stopPropagation();
@@ -1359,7 +1321,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
         svg.appendChild(g);
 
-        // synchronize overlay into internal state (do not overwrite during active drag)
         try {
             const rxFloat = nx * cssW;
             const ryFloat = ny * cssH;
@@ -1375,16 +1336,15 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             console.error('drawTrimOverlayAsSvg sync error', e);
         }
 
-        // ensure keydown handler to delete when selected
         try {
-            // attach once and store ref for cleanup
+
             if (!entry.internal) entry.internal = {};
             if (!entry.internal.keydown) {
                 entry.internal.keydown = function (ev) {
                     try {
                         if (ev.key === 'Delete' || ev.key === 'Del') {
                             if (entry && entry.selected) {
-                                // clear and notify .NET
+
                                 entry.selected = false;
                                 entry.currentRectPx = null;
                                 if (entry.dotNetRef && entry.dotNetRef.invokeMethodAsync) {
@@ -1437,7 +1397,7 @@ window._visiblePageObserver = window._visiblePageObserver || {};
 
 window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 1000) {
     try {
-        // cleanup existing if any
+
         try { window.unregisterVisiblePageObserver(containerId); } catch (e) { }
 
         const container = document.getElementById(containerId);
@@ -1446,10 +1406,8 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
         const items = Array.from(container.querySelectorAll('[id^="preview-container-"]'));
         if (!items || items.length === 0) return;
 
-        // store state object
         const state = { pendingBest: -1, timer: null, lastIdx: -1, debounceMs: Number(debounceMs) || 500 };
 
-        // callback: pick item with largest intersectionRatio
         const cb = function (entries) {
             try {
                 let bestIdx = -1;
@@ -1467,11 +1425,11 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
                     }
                 });
                 if (bestIdx >= 0) {
-                    // schedule debounced notify (coalesce rapid changes)
+
                     try {
-                        // if same as last reported, do nothing
+
                         if (state.lastIdx === bestIdx) {
-                            // still update pendingBest so timer resets only when changed
+
                             return;
                         }
                         state.pendingBest = bestIdx;
@@ -1494,7 +1452,6 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
         const obs = new IntersectionObserver(cb, { root: container, threshold: [0, 0.25, 0.5, 0.75, 1] });
         items.forEach(it => obs.observe(it));
 
-        // store observer + state for later unregister
         window._visiblePageObserver = window._visiblePageObserver || {};
         window._visiblePageObserver[containerId] = { observer: obs, items: items, dotNetRef: dotNetRef, state: state };
     } catch (e) {
@@ -1529,7 +1486,6 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
                 const sidebarW = (sidebarEl && !IS_MOBILE_HEADER_SIDEBAR) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
                 const avail = Math.max(0, vw - sidebarW);
 
-                // (existing apply layout/notify logic)
                 try {
                     const MIN_LEFT = 200;
                     const MAX_LEFT = 600;
@@ -1578,16 +1534,12 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
             }
         }
 
-        // expose callback to shared handler (debounce comes from shared._trimShared.debounceMs or local debounce if needed)
         window._trimResize.windowResizeCallback = measureAndNotify;
 
-        // ensure shared handler exists and will call our callback
         if (typeof ensureSharedTrimResizeHandler === 'function') ensureSharedTrimResizeHandler();
 
-        // run once immediately
         try { measureAndNotify(); } catch (e) { /* ignore */ }
 
-        // provide unregister that only clears our callback (shared handler remains)
         window._trimResize.unregisterWindowResize = function () {
             try {
                 if (window._trimResize) {
@@ -1612,7 +1564,6 @@ window.unregisterWindowResize = function () {
     }
 };
 
-// apply thumbnail width (called from .NET when recomputing)
 window.applyThumbnailWidth = function (leftPx) {
     try {
         const thumb = document.getElementById('thumbnail-area');
@@ -1620,11 +1571,9 @@ window.applyThumbnailWidth = function (leftPx) {
         if (!thumb) return;
         const splitterW = handle ? (handle.getBoundingClientRect().width || 8) : 8;
 
-        // set CSS var + inline width so layout follows
         thumb.style.setProperty('--thumbnail-width', Math.round(leftPx) + 'px');
         thumb.style.width = Math.round(leftPx) + 'px';
-        // Do not forcibly pin right pane here; keep its flex behavior unless it already has inline width.
-        // This function only runs on window resize (per spec), so we avoid breaking zoom behavior.
+
         return true;
     } catch (e) {
         console.error('applyThumbnailWidth error', e);
@@ -1653,7 +1602,7 @@ function ensureSharedTrimResizeHandler() {
                 if (window._trimShared.timer) clearTimeout(window._trimShared.timer);
                 window._trimShared.timer = setTimeout(() => {
                     try {
-                        // call per-entry callbacks
+
                         const keys = Object.keys(window._simpleTrim || {});
                         keys.forEach(id => {
                             try {
@@ -1666,7 +1615,6 @@ function ensureSharedTrimResizeHandler() {
                             } catch (e) { /* ignore */ }
                         });
 
-                        // call optional global callback (e.g. registerWindowResize's measureAndNotify)
                         try {
                             if (window._trimResize && typeof window._trimResize.windowResizeCallback === 'function') {
                                 try { window._trimResize.windowResizeCallback(); } catch (e) { /* ignore */ }
