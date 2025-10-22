@@ -8,7 +8,9 @@
              title="@Item.FullFileName"
              style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "rgba(0,0,0,0.7)" : Item.ColorHsl)">
             <span class="truncate">@Item.DisplayName</span>
-            <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo)</span>
+            <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo)
+            @(IsDrawingMode ? "トリミングモード" : "パン")
+            </span>
         </div>
     </div>
 
@@ -36,7 +38,6 @@
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
 
-    private bool _listenersAttached = false;
     private bool _lastIsDrawingMode = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -48,10 +49,11 @@
         if (isLoading) return;
 
         // リスナ登録
-        if (!_listenersAttached || _lastIsDrawingMode != IsDrawingMode)
+        if (_lastIsDrawingMode != IsDrawingMode)
         {
+            var aaa = IsDrawingMode ? "トリミングモード" : "パン";
+            Console.WriteLine($"Drawing mode changed: {aaa}");
             await EnsureListenersAndOverlayAsync();
-            _listenersAttached = true;
             _lastIsDrawingMode = IsDrawingMode;
         }
     }
@@ -168,26 +170,22 @@
         {
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
-            try { await JSRuntime.InvokeAsync<bool>("detachTrimListeners", CanvasId); } catch { /* ignore */ }
-
             if (IsDrawingMode)
             {
                 try
                 {
+                    Console.WriteLine($"attachTrimListeners called idx={Index}");
+
                     var attached = await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"TrimPreviewItem attach listeners failed idx={Index}: {ex.Message}");
                 }
-            }
-            else
-            {
-                try
-                {
-                    await JSRuntime.InvokeAsync<bool>("detachTrimListeners", CanvasId);
-                }
-                catch { }
+            }else{
+                Console.WriteLine($"detachTrimListeners called idx={Index}");
+                try { await JSRuntime.InvokeAsync<bool>("detachTrimListeners", CanvasId); } catch { /* ignore */ }
+
             }
 
             // 保存されている矩形があれば描画、なければ clear を呼ぶ

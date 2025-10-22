@@ -1017,7 +1017,7 @@
             ShowMessage("すべてのトリミング範囲をクリアしました", MessageType.Success);
             StateHasChanged();
         }
-        catch (Exception ex)
+        catch
         {
             ShowMessage("トリミング範囲のクリアに失敗しました", MessageType.Error);
             StateHasChanged();
@@ -1395,11 +1395,6 @@
             _renderedMergedPages = false;
         }
 
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("setPreviewPanEnabled", !isDrawingMode);
-        }
-        catch { }
     }
 
     [JSInvokable("OnWindowResizedFromJs")]

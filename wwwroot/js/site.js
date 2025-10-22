@@ -459,38 +459,89 @@ window.setPreviewPanEnabled = function (enabled) {
 
     // --- 共通クリーンアップ関数: 既存 entry のイベント/overlay を確実に除去 ---
     function cleanupTrimEntry(canvasId) {
+        // safe helpers to avoid deep try nesting
+        const safe = {
+            removeListener(el, ev, fn, opts) {
+                try { if (el && fn) el.removeEventListener(ev, fn, opts); } catch (e) { /* ignore */ }
+            },
+            removeWindowListener(ev, fn, opts) {
+                try { if (fn) window.removeEventListener(ev, fn, opts); } catch (e) { /* ignore */ }
+            },
+            removeDocumentListener(ev, fn, opts) {
+                try { if (fn) document.removeEventListener(ev, fn, opts); } catch (e) { /* ignore */ }
+            },
+            removeElement(el) {
+                try {
+                    if (!el) return;
+                    try { if (el.style) el.style.pointerEvents = 'none'; } catch (e) { }
+                    try { if (typeof el.remove === 'function') el.remove(); } catch (e) { }
+                    // clear canvas pixel buffer if applicable
+                    try { if (el.width !== undefined) { el.width = 0; el.height = 0; } } catch (e) { }
+                } catch (e) { /* ignore */ }
+            }
+        };
+
         try {
             const entry = window._simpleTrim && window._simpleTrim[canvasId];
             if (!entry) return;
-            // remove overlay canvas
+
+            // 1) base (canvas) permanent handlers
+            safe.removeListener(entry.base, 'pointerdown', entry.handlers?.pointerDown, { passive: false });
+            safe.removeListener(entry.base, 'touchstart', entry.handlers?.touchStart, { passive: false });
+
+            // 2) any window-level move/up handlers
+            safe.removeWindowListener('pointermove', entry.handlers?.move, { passive: false });
+            safe.removeWindowListener('pointerup', entry.handlers?.up, { passive: false });
+
+            // 3) overlay canvas element
+            safe.removeElement(entry.overlay || document.getElementById(canvasId + '-overlay'));
+
+            // 4) svg/dom overlay and its named handlers
+            const od = entry.overlayDom || document.getElementById(canvasId + '-overlay-svg');
+            if (od) {
+                safe.removeListener(od, 'pointerdown', entry.internal?.overlayPointerDown, true);
+                safe.removeListener(od, 'touchstart', entry.internal?.overlayPointerDown, true);
+                safe.removeListener(od, 'pointermove', entry.internal?.overlayMove, true);
+                safe.removeListener(od, 'pointerover', entry.internal?.overlayOver, true);
+                safe.removeListener(od, 'pointerout', entry.internal?.overlayOut, true);
+                safe.removeElement(od);
+            }
+
+            // 5) document keydown
+            safe.removeDocumentListener('keydown', entry.internal?.keydown);
+
+            // 6) host/container scroll handlers (per-entry)
+            safe.removeListener(entry.host, 'scroll', entry.internal?.hostScroll, { passive: true });
+            if (entry.internal && entry.internal.container) {
+                safe.removeListener(entry.internal.container, 'scroll', entry.internal?.containerScroll, { passive: true });
+            }
+
+            // 7) clear stored refs to avoid reuse and help GC
             try {
-                const ov = entry.overlay || document.getElementById(canvasId + '-overlay');
-                if (ov) {
-                    try { ov.remove && ov.remove(); } catch (e) { }
-                    try { ov.width = 0; ov.height = 0; } catch (e) { }
+                if (entry.handlers) {
+                    entry.handlers.pointerDown = null;
+                    entry.handlers.touchStart = null;
+                    entry.handlers.move = null;
+                    entry.handlers.up = null;
                 }
-            } catch (e) { }
-            // remove svg/dom overlay and stored handlers
-            try {
-                const od = entry.overlayDom || document.getElementById(canvasId + '-overlay-svg');
-                if (od) {
-                    try {
-                        if (entry.internal) {
-                            if (entry.internal.overlayPointerDown) od.removeEventListener('pointerdown', entry.internal.overlayPointerDown, true);
-                            if (entry.internal.overlayPointerDown) od.removeEventListener('touchstart', entry.internal.overlayPointerDown, true);
-                            if (entry.internal.overlayMove) od.removeEventListener('pointermove', entry.internal.overlayMove, true);
-                            if (entry.internal.overlayOver) od.removeEventListener('pointerover', entry.internal.overlayOver, true);
-                            if (entry.internal.overlayOut) od.removeEventListener('pointerout', entry.internal.overlayOut, true);
-                        }
-                        od.remove && od.remove();
-                    } catch (e) {
-                        console.error('cleanupTrimEntry: error removing overlay handlers', e);
-                    }
+                if (entry.internal) {
+                    entry.internal.overlayPointerDown = null;
+                    entry.internal.overlayMove = null;
+                    entry.internal.overlayOver = null;
+                    entry.internal.overlayOut = null;
+                    entry.internal.keydown = null;
+                    entry.internal.hostScroll = null;
+                    entry.internal.containerScroll = null;
+                    entry.internal.windowScroll = null;
+                    entry.internal.resize = null;
                 }
-            } catch (e) { }
-            // clear stored state
-            try { delete window._simpleTrim[canvasId]; } catch (e) { }
-        } catch (e) { console.error('cleanupTrimEntry error', e); }
+            } catch (e) { /* ignore */ }
+
+            // finally remove entry state
+            try { delete window._simpleTrim[canvasId]; } catch (e) { /* ignore */ }
+        } catch (e) {
+            console.error('cleanupTrimEntry error', e);
+        }
     }
 
     // ...existing code...
@@ -1513,7 +1564,7 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
                     }
 
                     try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
-                    
+
                     if (window._trimResize?.updateAllTrimOverlays) {
                         try { window._trimResize.updateAllTrimOverlays(); } catch (e) { console.error(e); }
                     }
