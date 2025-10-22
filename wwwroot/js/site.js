@@ -575,7 +575,7 @@ window.setPreviewPanEnabled = function (enabled) {
                 resizeHandle: null,
                 baseRectAtDown: null,
                 logicalWAtDown: null,
-                didDrag: false // track whether a drag/move actually occurred during this interaction
+                didDrag: false
             };
 
             state.internal = state.internal || {};
@@ -968,6 +968,11 @@ window.setPreviewPanEnabled = function (enabled) {
 
             state.base.addEventListener('pointerdown', onPointerDown, { passive: false });
             state.base.addEventListener('touchstart', onTouchStart, { passive: false });
+
+            try {
+                if (state.base && state.base.style) state.base.style.cursor = 'crosshair';
+                if (state.overlayDom && state.overlayDom.style) state.overlayDom.style.cursor = 'crosshair';
+            } catch (e) { /* ignore */ }
 
             if (state.overlayDom) {
                 try {
