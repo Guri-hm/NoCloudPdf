@@ -67,8 +67,18 @@ window.trimPreviewArea = {
     }
 };
 
-window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 500) {
+window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 1500) {
+
+    function setPanelResizeOverlayVisible(visible) {
+        try {
+            const el = document.getElementById('loading-indicator');
+            if (!el) return;
+            el.style.display = visible ? 'flex' : 'none';
+        } catch (e) { /* ignore */ }
+    }
+
     try {
+        
         if (window._trimResize && window._trimResize.cleanupForHandle) {
             try { window._trimResize.cleanupForHandle(); } catch (e) { }
             window._trimResize.cleanupForHandle = null;
@@ -169,7 +179,10 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
 
         const onPointerDown = function (e) {
             try {
-                try { window._trimResize.suspendFitZoom = true; } catch (ex) { /* ignore */ }
+                try { setPanelResizeOverlayVisible(true); } catch (ex) { /* ignore */ }
+                try {
+                    window._trimResize.suspendFitZoom = true;
+                } catch (ex) { /* ignore */ }
                 handle.setPointerCapture?.(e.pointerId);
 
                 const onPointerMove = function (ev) {
@@ -227,6 +240,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
                         console.error('onPointerUp error', err);
                     } finally {
                         try { window._trimResize.suspendFitZoom = false; } catch (ex) { /* ignore */ }
+                        try { setPanelResizeOverlayVisible(false); } catch (e) { /* ignore */ }
                         handle.removeEventListener('pointermove', onPointerMove);
                         handle.removeEventListener('pointerup', onPointerUp);
                     }
@@ -242,9 +256,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 50
         handle.addEventListener('pointerdown', onPointerDown);
 
         window._trimResize.cleanupForHandle = function () {
-            try {
-                handle.removeEventListener('pointerdown', onPointerDown);
-            } catch (e) { /* ignore */ }
+            try { handle.removeEventListener('pointerdown', onPointerDown); } catch (e) { /* ignore */ }
             window._trimResize.dotNetRef = null;
         };
     } catch (e) {

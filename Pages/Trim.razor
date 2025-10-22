@@ -24,7 +24,8 @@
                 <div class="flex flex-wrap gap-2 items-center">
                     <ActionButtonGroup T="string" Actions="resetActions" />
                     <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
-                    <h1 class="hidden md:inline text-lg font-bold">トリミング</h1>
+                    <h1 class="hidden md:inline text-lg font-bold">トリミング
+                    </h1>
                     <div class="ml-4 flex items-center gap-2">
                         <input type="number"
                             min="1"
@@ -79,7 +80,14 @@
             
             <!-- 右側：プレビューエリア（プレビュー領域は固定、内部で拡大縮小してスクロールさせる）-->
             <div class="flex-1 min-w-0">
-                <div id="trim-preview-container" class="h-full overflow-auto bg-gray-100 p-4 flex flex-col gap-4">
+                <div id="trim-preview-container" class="relative h-full overflow-auto bg-gray-100 p-4 flex flex-col gap-4">
+                    <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
+                        <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
+                            <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
+                            <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+                        </svg>
+                    </div>
+
                     <!-- ビューポート：幅は固定（親に合わせる）、内部で横スクロールさせる -->
                     <div class="preview-zoom-viewport w-full h-full">
                         <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
@@ -320,6 +328,7 @@
     private string mergedFileName = "";
     private string mergedFileSize = "";
     private int mergedPageCount = 0;
+    
     public class PdfStampPosition
     {
         public string Text { get; set; } = "";
@@ -1623,8 +1632,6 @@
         return 1200;
     }
 
-        // ...existing code...
-        // --- 以下はビルドを通すための最小スタブ定義（本実装があれば置き換えてください） ---
         private Dictionary<int, TrimRect> trimRects = new();
         private List<PreviewItem> previewItems = new();
         private TrimRect? selectedTrimRect = null;
@@ -1679,8 +1686,6 @@
     {
         try
         {
-            Console.WriteLine("FitPreviewWidth called");
-            // JS 側でコンテナ幅に合わせた倍率を計算し setPreviewZoom を呼ぶ実装を流用
             await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
             // もし C# 側の previewZoom と同期したければ JSから現在値を取得する helper を用意して同期する実装にできます。
         }
@@ -1698,23 +1703,5 @@
         previewZoom = 1.0;
         await ApplyPreviewZoomAsync();
     }
-
-    // 追加: トリミング用（正規化）ヘルパー（例）
-    private (double x, double y, double w, double h) ToNormalizedRect(double x, double y, double w, double h, double containerW, double containerH)
-    {
-        if (containerW <= 0 || containerH <= 0) return (0,0,0,0);
-        return (x / containerW, y / containerH, w / containerW, h / containerH);
-    }
-    private (int x, int y, int w, int h) FromNormalizedRect(double nx, double ny, double nw, double nh, double containerW, double containerH)
-    {
-        return ((int)Math.Round(nx * containerW), (int)Math.Round(ny * containerH), (int)Math.Round(nw * containerW), (int)Math.Round(nh * containerH));
-    }
-
-    private async Task SetPreviewZoomPreset(double z)
-    {
-        previewZoom = Math.Max(MinZoom, Math.Min(MaxZoom, z));
-        await ApplyPreviewZoomAsync();
-    }
-
 
 }
