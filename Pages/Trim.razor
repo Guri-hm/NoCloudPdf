@@ -1276,14 +1276,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Console.WriteLine("OnAfterRenderAsync");
         if (firstRender)
         {
             _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
             try
             {
-                // register window resize notifier (JS -> .NET: OnWindowResizedFromJs)
                 await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
                 _windowResizeRegistered = true;
             }
