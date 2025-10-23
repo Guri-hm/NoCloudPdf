@@ -73,7 +73,46 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 15
         try {
             const el = document.getElementById('loading-indicator');
             if (!el) return;
-            el.style.display = visible ? 'flex' : 'none';
+
+            // 既存のフェード処理があればキャンセル
+            try { if (el.__fadeTimeout) { clearTimeout(el.__fadeTimeout); el.__fadeTimeout = null; } } catch (e) { }
+
+            const DURATION_MS = 220; // フェード時間（必要なら調整）
+            // ensure transition is present (do not override if user provided custom transition)
+            if (!el.style.transition || el.style.transition.indexOf('opacity') === -1) {
+                el.style.transition = `opacity ${DURATION_MS}ms ease`;
+            }
+
+            if (visible) {
+                // show then fade in
+                el.style.display = 'flex';
+                // ensure starting opacity 0 for the animation
+                el.style.opacity = el.style.opacity ? el.style.opacity : '0';
+                // next frame -> set to 1 to trigger transition
+                requestAnimationFrame(() => {
+                    try { el.style.opacity = '1'; } catch (e) { /* ignore */ }
+                });
+            } else {
+                // fade out then hide
+                // ensure it's visible (in case it was hidden but opacity left at 1)
+                if (getComputedStyle(el).display === 'none') {
+                    // nothing to do
+                    return;
+                }
+                // start fade-out
+                requestAnimationFrame(() => {
+                    try { el.style.opacity = '0'; } catch (e) { /* ignore */ }
+                });
+                // after transition elapsed, set display none
+                el.__fadeTimeout = setTimeout(() => {
+                    try {
+                        el.style.display = 'none';
+                        // keep opacity at 0 for next show
+                        el.style.opacity = '0';
+                    } catch (e) { /* ignore */ }
+                    el.__fadeTimeout = null;
+                }, DURATION_MS + 20);
+            }
         } catch (e) { /* ignore */ }
     }
 
