@@ -367,7 +367,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         }
     }
 
-    window.attachTrimListeners = function (canvasId, dotNetRef) {
+    window.attachTrimListeners = function (canvasId, dotNetRef, selectionMode = 'single') {
         try {
             if (!canvasId) return false;
             const base = document.getElementById(canvasId);
@@ -406,6 +406,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
             const state = {
                 base, host, overlay, overlayDom, dotNetRef,
+                selectionMode: (selectionMode === 'multi') ? 'multi' : 'single',
                 active: false, mode: null,              // mode: null | 'maybe-draw' | 'draw' | 'move' | 'resize'
                 pointerId: null,
                 startClientX: 0, startClientY: 0,
@@ -679,7 +680,25 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 const cur = (window._simpleTrim && window._simpleTrim[canvasId] && window._simpleTrim[canvasId].currentRectPx) || null;
                                 state.startRectPx = cur ? { ...cur } : { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
                                 try {
-                                    if (window._simpleTrim && window._simpleTrim[canvasId]) window._simpleTrim[canvasId].selected = true;
+                                    if (window._simpleTrim && window._simpleTrim[canvasId]) {
+                                        // determine effective mode: per-entry selectionMode overrides global
+                                        const mode = (window._simpleTrim[canvasId].selectionMode)
+                                            || (window._simpleTrimSettings && window._simpleTrimSettings.selectionMode)
+                                            || 'single';
+                                        if (mode === 'single') {
+                                            // clear other entries' selection (and redraw them)
+                                            Object.keys(window._simpleTrim).forEach(k => {
+                                                if (k === canvasId) return;
+                                                try {
+                                                    const other = window._simpleTrim[k];
+                                                    if (other && other.selected) {
+                                                        other.selected = false;
+                                                    }
+                                                } catch (ign) { /* ignore */ }
+                                            });
+                                        }
+                                        window._simpleTrim[canvasId].selected = true;
+                                    }
                                 } catch (e) { }
                                 try {
                                     if (state.currentRectPx && state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(state.currentRectPx)]);
