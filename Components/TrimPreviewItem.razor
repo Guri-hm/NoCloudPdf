@@ -6,11 +6,10 @@
 <div id="preview-container-@Index" class="relative mb-4 w-full flex justify-center">
     <div class="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-2 py-1 rounded text-sm" data-no-scale>
         <div class="flex items-center gap-2 text-xs font-semibold px-2 py-0.5 rounded max-w-[80vw]"
-             title="@Item.FullFileName"
+             title="@Item?.FullFileName"
              style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "rgba(0,0,0,0.7)" : Item.ColorHsl)">
-            <span class="truncate">@Item.DisplayName</span>
+            <span class="truncate">@Item?.DisplayName</span>
             <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo)
-            @(IsDrawingMode ? "トリミングモード" : "パン")
             </span>
         </div>
     </div>
@@ -52,7 +51,6 @@
         try
         {
             await PdfDataService.SetTrimRect(Index, x, y, width, height);
-            // SetTrimRect は UI通知を行うので StateHasChanged はサービス側で引き起こされます。
         }
         catch (Exception ex)
         {
@@ -96,7 +94,7 @@
 
             var drawTask = JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true).AsTask();
 
-            // fast path: まず短時間待って見た目を早く戻す
+            // まず短時間待って見た目を早く戻す
             bool ready = false;
             try
             {
@@ -108,19 +106,15 @@
             {
                 isLoading = false;
                 await InvokeAsync(StateHasChanged);
-                // drawTask は裏で完了する
             }
             else
             {
-                // hide spinner ASAP so UI is responsive
                 if (isLoading)
                 {
                     isLoading = false;
                     await InvokeAsync(StateHasChanged);
                 }
 
-                // background continuation: wait for drawTask (capped) and a longer stability check,
-                // then attach/listen/draw overlay on UI thread.
                 _ = Task.Run(async () =>
                 {
                     try
@@ -130,7 +124,6 @@
                         var stable = false;
                         try { stable = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, STABLE_WAIT_MS); } catch { stable = false; }
 
-                        // リスナ登録
                         await InvokeAsync(async () =>
                         {
                             try

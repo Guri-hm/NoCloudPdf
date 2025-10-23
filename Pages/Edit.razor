@@ -314,18 +314,6 @@
     private string mergedFileName = "";
     private string mergedFileSize = "";
     private int mergedPageCount = 0;
-    public class PdfStampPosition
-    {
-        public string Text { get; set; } = "";
-        public int OffsetX { get; set; } // 端からのX距離(px)
-        public int OffsetY { get; set; } // 端からのY距離(px)
-        public PdfStampCorner Corner { get; set; } // 左上/上/右上/左下/下/右下
-    }
-
-    public enum PdfStampCorner
-    {
-        TopLeft, Top, TopRight, BottomLeft, Bottom, BottomRight
-    }
     private int GetCurrentFilePageIndex()
     {
         if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)

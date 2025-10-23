@@ -395,7 +395,9 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
         function measureAndNotify() {
             try {
                 const vw = window.innerWidth || document.documentElement.clientWidth;
-                const IS_MOBILE_HEADER_SIDEBAR = vw < 768;
+                // tailwindのブレークポイントを参考
+                const TW_BREAKPOINTS_MD = 768;
+                const IS_MOBILE_HEADER_SIDEBAR = vw < TW_BREAKPOINTS_MD;
                 const sidebarEl = document.querySelector('.sidebar');
                 const sidebarW = (sidebarEl && !IS_MOBILE_HEADER_SIDEBAR) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
                 const avail = Math.max(0, vw - sidebarW);
@@ -430,13 +432,18 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
                     }
 
                     if (window._trimResize && window._trimResize.windowResizeDotNetRef) {
-                        try { window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(() => { }); } catch (e) { /* ignore */ }
+                        try {
+                            // 利用可能幅をBlazor側に通知
+                            window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(() => { });
+                        } catch (e) { /* ignore */ }
                     }
 
                     try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
 
                     if (window._trimResize?.updateAllTrimOverlays) {
-                        try { window._trimResize.updateAllTrimOverlays(); } catch (e) { console.error(e); }
+                        try {
+                            window._trimResize.updateAllTrimOverlays();
+                        } catch (e) { console.error(e); }
                     }
 
                     try { if (typeof window.computeAndApplyFitZoom === 'function') window.computeAndApplyFitZoom(); } catch (e) { /* ignore */ }

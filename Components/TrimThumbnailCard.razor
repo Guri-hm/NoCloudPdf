@@ -57,12 +57,12 @@
         </div>
 
         <div class="w-full text-center">
-            <div class="text-xs font-semibold truncate px-1 rounded" title="@Item.FullFileName"
+            <div class="text-xs font-semibold truncate px-1 rounded" title="@Item?.FullFileName"
                 style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "transparent" : Item.ColorHsl)">
-                @Item.DisplayName
+                @Item?.DisplayName
             </div>
             <div class="text-xs text-gray-500 mt-1">
-                @Item.PageInfo
+                @Item?.PageInfo
             </div>
         </div>
     </div>
