@@ -7,3 +7,7 @@ import './pdf-utils.js';
 import './scroll-to-section.js';
 import './sortable-utils.js';
 import './tour.js';
+import './panel-resize.js';
+import './preview-controls.js';
+import './trim-preview.js';
+import './visible-page-observer.js';
