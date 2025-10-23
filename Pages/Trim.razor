@@ -58,44 +58,49 @@
             </div>
         </div>
         <SplitPane LeftWidth="@thumbnailAreaWidth" LeftWidthChanged="@(async w => { thumbnailAreaWidth = w; StateHasChanged(); })">
-        <Left>
-            <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
-                @for (int i = 0; i < DisplayItems.Count; i++)
-                {
-                    var index = i;
-                    var item = DisplayItems[i];
-                    <TrimThumbnailCard Item="@item"
-                                    IsSelected="@(selectedPageIndex == index)"
-                                    HasTrimRect="@(trimRects.ContainsKey(index))"
-                                    OnClick="@(() => SelectPage(index))" />
-                }
-                <FileAddArea
-                Position="@DisplayItems.Count"
-                OnInsertBlankPage="InsertBlankPage"
-                OnInsertPdfAtPosition="InsertPdfAtPosition"
-                OnAddFileClick="OpenFileDialog" ShowInsertButton="@(false)" />
-            </div>
-        </Left>
-        <Right>
-            <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
-                <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
-                    <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
-                    <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
-                </svg>
-            </div>
-
-            <div class="preview-zoom-viewport w-full h-full">
-                <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
+            <Left>
+                <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
+                        var index = i;
                         var item = DisplayItems[i];
-                        <TrimPreviewItem Item="@item" Index="@i"  IsDrawingMode="@isDrawingMode" />
+                        <TrimThumbnailCard Item="@item"
+                                        IsSelected="@(selectedPageIndex == index)"
+                                        HasTrimRect="@(trimRects.ContainsKey(index))"
+                                        OnClick="@(() => SelectPage(index))" />
                     }
+                    <FileAddArea
+                    Position="@DisplayItems.Count"
+                    OnInsertBlankPage="InsertBlankPage"
+                    OnInsertPdfAtPosition="InsertPdfAtPosition"
+                    OnAddFileClick="OpenFileDialog" ShowInsertButton="@(false)" />
                 </div>
-            </div>
-        </Right>
-    </SplitPane>
-        
+            </Left>
+            <Right>
+                <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
+                    <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
+                        <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
+                        <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+                    </svg>
+                </div>
+
+                <div class="preview-zoom-viewport w-full h-full">
+                    <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
+                        @for (int i = 0; i < DisplayItems.Count; i++)
+                        {
+                            var item = DisplayItems[i];
+                            <TrimPreviewItem Item="@item" Index="@i"  IsDrawingMode="@isDrawingMode" />
+                        }
+                    </div>
+                </div>
+            </Right>
+        </SplitPane>
+        <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
+                @onclick="MergeTrimmedPagesAsync">
+                完了
+            </button>
+        </div>    
     </div>
 }
 @if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
@@ -396,7 +401,8 @@
             Title = "完了",
             OnClick = EventCallback.Factory.Create(this, MergeTrimmedPagesAsync),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
-            IconPosition = "right"
+            IconPosition = "right",
+            TextColor = "text-white"
         }
     };
 
@@ -526,7 +532,8 @@
             },
             Title = "最初からやり直す",
             OnClick = EventCallback.Factory.Create(this, StartNew),
-            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded"
+            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded",
+            TextColor = "text-black"
         }
     };
 

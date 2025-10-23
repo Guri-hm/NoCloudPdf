@@ -12,7 +12,7 @@
         "";
 
         string? effectiveBtnClass = string.IsNullOrWhiteSpace(action.ButtonClass) ? "bg-white hover:bg-gray-100" : action.ButtonClass;
-        string? textColor = string.IsNullOrWhiteSpace(action.ButtonClass) ? "text-gray-800" : "text-white";
+        string? textColor = action.TextColor;
         string gapClass = string.IsNullOrWhiteSpace(action.Label) ? "" : "gap-3";
 
         <button
