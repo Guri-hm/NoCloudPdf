@@ -1276,6 +1276,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        Console.WriteLine("OnAfterRenderAsync");
         if (firstRender)
         {
             _currentInstance = this;
@@ -1317,7 +1318,6 @@
         if (!previewZoomInitialized)
         {
             await ApplyPreviewZoomAsync();
-            try { await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom"); } catch { }
             previewZoomInitialized = true;
         }
 

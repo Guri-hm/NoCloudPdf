@@ -279,7 +279,6 @@ window.unregisterPanelResize = function () {
 window.setPreviewZoom = function (zoom, mode = 'contain') {
     try {
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
-
         const viewport = document.querySelector('.preview-zoom-viewport');
         const inner = document.getElementById('preview-zoom-inner');
         if (!inner || !viewport) return;
@@ -591,10 +590,7 @@ window.setPreviewPanEnabled = function (enabled) {
             state.internal = state.internal || {};
             state.internal.lastAttachedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
-            console.log(`trim attach: initialized for canvas ${canvasId}`, preservedSelected);
             if (preservedSelected) state.selected = true;
-
-            console.log(`599:canvas:${canvasId}`,  state.selected);
 
             window._simpleTrim[canvasId] = state;
 
@@ -850,7 +846,6 @@ window.setPreviewPanEnabled = function (enabled) {
                                 state.startRectPx = cur ? { ...cur } : { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
                                 try {
                                     if (window._simpleTrim && window._simpleTrim[canvasId]) window._simpleTrim[canvasId].selected = true;
-                                    console.log(`855: ${canvasId}`, window._simpleTrim[canvasId].selected);
                                 } catch (e) { }
                                 try {
                                     if (state.currentRectPx && state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(state.currentRectPx)]);
@@ -1299,9 +1294,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             g.appendChild(h);
         });
 
-        console.log()
         if (isSelected) {
-            console.log(`1305:canvas:${canvasId}`,  isSelected);
             let cx = rx + rw + 10;
             let cy = ry - 10;
             cx = Math.min(cssW - 12, Math.max(12, cx));
