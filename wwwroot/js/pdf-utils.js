@@ -1382,3 +1382,129 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
 
     return await pdfDoc.save();
 };
+
+// cropPdfPageToTrim: 単ページPDF（base64）に対して正規化座標（0..1）でトリムを適用し、
+// トリミング後の単一ページPDF（base64）を返す。
+// 引数: pdfBase64, normX, normY, normWidth, normHeight
+window.cropPdfPageToTrim = async function (pdfBase64, normX, normY, normWidth, normHeight) {
+    try {
+        // base64 -> Uint8Array
+        const binaryString = atob(pdfBase64);
+        const uint8Array = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            uint8Array[i] = binaryString.charCodeAt(i);
+        }
+
+        if (!window.pdfjsLib) throw new Error("pdfjsLib is not loaded");
+        const loadingTask = pdfjsLib.getDocument({
+            data: uint8Array,
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+        });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+
+        // 描画倍率は高めにとって品質を確保
+        const scale = (pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales && pdfConfig.pdfSettings.scales.unlock) || 1.5;
+        const viewport = page.getViewport({ scale: scale });
+
+        // ソースキャンバスにページ全体を描画
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = Math.max(1, Math.round(viewport.width));
+        srcCanvas.height = Math.max(1, Math.round(viewport.height));
+        const srcCtx = srcCanvas.getContext('2d', { alpha: false });
+        await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
+
+        // 正規化座標 → ピクセル座標に変換
+        const sx = Math.max(0, Math.min(srcCanvas.width, Math.round(normX * srcCanvas.width)));
+        const sy = Math.max(0, Math.min(srcCanvas.height, Math.round(normY * srcCanvas.height)));
+        const sw = Math.max(1, Math.min(srcCanvas.width - sx, Math.round(normWidth * srcCanvas.width)));
+        const sh = Math.max(1, Math.min(srcCanvas.height - sy, Math.round(normHeight * srcCanvas.height)));
+
+        // 切り出しキャンバス
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = sw;
+        cropCanvas.height = sh;
+        const cropCtx = cropCanvas.getContext('2d', { alpha: false });
+
+        // drawImage で切り出す（ソース -> 切り出し領域）
+        cropCtx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        // PNG として取り出し、PDF に埋める（PDF-lib 使用）
+        const imgDataUrl = cropCanvas.toDataURL('image/png');
+        const imgBase64 = imgDataUrl.split(',')[1];
+        const imgBytes = base64ToUint8Array(imgBase64);
+
+        const { PDFDocument } = PDFLib;
+        const doc = await PDFDocument.create();
+        const png = await doc.embedPng(imgBytes);
+        const pageWidth = sw;
+        const pageHeight = sh;
+        const newPage = doc.addPage([pageWidth, pageHeight]);
+        newPage.drawImage(png, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+
+        const newPdfBytes = await doc.save();
+        let binary = '';
+        for (let i = 0; i < newPdfBytes.length; i++) binary += String.fromCharCode(newPdfBytes[i]);
+        return btoa(binary);
+    } catch (e) {
+        console.error("cropPdfPageToTrim error", e);
+        // 失敗時は元ページを返す（フォールバック）
+        return pdfBase64 || "";
+    }
+};
+
+// ベクトルのままCropBoxでトリミング（ラスタ化しない）
+window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWidth, normHeight) {
+    try {
+        const bytes = base64ToUint8Array(pdfBase64);
+        const { PDFDocument, PDFName } = PDFLib;
+
+        // 読み込み
+        const srcDoc = await PDFDocument.load(bytes);
+        const srcPage = srcDoc.getPages()[0];
+        const pageW = srcPage.getWidth();
+        const pageH = srcPage.getHeight();
+
+        // 正規化入力を数値化・クランプ
+        const nx = Math.max(0, Math.min(1, Number(normX) || 0));
+        const ny = Math.max(0, Math.min(1, Number(normY) || 0));
+        const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
+        const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
+
+        // 左下基準の実座標に変換
+        const llx = nx * pageW;
+        // UIの normY は上基準の想定 → PDFは下基準なので変換：下端 = pageH * (1 - normY - normHeight)
+        const lly = pageH * (1 - ny - nh);
+        const urx = llx + (nw * pageW);
+        const ury = lly + (nh * pageH);
+
+        // 範囲補正
+        const clampedLlX = Math.max(0, Math.min(pageW, llx));
+        const clampedLlY = Math.max(0, Math.min(pageH, lly));
+        const clampedUrX = Math.max(0, Math.min(pageW, urx));
+        const clampedUrY = Math.max(0, Math.min(pageH, ury));
+
+        // 新規PDFにページをコピーして CropBox を設定（MediaBox は触らない）
+        const outDoc = await PDFDocument.create();
+        const [copied] = await outDoc.copyPages(srcDoc, [0]);
+        outDoc.addPage(copied);
+
+        // CropBox は元ページの座標系で指定（LLX, LLY, URX, URY）
+        copied.node.set(PDFName.of('CropBox'), outDoc.context.obj([
+            Math.round(clampedLlX),
+            Math.round(clampedLlY),
+            Math.round(clampedUrX),
+            Math.round(clampedUrY)
+        ]));
+
+        const outBytes = await outDoc.save();
+        let bin = '';
+        for (let i = 0; i < outBytes.length; i++) bin += String.fromCharCode(outBytes[i]);
+        return btoa(bin);
+    } catch (e) {
+        console.error('cropPdfPageToTrimVector error', e);
+        return pdfBase64 || "";
+    }
+};

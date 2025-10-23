@@ -12,7 +12,7 @@
 
 <PageTitle>NoCloudPDF-トリミング</PageTitle>
 
-@if (IsFilesLoaded && !CompletionState.ShowTrimmedResult)
+@if (IsFilesLoaded && !CompletionState.ShowMergedResult)
 {
     <div id="drop-area" class="relative h-screen flex flex-col">
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
@@ -95,13 +95,13 @@
         
     </div>
 }
-@if (!IsFilesLoaded && !CompletionState.ShowTrimmedResult)
+@if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
 {
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
 
-@if (CompletionState.ShowTrimmedResult && !string.IsNullOrEmpty(mergedPdfUrl))
+@if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -202,6 +202,9 @@
 
         // ページ単位表示を強制
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
+
+        // 完了状態をリセット
+        CompletionState.ResetAll();
     }
 
     private void OnServiceChanged()
@@ -380,7 +383,7 @@
             Label = "完了",
             IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
             Title = "完了",
-            OnClick = EventCallback.Factory.Create(this, DownloadMergedPdf),
+            OnClick = EventCallback.Factory.Create(this, MergeTrimmedPagesAsync),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
             IconPosition = "right"
         }
@@ -1041,4 +1044,120 @@
         await ApplyPreviewZoomAsync();
     }
 
+    // トリミング矩形を各ページに適用して 1 PDF に結合する処理
+    private async Task MergeTrimmedPagesAsync()
+    {
+        if (DisplayItems == null || DisplayItems.Count == 0)
+            return;
+
+        try
+        {
+            isBusy = true;
+            StateHasChanged();
+            await Task.Yield();
+            
+            // スナップショット（UI 再レンダリングで変わらないように）
+            var displayList = DisplayItems.ToList();
+            var pageCount = displayList.Count;
+
+            // 必要情報を先に集めて検証する
+            var pageInfos = new List<(int Index, DisplayItem Item, PageItem Page, TrimRectInfo? Trim)>(pageCount);
+
+            for (int i = 0; i < pageCount; i++)
+            {
+                var item = displayList[i];
+                if (item.RawData is not PageItem page)
+                {
+                    ShowMessage($"ページ情報が見つかりません: {item.DisplayName}", MessageType.Error);
+                    return;
+                }
+
+                pageInfos.Add((i, item, page, PdfDataService.GetTrimRect(i)));
+            }
+
+            // 準備できていないページを検出（まとめて一度だけ判定）
+            var notReady = pageInfos.Count(p => string.IsNullOrEmpty(p.Page.PageData) || p.Page.HasError);
+            if (notReady > 0)
+            {
+                ShowMessage($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
+                return;
+            }
+
+            // マージ用データを作成（トリムは JS 側で処理）
+            var mergeData = new List<object>(pageCount);
+
+            for (int idx = 0; idx < pageInfos.Count; idx++)
+            {
+                var info = pageInfos[idx];
+                var page = info.Page;
+
+                if (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError)
+                {
+                    ShowMessage($"ページデータが不足しています: {info.Item.DisplayName}", MessageType.Error);
+                    return;
+                }
+
+                string pageDataToUse = page.PageData;
+
+                if (info.Trim != null)
+                {
+                    try
+                    {
+                        pageDataToUse = await JSRuntime.InvokeAsync<string>(
+                            "cropPdfPageToTrimVector",
+                            page.PageData,
+                            info.Trim.X,
+                            info.Trim.Y,
+                            info.Trim.Width,
+                            info.Trim.Height
+                        );
+
+                        if (string.IsNullOrEmpty(pageDataToUse))
+                        {
+                            ShowMessage($"ページのトリミングに失敗しました: {info.Item.DisplayName}", MessageType.Error);
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ShowMessage($"トリミング処理に失敗しました: {ex.Message}", MessageType.Error);
+                        return;
+                    }
+                }
+
+                mergeData.Add(new
+                {
+                    pageData = pageDataToUse,
+                    rotateAngle = page.RotateAngle % 360
+                });
+            }
+
+            // 結合（JS）
+            try
+            {
+                mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+                if (!string.IsNullOrEmpty(mergedPdfUrl))
+                {
+                    mergedFileName = $"trim_{DateTime.Now:yyyyMMddHHmm}.pdf";
+                    mergedFileSize = await JSRuntime.InvokeAsync<string>("getPdfFileSize", mergedPdfUrl);
+                    mergedPageCount = pageInfos.Count;
+                    CompletionState.SetCompletion(CompletionStateService.CompletionType.Trimmed);
+                }
+                else
+                {
+                    ShowMessage("PDFの結合に失敗しました。", MessageType.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"MergeTrimmedPagesAsync error: {ex.Message}");
+                ShowMessage("トリミング適用後の結合中にエラーが発生しました。", MessageType.Error);
+            }
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
 }

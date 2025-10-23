@@ -2,7 +2,6 @@ public class CompletionStateService
 {
     public bool ShowSplitOrExtractResult { get; set; }
     public bool ShowMergedResult { get; set; }
-    public bool ShowTrimmedResult { get; set; }
 
     public enum CompletionType
     {
@@ -27,6 +26,7 @@ public class CompletionStateService
                 ShowSplitOrExtractResult = true;
                 break;
             case CompletionType.Merged:
+            case CompletionType.Trimmed:
                 ShowMergedResult = true;
                 break;
             case CompletionType.None:

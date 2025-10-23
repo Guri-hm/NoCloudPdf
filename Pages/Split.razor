@@ -319,6 +319,9 @@
             // ModalService がコンポーネントにイベントを通知し、結果を返す
             return await ModalService.ShowBookmarkDialogAsync(items);
         };
+        
+        // 完了状態をリセット
+        CompletionState.ResetAll();
     }
 
     private void OnServiceChanged()

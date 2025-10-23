@@ -248,6 +248,9 @@
     {
         PdfDataService.OnChange += OnServiceChanged;
         PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
+
+        // 完了状態をリセット
+        CompletionState.ResetAll();
     }
 
     private void OnServiceChanged()

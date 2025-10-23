@@ -84,12 +84,12 @@ window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
     for (let i = 0; i < pdfUrls.length; i++) {
         const pdfUrl = pdfUrls[i];
         const baseName = (pdfNames[i] || `file${i + 1}.pdf`).replace(/\.pdf$/i, '');
-
+        let pdf = null;
         try {
 
             const response = await fetch(pdfUrl);
             const arrayBuffer = await response.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({
+            pdf = await pdfjsLib.getDocument({
                 data: arrayBuffer,
                 standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
                 wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
@@ -109,8 +109,12 @@ window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
         } catch (e) {
             console.error(`PDF変換失敗: ${baseName}`, e);
         } finally {
-            if (pdf) {
-                pdf.destroy();
+            try {
+                if (pdf && typeof pdf.destroy === 'function') {
+                    pdf.destroy();
+                }
+            } catch (e) {
+                console.warn('pdf.destroy() error', e);
             }
         }
     }
