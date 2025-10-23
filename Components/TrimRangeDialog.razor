@@ -99,17 +99,20 @@
                         <div class="relative rounded-lg overflow-hidden aspect-[3/4] flex items-center justify-center" style="background-color: var(--color-gray-100);">
                             @if (!string.IsNullOrEmpty(PreviewImageSrc))
                             {
-                                <img src="@PreviewImageSrc" @ref="previewImgRef" class="max-w-full max-h-full object-contain" />
+                                <div class="relative max-w-full max-h-full flex items-center justify-center">
+                                    <img id="trim-range-preview-img" src="@PreviewImageSrc" @ref="previewImgRef" class="max-w-full max-h-full object-contain" />
+                                    @if (naturalWidth > 0 && naturalHeight > 0)
+                                    {
+                                        <!-- トリム領域を赤枠で表示（画像のサイズに合わせる） -->
+                                        <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 @naturalWidth @naturalHeight" preserveAspectRatio="xMidYMid meet">
+                                            <rect x="@trimX" y="@trimY" width="@trimWidth" height="@trimHeight"
+                                                fill="none" stroke="red" stroke-width="2" stroke-dasharray="5,5" />
+                                        </svg>
+                                    }
+                                </div>
                                 <!-- 実ピクセル表示 -->
                                 <div class="absolute top-2 right-2 bg-white/90 text-xs text-gray-700 px-2 py-1 rounded shadow">
                                     実サイズ: @naturalWidth × @naturalHeight px
-                                </div>
-                                <!-- トリム領域を赤枠で表示 -->
-                                <div class="absolute inset-0 pointer-events-none">
-                                    <svg class="w-full h-full" viewBox="0 0 @previewWidth @previewHeight" preserveAspectRatio="none">
-                                        <rect x="@trimX" y="@trimY" width="@trimWidth" height="@trimHeight"
-                                              fill="none" stroke="red" stroke-width="2" stroke-dasharray="5,5" />
-                                    </svg>
                                 </div>
                             }
                             else
@@ -218,6 +221,12 @@
             _bottomMargin = InitialSettings.BottomMargin;
             _leftMargin = InitialSettings.LeftMargin;
             _rightMargin = InitialSettings.RightMargin;
+            // InitialSettings に実ピクセルが含まれている場合は即座に設定する
+            if (InitialSettings.ImageNaturalWidth > 0 && InitialSettings.ImageNaturalHeight > 0)
+            {
+                naturalWidth = InitialSettings.ImageNaturalWidth;
+                naturalHeight = InitialSettings.ImageNaturalHeight;
+            }
         }
         rangeEnd = TotalPages;
         UpdatePreview();
@@ -225,15 +234,13 @@
 
     private void UpdatePreview()
     {
-        // 実ピクセル基準でトリミング領域を計算（取得前は暫定値）
-        previewWidth = Math.Max(1, naturalWidth > 0 ? naturalWidth : 400);
-        previewHeight = Math.Max(1, naturalHeight > 0 ? naturalHeight : 566);
-
+        // naturalWidth/Height が取得できるまで処理しない
+        if (naturalWidth <= 0 || naturalHeight <= 0) return;
         // 余白を引いた実ピクセル座標
         trimX = _leftMargin;
         trimY = _topMargin;
-        trimWidth = Math.Max(0, previewWidth - _leftMargin - _rightMargin);
-        trimHeight = Math.Max(0, previewHeight - _topMargin - _bottomMargin);
+        trimWidth = Math.Max(0, naturalWidth - _leftMargin - _rightMargin);
+        trimHeight = Math.Max(0, naturalHeight - _topMargin - _bottomMargin);
     }
 
     private async Task Close()
@@ -252,7 +259,9 @@
             RightMargin = _rightMargin,
             ApplyRange = applyRange,
             RangeStart = rangeStart,
-            RangeEnd = rangeEnd
+            RangeEnd = rangeEnd,
+            ImageNaturalWidth = naturalWidth,
+            ImageNaturalHeight = naturalHeight
         };
 
         if (OnApply.HasDelegate)
@@ -268,5 +277,7 @@
         public string ApplyRange { get; set; } = "current";
         public int RangeStart { get; set; }
         public int RangeEnd { get; set; }
+        public int ImageNaturalWidth { get; set; }
+        public int ImageNaturalHeight { get; set; }
     }
 }

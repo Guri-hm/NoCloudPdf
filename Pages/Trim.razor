@@ -410,7 +410,7 @@
     {
         await OpenFileDialog();
     }
-    
+
     // ファイルダイアログを開く
     private async Task OpenFileDialog()
     {
@@ -819,7 +819,7 @@
                 }
                 catch { _visibleObserverLastCount = -1; }
             }
-                        // サムネイル描画
+            // サムネイル描画
             foreach (var item in DisplayItems)
             {
                 await JSRuntime.InvokeVoidAsync("drawImageToCanvas", $"trim-thumb-{item.Id}", item.Thumbnail);
@@ -953,7 +953,7 @@
     private bool isResizingPanel = false;
     private double resizeStartX = 0;
     private int resizeStartWidth = 0;
-    
+
     private Task SelectPage(int index)
     {
         // 先にスクロール命令を投げる（非同期・待たない）
@@ -964,7 +964,7 @@
         StateHasChanged();
         return Task.CompletedTask;
     }
-    
+
     [JSInvokable]
     public void OnPanelMouseMove(double clientX)
     {
@@ -975,7 +975,7 @@
             StateHasChanged();
         }
     }
-    
+
     [JSInvokable]
     public void OnPanelMouseUp()
     {
@@ -997,25 +997,25 @@
         return 1200;
     }
 
-        private Dictionary<int, TrimRect> trimRects = new();
-        private List<PreviewItem> previewItems = new();
-    
-        // 矩形データ）
-        public class TrimRect
-        {
-            public double X { get; set; }
-            public double Y { get; set; }
-            public double Width { get; set; }
-            public double Height { get; set; }
-        }
-    
-        // プレビュー項目の最小情報（UI側で使っているプロパティのみ）
-        public class PreviewItem
-        {
-            public int ContainerWidth { get; set; }
-            public int ContainerHeight { get; set; }
-            public TrimRect? TrimRect { get; set; }
-        }
+    private Dictionary<int, TrimRect> trimRects = new();
+    private List<PreviewItem> previewItems = new();
+
+    // 矩形データ）
+    public class TrimRect
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+
+    // プレビュー項目の最小情報（UI側で使っているプロパティのみ）
+    public class PreviewItem
+    {
+        public int ContainerWidth { get; set; }
+        public int ContainerHeight { get; set; }
+        public TrimRect? TrimRect { get; set; }
+    }
 
     private double previewZoom = 1.0;
     private const double ZoomStep = 0.25;
@@ -1208,14 +1208,32 @@
             var existingTrim = PdfDataService.GetTrimRect(idx);
             if (existingTrim != null)
             {
-                // 正規化座標 -> pixel（仮に A4: 400x566）
-                int w = 400, h = 566;
+                // 実表示キャンバスの実ピクセルサイズを取得して正しく変換する
+                int w = 0, h = 0;
+                try
+                {
+                    var canvasId = $"trim-preview-canvas-{idx}"; // TrimPreviewItem 側の id と一致させる
+                    var size = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", canvasId);
+                    if (size != null && size.Length >= 2)
+                    {
+                        w = size[0];
+                        h = size[1];
+                    }
+                }
+                catch { }
+
+                // フォールバック: 取得失敗時は固定値を使う（後で調整可）
+                if (w <= 0 || h <= 0) { w = 400; h = 566; }
+
+                Console.WriteLine($"OpenTrimRangeDialog: canvas size = {w} x {h}");
                 initialTrimSettings = new TrimRangeDialog.TrimRangeSettings
                 {
-                    LeftMargin = (int)(existingTrim.X * w),
-                    TopMargin = (int)(existingTrim.Y * h),
-                    RightMargin = (int)((1 - existingTrim.X - existingTrim.Width) * w),
-                    BottomMargin = (int)((1 - existingTrim.Y - existingTrim.Height) * h)
+                    LeftMargin = (int)Math.Round(existingTrim.X * w),
+                    TopMargin = (int)Math.Round(existingTrim.Y * h),
+                    RightMargin = (int)Math.Round((1 - existingTrim.X - existingTrim.Width) * w),
+                    BottomMargin = (int)Math.Round((1 - existingTrim.Y - existingTrim.Height) * h),
+                    ImageNaturalWidth = w,
+                    ImageNaturalHeight = h
                 };
             }
             else
@@ -1246,8 +1264,32 @@
             isBusy = true;
             StateHasChanged();
 
-            // pixel -> 正規化座標（仮 A4: 400x566）
-            int w = 400, h = 566;
+            int w = settings.ImageNaturalWidth;
+            int h = settings.ImageNaturalHeight;
+
+            // フォールバック: ダイアログで取得できていなければ既存の canvas から取得
+            if (w <= 0 || h <= 0)
+            {
+                try
+                {
+                    var curIndex = Math.Max(0, displayedPageNumber - 1);
+                    var canvasId = $"trim-preview-canvas-{curIndex}";
+                    var canvasSize = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", canvasId);
+                    if (canvasSize != null && canvasSize.Length >= 2)
+                    {
+                        w = canvasSize[0];
+                        h = canvasSize[1];
+                    }
+                }
+                catch { }
+            }
+
+            if (w <= 0 || h <= 0)
+            {
+                ShowMessage("プレビュー画像のサイズを取得できませんでした", MessageType.Error);
+                return;
+            }
+
             double nx = (double)settings.LeftMargin / w;
             double ny = (double)settings.TopMargin / h;
             double nw = Math.Max(0, 1.0 - (double)(settings.LeftMargin + settings.RightMargin) / w);
