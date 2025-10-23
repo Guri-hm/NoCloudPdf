@@ -207,6 +207,7 @@
         InvokeAsync(StateHasChanged);
     }
 
+    // 表示中の現在ページ番号を変更
     [JSInvokable("SetVisiblePageFromJs")]
     public Task SetVisiblePageFromJs(int pageIndex)
     {
@@ -222,7 +223,7 @@
         return Task.CompletedTask;
     }
 
-    // 上部バーの入力でページ移動（1始まりの値を受ける）
+    // 上部バーの入力でページ移動
     private async Task OnTopBarPageInputChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e?.Value?.ToString(), out var v))
@@ -232,7 +233,7 @@
             var targetIndex = target - 1;
             try
             {
-                // スクロール移動（既存のヘルパーを利用）
+                // スクロール移動
                 await JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
                 // 画像プレビュー更新など必要ならこちらも呼ぶ（軽量）
                 _ = ShowPreviewAsync(targetIndex);
