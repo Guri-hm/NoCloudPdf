@@ -21,7 +21,6 @@
         </div>
     </div>
 }
-
 @code {
 
     [Parameter] public string? Message { get; set; }
@@ -47,25 +46,49 @@
     private CancellationTokenSource? _autoCloseCts;
     private int _messageInstanceId = 0;
 
+    // 追加: 直前の状態を保持
+    private string? _lastMessage;
+    private int? _lastAutoCloseMs;
+
     protected override async Task OnParametersSetAsync()
     {
-        _autoCloseCts?.Cancel();
-        _autoCloseCts = null;
-
-        if (!string.IsNullOrEmpty(Message) && AutoCloseMs.HasValue)
+        // メッセージが空なら現在のタイマーをキャンセルして状態をクリア
+        if (string.IsNullOrEmpty(Message))
         {
-            _messageInstanceId++;
+            _autoCloseCts?.Cancel();
+            _autoCloseCts = null;
+            _lastMessage = null;
+            _lastAutoCloseMs = null;
+            return;
+        }
 
-            _autoCloseCts = new CancellationTokenSource();
-            try
-            {
-                await Task.Delay(AutoCloseMs.Value, _autoCloseCts.Token);
-                if (!_autoCloseCts.Token.IsCancellationRequested && OnClose.HasDelegate)
-                    await OnClose.InvokeAsync();
-            }
-            catch (TaskCanceledException)
-            {
-            }
+        // AutoCloseMs が未指定なら何もしない（従来の挙動を維持）
+        if (!AutoCloseMs.HasValue)
+            return;
+
+        // メッセージと AutoCloseMs が前回と同じならタイマーを再生成しない
+        if (_lastMessage == Message && _lastAutoCloseMs == AutoCloseMs)
+        {
+            return;
+        }
+
+        // 新しいメッセージまたは設定なので既存タイマーを取消して新しく作る
+        _autoCloseCts?.Cancel();
+        _autoCloseCts = new CancellationTokenSource();
+        _messageInstanceId++;
+
+        // 現在の状態を保存
+        _lastMessage = Message;
+        _lastAutoCloseMs = AutoCloseMs;
+
+        try
+        {
+            await Task.Delay(AutoCloseMs.Value, _autoCloseCts.Token);
+            if (!_autoCloseCts.Token.IsCancellationRequested && OnClose.HasDelegate)
+                await OnClose.InvokeAsync();
+        }
+        catch (TaskCanceledException)
+        {
         }
     }
 
@@ -73,6 +96,11 @@
     {
         _autoCloseCts?.Cancel();
         _autoCloseCts = null;
+
+        // クリアしておくことで、同じメッセージを手動で再表示した場合に再度タイマーが始まる
+        _lastMessage = null;
+        _lastAutoCloseMs = null;
+
         if (OnClose.HasDelegate)
             await OnClose.InvokeAsync();
     }
