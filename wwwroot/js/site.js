@@ -543,16 +543,14 @@ window.setPreviewPanEnabled = function (enabled) {
                 return false;
             }
 
-            const preservedSelected = (() => {
-                try {
-                    if (base.dataset && base.dataset.trimSelected) {
-                        const v = base.dataset.trimSelected;
-                        delete base.dataset.trimSelected;
-                        return v === '1';
-                    }
-                } catch (e) { }
-                return false;
-            })();
+            let preservedSelected = false;
+            try {
+                window._simpleTrim = window._simpleTrim || {};
+                const existing = window._simpleTrim[canvasId];
+                if (existing && existing.selected) {
+                    preservedSelected = true;
+                }
+            } catch (e) { /* ignore */ }
 
             try { cleanupTrimEntry(canvasId); } catch (e) { /* ignore */ }
 
@@ -592,7 +590,11 @@ window.setPreviewPanEnabled = function (enabled) {
 
             state.internal = state.internal || {};
             state.internal.lastAttachedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+            console.log(`trim attach: initialized for canvas ${canvasId}`, preservedSelected);
             if (preservedSelected) state.selected = true;
+
+            console.log(`599:canvas:${canvasId}`,  state.selected);
 
             window._simpleTrim[canvasId] = state;
 
@@ -846,9 +848,16 @@ window.setPreviewPanEnabled = function (enabled) {
                             try {
                                 const cur = (window._simpleTrim && window._simpleTrim[canvasId] && window._simpleTrim[canvasId].currentRectPx) || null;
                                 state.startRectPx = cur ? { ...cur } : { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
-                                try { if (window._simpleTrim && window._simpleTrim[canvasId]) window._simpleTrim[canvasId].selected = true; } catch (e) { }
-                                try { if (state.currentRectPx && state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(state.currentRectPx)]); } catch (e) { }
-                            } catch (e) { state.startRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 }; }
+                                try {
+                                    if (window._simpleTrim && window._simpleTrim[canvasId]) window._simpleTrim[canvasId].selected = true;
+                                    console.log(`855: ${canvasId}`, window._simpleTrim[canvasId].selected);
+                                } catch (e) { }
+                                try {
+                                    if (state.currentRectPx && state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(state.currentRectPx)]);
+                                } catch (e) { }
+                            } catch (e) {
+                                state.startRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
+                            }
                         } else {
 
                             state.mode = 'maybe-draw';
@@ -1290,7 +1299,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             g.appendChild(h);
         });
 
+        console.log()
         if (isSelected) {
+            console.log(`1305:canvas:${canvasId}`,  isSelected);
             let cx = rx + rw + 10;
             let cy = ry - 10;
             cx = Math.min(cssW - 12, Math.max(12, cx));
