@@ -25,8 +25,8 @@
                     <!-- 余白入力 -->
                     <div class="bg-gray-50 p-4 rounded-lg space-y-4">
                         <h3 class="font-bold text-lg flex items-center gap-2">
-                            <i class="fa-solid fa-arrows-alt" style="color: rgb(5, 39, 103);"></i>
-                            余白（pixel）
+                            <MarginIcon></MarginIcon>
+                            余白（単位: px）
                         </h3>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -89,7 +89,7 @@
                 </div>
 
                 <!-- 右列：プレビュー＋ボタン -->
-                <div class="w-1/2 flex flex-col">
+                <div class="w-1/2 flex flex-col bg-gray-100">
                     <!-- プレビューエリア（スクロール可能） -->
                     <div class="flex-1 overflow-y-auto p-8 space-y-4">
                         <h3 class="font-bold text-lg flex items-center gap-2">
@@ -99,7 +99,11 @@
                         <div class="relative rounded-lg overflow-hidden aspect-[3/4] flex items-center justify-center" style="background-color: var(--color-gray-100);">
                             @if (!string.IsNullOrEmpty(PreviewImageSrc))
                             {
-                                <img src="@PreviewImageSrc" class="max-w-full max-h-full object-contain" />
+                                <img src="@PreviewImageSrc" @ref="previewImgRef" class="max-w-full max-h-full object-contain" />
+                                <!-- 実ピクセル表示 -->
+                                <div class="absolute top-2 right-2 bg-white/90 text-xs text-gray-700 px-2 py-1 rounded shadow">
+                                    実サイズ: @naturalWidth × @naturalHeight px
+                                </div>
                                 <!-- トリム領域を赤枠で表示 -->
                                 <div class="absolute inset-0 pointer-events-none">
                                     <svg class="w-full h-full" viewBox="0 0 @previewWidth @previewHeight" preserveAspectRatio="none">
@@ -120,14 +124,13 @@
                     </div>
 
                     <!-- ボタン（右下・固定） -->
-                    <div class="flex justify-end items-center gap-4 p-8 border-t shrink-0">
+                    <div class="bg-white flex justify-end items-center gap-4 p-8 border-t shrink-0">
                         <button @onclick="Close"
                                 class="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition">
                             キャンセル
                         </button>
                         <button @onclick="Apply"
-                                class="px-6 py-2 rounded-lg text-white transition"
-                                style="background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);">
+                                class="px-6 py-2 rounded-lg text-white transition bg-blue-600 hover:bg-blue-700">
                             適用
                         </button>
                     </div>
@@ -145,7 +148,9 @@
     [Parameter] public int CurrentPageNumber { get; set; } = 1;
     [Parameter] public int TotalPages { get; set; } = 1;
     [Parameter] public TrimRangeSettings? InitialSettings { get; set; }
-
+    private ElementReference previewImgRef;
+    private int naturalWidth = 0;
+    private int naturalHeight = 0;
     private int _topMargin = 0;
     private int topMargin
     {
@@ -184,6 +189,27 @@
     private double trimWidth = 400;
     private double trimHeight = 566;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // プレビュー画像が変わったら実ピクセルを取得
+        if (IsOpen && !string.IsNullOrEmpty(PreviewImageSrc))
+        {
+            try
+            {
+                var size = await JSRuntime.InvokeAsync<int[]>("getImageNaturalSize", previewImgRef);
+                if (size != null && size.Length >= 2 && (naturalWidth != size[0] || naturalHeight != size[1]))
+                {
+                    naturalWidth = size[0];
+                    naturalHeight = size[1];
+                    UpdatePreview(); // 実ピクセル取得後に赤枠を再計算
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
     protected override void OnParametersSet()
     {
         if (InitialSettings != null)
@@ -199,10 +225,11 @@
 
     private void UpdatePreview()
     {
-        // プレビュー画像のサイズを取得（仮に A4 想定で固定）
-        previewWidth = 400;
-        previewHeight = 566;
+        // 実ピクセル基準でトリミング領域を計算（取得前は暫定値）
+        previewWidth = Math.Max(1, naturalWidth > 0 ? naturalWidth : 400);
+        previewHeight = Math.Max(1, naturalHeight > 0 ? naturalHeight : 566);
 
+        // 余白を引いた実ピクセル座標
         trimX = _leftMargin;
         trimY = _topMargin;
         trimWidth = Math.Max(0, previewWidth - _leftMargin - _rightMargin);

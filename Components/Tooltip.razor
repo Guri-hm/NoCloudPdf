@@ -1,10 +1,10 @@
-<span class="editor-tooltip-trigger" tabindex="@TabIndex"
+<span class="tooltip-trigger" tabindex="@TabIndex"
       onmouseenter="positionEditorTooltip(this,'@TooltipId')"
       onfocus="positionEditorTooltip(this,'@TooltipId')"
       onmouseleave="hideEditorTooltip('@TooltipId')"
       onblur="hideEditorTooltip('@TooltipId')">
     <i class="@IconClass"></i>
-    <span id="@TooltipId" class="editor-tooltip" role="tooltip" aria-hidden="true" style="display:none">
+    <span id="@TooltipId" class="tooltip" role="tooltip" aria-hidden="true" style="display:none">
         @if (ChildContent != null)
         {
             @ChildContent
@@ -23,5 +23,5 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public int TabIndex { get; set; } = 0;
 
-    private string TooltipId { get; set; } = "editor-tooltip-" + Guid.NewGuid().ToString("N");
+    private string TooltipId { get; set; } = "tooltip-" + Guid.NewGuid().ToString("N");
 }

@@ -20,7 +20,7 @@
         <!-- 上部固定バー -->
         <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
             <div
-                class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+                class="flex items-start justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 <div class="flex flex-wrap gap-2 items-center">
                     <ActionButtonGroup T="string" Actions="resetActions" />
                     <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
@@ -40,7 +40,6 @@
                         OnClick="OnToggleDrawingMode" />
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     <ActionButtonGroup T="string" Actions="zoomActions" />
-                    <ActionButtonGroup T="string" Actions="trimSettingsActions" />
 
                     <DropdownButton T="string" MenuId="trimMenu" MenuItems="applyTrimItems">
                         <Trigger>
@@ -50,7 +49,10 @@
                             </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
-
+                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
+                        <input type="checkbox" @bind="useRasterize" class="form-checkbox h-5 w-5 accent-blue-500" />
+                        ラスタ化<Tooltip>ラスタ化を有効にすると、トリミング時にPDFを画像として再描画します。テキスト選択や検索ができなくなり、画質が若干低下する可能性があります。通常のトリミング（無効時）は単に非表示にするだけで、ファイルサイズは変わりません。</Tooltip>
+                    </label>
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
@@ -630,6 +632,11 @@
         },
         new DropdownMenuItem
         {
+        Label = "範囲を数値で設定",
+        OnClick = EventCallback.Factory.Create(this, OpenTrimRangeDialog)
+        },
+        new DropdownMenuItem
+        {
         Label = "すべての範囲をクリア",
         OnClick = EventCallback.Factory.Create(this, ClearAllTrims)
         }
@@ -1053,6 +1060,7 @@
         await ApplyPreviewZoomAsync();
     }
 
+    private bool useRasterize = false;
     // トリミング矩形を各ページに適用して 1 PDF に結合する処理
     private async Task MergeTrimmedPagesAsync()
     {
@@ -1112,9 +1120,12 @@
                 {
                     try
                     {
+                        // ラスタライズオプションに応じて関数を選択
+                        var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
+
                         var rotate = page.RotateAngle % 360;
                         pageDataToUse = await JSRuntime.InvokeAsync<string>(
-                            "cropPdfPageToTrimVector",
+                            cropFunction,
                             page.PageData,
                             info.Trim.X,
                             info.Trim.Y,
@@ -1139,7 +1150,8 @@
                 mergeData.Add(new
                 {
                     pageData = pageDataToUse,
-                    rotateAngle = page.RotateAngle % 360
+                    // ラスタ版は画像化で回転済み→0、ベクトル版は元の回転を保持
+                    rotateAngle = useRasterize ? 0 : (page.RotateAngle % 360)
                 });
             }
 
@@ -1175,22 +1187,6 @@
     private bool isTrimRangeDialogOpen = false;
     private string currentPreviewImage = "";
     private TrimRangeDialog.TrimRangeSettings? initialTrimSettings;
-
-    private List<ActionButtonItem> trimSettingsActions => new()
-    {
-        new ActionButtonItem
-        {
-            Label = "範囲を数値で設定",
-            Icon = builder =>
-            {
-                builder.OpenComponent(0, typeof(ActivityZoneIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5");
-                builder.CloseComponent();
-            },
-            Title = "トリミング範囲を数値で設定",
-            OnClick = EventCallback.Factory.Create(this, OpenTrimRangeDialog),
-        }
-    };
 
     private async Task OpenTrimRangeDialog()
     {

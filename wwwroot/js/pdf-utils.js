@@ -1421,12 +1421,9 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     return await pdfDoc.save();
 };
 
-// cropPdfPageToTrim: 単ページPDF（base64）に対して正規化座標（0..1）でトリムを適用し、
-// トリミング後の単一ページPDF（base64）を返す。
-// 引数: pdfBase64, normX, normY, normWidth, normHeight
-window.cropPdfPageToTrim = async function (pdfBase64, normX, normY, normWidth, normHeight) {
+// トリミング後の単一ページPDF（base64）を返す（ラスタ化）。
+window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidth, normHeight, rotateAngle = 0) {
     try {
-        // base64 -> Uint8Array
         const binaryString = atob(pdfBase64);
         const uint8Array = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -1434,6 +1431,7 @@ window.cropPdfPageToTrim = async function (pdfBase64, normX, normY, normWidth, n
         }
 
         if (!window.pdfjsLib) throw new Error("pdfjsLib is not loaded");
+        
         const loadingTask = pdfjsLib.getDocument({
             data: uint8Array,
             standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
@@ -1443,18 +1441,25 @@ window.cropPdfPageToTrim = async function (pdfBase64, normX, normY, normWidth, n
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
-        // 描画倍率は高めにとって品質を確保
-        const scale = (pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales && pdfConfig.pdfSettings.scales.unlock) || 1.5;
-        const viewport = page.getViewport({ scale: scale });
+        // 回転を正規化
+        const angle = ((Number(rotateAngle) || 0) % 360 + 360) % 360;
+        const quant = (Math.round(angle / 90) * 90) % 360;
 
-        // ソースキャンバスにページ全体を描画
+        // 描画倍率（品質確保）
+        const scale = (pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales && pdfConfig.pdfSettings.scales.unlock) || 1.5;
+        
+        // 回転を適用したviewportで描画
+        const viewport = page.getViewport({ scale: scale, rotation: quant });
+
+        // ソースキャンバスにページ全体を描画（回転適用済み）
         const srcCanvas = document.createElement('canvas');
         srcCanvas.width = Math.max(1, Math.round(viewport.width));
         srcCanvas.height = Math.max(1, Math.round(viewport.height));
         const srcCtx = srcCanvas.getContext('2d', { alpha: false });
         await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
 
-        // 正規化座標 → ピクセル座標に変換
+        // 正規化座標を「回転適用後のキャンバス座標」に変換
+        // viewport で回転済みなので、表示上の座標がそのままピクセル座標になる
         const sx = Math.max(0, Math.min(srcCanvas.width, Math.round(normX * srcCanvas.width)));
         const sy = Math.max(0, Math.min(srcCanvas.height, Math.round(normY * srcCanvas.height)));
         const sw = Math.max(1, Math.min(srcCanvas.width - sx, Math.round(normWidth * srcCanvas.width)));
@@ -1466,10 +1471,10 @@ window.cropPdfPageToTrim = async function (pdfBase64, normX, normY, normWidth, n
         cropCanvas.height = sh;
         const cropCtx = cropCanvas.getContext('2d', { alpha: false });
 
-        // drawImage で切り出す（ソース -> 切り出し領域）
+        // drawImage で切り出す
         cropCtx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
 
-        // PNG として取り出し、PDF に埋める（PDF-lib 使用）
+        // PNG として取り出し、PDF に埋める
         const imgDataUrl = cropCanvas.toDataURL('image/png');
         const imgBase64 = imgDataUrl.split(',')[1];
         const imgBytes = base64ToUint8Array(imgBase64);
@@ -1487,8 +1492,7 @@ window.cropPdfPageToTrim = async function (pdfBase64, normX, normY, normWidth, n
         for (let i = 0; i < newPdfBytes.length; i++) binary += String.fromCharCode(newPdfBytes[i]);
         return btoa(binary);
     } catch (e) {
-        console.error("cropPdfPageToTrim error", e);
-        // 失敗時は元ページを返す（フォールバック）
+        console.error("cropPdfPageRasterized error", e);
         return pdfBase64 || "";
     }
 };
@@ -1592,5 +1596,14 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
     } catch (e) {
         console.error('cropPdfPageToTrimVector error', e);
         return pdfBase64 || "";
+    }
+};
+
+window.getImageNaturalSize = function (imgElement) {
+    try {
+        if (!imgElement) return [0, 0];
+        return [imgElement.naturalWidth || 0, imgElement.naturalHeight || 0];
+    } catch (e) {
+        return [0, 0];
     }
 };

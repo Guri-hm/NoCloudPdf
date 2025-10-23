@@ -1,4 +1,4 @@
-.editor-tooltip {
+.tooltip {
     position: fixed;
     z-index: 60;
     background: #111827;
@@ -16,7 +16,7 @@
     pointer-events: none;
 }
 
-.editor-tooltip .arrow {
+.tooltip .arrow {
     position: absolute;
     width: 10px;
     height: 10px;
@@ -25,30 +25,30 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
-.editor-tooltip[data-dir="top"] .arrow {
+.tooltip[data-dir="top"] .arrow {
     bottom: -5px;
     left: 50%;
     transform: translateX(-50%) rotate(45deg);
 }
 
-.editor-tooltip[data-dir="bottom"] .arrow {
+.tooltip[data-dir="bottom"] .arrow {
     top: -5px;
     left: 50%;
     transform: translateX(-50%) rotate(45deg);
 }
 
-.editor-tooltip[data-dir="left"] .arrow {
+.tooltip[data-dir="left"] .arrow {
     right: -5px;
     top: 50%;
     transform: translateY(-50%) rotate(45deg);
 }
 
-.editor-tooltip[data-dir="right"] .arrow {
+.tooltip[data-dir="right"] .arrow {
     left: -5px;
     top: 50%;
     transform: translateY(-50%) rotate(45deg);
 }
 
-.editor-tooltip-trigger:focus {
+.tooltip-trigger:focus {
     outline: none;
 }
