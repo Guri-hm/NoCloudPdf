@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-GqBU44SuKEtD5/TPDu4yViy89VfYoLmlSUCK5BPpw7U=",
+    "hash": "sha256-v6h5O3wL+7p/oXpvy9ICqyl4W2Gn3KzcXxkh7vFRzzk=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.1xsuamc6gd.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.wg04jtcarr.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -42,9 +42,9 @@
       "System.Threading.l076ub7jlh.wasm": "System.Threading.wasm",
       "System.8rv0tdtrxz.wasm": "System.wasm",
       "System.Private.CoreLib.bibewsjruj.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.n2s2hm727l.wasm": "NoCloudPdf.wasm",
+      "NoCloudPdf.dojj39ckw0.wasm": "NoCloudPdf.wasm",
       "dotnet.native.iabxf0ctbq.js": "dotnet.native.js",
-      "dotnet.native.9f5neae0tt.wasm": "dotnet.native.wasm",
+      "dotnet.native.f7shghecfe.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.drv0pr9n5o.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -58,7 +58,7 @@
       "dotnet.runtime.drv0pr9n5o.js": "sha256-yfXUv1l/B489E8p12JxUvxly0JvHL9CCsoZUDlfGH9c="
     },
     "wasmNative": {
-      "dotnet.native.9f5neae0tt.wasm": "sha256-y27aryImFsSgIPrV/EM8DU0aptxEdrR4HD2wL6n2bJw="
+      "dotnet.native.f7shghecfe.wasm": "sha256-9YJPe0t32sndIIyiXy4g2mz+eQ/guPhLXvqUzJux3jY="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -105,7 +105,7 @@
       "System.Threading.l076ub7jlh.wasm": "sha256-BYM74VCZoN8Ij59a4Qvg1Q891gvsEmqvMmPnLvmqiwo=",
       "System.8rv0tdtrxz.wasm": "sha256-xMF0eauQ5DkSzUozHLFFMQnL6DSJO09nJLtgag+Dzbw=",
       "System.Private.CoreLib.bibewsjruj.wasm": "sha256-Pc7eIUrWy/GztIkjzIoXWQMTlvqzbL/dUmq3XrRXN2M=",
-      "NoCloudPdf.n2s2hm727l.wasm": "sha256-n7Ogn2EXkQsRNgGg6OA1L6Jq5LD8OFdzCYuQQz9TT7Q="
+      "NoCloudPdf.dojj39ckw0.wasm": "sha256-o67zt294WNrjtvR/tEByWMCWrAtG5IKYEs/O9x71SEI="
     },
     "assembly": {}
   },
