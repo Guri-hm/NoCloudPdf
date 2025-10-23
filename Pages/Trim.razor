@@ -66,6 +66,11 @@
                                     HasTrimRect="@(trimRects.ContainsKey(index))"
                                     OnClick="@(() => SelectPage(index))" />
                 }
+                <FileAddArea
+                Position="@DisplayItems.Count"
+                OnInsertBlankPage="InsertBlankPage"
+                OnInsertPdfAtPosition="InsertPdfAtPosition"
+                OnAddFileClick="OpenFileDialog" ShowInsertButton="@(false)" />
             </div>
         </Left>
         <Right>
