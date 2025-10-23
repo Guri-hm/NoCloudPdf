@@ -444,18 +444,50 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             };
 
             function toLocalPx(clientX, clientY) {
-                const usingCaptured = (state.baseRectAtDown && state.active);
-                const b = usingCaptured ? state.baseRectAtDown : state.base.getBoundingClientRect();
-                const logicalW = (state.logicalWAtDown && state.active) ? state.logicalWAtDown : Math.max(1, Math.round(state.base.clientWidth || b.width || 1));
-                const logicalH = (state.logicalHAtDown && state.active) ? state.logicalHAtDown : Math.max(1, Math.round(state.base.clientHeight || b.height || 1));
-                const scaleFromRects = (b.width && logicalW) ? (b.width / logicalW) : 1;
-                const previewScale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : scaleFromRects;
-                const scale = previewScale || 1;
-                const xInScaled = clientX - b.left;
-                const yInScaled = clientY - b.top;
-                const localX = xInScaled / scale;
-                const localY = yInScaled / scale;
-                return { x: localX, y: localY, cssW: logicalW, cssH: logicalH };
+                try {
+                    // logical (unscaled) size
+                    const logicalW = (state.logicalWAtDown && state.active) ? state.logicalWAtDown : Math.max(1, Math.round(state.base.clientWidth || state.base.getBoundingClientRect().width || 1));
+                    const logicalH = (state.logicalHAtDown && state.active) ? state.logicalHAtDown : Math.max(1, Math.round(state.base.clientHeight || state.base.getBoundingClientRect().height || 1));
+
+                    // preview scale: prefer explicit previewZoom state, otherwise fallback to bounding rect ratio
+                    const bRect = state.base.getBoundingClientRect();
+                    const scaleFromRects = (bRect.width && logicalW) ? (bRect.width / logicalW) : 1;
+                    const previewScale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : scaleFromRects;
+                    const scale = previewScale || 1;
+
+                    // compute base offset relative to host (unscaled logical px)
+                    function getOffsetRelativeTo(element, ancestor) {
+                        let x = 0, y = 0;
+                        let el = element;
+                        while (el && el !== ancestor && el !== document.body) {
+                            x += el.offsetLeft || 0;
+                            y += el.offsetTop || 0;
+                            el = el.offsetParent;
+                        }
+                        return { x, y };
+                    }
+
+                    const rel = getOffsetRelativeTo(state.base, state.host);
+                    const hostRect = state.host.getBoundingClientRect();
+
+                    // left/top of base in viewport coordinates (scaled)
+                    const baseLeftInViewport = hostRect.left + rel.x * scale;
+                    const baseTopInViewport = hostRect.top + rel.y * scale;
+
+                    const xInScaled = clientX - baseLeftInViewport;
+                    const yInScaled = clientY - baseTopInViewport;
+                    const localX = xInScaled / scale;
+                    const localY = yInScaled / scale;
+
+                    return { x: localX, y: localY, cssW: logicalW, cssH: logicalH };
+                } catch (e) {
+                    // fallback to previous behavior on any error
+                    const b = state.base.getBoundingClientRect();
+                    const logicalW = Math.max(1, Math.round(state.base.clientWidth || b.width || 1));
+                    const logicalH = Math.max(1, Math.round(state.base.clientHeight || b.height || 1));
+                    const scale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
+                    return { x: (clientX - b.left) / scale, y: (clientY - b.top) / scale, cssW: logicalW, cssH: logicalH };
+                }
             }
 
             function rectPxToNormalized(rPx) {
