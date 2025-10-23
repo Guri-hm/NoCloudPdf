@@ -80,6 +80,7 @@ public class FileMetadata
     public bool IsPasswordProtected { get; set; } // パスワード保護フラグ
     public bool IsOperationRestricted { get; set; } // 操作制限フラグ
     public string? SecurityInfo { get; set; } // 詳細なセキュリティ情報
+    public int DefaultRotateAngle { get; set; } = 0; // デフォルト回転角度(ページ固有の回転情報が含まれるPDFでサムネイルとプレビューの傾きがずれるため)
     public List<Bookmark> Bookmarks { get; set; } = []; // PDFのしおりツリー（存在しない場合は空）   
 }
 

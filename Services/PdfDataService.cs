@@ -241,7 +241,8 @@ public class PdfDataService
                 IsPasswordProtected = wasPasswordProtected,
                 IsOperationRestricted = renderResult.isOperationRestricted,
                 SecurityInfo = renderResult.securityInfo,
-                Bookmarks = renderResult.bookmarks
+                Bookmarks = renderResult.bookmarks,
+                DefaultRotateAngle = renderResult.pageRotation
             };
 
             _model.Files[fileId] = fileMetadata;
@@ -263,6 +264,7 @@ public class PdfDataService
                     HasThumbnailError = false,
                     HasPageDataError = false,
                     ColorHsl = GenerateColorHsl(fileId),
+                    RotateAngle = fileMetadata.DefaultRotateAngle,
                     IsPasswordProtected = wasPasswordProtected,
                     IsOperationRestricted = renderResult.isOperationRestricted,
                 };
@@ -380,6 +382,7 @@ public class PdfDataService
         public bool isOperationRestricted { get; set; }
         public string securityInfo { get; set; } = "";
         public List<Bookmark> bookmarks { get; set; } = [];
+        public int pageRotation { get; set; } = 0; // ページのデフォルト回転角度(ページ固有の回転情報が含まれるPDFでサムネイルとプレビューの傾きがずれるためjs側で取得)
     }
 
     /// <summary>

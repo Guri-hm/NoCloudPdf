@@ -232,9 +232,24 @@ window.renderFirstPDFPage = async function (fileData, password) {
         // }
 
         // サムネイル生成
+        let pageRotation = 0;
         try {
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail });
+
+            try {
+                if (typeof page.getRotation === 'function') pageRotation = page.getRotation();
+                else if (typeof page.rotate !== 'undefined') pageRotation = page.rotate;
+            } catch (e) {
+                pageRotation = 0;
+            }
+            const normalizedRotation = ((Number(pageRotation) || 0) % 360 + 360) % 360;
+            pageRotation = normalizedRotation;
+
+            // getViewportは回転値を明示しないとページの回転情報を自動反映
+            // サムネイル表示時に加味する回転値と重複しないように明示的に0を指定
+            // サムネイルはrotation0で作成し，DOM生成時にページの回転値を加味
+            // プレビューは作成時に回転値を加味
+            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail, rotation: 0 });
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Math.round(viewport.width));
             canvas.height = Math.max(1, Math.round(viewport.height));
@@ -290,7 +305,8 @@ window.renderFirstPDFPage = async function (fileData, password) {
             isPasswordProtected,
             isOperationRestricted,
             securityInfo,
-            bookmarks
+            bookmarks,
+            pageRotation
         };
 
     } catch (error) {
@@ -336,16 +352,38 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
             openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
         }).promise;
         let thumbnail = "";
-
+        
         try {
             const page = await pdf.getPage(pageIndex + 1);
-            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail });
+            // getViewportは回転値を明示しないとページの回転情報を自動反映
+            // サムネイル表示時に加味する回転値と重複しないように明示的に0を指定
+            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail, rotation: 0 });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             const context = canvas.getContext('2d');
             await page.render({ canvasContext: context, viewport: viewport }).promise;
             thumbnail = canvas.toDataURL('image/png');
+            try {
+                if (window.__downloadThumbnailDirect) {
+                    const dataUrl = thumbnail; // data:image/png;base64,...
+                    const base64 = dataUrl.split(',')[1] || '';
+                    const binary = atob(base64);
+                    const len = binary.length;
+                    const u8 = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) u8[i] = binary.charCodeAt(i);
+                    const blob = new Blob([u8], { type: 'image/png' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `thumb_page_${(pageIndex + 1)}_rot${(typeof pageRotation !== 'undefined' ? pageRotation : 0)}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    // revoke を遅延してオブジェクトURLを破棄
+                    setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) { } }, 3000);
+                }
+            } catch (e) { console.debug('auto-download failed', e); }
         } catch (thumbErr) {
             thumbnail = "";
         }
