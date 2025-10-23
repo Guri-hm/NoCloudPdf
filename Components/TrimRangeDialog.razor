@@ -1,0 +1,245 @@
+@using NoCloudPdf.Models
+@inject IJSRuntime JSRuntime
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[250] p-4 animate-in fade-in duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden border border-gray-200 animate-in slide-in-from-bottom-4 duration-300 flex flex-col">
+            <!-- ヘッダー -->
+            <div class="text-white px-8 py-6 flex justify-between items-center shrink-0" style="background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);">
+                <div class="flex items-center gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold">トリミング範囲の設定</h2>
+                        <p class="text-sm opacity-90 mt-1">端からの余白（px）を指定してトリミング範囲を設定します</p>
+                    </div>
+                </div>
+                <button @onclick="Close" class="text-white hover:bg-white/20 rounded-full p-2 transition">
+                    <i class="fa-solid fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- 本体：横2列レイアウト -->
+            <div class="flex-1 overflow-hidden flex">
+                <!-- 左列：設定フォーム -->
+                <div class="w-1/2 p-8 overflow-y-auto space-y-6 border-r">
+                    <!-- 余白入力 -->
+                    <div class="bg-gray-50 p-4 rounded-lg space-y-4">
+                        <h3 class="font-bold text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-arrows-alt" style="color: rgb(5, 39, 103);"></i>
+                            余白（pixel）
+                        </h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">上</label>
+                                <input type="number" min="0" @bind="topMargin" @bind:event="oninput"
+                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">下</label>
+                                <input type="number" min="0" @bind="bottomMargin" @bind:event="oninput"
+                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">左</label>
+                                <input type="number" min="0" @bind="leftMargin" @bind:event="oninput"
+                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">右</label>
+                                <input type="number" min="0" @bind="rightMargin" @bind:event="oninput"
+                                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 適用範囲 -->
+                    <div class="bg-gray-50 p-4 rounded-lg space-y-3">
+                        <h3 class="font-bold text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-list" style="color: rgb(5, 39, 103);"></i>
+                            適用ページ
+                        </h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="applyRange" value="current" checked="@(applyRange == "current")"
+                                       @onchange='() => applyRange = "current"' class="w-4 h-4" />
+                                <span class="text-sm">現在のページのみ（@CurrentPageNumber ページ）</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="applyRange" value="all" checked="@(applyRange == "all")"
+                                       @onchange='() => applyRange = "all"' class="w-4 h-4" />
+                                <span class="text-sm">すべてのページ</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="applyRange" value="range" checked="@(applyRange == "range")"
+                                       @onchange='() => applyRange = "range"' class="w-4 h-4" />
+                                <span class="text-sm">ページ範囲を指定</span>
+                            </label>
+                            @if (applyRange == "range")
+                            {
+                                <div class="ml-6 flex items-center gap-2">
+                                    <input type="number" min="1" max="@TotalPages" @bind="rangeStart"
+                                           class="w-20 px-2 py-1 border rounded" />
+                                    <span>～</span>
+                                    <input type="number" min="1" max="@TotalPages" @bind="rangeEnd"
+                                           class="w-20 px-2 py-1 border rounded" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右列：プレビュー＋ボタン -->
+                <div class="w-1/2 flex flex-col">
+                    <!-- プレビューエリア（スクロール可能） -->
+                    <div class="flex-1 overflow-y-auto p-8 space-y-4">
+                        <h3 class="font-bold text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-eye" style="color: rgb(5, 39, 103);"></i>
+                            プレビュー
+                        </h3>
+                        <div class="relative rounded-lg overflow-hidden aspect-[3/4] flex items-center justify-center" style="background-color: var(--color-gray-100);">
+                            @if (!string.IsNullOrEmpty(PreviewImageSrc))
+                            {
+                                <img src="@PreviewImageSrc" class="max-w-full max-h-full object-contain" />
+                                <!-- トリム領域を赤枠で表示 -->
+                                <div class="absolute inset-0 pointer-events-none">
+                                    <svg class="w-full h-full" viewBox="0 0 @previewWidth @previewHeight" preserveAspectRatio="none">
+                                        <rect x="@trimX" y="@trimY" width="@trimWidth" height="@trimHeight"
+                                              fill="none" stroke="red" stroke-width="2" stroke-dasharray="5,5" />
+                                    </svg>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-gray-400">
+                                    <i class="fa-solid fa-image text-4xl"></i>
+                                    <p class="text-sm mt-2">プレビューなし</p>
+                                </div>
+                            }
+                        </div>
+                        <p class="text-xs text-gray-500 text-center">赤枠がトリミング範囲です</p>
+                    </div>
+
+                    <!-- ボタン（右下・固定） -->
+                    <div class="flex justify-end items-center gap-4 p-8 border-t shrink-0">
+                        <button @onclick="Close"
+                                class="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition">
+                            キャンセル
+                        </button>
+                        <button @onclick="Apply"
+                                class="px-6 py-2 rounded-lg text-white transition"
+                                style="background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);">
+                            適用
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<TrimRangeSettings> OnApply { get; set; }
+    [Parameter] public string PreviewImageSrc { get; set; } = "";
+    [Parameter] public int CurrentPageNumber { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; } = 1;
+    [Parameter] public TrimRangeSettings? InitialSettings { get; set; }
+
+    private int _topMargin = 0;
+    private int topMargin
+    {
+        get => _topMargin;
+        set { _topMargin = value; UpdatePreview(); }
+    }
+
+    private int _bottomMargin = 0;
+    private int bottomMargin
+    {
+        get => _bottomMargin;
+        set { _bottomMargin = value; UpdatePreview(); }
+    }
+
+    private int _leftMargin = 0;
+    private int leftMargin
+    {
+        get => _leftMargin;
+        set { _leftMargin = value; UpdatePreview(); }
+    }
+
+    private int _rightMargin = 0;
+    private int rightMargin
+    {
+        get => _rightMargin;
+        set { _rightMargin = value; UpdatePreview(); }
+    }
+    private string applyRange = "current";
+    private int rangeStart = 1;
+    private int rangeEnd = 1;
+
+    private int previewWidth = 400;
+    private int previewHeight = 566;
+    private double trimX = 0;
+    private double trimY = 0;
+    private double trimWidth = 400;
+    private double trimHeight = 566;
+
+    protected override void OnParametersSet()
+    {
+        if (InitialSettings != null)
+        {
+            _topMargin = InitialSettings.TopMargin;
+            _bottomMargin = InitialSettings.BottomMargin;
+            _leftMargin = InitialSettings.LeftMargin;
+            _rightMargin = InitialSettings.RightMargin;
+        }
+        rangeEnd = TotalPages;
+        UpdatePreview();
+    }
+
+    private void UpdatePreview()
+    {
+        // プレビュー画像のサイズを取得（仮に A4 想定で固定）
+        previewWidth = 400;
+        previewHeight = 566;
+
+        trimX = _leftMargin;
+        trimY = _topMargin;
+        trimWidth = Math.Max(0, previewWidth - _leftMargin - _rightMargin);
+        trimHeight = Math.Max(0, previewHeight - _topMargin - _bottomMargin);
+    }
+
+    private async Task Close()
+    {
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+
+    private async Task Apply()
+    {
+        var settings = new TrimRangeSettings
+        {
+            TopMargin = _topMargin,
+            BottomMargin = _bottomMargin,
+            LeftMargin = _leftMargin,
+            RightMargin = _rightMargin,
+            ApplyRange = applyRange,
+            RangeStart = rangeStart,
+            RangeEnd = rangeEnd
+        };
+
+        if (OnApply.HasDelegate)
+            await OnApply.InvokeAsync(settings);
+    }
+
+    public class TrimRangeSettings
+    {
+        public int TopMargin { get; set; }
+        public int BottomMargin { get; set; }
+        public int LeftMargin { get; set; }
+        public int RightMargin { get; set; }
+        public string ApplyRange { get; set; } = "current";
+        public int RangeStart { get; set; }
+        public int RangeEnd { get; set; }
+    }
+}

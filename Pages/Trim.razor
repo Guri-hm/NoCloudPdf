@@ -40,6 +40,7 @@
                         OnClick="OnToggleDrawingMode" />
                     <ActionButtonGroup T="string" Actions="rotateActions" />
                     <ActionButtonGroup T="string" Actions="zoomActions" />
+                    <ActionButtonGroup T="string" Actions="trimSettingsActions" />
 
                     <DropdownButton T="string" MenuId="trimMenu" MenuItems="applyTrimItems">
                         <Trigger>
@@ -193,6 +194,14 @@
 
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
+
+<TrimRangeDialog IsOpen="@isTrimRangeDialogOpen"
+    OnClose="CloseTrimRangeDialog"
+    OnApply="ApplyTrimRangeSettings"
+    PreviewImageSrc="@currentPreviewImage"
+    CurrentPageNumber="@displayedPageNumber"
+    TotalPages="@DisplayItems.Count"
+    InitialSettings="@initialTrimSettings" />
 
 @code {
     protected override void OnInitialized()
@@ -1055,7 +1064,7 @@
             isBusy = true;
             StateHasChanged();
             await Task.Yield();
-            
+
             // スナップショット（UI 再レンダリングで変わらないように）
             var displayList = DisplayItems.ToList();
             var pageCount = displayList.Count;
@@ -1160,4 +1169,119 @@
             StateHasChanged();
         }
     }
+
+    private bool isTrimRangeDialogOpen = false;
+    private string currentPreviewImage = "";
+    private TrimRangeDialog.TrimRangeSettings? initialTrimSettings;
+
+    private List<ActionButtonItem> trimSettingsActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "範囲を数値で設定",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ActivityZoneIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "トリミング範囲を数値で設定",
+            OnClick = EventCallback.Factory.Create(this, OpenTrimRangeDialog),
+        }
+    };
+
+    private async Task OpenTrimRangeDialog()
+    {
+        try
+        {
+            var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
+            if (DisplayItems[idx].RawData is PageItem page)
+            {
+                currentPreviewImage = await PdfDataService.GetPreviewImageAsync(page.Id) ?? "";
+            }
+
+            var existingTrim = PdfDataService.GetTrimRect(idx);
+            if (existingTrim != null)
+            {
+                // 正規化座標 -> pixel（仮に A4: 400x566）
+                int w = 400, h = 566;
+                initialTrimSettings = new TrimRangeDialog.TrimRangeSettings
+                {
+                    LeftMargin = (int)(existingTrim.X * w),
+                    TopMargin = (int)(existingTrim.Y * h),
+                    RightMargin = (int)((1 - existingTrim.X - existingTrim.Width) * w),
+                    BottomMargin = (int)((1 - existingTrim.Y - existingTrim.Height) * h)
+                };
+            }
+            else
+            {
+                initialTrimSettings = null;
+            }
+
+            isTrimRangeDialogOpen = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OpenTrimRangeDialog error: {ex.Message}");
+        }
+    }
+
+    private Task CloseTrimRangeDialog()
+    {
+        isTrimRangeDialogOpen = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task ApplyTrimRangeSettings(TrimRangeDialog.TrimRangeSettings settings)
+    {
+        try
+        {
+            isBusy = true;
+            StateHasChanged();
+
+            // pixel -> 正規化座標（仮 A4: 400x566）
+            int w = 400, h = 566;
+            double nx = (double)settings.LeftMargin / w;
+            double ny = (double)settings.TopMargin / h;
+            double nw = Math.Max(0, 1.0 - (double)(settings.LeftMargin + settings.RightMargin) / w);
+            double nh = Math.Max(0, 1.0 - (double)(settings.TopMargin + settings.BottomMargin) / h);
+
+            List<int> targetPages = new();
+            if (settings.ApplyRange == "current")
+            {
+                targetPages.Add(displayedPageNumber - 1);
+            }
+            else if (settings.ApplyRange == "all")
+            {
+                targetPages.AddRange(Enumerable.Range(0, DisplayItems.Count));
+            }
+            else if (settings.ApplyRange == "range")
+            {
+                int start = Math.Max(0, settings.RangeStart - 1);
+                int end = Math.Min(DisplayItems.Count - 1, settings.RangeEnd - 1);
+                targetPages.AddRange(Enumerable.Range(start, end - start + 1));
+            }
+
+            foreach (var idx in targetPages)
+            {
+                await PdfDataService.SetTrimRect(idx, nx, ny, nw, nh);
+            }
+
+            ShowMessage("トリミング範囲を適用しました", MessageType.Success);
+            isTrimRangeDialogOpen = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ApplyTrimRangeSettings error: {ex.Message}");
+            ShowMessage("トリミング範囲の適用に失敗しました", MessageType.Error);
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
+
 }
