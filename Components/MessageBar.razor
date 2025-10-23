@@ -4,7 +4,10 @@
 {
     <div class="fixed top-4 right-4 z-50 max-w-md" style="min-width:180px;">
         <div class="w-full h-2 rounded-t-lg overflow-hidden bg-gray-300">
-            <div class="@BarColor message-bar-anim h-full transition-all" style="width:100%" @key="Message"></div>
+            <div class="@BarColor message-bar-anim h-full transition-all"
+                 style="width:100%; animation-duration:@($"{(AutoCloseMs ?? 3000)}ms");"
+                 @key="_messageInstanceId">
+            </div>
         </div>
         <div class="px-4 py-2 rounded-b-lg shadow transition-all duration-300 @BoxColor">
             <div class="flex items-start gap-2">
@@ -42,15 +45,17 @@
     };
 
     private CancellationTokenSource? _autoCloseCts;
+    private int _messageInstanceId = 0;
 
     protected override async Task OnParametersSetAsync()
     {
-        // 前回の自動閉じ処理をキャンセル
         _autoCloseCts?.Cancel();
         _autoCloseCts = null;
 
         if (!string.IsNullOrEmpty(Message) && AutoCloseMs.HasValue)
         {
+            _messageInstanceId++;
+
             _autoCloseCts = new CancellationTokenSource();
             try
             {
@@ -60,7 +65,6 @@
             }
             catch (TaskCanceledException)
             {
-                // キャンセル時は何もしない
             }
         }
     }
