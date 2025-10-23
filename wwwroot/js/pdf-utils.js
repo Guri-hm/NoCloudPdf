@@ -1494,42 +1494,90 @@ window.cropPdfPageToTrim = async function (pdfBase64, normX, normY, normWidth, n
 };
 
 // ベクトルのままCropBoxでトリミング（ラスタ化しない）
-window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWidth, normHeight) {
+window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWidth, normHeight, rotateAngle = 0) {
     try {
         const bytes = base64ToUint8Array(pdfBase64);
         const { PDFDocument, PDFName } = PDFLib;
 
-        // 読み込み
         const srcDoc = await PDFDocument.load(bytes);
         const srcPage = srcDoc.getPages()[0];
         const pageW = srcPage.getWidth();
         const pageH = srcPage.getHeight();
 
-        // 正規化入力を数値化・クランプ
         const nx = Math.max(0, Math.min(1, Number(normX) || 0));
         const ny = Math.max(0, Math.min(1, Number(normY) || 0));
         const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
 
-        // 左下基準の実座標に変換
-        const llx = nx * pageW;
-        // UIの normY は上基準の想定 → PDFは下基準なので変換：下端 = pageH * (1 - normY - normHeight)
-        const lly = pageH * (1 - ny - nh);
-        const urx = llx + (nw * pageW);
-        const ury = lly + (nh * pageH);
+        // 回転を正規化（0/90/180/270 に丸め）
+        const angle = ((Number(rotateAngle) || 0) % 360 + 360) % 360;
+        const quant = (Math.round(angle / 90) * 90) % 360;
 
-        // 範囲補正
-        const clampedLlX = Math.max(0, Math.min(pageW, llx));
-        const clampedLlY = Math.max(0, Math.min(pageH, lly));
-        const clampedUrX = Math.max(0, Math.min(pageW, urx));
-        const clampedUrY = Math.max(0, Math.min(pageH, ury));
+        let llx, lly, urx, ury;
 
-        // 新規PDFにページをコピーして CropBox を設定（MediaBox は触らない）
+        if (quant === 0) {
+            // 元の処理（UI上の top-left 基準 -> PDF の left-bottom 基準に変換）
+            llx = nx * pageW;
+            lly = pageH * (1 - ny - nh);
+            urx = llx + (nw * pageW);
+            ury = lly + (nh * pageH);
+        } else {
+            // 表示上の幅/高さ（回転で入れ替わる可能性あり）
+            const D_w = (quant % 180 === 0) ? pageW : pageH;
+            const D_h = (quant % 180 === 0) ? pageH : pageW;
+
+            const sx = nx * D_w;
+            const sy = ny * D_h;
+            const sw = Math.max(1, nw * D_w);
+            const sh = Math.max(1, nh * D_h);
+
+            // 中心を原点とした回転変換で display->PDF 座標へ変換
+            const cxD = D_w / 2;
+            const cyD = D_h / 2;
+            const cxP = pageW / 2;
+            const cyP = pageH / 2;
+            const theta = -quant * Math.PI / 180;
+            const cosT = Math.cos(theta);
+            const sinT = Math.sin(theta);
+
+            function displayToPdf(x_d, y_d) {
+                // display: origin top-left, y down -> 中心基準で y up positive にする
+                const x_c = x_d - cxD;
+                const y_c = cyD - y_d;
+                const x_pc = x_c * cosT - y_c * sinT;
+                const y_pc = x_c * sinT + y_c * cosT;
+                return { x: x_pc + cxP, y: y_pc + cyP };
+            }
+
+            const tl = displayToPdf(sx, sy);
+            const tr = displayToPdf(sx + sw, sy);
+            const bl = displayToPdf(sx, sy + sh);
+            const br = displayToPdf(sx + sw, sy + sh);
+
+            const xs = [tl.x, tr.x, bl.x, br.x];
+            const ys = [tl.y, tr.y, bl.y, br.y];
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            const minY = Math.min(...ys);
+            const maxY = Math.max(...ys);
+
+            llx = minX;
+            lly = minY;
+            urx = maxX;
+            ury = maxY;
+        }
+
+        // ページ範囲内にクランプ
+        const clampedLlX = Math.max(0, Math.min(pageW, Math.round(llx)));
+        const clampedLlY = Math.max(0, Math.min(pageH, Math.round(lly)));
+        const clampedUrX = Math.max(0, Math.min(pageW, Math.round(urx)));
+        const clampedUrY = Math.max(0, Math.min(pageH, Math.round(ury)));
+
+        // 新規PDFにコピーして CropBox を設定（既存と同様）
         const outDoc = await PDFDocument.create();
         const [copied] = await outDoc.copyPages(srcDoc, [0]);
         outDoc.addPage(copied);
 
-        // CropBox は元ページの座標系で指定（LLX, LLY, URX, URY）
         copied.node.set(PDFName.of('CropBox'), outDoc.context.obj([
             Math.round(clampedLlX),
             Math.round(clampedLlY),

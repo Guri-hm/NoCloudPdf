@@ -1112,13 +1112,15 @@
                 {
                     try
                     {
+                        var rotate = page.RotateAngle % 360;
                         pageDataToUse = await JSRuntime.InvokeAsync<string>(
                             "cropPdfPageToTrimVector",
                             page.PageData,
                             info.Trim.X,
                             info.Trim.Y,
                             info.Trim.Width,
-                            info.Trim.Height
+                            info.Trim.Height,
+                            rotate
                         );
 
                         if (string.IsNullOrEmpty(pageDataToUse))
