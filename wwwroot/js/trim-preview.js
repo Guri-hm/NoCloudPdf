@@ -50,18 +50,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         }
 
         const baseRect = base.getBoundingClientRect();
-        const hostRect = host.getBoundingClientRect();
 
-        // previewScale: 現在のプレビュー縮尺（デフォルト1）
-        const previewScale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
+        function getOffsetRelativeTo(element, ancestor) {
+            let x = 0, y = 0;
+            let el = element;
+            while (el && el !== ancestor && el !== document.body) {
+                x += el.offsetLeft || 0;
+                y += el.offsetTop || 0;
+                el = el.offsetParent;
+            }
+            return { x, y };
+        }
 
-        // relLeft/Top は getBoundingClientRect がスケール済みの値を返すため
-        // オーバーレイを host 内で正しく配置するには縮尺で逆除算する
-        const relLeft = Math.round((baseRect.left - hostRect.left) / previewScale);
-        const relTop = Math.round((baseRect.top - hostRect.top) / previewScale);
+        const off = getOffsetRelativeTo(base, host);
+        const relLeft = Math.round(off.x);
+        const relTop = Math.round(off.y);
 
-        const cssW = Math.max(1, Math.round(base.clientWidth || Math.round(baseRect.width || 0)));
-        const cssH = Math.max(1, Math.round(base.clientHeight || Math.round(baseRect.height || 0)));
+        const cssW = Math.max(1, Math.round(base.clientWidth || baseRect.width || 0));
+        const cssH = Math.max(1, Math.round(base.clientHeight || baseRect.height || 0));
 
         container.style.left = relLeft + 'px';
         container.style.top = relTop + 'px';
