@@ -1,0 +1,93 @@
+/* プレビュー全体のスケーリング（カスタムプロパティで制御） */
+.preview-zoom-inner {
+    width: 100%;               /* 重要: 親幅に収める */
+    box-sizing: border-box;
+    transform: scale(var(--preview-zoom, 1));
+    transform-origin: 0 0;
+}
+/* ビューポート側の振る舞い（横スクロールを内側に閉じる） */
+.preview-zoom-viewport {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    cursor: default;
+}
+.preview-zoom-viewport.pan-active {
+    cursor: grab;
+}
+.preview-zoom-viewport.pan-active.panning,
+.preview-zoom-viewport.panning {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
+#thumbnail-area {
+    /* --thumbnail-width を flex-basis にして親からはみ出さないようにする */
+    flex: 0 0 var(--thumbnail-width);
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden; /* 横ははみ出さない */
+}
+
+/* 上部バーを左右列に分割（Bootstrapのcolイメージ） */
+.topbar-columns {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+/* 左列: コンテンツ幅に応じて収まる */
+.topbar-left-col {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 0 0 auto; /* 固定寄り：内容に合わせる */
+}
+
+/* 真ん中仕切り（視覚） */
+.topbar-divider {
+    width: 1px;
+    background: rgba(156,163,175,0.25); /* gray-400/25 */
+    height: 2.2rem;
+    align-self: center;
+    margin: 0 0.5rem;
+    flex: 0 0 auto;
+}
+
+/* 右列: 残り幅を受け取りつつ内部で折り返し */
+.topbar-right-col {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1 1 0%;      /* 残りスペースを占有 */
+    min-width: 0;      /* shrinkable にする（重要） */
+    justify-content: space-between;
+}
+
+/* 右列内：実際のボタン群（左寄せで折り返す） */
+.topbar-actions-wrap {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;   /* 折り返す */
+    align-items: center;
+    min-width: 0;
+}
+
+/* 右端の主要ボタン領域（右寄せ） */
+.topbar-primary {
+    display: flex;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+    margin-left: 0.75rem;
+}
+
+/* スマホで縦並びになっても余白を確保 */
+@media (max-width: 640px) {
+    .topbar-columns {
+        gap: 0.5rem;
+    }
+    .topbar-divider { display: none; } /* 狭い画面で仕切りを消す */
+    .topbar-left-col { gap: 0.5rem; }
+    .topbar-actions-wrap { gap: 0.4rem; }
+}

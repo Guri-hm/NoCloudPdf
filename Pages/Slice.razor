@@ -1,0 +1,1311 @@
+﻿@page "/slice"
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject PdfDataService PdfDataService
+@inject CompletionStateService CompletionState
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using System.IO
+@using NoCloudPdf.Models
+@using NoCloudPdf.Services
+@using NoCloudPdf.Components
+
+<PageTitle>NoCloudPDF-スライス</PageTitle>
+
+@if (IsFilesLoaded && !CompletionState.ShowMergedResult)
+{
+    <div id="drop-area" class="relative h-screen flex flex-col">
+        <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
+        
+        <!-- 上部固定バー -->
+        <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
+            <div
+                class="flex items-start justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+                <div class="flex flex-wrap gap-2 items-center">
+                    <ActionButtonGroup T="string" Actions="resetActions" />
+                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
+                    <h1 class="hidden md:inline text-lg font-bold">スライス
+                        <Tooltip>範囲選択した部分のみ，画像として書き出します。</Tooltip>
+                    </h1>
+                    <div class="ml-4 flex items-center gap-2">
+                        <input type="number"
+                            min="1"
+                            max="@Math.Max(1, DisplayItems.Count)"
+                            value="@displayedPageNumber"
+                            @onchange="OnTopBarPageInputChanged"
+                            class="w-10 px-2 py-1 rounded border border-gray-300 text-sm"
+                            title="ページ番号を入力して移動" />
+                        <span class="text-sm">/ @DisplayItems.Count</span>
+                    </div>
+                    <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
+                        OnClick="OnToggleDrawingMode" />
+                    <ActionButtonGroup T="string" Actions="zoomActions" />
+
+                    <DropdownButton T="string" MenuId="trimMenu" MenuItems="applyTrimItems">
+                        <Trigger>
+                            <DropdownTriggerButton>
+                                <ActivityZoneIcon/>
+                                <span class="hidden xl:inline">書き出し範囲</span>
+                            </DropdownTriggerButton>
+                        </Trigger>
+                    </DropdownButton>
+                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
+                        <input type="checkbox" @bind="useRasterize" class="form-checkbox h-5 w-5 accent-blue-500" />
+                        ラスタ化
+                    </label>
+                </div>
+                <ActionButtonGroup T="string" Actions="primaryActions" />
+            </div>
+        </div>
+        <SplitPane LeftWidth="@thumbnailAreaWidth" LeftWidthChanged="@(async w => { thumbnailAreaWidth = w; StateHasChanged(); })">
+            <Left>
+                <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
+                    @for (int i = 0; i < DisplayItems.Count; i++)
+                    {
+                        var index = i;
+                        var item = DisplayItems[i];
+                        <TrimThumbnailCard Item="@item"
+                                        IsSelected="@(selectedPageIndex == index)"
+                                        HasTrimRect="@(trimRects.ContainsKey(index))"
+                                        OnClick="@(() => SelectPage(index))" />
+                    }
+                    <FileAddArea
+                    Position="@DisplayItems.Count"
+                    OnInsertBlankPage="InsertBlankPage"
+                    OnInsertPdfAtPosition="InsertPdfAtPosition"
+                    OnAddFileClick="OpenFileDialog" ShowInsertButton="@(false)" />
+                </div>
+            </Left>
+            <Right>
+                <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
+                    <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
+                        <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
+                        <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+                    </svg>
+                </div>
+
+                <div class="preview-zoom-viewport w-full h-full">
+                    <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
+                        @for (int i = 0; i < DisplayItems.Count; i++)
+                        {
+                            var item = DisplayItems[i];
+                            <TrimPreviewItem Item="@item" Index="@i"  IsDrawingMode="@isDrawingMode" />
+                        }
+                    </div>
+                </div>
+            </Right>
+        </SplitPane>
+        <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
+                @onclick="MergeTrimmedPagesAsync">
+                完了
+            </button>
+        </div>    
+    </div>
+}
+@if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
+{
+    <!-- 初期画面：ファイル選択 -->
+    <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
+}
+
+@if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
+{
+    <!-- PC: 横並び, タブレット以下: 縦並び -->
+    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
+        <div class="flex items-center px-4 py-2 h-16">
+            <ActionButtonGroup T="string" Actions="backToEditActions" />
+        </div>
+    </div>
+
+    <!-- メインエリア -->
+    <div class="overflow-hidden h-[calc(100vh-4rem)]">
+        <div class="flex flex-col md:flex-row h-full">
+            <!-- PDFプレビュー -->
+            <PdfPreviewCanvas MergedPageCount="mergedPageCount" />
+            <!-- 情報パネル（PCのみ表示） -->
+            <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
+                <InfoPanel Title="完了" FileName="@mergedFileName" FileSize="@mergedFileSize" PageCount="@mergedPageCount">
+                    <SplitButton
+                        PrimaryLabel="PDFでダウンロード"
+                        OnPrimaryClick="DownloadMergedPdf"
+                        MenuItems="@downloadMenuItems" />
+                    <button
+                        class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="StartNew">
+                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        新規作成
+                    </button>
+                </InfoPanel>
+            </div>
+        </div>
+        <!-- 下部スライドアップメニュー（タブレット以下のサイズのみ） -->
+        <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
+            <div
+                class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <span>完了</span>
+                    </div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
+                    <div class="text-gray-600 text-sm">ページ数: @mergedPageCount</div>
+                    <SplitButton
+                        PrimaryLabel="PDFでダウンロード"
+                        OnPrimaryClick="DownloadMergedPdf"
+                        MenuItems="@downloadMenuItems" />
+                    <button
+                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="StartNew">
+                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        新規作成
+                    </button>
+                </div>
+                <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <!-- 展開ボタン -->
+            @if (!isMenuOpen)
+            {
+                <button
+                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
+                    @onclick="() => isMenuOpen = true">
+                    <i class="fa-solid fa-check-circle text-green-600 text-2xl"></i>
+                    <span>完了</span>
+                    <i class="fa-solid fa-chevron-up ml-2"></i>
+                </button>
+            }
+        </div>
+        <!-- メニュー展開時はPDFのスクロールを禁止 -->
+        @if (isMenuOpen)
+        {
+            <div class="fixed inset-0 bg-black/30 z-[199] touch-none" @onclick="() => isMenuOpen = false"></div>
+        }
+    </div>
+}
+@if (isBusy)
+{
+    <LoadingOverlay Message="処理中です..." />
+}
+<!-- メッセージ表示エリア -->
+@if (message != null && !string.IsNullOrEmpty(message.Text))
+{
+    <MessageBar Message="@message.Text"
+                Type="@message.Type"
+                OnClose="ClearMessage"
+                AutoCloseMs="5000" />
+}
+<PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
+
+<!-- ファイル選択用の隠しinput -->
+<InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
+
+@if(isTrimRangeDialogOpen){
+    <TrimRangeDialog 
+        OnClose="CloseTrimRangeDialog"
+        OnApply="ApplyTrimRangeSettings"
+        PreviewImageSrc="@currentPreviewImage"
+        CurrentPageNumber="@displayedPageNumber"
+        TotalPages="@DisplayItems.Count"
+        InitialTrimRectNormalized="@InitialTrimRectNormalized"
+        OnError="OnDialogError" />
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        PdfDataService.OnChange += OnServiceChanged;
+        PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
+
+        // ページ単位表示を強制
+        PdfDataService.SwitchDisplayMode(DisplayMode.Page);
+
+        // 完了状態をリセット
+        CompletionState.ResetAll();
+    }
+
+    private void OnServiceChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnDialogError(string message)
+    {
+        // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
+        Console.WriteLine($"OnDialogError called: {message}");
+        isTrimRangeDialogOpen = false;
+        ShowMessage(message, MessageType.Error);
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    // 表示中の現在ページ番号を変更
+    [JSInvokable("SetVisiblePageFromJs")]
+    public Task SetVisiblePageFromJs(int pageIndex)
+    {
+        try
+        {
+            if (pageIndex < 0) pageIndex = 0;
+            if (pageIndex >= DisplayItems.Count) pageIndex = Math.Max(0, DisplayItems.Count - 1);
+            previewIndex = pageIndex;
+            displayedPageNumber = pageIndex + 1;
+            InvokeAsync(StateHasChanged);
+        }
+        catch { }
+        return Task.CompletedTask;
+    }
+
+    // 上部バーの入力でページ移動
+    private async Task OnTopBarPageInputChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e?.Value?.ToString(), out var v))
+        {
+            var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
+            displayedPageNumber = target;
+            var targetIndex = target - 1;
+            try
+            {
+                // スクロール移動
+                await JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
+            }
+            catch { }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        PdfDataService.OnChange -= OnServiceChanged;
+
+        try
+        {
+            if (_windowResizeRegistered)
+            {
+                try { await JSRuntime.InvokeVoidAsync("unregisterWindowResize"); } catch { }
+                _windowResizeRegistered = false;
+            }
+        }
+        catch { }
+
+        try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
+        _visibleObserverLastCount = -1;
+
+        try { await JSRuntime.InvokeVoidAsync("unregisterPanelResize"); } catch { }
+        try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
+
+        try
+        {
+            if (_dropAreaRegistered)
+            {
+                try { await JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area"); } catch { }
+                _dropAreaRegistered = false;
+            }
+        }
+        catch { }
+
+        try { passwordTcs?.TrySetCanceled(); } catch { }
+        passwordTcs = null;
+
+        try { _dotNetRef?.Dispose(); } catch { }
+        _dotNetRef = null;
+    }
+
+    private bool isBusy = false;
+    private string? mergedPdfUrl;
+    private MessageInfo? message;
+    private void ShowMessage(string? text, MessageType type)
+    {
+        message = new MessageInfo { Text = text ?? string.Empty, Type = type };
+        StateHasChanged();
+    }
+
+    private void ClearMessage()
+    {
+        message = null;
+    }
+    // 統一アーキテクチャ対応プロパティ
+    private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
+    private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
+    private bool IsFilesLoaded => DisplayItems.Any();
+
+    private int previewIndex = -1;
+
+    // ファイル単位表示時のファイル内ページ番号（0始まり）
+    // プレビュー中のファイル内で、何ページ目を表示しているか
+    private int filePageIndex = 0;
+    private DotNetObjectReference<Slice>? _dotNetRef;
+    private bool isDragOver = false;
+    private bool isMenuOpen = false;
+    private string mergedFileName = "";
+    private string mergedFileSize = "";
+    private int mergedPageCount = 0;
+
+    private int GetCurrentFilePageIndex()
+    {
+        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
+            return 0;
+        return filePageIndex;
+    }
+    private int GetCurrentFilePageCount()
+    {
+        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
+            return 1;
+        return DisplayItems[previewIndex].PageCount;
+    }
+
+    private List<ToggleButtonItem<bool>> toggleItems = new()
+    {
+        new ToggleButtonItem<bool>
+        {
+            Value = true,
+            Label = "スライス",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(SliceIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<bool>
+        {
+            Value = false,
+            Label = "パン",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(PanIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            }
+        }
+    };
+
+    private async Task OnToggleDrawingMode(bool drawingMode)
+    {
+        // drawingMode == false の時にパンを有効にする
+        isDrawingMode = drawingMode;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setPreviewPanEnabled", !drawingMode);
+        }
+        catch { }
+    }
+
+    private List<SplitButton.MenuActionItem> downloadMenuItems => new()
+    {
+        new SplitButton.MenuActionItem
+        {
+            Label = "PDFでダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadMergedPdf)
+        },
+        new SplitButton.MenuActionItem
+        {
+            Label = "PNG画像でダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadMergedPng)
+        }
+    };
+
+    private List<ActionButtonItem> primaryActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "完了",
+            IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
+            Title = "完了",
+            OnClick = EventCallback.Factory.Create(this, MergeTrimmedPagesAsync),
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
+            IconPosition = "right",
+            TextColor = "text-white"
+        }
+    };
+
+    private async Task AddPdfFile()
+    {
+        await OpenFileDialog();
+    }
+
+    // ファイルダイアログを開く
+    private async Task OpenFileDialog()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening file dialog: {ex.Message}");
+            ShowMessage($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    // その他のメソッド
+    private void BackToEdit()
+    {
+        CompletionState.ResetAll();
+        StateHasChanged();
+    }
+
+    private void StartNew()
+    {
+        CompletionState.ResetAll(); // グローバルな完了フラグをリセット
+
+        AppResetHelper.ResetPage(
+            PdfDataService,
+            () => { /* ページ固有の状態リセット */ },
+            () => { 
+                mergedPdfUrl = null;
+                mergedFileName = "";
+                mergedFileSize = "";
+                mergedPageCount = 0;
+            },
+            msg => ShowMessage(msg, MessageType.Error),
+            StateHasChanged
+        );
+    }
+
+    private Task RotateAllLeft() => RotateAll(-90);
+    private Task RotateAllRight() => RotateAll(90);
+    private async Task RotateAll(int angle)
+    {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+
+        isBusy = false;
+        StateHasChanged();
+
+        // 回転後は矩形をクリア
+        trimRects.Clear();
+        foreach (var item in previewItems)
+        {
+            item.TrimRect = null;
+        }
+    }
+
+    // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
+    public static Slice? _currentInstance;
+
+    // 空白ページを挿入
+    public async Task InsertBlankPage(int position)
+    {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        await PdfDataService.InsertBlankPageWithDisplayModeAsync(
+            CurrentDisplayMode, DisplayItems, position);
+
+        isBusy = false;
+        StateHasChanged();
+    }
+
+    // PDF挿入
+    public async Task InsertPdfAtPosition(int position)
+    {
+        await PdfDataService.OpenInsertPdfDialogAsync(
+            CurrentDisplayMode,
+            DisplayItems,
+            position,
+            pos => insertPosition = pos,
+            msg => ShowMessage(msg, MessageType.Error)
+        );
+    }
+
+    private int insertPosition = -1;
+
+    // 挿入用ファイル選択処理
+    private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
+    {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        await PdfDataService.HandleFileInputAsync(
+            e,
+            insertPosition >= 0 ? insertPosition : null,
+            msg => { ShowMessage(msg, MessageType.Error); },
+            msg => { ShowMessage(msg, MessageType.Warn); }
+        );
+        insertPosition = -1;
+        isBusy = false;
+        StateHasChanged();
+    }
+
+    private List<ActionButtonItem> resetActions => new()
+    {
+        new ActionButtonItem
+        {
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ResetIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5"); // 必要に応じてサイズ調整
+                builder.CloseComponent();
+            },
+            Title = "最初からやり直す",
+            OnClick = EventCallback.Factory.Create(this, StartNew),
+            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded",
+            TextColor = "text-black"
+        }
+    };
+
+    private List<ActionButtonItem> backToEditActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "編集に戻る",
+            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Title = "編集に戻る",
+            OnClick = EventCallback.Factory.Create(this, BackToEdit),
+        }
+    };
+
+    private List<ActionButtonItem> rotateActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "左",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateLeftIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "左回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllLeft),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Label = "右",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateRightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "右回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllRight),
+            IconPosition = "left"
+        }
+    };
+
+    private List<ActionButtonItem> zoomActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "幅に合わせる",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitWidthIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "幅に合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewWidth),
+        },
+        new ActionButtonItem
+        {
+            Label = "実際のサイズ",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ViewRealSizeIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "実際のサイズ",
+            OnClick = EventCallback.Factory.Create(this, SetPreviewToActualSize),
+        },
+        new ActionButtonItem
+        {
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomOutIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "縮小",
+            OnClick = EventCallback.Factory.Create(this, ZoomOut),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomInIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "拡大",
+            OnClick = EventCallback.Factory.Create(this, ZoomIn),
+            IconPosition = "left"
+        }
+    };
+
+    private List<DropdownMenuItem> applyTrimItems => new()
+    {
+        new DropdownMenuItem
+        {
+        Label = "選択中の範囲を全ページに適用",
+        OnClick = EventCallback.Factory.Create(this,ApplyCurrentTrimToAll)
+        },
+        new DropdownMenuItem
+        {
+        Label = "すべての範囲をクリア",
+        OnClick = EventCallback.Factory.Create(this, ClearAllTrims)
+        }
+    };
+
+    // 現在表示ページのトリム矩形を取得して全ページへ適用する
+    private async Task ApplyCurrentTrimToAll()
+    {
+        if (DisplayItems == null || DisplayItems.Count == 0)
+        {
+            ShowMessage("適用対象がありません。", MessageType.Warn);
+            return;
+        }
+
+        var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
+        var trimInfo = PdfDataService.GetTrimRect(idx);
+        if (trimInfo == null)
+        {
+            ShowMessage("現在ページにトリミング範囲が設定されていません。", MessageType.Warn);
+            return;
+        }
+
+        isBusy = true;
+        StateHasChanged();
+        try
+        {
+            for (int i = 0; i < DisplayItems.Count; i++)
+            {
+                await PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
+            }
+            ShowMessage("現在のトリム範囲をすべてのページに適用しました", MessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ApplyCurrentTrimToAll error: {ex.Message}");
+            ShowMessage("全ページへの適用に失敗しました", MessageType.Error);
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearAllTrims()
+    {
+        try
+        {
+            var count = DisplayItems?.Count ?? 0;
+            for (int i = 0; i < count; i++)
+            {
+                try { PdfDataService.ClearTrimRect(i); } catch { }
+            }
+
+            try { trimRects.Clear(); } catch { }
+            try
+            {
+                if (previewItems != null)
+                {
+                    for (int i = 0; i < previewItems.Count; i++)
+                    {
+                        previewItems[i].TrimRect = null;
+                    }
+                }
+            }
+            catch { }
+
+            for (int i = 0; i < count; i++)
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", Array.Empty<object>());
+                }
+                catch
+                {
+                }
+            }
+
+            ShowMessage("すべてのトリミング範囲をクリアしました", MessageType.Success);
+            StateHasChanged();
+        }
+        catch
+        {
+            ShowMessage("トリミング範囲のクリアに失敗しました", MessageType.Error);
+            StateHasChanged();
+        }
+    }    
+
+    [JSInvokable]
+    public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
+    {
+        isBusy = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await PdfDataService.HandleDroppedFileAsync(
+                fileName,
+                base64Data,
+                msg => { ShowMessage(msg, MessageType.Error); },
+                msg => { ShowMessage(msg, MessageType.Warn); },
+                async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
+                async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
+            );
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool isPasswordDialogOpen = false;
+    private string passwordDialogFileName = "";
+    private TaskCompletionSource<string?>? passwordTcs;
+
+    public Task<string?> ShowPasswordInputDialogAsync(string fileName)
+    {
+        isPasswordDialogOpen = true;
+        passwordDialogFileName = fileName;
+        passwordTcs = new TaskCompletionSource<string?>();
+        StateHasChanged();
+        return passwordTcs.Task;
+    }
+
+    private void OnPasswordDialogClose(string? password)
+    {
+        isPasswordDialogOpen = false;
+        passwordTcs?.SetResult(password);
+        passwordTcs = null;
+        StateHasChanged();
+    }
+
+    private bool _renderedMergedPages = false;
+    private bool _dropAreaRegistered = false;
+    private bool previewZoomInitialized = false;
+    private int displayedPageNumber = 1;
+    private int _visibleObserverLastCount = -1;
+    private bool _windowResizeRegistered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _currentInstance = this;
+            _dotNetRef = DotNetObjectReference.Create(this);
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
+                _windowResizeRegistered = true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"registerWindowResize failed: {ex.Message}");
+            }
+        }
+
+        if (IsFilesLoaded && DisplayItems.Any())
+        {
+            // プレビュー画像を倍率1で初期表示
+            if (!previewZoomInitialized)
+            {
+                await ApplyPreviewZoomAsync();
+                previewZoomInitialized = true;
+            }
+            if (DisplayItems.Count != _visibleObserverLastCount)
+            {
+                try
+                {   
+                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container", 1000);
+                    _visibleObserverLastCount = DisplayItems.Count;
+                }
+                catch { _visibleObserverLastCount = -1; }
+            }
+            // サムネイル描画
+            foreach (var item in DisplayItems)
+            {
+                await JSRuntime.InvokeVoidAsync("drawImageToCanvas", $"trim-thumb-{item.Id}", item.Thumbnail);
+            }
+        }
+        else
+        {
+            if (_visibleObserverLastCount != -1)
+            {
+                try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
+                _visibleObserverLastCount = -1;
+            }
+        }
+
+        // 初期画面のときのみ登録
+        if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
+        {
+            await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
+        }
+
+        // drop-areaが表示され、まだ登録していない場合のみ
+        if (!_dropAreaRegistered && IsFilesLoaded && DisplayItems.Any())
+        {
+            await JSRuntime.InvokeVoidAsync("registerDropArea", "drop-area", _dotNetRef);
+            _dropAreaRegistered = true;
+        }
+        else if (_dropAreaRegistered && (!IsFilesLoaded || !DisplayItems.Any()))
+        {
+            // drop-areaが消えたらフラグを戻す（必要ならJSでunregisterも）
+            _dropAreaRegistered = false;
+        }
+
+        if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl) && mergedPageCount > 0 && !_renderedMergedPages)
+        {
+            _renderedMergedPages = true;
+            var canvasIds = Enumerable.Range(0, mergedPageCount)
+            .Select(i => $"merged-canvas-{i}")
+            .ToArray();
+            await JSRuntime.InvokeVoidAsync("renderPdfPages", mergedPdfUrl, canvasIds);
+        }
+        else if (!CompletionState.ShowMergedResult)
+        {
+            _renderedMergedPages = false;
+        }
+
+    }
+
+    // 利用可能幅をjavascriptからうけとって幅を調節
+    [JSInvokable("OnWindowResizedFromJs")]
+    public Task OnWindowResizedFromJs(int availableWidth, int sidebarWidth)
+    {
+        try
+        {
+            if (isResizingPanel) return Task.CompletedTask;
+
+            var computed = (int)Math.Round(availableWidth * 0.25);
+
+            var clamped = Math.Max(200, Math.Min( Math.Min(600, computed), (int)(BrowserViewportWidth() - 260) ));
+
+            thumbnailAreaWidth = clamped;
+            StateHasChanged();
+
+            _ = JSRuntime.InvokeVoidAsync("applyThumbnailWidth", clamped);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public void SetDragOver(bool over)
+    {
+        isDragOver = over;
+        StateHasChanged();
+    }
+
+    private async void DownloadMergedPdf()
+    {
+        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
+            return;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync(
+            "downloadFileFromUrl",
+            mergedPdfUrl,
+            mergedFileName,
+            "application/pdf"
+            );
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"PDFのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    private async void DownloadMergedPng()
+    {
+        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
+            return;
+
+        var pdfUrls = new List<string> { mergedPdfUrl };
+        var pdfNames = new List<string> { mergedFileName };
+        var zipName = Path.ChangeExtension(mergedFileName, ".zip");
+
+        try
+        {
+            // JSでPNGまたはZIPダウンロードを実行
+            await JSRuntime.InvokeVoidAsync(
+            "downloadAllPdfsAsPngZip",
+            pdfUrls,
+            pdfNames,
+            zipName
+            );
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"PNGダウンロードに失敗しました: {ex.Message}",MessageType.Error);
+            StateHasChanged();
+        }
+    }
+
+    private bool isDrawingMode = true;
+    private int selectedPageIndex = -1;
+
+
+    // リサイズ関連
+    private int thumbnailAreaWidth = 300;
+    private bool isResizingPanel = false;
+    private double resizeStartX = 0;
+    private int resizeStartWidth = 0;
+
+    private Task SelectPage(int index)
+    {
+        // 先にスクロール命令を投げる（非同期・待たない）
+        _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", index);
+
+        // 選択状態は後で反映（再描画は必要なら）
+        selectedPageIndex = index;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public void OnPanelMouseMove(double clientX)
+    {
+        if (isResizingPanel)
+        {
+            var delta = clientX - resizeStartX;
+            thumbnailAreaWidth = Math.Max(200, Math.Min(600, resizeStartWidth + (int)delta));
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnPanelMouseUp()
+    {
+        isResizingPanel = false;
+    }
+
+    // JS側で視覚的に幅を変更し，最終確定でJSがこのメソッドを呼ぶ
+    [JSInvokable("CommitPanelWidth")]
+    public void CommitPanelWidth(int width)
+    {
+        // 必要な最小/最大チェックを行って UI に反映（1回の StateHasChanged）
+        thumbnailAreaWidth = Math.Max(200, Math.Min( Math.Min(600, width), (int) (BrowserViewportWidth() - 260) ));
+        StateHasChanged();
+    }
+
+    private int BrowserViewportWidth()
+    {
+        // 既定値フォールバック
+        return 1200;
+    }
+
+    private Dictionary<int, TrimRect> trimRects = new();
+    private List<PreviewItem> previewItems = new();
+
+    // 矩形データ）
+    public class TrimRect
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+
+    // プレビュー項目の最小情報（UI側で使っているプロパティのみ）
+    public class PreviewItem
+    {
+        public int ContainerWidth { get; set; }
+        public int ContainerHeight { get; set; }
+        public TrimRect? TrimRect { get; set; }
+    }
+
+    private double previewZoom = 1.0;
+    private const double ZoomStep = 0.25;
+    private const double MinZoom = 0.25;
+    private const double MaxZoom = 3.0;
+
+    private async Task ApplyPreviewZoomAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
+        }
+        catch { 
+            StateHasChanged();
+
+        }
+    }
+
+    private async Task ZoomIn()
+    {
+        previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
+        await ApplyPreviewZoomAsync();
+    }
+
+    private async Task ZoomOut()
+    {
+        previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
+        await ApplyPreviewZoomAsync();
+    }
+
+    private async Task FitPreviewWidth()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
+        }
+        catch
+        {
+            Console.WriteLine("FitPreviewWidth failed");
+            // フォールバック: 直接倍率 1 を設定
+            previewZoom = 1.0;
+            await ApplyPreviewZoomAsync();
+        }
+    }
+
+    private async Task SetPreviewToActualSize()
+    {
+        previewZoom = 1.0;
+        await ApplyPreviewZoomAsync();
+    }
+
+    private bool useRasterize = false;
+    // トリミング矩形を各ページに適用して 1 PDF に結合する処理
+    private async Task MergeTrimmedPagesAsync()
+    {
+        if (DisplayItems == null || DisplayItems.Count == 0)
+            return;
+
+        try
+        {
+            isBusy = true;
+            StateHasChanged();
+            await Task.Yield();
+
+            // スナップショット（UI 再レンダリングで変わらないように）
+            var displayList = DisplayItems.ToList();
+            var pageCount = displayList.Count;
+
+            // 必要情報を先に集めて検証する
+            var pageInfos = new List<(int Index, DisplayItem Item, PageItem Page, TrimRectInfo? Trim)>(pageCount);
+
+            for (int i = 0; i < pageCount; i++)
+            {
+                var item = displayList[i];
+                if (item.RawData is not PageItem page)
+                {
+                    ShowMessage($"ページ情報が見つかりません: {item.DisplayName}", MessageType.Error);
+                    return;
+                }
+
+                pageInfos.Add((i, item, page, PdfDataService.GetTrimRect(i)));
+            }
+
+            // 準備できていないページを検出（まとめて一度だけ判定）
+            var notReady = pageInfos.Count(p => string.IsNullOrEmpty(p.Page.PageData) || p.Page.HasError);
+            if (notReady > 0)
+            {
+                ShowMessage($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
+                return;
+            }
+
+            // マージ用データを作成（トリムは JS 側で処理）
+            var mergeData = new List<object>(pageCount);
+
+            for (int idx = 0; idx < pageInfos.Count; idx++)
+            {
+                var info = pageInfos[idx];
+                var page = info.Page;
+
+                if (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError)
+                {
+                    ShowMessage($"ページデータが不足しています: {info.Item.DisplayName}", MessageType.Error);
+                    return;
+                }
+
+                string pageDataToUse = page.PageData;
+
+                if (info.Trim != null)
+                {
+                    try
+                    {
+                        // ラスタライズオプションに応じて関数を選択
+                        var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
+
+                        var rotate = page.RotateAngle % 360;
+                        pageDataToUse = await JSRuntime.InvokeAsync<string>(
+                            cropFunction,
+                            page.PageData,
+                            info.Trim.X,
+                            info.Trim.Y,
+                            info.Trim.Width,
+                            info.Trim.Height,
+                            rotate
+                        );
+
+                        if (string.IsNullOrEmpty(pageDataToUse))
+                        {
+                            ShowMessage($"ページのトリミングに失敗しました: {info.Item.DisplayName}", MessageType.Error);
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ShowMessage($"トリミング処理に失敗しました: {ex.Message}", MessageType.Error);
+                        return;
+                    }
+                }
+
+                mergeData.Add(new
+                {
+                    pageData = pageDataToUse,
+                    // ラスタ版は画像化で回転済み→0、ベクトル版は元の回転を保持
+                    rotateAngle = useRasterize ? 0 : (page.RotateAngle % 360)
+                });
+            }
+
+            // 結合（JS）
+            try
+            {
+                mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+                if (!string.IsNullOrEmpty(mergedPdfUrl))
+                {
+                    mergedFileName = $"trim_{DateTime.Now:yyyyMMddHHmm}.pdf";
+                    mergedFileSize = await JSRuntime.InvokeAsync<string>("getPdfFileSize", mergedPdfUrl);
+                    mergedPageCount = pageInfos.Count;
+                    CompletionState.SetCompletion(CompletionStateService.CompletionType.Trimmed);
+                }
+                else
+                {
+                    ShowMessage("PDFの結合に失敗しました。", MessageType.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"MergeTrimmedPagesAsync error: {ex.Message}");
+                ShowMessage("トリミング適用後の結合中にエラーが発生しました。", MessageType.Error);
+            }
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool isTrimRangeDialogOpen = false;
+    private string currentPreviewImage = "";
+    private TrimRectInfo? InitialTrimRectNormalized;
+    private async Task OpenTrimRangeDialog()
+    {
+        try
+        {
+            if (DisplayItems == null || DisplayItems.Count == 0)
+            {
+                ShowMessage("対象のページがありません。", MessageType.Warn);
+                return;
+            }
+            var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
+            if (DisplayItems[idx].RawData is PageItem page)
+            {
+                currentPreviewImage = await PdfDataService.GetPreviewImageAsync(page.Id) ?? "";
+            }
+
+            InitialTrimRectNormalized = PdfDataService.GetTrimRect(idx);
+            isTrimRangeDialogOpen = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OpenTrimRangeDialog error: {ex.Message}");
+        }
+    }
+
+    private Task CloseTrimRangeDialog()
+    {
+        isTrimRangeDialogOpen = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task ApplyTrimRangeSettings(TrimRangeDialog.TrimRangeSettings settings)
+    {
+        try
+        {
+            isBusy = true;
+            StateHasChanged();
+
+            int w = settings.ImageNaturalWidth;
+            int h = settings.ImageNaturalHeight;
+
+            // フォールバック: ダイアログで取得できていなければ既存の canvas から取得
+            if (w <= 0 || h <= 0)
+            {
+                try
+                {
+                    var curIndex = Math.Max(0, displayedPageNumber - 1);
+                    var canvasId = $"trim-preview-canvas-{curIndex}";
+                    var canvasSize = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", canvasId);
+                    if (canvasSize != null && canvasSize.Length >= 2)
+                    {
+                        w = canvasSize[0];
+                        h = canvasSize[1];
+                    }
+                }
+                catch { }
+            }
+
+            if (w <= 0 || h <= 0)
+            {
+                ShowMessage("プレビュー画像のサイズを取得できませんでした", MessageType.Error);
+                return;
+            }
+
+            double nx = (double)settings.LeftMargin / w;
+            double ny = (double)settings.TopMargin / h;
+            double nw = Math.Max(0, 1.0 - (double)(settings.LeftMargin + settings.RightMargin) / w);
+            double nh = Math.Max(0, 1.0 - (double)(settings.TopMargin + settings.BottomMargin) / h);
+
+            List<int> targetPages = new();
+            if (settings.ApplyRange == "current")
+            {
+                targetPages.Add(displayedPageNumber - 1);
+            }
+            else if (settings.ApplyRange == "all")
+            {
+                targetPages.AddRange(Enumerable.Range(0, DisplayItems.Count));
+            }
+            else if (settings.ApplyRange == "range")
+            {
+                int start = Math.Max(0, settings.RangeStart - 1);
+                int end = Math.Min(DisplayItems.Count - 1, settings.RangeEnd - 1);
+                targetPages.AddRange(Enumerable.Range(start, end - start + 1));
+            }
+
+            foreach (var idx in targetPages)
+            {
+                await PdfDataService.SetTrimRect(idx, nx, ny, nw, nh);
+            }
+
+            ShowMessage("トリミング範囲を適用しました", MessageType.Success);
+            isTrimRangeDialogOpen = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ApplyTrimRangeSettings error: {ex.Message}");
+            ShowMessage("トリミング範囲の適用に失敗しました", MessageType.Error);
+        }
+        finally
+        {
+            isBusy = false;
+            StateHasChanged();
+        }
+    }
+
+}
