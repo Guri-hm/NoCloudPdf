@@ -18,6 +18,18 @@
                 </button>
             </div>
 
+            @if (!isPreviewReady)
+            {
+                <div class="flex-1 flex items-center justify-center p-8">
+                    <div class="text-center">
+                        <div class="mx-auto mb-4 w-12 h-12 border-4 border-blue-300 border-t-transparent rounded-full animate-spin"></div>
+                        <div class="text-sm text-gray-600">プレビュー画像を読み込み中…</div>
+                    </div>
+                </div>
+            }
+            else{
+
+
             <!-- 本体：横2列レイアウト -->
             <div class="flex-1 overflow-hidden flex">
                 <!-- 左列：設定フォーム -->
@@ -96,15 +108,15 @@
                             <i class="fa-solid fa-eye" style="color: rgb(5, 39, 103);"></i>
                             プレビュー
                         </h3>
-                        <div class="relative rounded-lg overflow-hidden aspect-[3/4] flex items-center justify-center" style="background-color: var(--color-gray-100);">
+                        <div class="relative overflow-hidden aspect-[3/4] flex items-center justify-center" style="background-color: var(--color-gray-100);">
                             @if (!string.IsNullOrEmpty(PreviewImageSrc))
                             {
                                 <div class="relative max-w-full max-h-full flex items-center justify-center">
-                                    <img id="trim-range-preview-img" src="@PreviewImageSrc" @ref="previewImgRef" class="max-w-full max-h-full object-contain" />
+                                    <img id="trim-range-preview-img" src="@PreviewImageSrc" class="w-full h-full object-contain object-left-top block" />
                                     @if (naturalWidth > 0 && naturalHeight > 0)
                                     {
                                         <!-- トリム領域を赤枠で表示（画像のサイズに合わせる） -->
-                                        <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 @naturalWidth @naturalHeight" preserveAspectRatio="xMidYMid meet">
+                                        <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 @naturalWidth @naturalHeight" preserveAspectRatio="xMinYMin slice">
                                             <rect x="@trimX" y="@trimY" width="@trimWidth" height="@trimHeight"
                                                 fill="none" stroke="red" stroke-width="2" stroke-dasharray="5,5" />
                                         </svg>
@@ -139,19 +151,35 @@
                     </div>
                 </div>
             </div>
+            }
         </div>
     </div>
 }
 
 @code {
-    [Parameter] public bool IsOpen { get; set; }
+    private bool _isOpen;
+    [Parameter]
+    public bool IsOpen
+    {
+        get => _isOpen;
+        set
+        {
+            // closed -> opened の遷移を検出して初期化フラグをクリア
+            if (!_isOpen && value)
+            {
+                _initialNormalizedApplied = false;
+            }
+            _isOpen = value;
+        }
+    }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<TrimRangeSettings> OnApply { get; set; }
     [Parameter] public string PreviewImageSrc { get; set; } = "";
     [Parameter] public int CurrentPageNumber { get; set; } = 1;
     [Parameter] public int TotalPages { get; set; } = 1;
     [Parameter] public TrimRangeSettings? InitialSettings { get; set; }
-    private ElementReference previewImgRef;
+    [Parameter] public TrimRectInfo? InitialTrimRectNormalized { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
     private int naturalWidth = 0;
     private int naturalHeight = 0;
     private int _topMargin = 0;
@@ -191,24 +219,70 @@
     private double trimY = 0;
     private double trimWidth = 400;
     private double trimHeight = 566;
-
+    private bool isPreviewReady = false;
+    private string _lastPreviewSrc = "";
+    private bool _initialNormalizedApplied = false;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // プレビュー画像が変わったら実ピクセルを取得
-        if (IsOpen && !string.IsNullOrEmpty(PreviewImageSrc))
+        // ダイアログが開いておらず、または既に準備済み、画像ソースが無い場合は何もしない
+        if (!IsOpen || isPreviewReady || string.IsNullOrEmpty(PreviewImageSrc))
         {
-            try
+            await base.OnAfterRenderAsync(firstRender);
+            return;
+        }
+
+        // 画像ソースが変わったらリセット
+        if (_lastPreviewSrc != PreviewImageSrc)
+        {
+            _lastPreviewSrc = PreviewImageSrc;
+            naturalWidth = 0;
+            naturalHeight = 0;
+            isPreviewReady = false;
+        }
+
+        try
+        {
+            int attempts = 0;
+            int[] size = null;
+
+            // 短いリトライで画像の intrinsic サイズを取得
+            while (attempts < 8)
             {
-                var size = await JSRuntime.InvokeAsync<int[]>("getImageNaturalSize", previewImgRef);
-                if (size != null && size.Length >= 2 && (naturalWidth != size[0] || naturalHeight != size[1]))
-                {
-                    naturalWidth = size[0];
-                    naturalHeight = size[1];
-                    UpdatePreview(); // 実ピクセル取得後に赤枠を再計算
-                    StateHasChanged();
-                }
+                size = await JSRuntime.InvokeAsync<int[]>("getImageSizeFromDataUrl", PreviewImageSrc);
+                if (size != null && size.Length >= 2 && size[0] > 0 && size[1] > 0)
+                    break;
+                attempts++;
+                await Task.Delay(150);
             }
-            catch { }
+
+            if (size == null || size.Length < 2 || size[0] <= 0 || size[1] <= 0)
+            {
+                var msg = "プレビュー画像の実ピクセルサイズを取得できませんでした。";
+                if (OnError.HasDelegate)
+                {
+                    await OnError.InvokeAsync(msg);
+                    return;
+                }
+                return;
+            }
+
+            naturalWidth = size[0];
+            naturalHeight = size[1];
+            ApplyInitialNormalizedRectOnce();
+
+            // 準備完了
+            isPreviewReady = true;
+            UpdatePreview();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            var msg = $"プレビュー画像サイズ取得エラー: {ex.Message}";
+            if (OnError.HasDelegate)
+            {
+                await OnError.InvokeAsync(msg);
+                return;
+            }
         }
         await base.OnAfterRenderAsync(firstRender);
     }
@@ -217,6 +291,10 @@
     {
         if (InitialSettings != null)
         {
+            Console.WriteLine($"OpenTrimRangeDialog: initialTopMargin = {InitialSettings.TopMargin}");
+            Console.WriteLine($"OpenTrimRangeDialog: initialBottomMargin = {InitialSettings.BottomMargin}");
+            Console.WriteLine($"OpenTrimRangeDialog: initialLeftMargin = {InitialSettings.LeftMargin}");
+            Console.WriteLine($"OpenTrimRangeDialog: initialRightMargin = {InitialSettings.RightMargin}");
             _topMargin = InitialSettings.TopMargin;
             _bottomMargin = InitialSettings.BottomMargin;
             _leftMargin = InitialSettings.LeftMargin;
@@ -266,6 +344,36 @@
 
         if (OnApply.HasDelegate)
             await OnApply.InvokeAsync(settings);
+    }
+
+    private void ApplyInitialNormalizedRectOnce()
+    {
+        Console.WriteLine("aaa");
+        if (_initialNormalizedApplied) return;
+        if (InitialTrimRectNormalized == null) return;
+        if (naturalWidth <= 0 || naturalHeight <= 0) return;
+        Console.WriteLine($"InitialTrimRectNormalized: {InitialTrimRectNormalized}");
+
+        var r = InitialTrimRectNormalized;
+        // 正規化 -> ピクセル。X/Y は左上起点の想定
+        int left = (int)Math.Round(r.X * naturalWidth);
+        int top = (int)Math.Round(r.Y * naturalHeight);
+        int right = (int)Math.Round((1 - r.X - r.Width) * naturalWidth);
+        int bottom = (int)Math.Round((1 - r.Y - r.Height) * naturalHeight);
+
+        // clamp
+        left = Math.Max(0, Math.Min(naturalWidth, left));
+        top = Math.Max(0, Math.Min(naturalHeight, top));
+        right = Math.Max(0, Math.Min(naturalWidth - left, right));
+        bottom = Math.Max(0, Math.Min(naturalHeight - top, bottom));
+
+        _leftMargin = left;
+        _topMargin = top;
+        _rightMargin = right;
+        _bottomMargin = bottom;
+
+        _initialNormalizedApplied = true;
+        UpdatePreview();
     }
 
     public class TrimRangeSettings

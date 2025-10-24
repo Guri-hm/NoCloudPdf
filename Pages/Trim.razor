@@ -208,7 +208,9 @@
     PreviewImageSrc="@currentPreviewImage"
     CurrentPageNumber="@displayedPageNumber"
     TotalPages="@DisplayItems.Count"
-    InitialSettings="@initialTrimSettings" />
+    InitialSettings="@initialTrimSettings"
+    InitialTrimRectNormalized="@InitialTrimRectNormalized"
+    OnError="OnDialogError" />
 
 @code {
     protected override void OnInitialized()
@@ -226,6 +228,16 @@
     private void OnServiceChanged()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnDialogError(string message)
+    {
+        // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
+        Console.WriteLine($"OnDialogError called: {message}");
+        isTrimRangeDialogOpen = false;
+        ShowMessage(message, MessageType.Error);
+        StateHasChanged();
+        await Task.CompletedTask;
     }
 
     // 表示中の現在ページ番号を変更
@@ -1194,54 +1206,29 @@
     private bool isTrimRangeDialogOpen = false;
     private string currentPreviewImage = "";
     private TrimRangeDialog.TrimRangeSettings? initialTrimSettings;
-
+    private TrimRectInfo? InitialTrimRectNormalized;
     private async Task OpenTrimRangeDialog()
     {
         try
         {
+            if (DisplayItems == null || DisplayItems.Count == 0)
+            {
+                ShowMessage("対象のページがありません。", MessageType.Warn);
+                return;
+            }
             var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
             if (DisplayItems[idx].RawData is PageItem page)
             {
                 currentPreviewImage = await PdfDataService.GetPreviewImageAsync(page.Id) ?? "";
             }
 
-            var existingTrim = PdfDataService.GetTrimRect(idx);
-            if (existingTrim != null)
-            {
-                // 実表示キャンバスの実ピクセルサイズを取得して正しく変換する
-                int w = 0, h = 0;
-                try
-                {
-                    var canvasId = $"trim-preview-canvas-{idx}"; // TrimPreviewItem 側の id と一致させる
-                    var size = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", canvasId);
-                    if (size != null && size.Length >= 2)
-                    {
-                        w = size[0];
-                        h = size[1];
-                    }
-                }
-                catch { }
-
-                // フォールバック: 取得失敗時は固定値を使う（後で調整可）
-                if (w <= 0 || h <= 0) { w = 400; h = 566; }
-
-                Console.WriteLine($"OpenTrimRangeDialog: canvas size = {w} x {h}");
-                initialTrimSettings = new TrimRangeDialog.TrimRangeSettings
-                {
-                    LeftMargin = (int)Math.Round(existingTrim.X * w),
-                    TopMargin = (int)Math.Round(existingTrim.Y * h),
-                    RightMargin = (int)Math.Round((1 - existingTrim.X - existingTrim.Width) * w),
-                    BottomMargin = (int)Math.Round((1 - existingTrim.Y - existingTrim.Height) * h),
-                    ImageNaturalWidth = w,
-                    ImageNaturalHeight = h
-                };
-            }
-            else
-            {
-                initialTrimSettings = null;
-            }
-
+            InitialTrimRectNormalized = PdfDataService.GetTrimRect(idx);
             isTrimRangeDialogOpen = true;
+
+            Console.WriteLine($"X: {InitialTrimRectNormalized.X}");
+            Console.WriteLine($"Y: {InitialTrimRectNormalized.Y}");
+            Console.WriteLine($"Width: {InitialTrimRectNormalized.Width}");
+            Console.WriteLine($"Height: {InitialTrimRectNormalized.Height}");
             StateHasChanged();
         }
         catch (Exception ex)

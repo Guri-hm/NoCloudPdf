@@ -1599,11 +1599,24 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
     }
 };
 
-window.getImageNaturalSize = function (imgElement) {
-    try {
-        if (!imgElement) return [0, 0];
-        return [imgElement.naturalWidth || 0, imgElement.naturalHeight || 0];
-    } catch (e) {
-        return [0, 0];
-    }
+window.getImageSizeFromDataUrl = function (dataUrl) {
+    return new Promise((resolve) => {
+        try {
+            if (!dataUrl) { resolve([0, 0]); return; }
+            const img = new Image();
+            img.onload = function () {
+                resolve([img.naturalWidth || 0, img.naturalHeight || 0]);
+            };
+            img.onerror = function () {
+                resolve([0, 0]);
+            };
+            img.src = dataUrl;
+            // timeout fallback
+            setTimeout(() => {
+                if (!img.complete) resolve([0, 0]);
+            }, 2000);
+        } catch (e) {
+            resolve([0, 0]);
+        }
+    });
 };

@@ -1303,6 +1303,10 @@ input[type=number] {
     border-style: var(--tw-border-style);
     border-width: 2px;
   }
+  .border-4 {
+    border-style: var(--tw-border-style);
+    border-width: 4px;
+  }
   .border-e {
     border-inline-end-style: var(--tw-border-style);
     border-inline-end-width: 1px;
@@ -1408,6 +1412,9 @@ input[type=number] {
   }
   .border-yellow-500 {
     border-color: var(--color-yellow-500);
+  }
+  .border-t-transparent {
+    border-top-color: transparent;
   }
   .bg-amber-50 {
     background-color: var(--color-amber-50);
@@ -1646,6 +1653,10 @@ input[type=number] {
   .object-contain {
     -o-object-fit: contain;
        object-fit: contain;
+  }
+  .object-left-top {
+    -o-object-position: left top;
+       object-position: left top;
   }
   .p-0 {
     padding: calc(var(--spacing) * 0);
