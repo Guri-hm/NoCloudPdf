@@ -1,8 +1,7 @@
 @using NoCloudPdf.Models
 @inject IJSRuntime JSRuntime
 
-@if (IsOpen)
-{
+
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[250] p-4 animate-in fade-in duration-300">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden border border-gray-200 animate-in slide-in-from-bottom-4 duration-300 flex flex-col">
             <!-- ヘッダー -->
@@ -43,22 +42,22 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1">上</label>
-                                <input type="number" min="0" @bind="topMargin" @bind:event="oninput"
+                                <input type="number" min="0" @bind="topMargin" @bind:event="oninput" autocomplete="off"
                                        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1">下</label>
-                                <input type="number" min="0" @bind="bottomMargin" @bind:event="oninput"
+                                <input type="number" min="0" @bind="bottomMargin" @bind:event="oninput" autocomplete="off"
                                        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1">左</label>
-                                <input type="number" min="0" @bind="leftMargin" @bind:event="oninput"
+                                <input type="number" min="0" @bind="leftMargin" @bind:event="oninput" autocomplete="off"
                                        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-1">右</label>
-                                <input type="number" min="0" @bind="rightMargin" @bind:event="oninput"
+                                <input type="number" min="0" @bind="rightMargin" @bind:event="oninput" autocomplete="off"
                                        class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
                             </div>
                         </div>
@@ -154,24 +153,8 @@
             }
         </div>
     </div>
-}
 
 @code {
-    private bool _isOpen;
-    [Parameter]
-    public bool IsOpen
-    {
-        get => _isOpen;
-        set
-        {
-            // closed -> opened の遷移を検出して初期化フラグをクリア
-            if (!_isOpen && value)
-            {
-                _initialNormalizedApplied = false;
-            }
-            _isOpen = value;
-        }
-    }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<TrimRangeSettings> OnApply { get; set; }
     [Parameter] public string PreviewImageSrc { get; set; } = "";
@@ -213,88 +196,60 @@
     private int rangeStart = 1;
     private int rangeEnd = 1;
 
-    private int previewWidth = 400;
-    private int previewHeight = 566;
     private double trimX = 0;
     private double trimY = 0;
     private double trimWidth = 400;
     private double trimHeight = 566;
     private bool isPreviewReady = false;
-    private string _lastPreviewSrc = "";
     private bool _initialNormalizedApplied = false;
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        // ダイアログが開いておらず、または既に準備済み、画像ソースが無い場合は何もしない
-        if (!IsOpen || isPreviewReady || string.IsNullOrEmpty(PreviewImageSrc))
-        {
-            await base.OnAfterRenderAsync(firstRender);
-            return;
-        }
 
-        // 画像ソースが変わったらリセット
-        if (_lastPreviewSrc != PreviewImageSrc)
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(PreviewImageSrc))
         {
-            _lastPreviewSrc = PreviewImageSrc;
             naturalWidth = 0;
             naturalHeight = 0;
-            isPreviewReady = false;
-        }
 
-        try
-        {
-            int attempts = 0;
-            int[] size = null;
-
-            // 短いリトライで画像の intrinsic サイズを取得
-            while (attempts < 8)
+            try
             {
-                size = await JSRuntime.InvokeAsync<int[]>("getImageSizeFromDataUrl", PreviewImageSrc);
+                var size = await JSRuntime.InvokeAsync<int[]>("getImageSizeFromDataUrl", PreviewImageSrc);
                 if (size != null && size.Length >= 2 && size[0] > 0 && size[1] > 0)
-                    break;
-                attempts++;
-                await Task.Delay(150);
-            }
-
-            if (size == null || size.Length < 2 || size[0] <= 0 || size[1] <= 0)
-            {
-                var msg = "プレビュー画像の実ピクセルサイズを取得できませんでした。";
-                if (OnError.HasDelegate)
                 {
-                    await OnError.InvokeAsync(msg);
+                    naturalWidth = size[0];
+                    naturalHeight = size[1];
+                    ApplyInitialNormalizedRectOnce();
+                    isPreviewReady = true;
+                }
+                else
+                {
+                    var err = "プレビュー画像の実ピクセルサイズを取得できませんでした。";
+                    if (OnError.HasDelegate) await OnError.InvokeAsync(err);
+                    await Close();
                     return;
                 }
-                return;
             }
-
-            naturalWidth = size[0];
-            naturalHeight = size[1];
-            ApplyInitialNormalizedRectOnce();
-
-            // 準備完了
-            isPreviewReady = true;
-            UpdatePreview();
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            var msg = $"プレビュー画像サイズ取得エラー: {ex.Message}";
-            if (OnError.HasDelegate)
+            catch (Exception ex)
             {
-                await OnError.InvokeAsync(msg);
+                var err = $"プレビュー画像サイズ取得エラー: {ex.Message}";
+                if (OnError.HasDelegate) await OnError.InvokeAsync(err);
+                await Close();
                 return;
             }
+        }else{
+            var err = $"プレビュー画像が取得できませんでした。";
+
+            await OnError.InvokeAsync(err);
+            await Close();
         }
-        await base.OnAfterRenderAsync(firstRender);
+
+        await base.OnParametersSetAsync();
     }
 
     protected override void OnParametersSet()
     {
         if (InitialSettings != null)
         {
-            Console.WriteLine($"OpenTrimRangeDialog: initialTopMargin = {InitialSettings.TopMargin}");
-            Console.WriteLine($"OpenTrimRangeDialog: initialBottomMargin = {InitialSettings.BottomMargin}");
-            Console.WriteLine($"OpenTrimRangeDialog: initialLeftMargin = {InitialSettings.LeftMargin}");
-            Console.WriteLine($"OpenTrimRangeDialog: initialRightMargin = {InitialSettings.RightMargin}");
+            // 矩形の初期設定を適用
             _topMargin = InitialSettings.TopMargin;
             _bottomMargin = InitialSettings.BottomMargin;
             _leftMargin = InitialSettings.LeftMargin;
@@ -348,31 +303,29 @@
 
     private void ApplyInitialNormalizedRectOnce()
     {
-        Console.WriteLine("aaa");
         if (_initialNormalizedApplied) return;
-        if (InitialTrimRectNormalized == null) return;
         if (naturalWidth <= 0 || naturalHeight <= 0) return;
-        Console.WriteLine($"InitialTrimRectNormalized: {InitialTrimRectNormalized}");
+        if (InitialTrimRectNormalized != null) { 
 
-        var r = InitialTrimRectNormalized;
-        // 正規化 -> ピクセル。X/Y は左上起点の想定
-        int left = (int)Math.Round(r.X * naturalWidth);
-        int top = (int)Math.Round(r.Y * naturalHeight);
-        int right = (int)Math.Round((1 - r.X - r.Width) * naturalWidth);
-        int bottom = (int)Math.Round((1 - r.Y - r.Height) * naturalHeight);
+            TrimRectInfo? r = InitialTrimRectNormalized;
+            // 正規化 -> ピクセル。X/Y は左上起点の想定
+            int left = (int)Math.Round(r.X * naturalWidth);
+            int top = (int)Math.Round(r.Y * naturalHeight);
+            int right = (int)Math.Round((1 - r.X - r.Width) * naturalWidth);
+            int bottom = (int)Math.Round((1 - r.Y - r.Height) * naturalHeight);
 
-        // clamp
-        left = Math.Max(0, Math.Min(naturalWidth, left));
-        top = Math.Max(0, Math.Min(naturalHeight, top));
-        right = Math.Max(0, Math.Min(naturalWidth - left, right));
-        bottom = Math.Max(0, Math.Min(naturalHeight - top, bottom));
+            left = Math.Max(0, Math.Min(naturalWidth, left));
+            top = Math.Max(0, Math.Min(naturalHeight, top));
+            right = Math.Max(0, Math.Min(naturalWidth - left, right));
+            bottom = Math.Max(0, Math.Min(naturalHeight - top, bottom));
 
-        _leftMargin = left;
-        _topMargin = top;
-        _rightMargin = right;
-        _bottomMargin = bottom;
+            _leftMargin = left;
+            _topMargin = top;
+            _rightMargin = right;
+            _bottomMargin = bottom;
+            _initialNormalizedApplied = true;
+        }
 
-        _initialNormalizedApplied = true;
         UpdatePreview();
     }
 

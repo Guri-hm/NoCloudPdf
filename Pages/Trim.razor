@@ -202,15 +202,17 @@
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
 
-<TrimRangeDialog IsOpen="@isTrimRangeDialogOpen"
-    OnClose="CloseTrimRangeDialog"
-    OnApply="ApplyTrimRangeSettings"
-    PreviewImageSrc="@currentPreviewImage"
-    CurrentPageNumber="@displayedPageNumber"
-    TotalPages="@DisplayItems.Count"
-    InitialSettings="@initialTrimSettings"
-    InitialTrimRectNormalized="@InitialTrimRectNormalized"
-    OnError="OnDialogError" />
+@if(isTrimRangeDialogOpen){
+    <TrimRangeDialog 
+        OnClose="CloseTrimRangeDialog"
+        OnApply="ApplyTrimRangeSettings"
+        PreviewImageSrc="@currentPreviewImage"
+        CurrentPageNumber="@displayedPageNumber"
+        TotalPages="@DisplayItems.Count"
+        InitialSettings="@initialTrimSettings"
+        InitialTrimRectNormalized="@InitialTrimRectNormalized"
+        OnError="OnDialogError" />
+}
 
 @code {
     protected override void OnInitialized()
@@ -1224,11 +1226,6 @@
 
             InitialTrimRectNormalized = PdfDataService.GetTrimRect(idx);
             isTrimRangeDialogOpen = true;
-
-            Console.WriteLine($"X: {InitialTrimRectNormalized.X}");
-            Console.WriteLine($"Y: {InitialTrimRectNormalized.Y}");
-            Console.WriteLine($"Width: {InitialTrimRectNormalized.Width}");
-            Console.WriteLine($"Height: {InitialTrimRectNormalized.Height}");
             StateHasChanged();
         }
         catch (Exception ex)
