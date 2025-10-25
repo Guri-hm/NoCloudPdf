@@ -161,7 +161,6 @@
                     Console.WriteLine($"TrimPreviewItem attach listeners failed idx={Index}: {ex.Message}");
                 }
             }else{
-                Console.WriteLine($"detachTrimListeners called idx={Index}");
                 try { await JSRuntime.InvokeAsync<bool>("detachTrimListeners", CanvasId); } catch { /* ignore */ }
 
             }
