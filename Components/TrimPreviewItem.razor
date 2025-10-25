@@ -31,6 +31,7 @@
     [Parameter] public DisplayItem Item { get; set; } = default!;
     [Parameter] public int Index { get; set; }
     [Parameter] public bool IsDrawingMode { get; set; } = false;
+    [Parameter] public bool AllowMultipleRects { get; set; } = false; // 複数矩形許可フラグ
 
     private ElementReference canvasRef;
     private bool isLoading = true;
@@ -55,6 +56,21 @@
         catch (Exception ex)
         {
             Console.WriteLine($"CommitTrimRectFromJs failed idx={Index}: {ex.Message}");
+        }
+    }
+    // 複数矩形確定時の処理（JS から呼ばれる）
+    [JSInvokable("CommitMultipleRectsFromJs")]
+    public async Task CommitMultipleRectsFromJs(object[] rects)
+    {
+        try
+        {
+            // 配列をサービスに保存（実装例）
+            // await PdfDataService.SetMultipleTrimRects(Index, rects);
+            Console.WriteLine($"CommitMultipleRectsFromJs: {rects.Length} rects for idx={Index}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CommitMultipleRectsFromJs failed idx={Index}: {ex.Message}");
         }
     }
     // JS側から「削除（クリア）」を要求されたときに呼ばれるメソッド
@@ -149,20 +165,22 @@
         try
         {
             _dotNetRef ??= DotNetObjectReference.Create(this);
-
+            
             if (IsDrawingMode)
             {
                 try
                 {
-                    var attached = await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef);
+                    // allowMultipleRects 引数を追加
+                    var attached = await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef, "single", AllowMultipleRects);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"TrimPreviewItem attach listeners failed idx={Index}: {ex.Message}");
                 }
-            }else{
+            }
+            else
+            {
                 try { await JSRuntime.InvokeAsync<bool>("detachTrimListeners", CanvasId); } catch { /* ignore */ }
-
             }
 
             // 保存されている矩形があれば描画、なければ clear を呼ぶ
