@@ -32,14 +32,28 @@ window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
 };
 
 // ========================================
+// ヘルパー: 祖先要素を基準とした offsetLeft/Top を計算
+// ========================================
+function getOffsetRelativeTo(element, ancestor) {
+    let x = 0, y = 0;
+    let el = element;
+    while (el && el !== ancestor && el !== document.body) {
+        x += el.offsetLeft || 0;
+        y += el.offsetTop || 0;
+        el = el.offsetParent;
+    }
+    return { x, y };
+}
+
+// ========================================
 // SVGオーバーレイ描画: トリム矩形の表示
 // ========================================
 window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     try {
         if (!canvasId) return false;
-        const base = document.getElementById(canvasId);
-        if (!base) return false;
-        const host = base.parentElement || base.closest('.tp-preview-page') || base.closest('.preview-zoom-inner') || document.body;
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return false;
+        const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
         
         // SVGコンテナを準備（既存または新規作成）
         const overlayId = canvasId + '-overlay-svg';
@@ -55,26 +69,13 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             host.appendChild(container);
         }
 
-        const baseRect = base.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        const offset = getOffsetRelativeTo(canvas, host);
+        const relLeft = Math.round(offset.x);
+        const relTop = Math.round(offset.y);
 
-        // Canvas の親内オフセットを計算
-        function getOffsetRelativeTo(element, ancestor) {
-            let x = 0, y = 0;
-            let el = element;
-            while (el && el !== ancestor && el !== document.body) {
-                x += el.offsetLeft || 0;
-                y += el.offsetTop || 0;
-                el = el.offsetParent;
-            }
-            return { x, y };
-        }
-
-        const off = getOffsetRelativeTo(base, host);
-        const relLeft = Math.round(off.x);
-        const relTop = Math.round(off.y);
-
-        const cssW = Math.max(1, Math.round(base.clientWidth || baseRect.width || 0));
-        const cssH = Math.max(1, Math.round(base.clientHeight || baseRect.height || 0));
+        const cssW = Math.max(1, Math.round(canvas.clientWidth || canvasRect.width || 0));
+        const cssH = Math.max(1, Math.round(canvas.clientHeight || canvasRect.height || 0));
 
         // コンテナを Canvas と同じ位置・サイズに配置
         container.style.left = relLeft + 'px';
@@ -100,12 +101,12 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         // グローバルトリム状態の初期化
         window._simpleTrim = window._simpleTrim || {};
         if (!window._simpleTrim[canvasId]) window._simpleTrim[canvasId] = {};
-        const entry = window._simpleTrim[canvasId];
+        const trimState = window._simpleTrim[canvasId];
 
         // 矩形なし → 空のオーバーレイのみ配置して終了
         if (!Array.isArray(rects) || rects.length === 0) {
-            entry.overlayDom = container;
-            entry.currentRectPx = null;
+            trimState.overlayDom = container;
+            trimState.currentRectPx = null;
             container.style.pointerEvents = 'none';
             svg.style.pointerEvents = 'none';
             return true;
@@ -115,21 +116,20 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         container.style.pointerEvents = 'auto';
         svg.style.pointerEvents = 'auto';
 
-        const r = rects[0]; // 現状は1矩形のみ対応
-        const nx = Number(r.X ?? r.x ?? 0);
-        const ny = Number(r.Y ?? r.y ?? 0);
-        const nw = Number(r.Width ?? r.width ?? 0);
-        const nh = Number(r.Height ?? r.height ?? 0);
+        const rect = rects[0]; // 現状は1矩形のみ対応
+        const normX = Number(rect.X ?? rect.x ?? 0);
+        const normY = Number(rect.Y ?? rect.y ?? 0);
+        const normW = Number(rect.Width ?? rect.width ?? 0);
+        const normH = Number(rect.Height ?? rect.height ?? 0);
 
         // 正規化座標 → ピクセル座標
-        const rx = Math.round(nx * cssW);
-        const ry = Math.round(ny * cssH);
-        const rw = Math.round(nw * cssW);
-        const rh = Math.round(nh * cssH);
+        const rectX = Math.round(normX * cssW);
+        const rectY = Math.round(normY * cssH);
+        const rectW = Math.round(normW * cssW);
+        const rectH = Math.round(normH * cssH);
 
         // グループ要素作成
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.setAttribute('transform', `translate(0,0)`);
 
         // 背景（透明、イベント無視）
         const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -142,159 +142,140 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         g.appendChild(bg);
 
         // メイン矩形（塗り + 枠）
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', String(rx));
-        rect.setAttribute('y', String(ry));
-        rect.setAttribute('width', String(Math.max(0, rw)));
-        rect.setAttribute('height', String(Math.max(0, rh)));
-        rect.setAttribute('fill', 'rgba(59,130,246,0.12)');
+        const mainRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        mainRect.setAttribute('x', String(rectX));
+        mainRect.setAttribute('y', String(rectY));
+        mainRect.setAttribute('width', String(Math.max(0, rectW)));
+        mainRect.setAttribute('height', String(Math.max(0, rectH)));
+        mainRect.setAttribute('fill', 'rgba(59,130,246,0.12)');
 
-        const isSelected = !!(entry && entry.selected);
-        rect.setAttribute('stroke', isSelected ? 'rgba(37,99,235,1)' : 'rgba(59,130,246,0.95)');
-        rect.setAttribute('stroke-width', isSelected ? '3' : '2');
-        rect.style.pointerEvents = 'auto';
-        rect.style.cursor = 'move';
-        rect.setAttribute('data-rect', 'true');
-        g.appendChild(rect);
+        const isSelected = Boolean(trimState.selected);
+        mainRect.setAttribute('stroke', isSelected ? 'rgba(37,99,235,1)' : 'rgba(59,130,246,0.95)');
+        mainRect.setAttribute('stroke-width', isSelected ? '3' : '2');
+        mainRect.setAttribute('data-rect', 'true');
+        mainRect.style.pointerEvents = 'auto';
+        mainRect.style.cursor = 'move';
+        g.appendChild(mainRect);
 
         // リサイズハンドル（8方向）
-        const HANDLE = 12;
-        const half = Math.round(HANDLE / 2);
-        const points = [
-            [rx, ry], [rx + rw / 2, ry], [rx + rw, ry],
-            [rx + rw, ry + rh / 2], [rx + rw, ry + rh],
-            [rx + rw / 2, ry + rh], [rx, ry + rh], [rx, ry + rh / 2]
+        const HANDLE_SIZE = 12;
+        const handleHalf = Math.round(HANDLE_SIZE / 2);
+        const handlePositions = [
+            [rectX, rectY], // nw
+            [rectX + rectW / 2, rectY], // n
+            [rectX + rectW, rectY], // ne
+            [rectX + rectW, rectY + rectH / 2], // e
+            [rectX + rectW, rectY + rectH], // se
+            [rectX + rectW / 2, rectY + rectH], // s
+            [rectX, rectY + rectH], // sw
+            [rectX, rectY + rectH / 2] // w
         ];
-        const keyMap = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-        const cursorMap = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' };
-        points.forEach((p, idx) => {
-            const h = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            h.setAttribute('x', String(Math.round(p[0] - half)));
-            h.setAttribute('y', String(Math.round(p[1] - half)));
-            h.setAttribute('width', String(HANDLE));
-            h.setAttribute('height', String(HANDLE));
-            h.setAttribute('fill', 'rgba(59,130,246,0.95)');
-            h.setAttribute('data-handle', String(idx));
-            h.style.pointerEvents = 'auto';
-            const k = keyMap[idx];
-            h.style.cursor = cursorMap[k] || 'default';
-            g.appendChild(h);
+        const handleKeys = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+        const handleCursors = {
+            nw: 'nwse-resize', se: 'nwse-resize',
+            ne: 'nesw-resize', sw: 'nesw-resize',
+            n: 'ns-resize', s: 'ns-resize',
+            e: 'ew-resize', w: 'ew-resize'
+        };
+
+        handlePositions.forEach(([px, py], idx) => {
+            const handle = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            handle.setAttribute('x', String(Math.round(px - handleHalf)));
+            handle.setAttribute('y', String(Math.round(py - handleHalf)));
+            handle.setAttribute('width', String(HANDLE_SIZE));
+            handle.setAttribute('height', String(HANDLE_SIZE));
+            handle.setAttribute('fill', 'rgba(59,130,246,0.95)');
+            handle.setAttribute('data-handle', String(idx));
+            handle.style.pointerEvents = 'auto';
+            handle.style.cursor = handleCursors[handleKeys[idx]] || 'default';
+            g.appendChild(handle);
         });
 
         // 選択時のみ削除ボタン（×）を表示
         if (isSelected) {
-            let cx = rx + rw + 10;
-            let cy = ry - 10;
-            cx = Math.min(cssW - 12, Math.max(12, cx));
-            cy = Math.min(cssH - 12, Math.max(12, cy));
-            const btnG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            btnG.setAttribute('transform', `translate(0,0)`);
-            btnG.style.pointerEvents = 'auto';
+            let deleteX = rectX + rectW + 10;
+            let deleteY = rectY - 10;
+            deleteX = Math.min(cssW - 12, Math.max(12, deleteX));
+            deleteY = Math.min(cssH - 12, Math.max(12, deleteY));
+
+            const deleteBtn = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            deleteBtn.style.pointerEvents = 'auto';
 
             const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', String(cx));
-            circle.setAttribute('cy', String(cy));
+            circle.setAttribute('cx', String(deleteX));
+            circle.setAttribute('cy', String(deleteY));
             circle.setAttribute('r', '10');
             circle.setAttribute('fill', 'rgba(0,0,0,0.6)');
             circle.setAttribute('data-close', 'true');
             circle.style.cursor = 'pointer';
-            btnG.appendChild(circle);
+            deleteBtn.appendChild(circle);
 
-            const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            txt.setAttribute('x', String(cx));
-            txt.setAttribute('y', String(cy + 4));
-            txt.setAttribute('fill', '#fff');
-            txt.setAttribute('font-size', '12');
-            txt.setAttribute('text-anchor', 'middle');
-            txt.setAttribute('data-close', 'true');
-            txt.style.pointerEvents = 'none';
-            txt.textContent = '×';
-            btnG.appendChild(txt);
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', String(deleteX));
+            text.setAttribute('y', String(deleteY + 4));
+            text.setAttribute('fill', '#fff');
+            text.setAttribute('font-size', '12');
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('data-close', 'true');
+            text.style.pointerEvents = 'none';
+            text.textContent = '×';
+            deleteBtn.appendChild(text);
 
             // 削除ボタンクリックで矩形クリア
-            btnG.addEventListener('pointerdown', function (ev) {
+            deleteBtn.addEventListener('pointerdown', function (ev) {
                 try {
                     ev.stopPropagation();
-                    if (entry) {
-                        entry.selected = false;
-                        entry.currentRectPx = null;
-                        if (entry.dotNetRef && entry.dotNetRef.invokeMethodAsync) {
-                            try { entry.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs'); } catch (e) { }
-                        }
-                        window.drawTrimOverlayAsSvg(canvasId, []);
+                    trimState.selected = false;
+                    trimState.currentRectPx = null;
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
                     }
-                } catch (e) { }
+                    window.drawTrimOverlayAsSvg(canvasId, []);
+                } catch (e) { console.error(e); }
             }, { passive: false });
 
-            g.appendChild(btnG);
+            g.appendChild(deleteBtn);
         }
 
         svg.appendChild(g);
 
         // ピクセル座標を状態に保存（非アクティブ時のみ）
-        try {
-            const rxFloat = nx * cssW;
-            const ryFloat = ny * cssH;
-            const rwFloat = nw * cssW;
-            const rhFloat = nh * cssH;
-
-            entry.overlayDom = container;
-
-            if (!entry.active) {
-                entry.currentRectPx = { x: rxFloat, y: ryFloat, w: rwFloat, h: rhFloat };
-            }
-        } catch (e) {
-            console.error('drawTrimOverlayAsSvg sync error', e);
+        if (!trimState.active) {
+            trimState.overlayDom = container;
+            trimState.currentRectPx = {
+                x: normX * cssW,
+                y: normY * cssH,
+                w: normW * cssW,
+                h: normH * cssH
+            };
         }
 
         // キーボードイベント登録（Delete で削除）
-        try {
-            if (!entry.internal) entry.internal = {};
-            if (!entry.internal.keydown) {
-                entry.internal.keydown = function (ev) {
-                    try {
-                        if (ev.key === 'Delete' || ev.key === 'Del') {
-                            if (entry && entry.selected) {
-                                entry.selected = false;
-                                entry.currentRectPx = null;
-                                if (entry.dotNetRef && entry.dotNetRef.invokeMethodAsync) {
-                                    try { entry.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs'); } catch (e) { }
-                                }
-                                window.drawTrimOverlayAsSvg(canvasId, []);
-                            }
-                        }
-                    } catch (e) { }
-                };
-                document.addEventListener('keydown', entry.internal.keydown);
-            }
-        } catch (e) { }
+        if (!trimState.internal) trimState.internal = {};
+        if (!trimState.internal.keydown) {
+            trimState.internal.keydown = function (ev) {
+                if ((ev.key === 'Delete' || ev.key === 'Del') && trimState.selected) {
+                    trimState.selected = false;
+                    trimState.currentRectPx = null;
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
+                    }
+                    window.drawTrimOverlayAsSvg(canvasId, []);
+                }
+            };
+            document.addEventListener('keydown', trimState.internal.keydown);
+        }
 
         // オーバーレイイベント登録（初回のみ）
-        try {
-            const entry2 = window._simpleTrim[canvasId];
-            if (entry2 && !container.__trimHooked) {
-                entry2.internal = entry2.internal || {};
-                if (!entry2.internal.overlayPointerDown) {
-                    entry2.internal.overlayPointerDown = function (ev) { try { entry2.handlers.pointerDown(ev); } catch (e) { } };
-                    container.addEventListener('pointerdown', entry2.internal.overlayPointerDown, { passive: false, capture: true });
-                    container.addEventListener('touchstart', entry2.internal.overlayPointerDown, { passive: false, capture: true });
-                }
-                if (!entry2.internal.overlayMove) {
-                    entry2.internal.overlayMove = function (ev) { try { entry2.handlers.overlayMove(ev); } catch (e) { } };
-                    container.addEventListener('pointermove', entry2.internal.overlayMove, { passive: true, capture: true });
-                }
-                if (!entry2.internal.overlayOver) {
-                    entry2.internal.overlayOver = function (ev) { try { entry2.handlers.overlayOver && entry2.handlers.overlayOver(ev); } catch (e) { } };
-                    container.addEventListener('pointerover', entry2.internal.overlayOver, { passive: true, capture: true });
-                }
-                if (!entry2.internal.overlayOut) {
-                    entry2.internal.overlayOut = function (ev) { try { entry2.handlers.overlayOut && entry2.handlers.overlayOut(ev); } catch (e) { } };
-                    container.addEventListener('pointerout', entry2.internal.overlayOut, { passive: true, capture: true });
-                }
-                container.__trimHooked = true;
-            }
-        } catch (e) {
-            console.error('drawTrimOverlayAsSvg hook error', e);
+        if (trimState.handlers && !container.__trimHooked) {
+            const safeInvoke = (fn, ev) => { try { fn(ev); } catch (e) {} };
+            trimState.internal.overlayPointerDown = (ev) => safeInvoke(trimState.handlers.pointerDown, ev);
+            trimState.internal.overlayMove = (ev) => safeInvoke(trimState.handlers.overlayMove, ev);
+
+            container.addEventListener('pointerdown', trimState.internal.overlayPointerDown, { passive: false, capture: true });
+            container.addEventListener('touchstart', trimState.internal.overlayPointerDown, { passive: false, capture: true });
+            container.addEventListener('pointermove', trimState.internal.overlayMove, { passive: true, capture: true });
+            container.__trimHooked = true;
         }
 
         return true;
@@ -310,7 +291,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 (function () {
     window._simpleTrim = window._simpleTrim || {};
 
-    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
     // ========================================
     // クリーンアップ: リスナー・DOM削除
@@ -318,74 +299,50 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     function cleanupTrimEntry(canvasId) {
         const safe = {
             removeListener(el, ev, fn, opts) {
-                try { if (el && fn) el.removeEventListener(ev, fn, opts); } catch (e) { }
+                try { if (el && fn) el.removeEventListener(ev, fn, opts); } catch (e) {}
             },
             removeWindowListener(ev, fn, opts) {
-                try { if (fn) window.removeEventListener(ev, fn, opts); } catch (e) { }
+                try { if (fn) window.removeEventListener(ev, fn, opts); } catch (e) {}
             },
             removeDocumentListener(ev, fn, opts) {
-                try { if (fn) document.removeEventListener(ev, fn, opts); } catch (e) { }
+                try { if (fn) document.removeEventListener(ev, fn, opts); } catch (e) {}
             },
             removeElement(el) {
                 try {
                     if (!el) return;
-                    try { if (el.style) el.style.pointerEvents = 'none'; } catch (e) { }
-                    try { if (typeof el.remove === 'function') el.remove(); } catch (e) { }
-                    try { if (el.width !== undefined) { el.width = 0; el.height = 0; } } catch (e) { }
-                } catch (e) { }
+                    if (el.style) el.style.pointerEvents = 'none';
+                    if (typeof el.remove === 'function') el.remove();
+                    if (el.width !== undefined) { el.width = 0; el.height = 0; }
+                } catch (e) {}
             }
         };
 
         try {
-            const entry = window._simpleTrim && window._simpleTrim[canvasId];
-            if (!entry) return;
+            const trimState = window._simpleTrim?.[canvasId];
+            if (!trimState) return;
 
-            safe.removeListener(entry.base, 'pointerdown', entry.handlers?.pointerDown, { passive: false });
-            safe.removeListener(entry.base, 'touchstart', entry.handlers?.touchStart, { passive: false });
+            safe.removeListener(trimState.base, 'pointerdown', trimState.handlers?.pointerDown, { passive: false });
+            safe.removeListener(trimState.base, 'touchstart', trimState.handlers?.touchStart, { passive: false });
+            safe.removeWindowListener('pointermove', trimState.handlers?.move, { passive: false });
+            safe.removeWindowListener('pointerup', trimState.handlers?.up, { passive: false });
 
-            safe.removeWindowListener('pointermove', entry.handlers?.move, { passive: false });
-            safe.removeWindowListener('pointerup', entry.handlers?.up, { passive: false });
+            safe.removeElement(trimState.overlay || document.getElementById(canvasId + '-overlay'));
 
-            safe.removeElement(entry.overlay || document.getElementById(canvasId + '-overlay'));
-
-            const od = entry.overlayDom || document.getElementById(canvasId + '-overlay-svg');
-            if (od) {
-                safe.removeListener(od, 'pointerdown', entry.internal?.overlayPointerDown, true);
-                safe.removeListener(od, 'touchstart', entry.internal?.overlayPointerDown, true);
-                safe.removeListener(od, 'pointermove', entry.internal?.overlayMove, true);
-                safe.removeListener(od, 'pointerover', entry.internal?.overlayOver, true);
-                safe.removeListener(od, 'pointerout', entry.internal?.overlayOut, true);
-                safe.removeElement(od);
+            const overlayDom = trimState.overlayDom || document.getElementById(canvasId + '-overlay-svg');
+            if (overlayDom) {
+                safe.removeListener(overlayDom, 'pointerdown', trimState.internal?.overlayPointerDown, true);
+                safe.removeListener(overlayDom, 'touchstart', trimState.internal?.overlayPointerDown, true);
+                safe.removeListener(overlayDom, 'pointermove', trimState.internal?.overlayMove, true);
+                safe.removeElement(overlayDom);
             }
 
-            safe.removeDocumentListener('keydown', entry.internal?.keydown);
+            safe.removeDocumentListener('keydown', trimState.internal?.keydown);
+            safe.removeListener(trimState.host, 'scroll', trimState.internal?.hostScroll, { passive: true });
 
-            safe.removeListener(entry.host, 'scroll', entry.internal?.hostScroll, { passive: true });
-            if (entry.internal && entry.internal.container) {
-                safe.removeListener(entry.internal.container, 'scroll', entry.internal?.containerScroll, { passive: true });
-            }
+            if (trimState.handlers) Object.keys(trimState.handlers).forEach(k => trimState.handlers[k] = null);
+            if (trimState.internal) Object.keys(trimState.internal).forEach(k => trimState.internal[k] = null);
 
-            try {
-                if (entry.handlers) {
-                    entry.handlers.pointerDown = null;
-                    entry.handlers.touchStart = null;
-                    entry.handlers.move = null;
-                    entry.handlers.up = null;
-                }
-                if (entry.internal) {
-                    entry.internal.overlayPointerDown = null;
-                    entry.internal.overlayMove = null;
-                    entry.internal.overlayOver = null;
-                    entry.internal.overlayOut = null;
-                    entry.internal.keydown = null;
-                    entry.internal.hostScroll = null;
-                    entry.internal.containerScroll = null;
-                    entry.internal.windowScroll = null;
-                    entry.internal.resize = null;
-                }
-            } catch (e) { }
-
-            try { delete window._simpleTrim[canvasId]; } catch (e) { }
+            delete window._simpleTrim[canvasId];
         } catch (e) {
             console.error('cleanupTrimEntry error', e);
         }
@@ -397,26 +354,21 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     window.attachTrimListeners = function (canvasId, dotNetRef, selectionMode = 'single') {
         try {
             if (!canvasId) return false;
-            const base = document.getElementById(canvasId);
-            if (!base) {
-                console.warn(`trim attach: canvas not found: ${canvasId}`);
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.warn(`attachTrimListeners: canvas not found: ${canvasId}`);
                 return false;
             }
 
             // 既存の選択状態を保持
             let preservedSelected = false;
-            try {
-                window._simpleTrim = window._simpleTrim || {};
-                const existing = window._simpleTrim[canvasId];
-                if (existing && existing.selected) {
-                    preservedSelected = true;
-                }
-            } catch (e) { }
+            const existing = window._simpleTrim[canvasId];
+            if (existing?.selected) preservedSelected = true;
 
-            try { cleanupTrimEntry(canvasId); } catch (e) { }
+            cleanupTrimEntry(canvasId);
 
-            const host = base.parentElement || base.closest('.tp-preview-page') || base.closest('.preview-zoom-inner') || document.body;
-            try { if (getComputedStyle(host).position === 'static') host.style.position = 'relative'; } catch (e) { }
+            const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
+            if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
 
             const overlayId = canvasId + '-overlay';
             let overlay = document.getElementById(overlayId);
@@ -429,15 +381,20 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 host.appendChild(overlay);
             }
 
-            const svgContainerId = canvasId + '-overlay-svg';
-            const overlayDom = document.getElementById(svgContainerId) || null;
+            const overlayDom = document.getElementById(canvasId + '-overlay-svg') || null;
 
-            const state = {
-                base, host, overlay, overlayDom, dotNetRef,
+            const trimState = {
+                base: canvas,
+                host,
+                overlay,
+                overlayDom,
+                dotNetRef,
                 selectionMode: (selectionMode === 'multi') ? 'multi' : 'single',
-                active: false, mode: null,
+                active: false,
+                mode: null, // 'maybe-draw' | 'draw' | 'move' | 'resize'
                 pointerId: null,
-                startClientX: 0, startClientY: 0,
+                startClientX: 0,
+                startClientY: 0,
                 startClientLocal: null,
                 startRectPx: null,
                 currentRectPx: null,
@@ -447,15 +404,13 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 resizeHandle: null,
                 baseRectAtDown: null,
                 logicalWAtDown: null,
-                didDrag: false
+                logicalHAtDown: null,
+                didDrag: false,
+                selected: preservedSelected
             };
 
-            state.internal = state.internal || {};
-            state.internal.lastAttachedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-
-            if (preservedSelected) state.selected = true;
-
-            window._simpleTrim[canvasId] = state;
+            trimState.internal.lastAttachedAt = performance.now();
+            window._simpleTrim[canvasId] = trimState;
 
             const HANDLE_KEY_MAP = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
             const HANDLE_CURSOR_MAP = {
@@ -468,172 +423,154 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             // 座標変換: クライアント座標 → Canvas 内論理ピクセル
             function toLocalPx(clientX, clientY) {
                 try {
-                    const logicalW = (state.logicalWAtDown && state.active) ? state.logicalWAtDown : Math.max(1, Math.round(state.base.clientWidth || state.base.getBoundingClientRect().width || 1));
-                    const logicalH = (state.logicalHAtDown && state.active) ? state.logicalHAtDown : Math.max(1, Math.round(state.base.clientHeight || state.base.getBoundingClientRect().height || 1));
+                    const logicalW = (trimState.logicalWAtDown && trimState.active)
+                        ? trimState.logicalWAtDown
+                        : Math.max(1, Math.round(canvas.clientWidth || canvas.getBoundingClientRect().width || 1));
+                    const logicalH = (trimState.logicalHAtDown && trimState.active)
+                        ? trimState.logicalHAtDown
+                        : Math.max(1, Math.round(canvas.clientHeight || canvas.getBoundingClientRect().height || 1));
 
-                    const bRect = state.base.getBoundingClientRect();
-                    const scaleFromRects = (bRect.width && logicalW) ? (bRect.width / logicalW) : 1;
-                    const previewScale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : scaleFromRects;
-                    const scale = previewScale || 1;
+                    const canvasRect = canvas.getBoundingClientRect();
+                    const scaleFromRects = (canvasRect.width && logicalW) ? (canvasRect.width / logicalW) : 1;
+                    const scale = window._previewZoomState?.lastZoom || scaleFromRects || 1;
 
-                    function getOffsetRelativeTo(element, ancestor) {
-                        let x = 0, y = 0;
-                        let el = element;
-                        while (el && el !== ancestor && el !== document.body) {
-                            x += el.offsetLeft || 0;
-                            y += el.offsetTop || 0;
-                            el = el.offsetParent;
-                        }
-                        return { x, y };
-                    }
+                    const offset = getOffsetRelativeTo(canvas, host);
+                    const hostRect = host.getBoundingClientRect();
+                    const canvasLeftInViewport = hostRect.left + offset.x * scale;
+                    const canvasTopInViewport = hostRect.top + offset.y * scale;
 
-                    const rel = getOffsetRelativeTo(state.base, state.host);
-                    const hostRect = state.host.getBoundingClientRect();
+                    const xInScaled = clientX - canvasLeftInViewport;
+                    const yInScaled = clientY - canvasTopInViewport;
 
-                    const baseLeftInViewport = hostRect.left + rel.x * scale;
-                    const baseTopInViewport = hostRect.top + rel.y * scale;
-
-                    const xInScaled = clientX - baseLeftInViewport;
-                    const yInScaled = clientY - baseTopInViewport;
-                    const localX = xInScaled / scale;
-                    const localY = yInScaled / scale;
-
-                    return { x: localX, y: localY, cssW: logicalW, cssH: logicalH };
+                    return {
+                        x: xInScaled / scale,
+                        y: yInScaled / scale,
+                        cssW: logicalW,
+                        cssH: logicalH
+                    };
                 } catch (e) {
-                    const b = state.base.getBoundingClientRect();
-                    const logicalW = Math.max(1, Math.round(state.base.clientWidth || b.width || 1));
-                    const logicalH = Math.max(1, Math.round(state.base.clientHeight || b.height || 1));
-                    const scale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
-                    return { x: (clientX - b.left) / scale, y: (clientY - b.top) / scale, cssW: logicalW, cssH: logicalH };
+                    const b = canvas.getBoundingClientRect();
+                    const logicalW = Math.max(1, Math.round(canvas.clientWidth || b.width || 1));
+                    const logicalH = Math.max(1, Math.round(canvas.clientHeight || b.height || 1));
+                    const scale = window._previewZoomState?.lastZoom || 1;
+                    return {
+                        x: (clientX - b.left) / scale,
+                        y: (clientY - b.top) / scale,
+                        cssW: logicalW,
+                        cssH: logicalH
+                    };
                 }
             }
 
-            function rectPxToNormalized(rPx) {
-                const logicalW = Math.max(1, Math.round(state.base.clientWidth || 1));
-                const logicalH = Math.max(1, Math.round(state.base.clientHeight || 1));
-                const left = Number(rPx.x || 0);
-                const top = Number(rPx.y || 0);
-                const right = left + Number(rPx.w || 0);
-                const bottom = top + Number(rPx.h || 0);
-                const leftClamped = clamp(left, 0, logicalW);
-                const topClamped = clamp(top, 0, logicalH);
-                const rightClamped = clamp(right, 0, logicalW);
-                const bottomClamped = clamp(bottom, 0, logicalH);
-                const widthClamped = Math.max(0, rightClamped - leftClamped);
-                const heightClamped = Math.max(0, bottomClamped - topClamped);
+            function rectPxToNormalized(rectPx) {
+                const logicalW = Math.max(1, Math.round(canvas.clientWidth || 1));
+                const logicalH = Math.max(1, Math.round(canvas.clientHeight || 1));
+                const left = Number(rectPx.x || 0);
+                const top = Number(rectPx.y || 0);
+                const right = left + Number(rectPx.w || 0);
+                const bottom = top + Number(rectPx.h || 0);
+                const leftC = clamp(left, 0, logicalW);
+                const topC = clamp(top, 0, logicalH);
+                const rightC = clamp(right, 0, logicalW);
+                const bottomC = clamp(bottom, 0, logicalH);
                 return {
-                    X: leftClamped / logicalW,
-                    Y: topClamped / logicalH,
-                    Width: widthClamped / logicalW,
-                    Height: heightClamped / logicalH
+                    X: leftC / logicalW,
+                    Y: topC / logicalH,
+                    Width: Math.max(0, rightC - leftC) / logicalW,
+                    Height: Math.max(0, bottomC - topC) / logicalH
                 };
             }
 
-            // ムーブイベント処理（requestAnimationFrame で間引き + 必ず再描画）
+            // ムーブイベント処理（requestAnimationFrame で間引き）
             function scheduleMove(ev) {
-                state.lastMoveEv = ev;
-                if (state.pendingMove) return;
-                state.pendingMove = true;
+                trimState.lastMoveEv = ev;
+                if (trimState.pendingMove) return;
+                trimState.pendingMove = true;
+
                 requestAnimationFrame(() => {
-                    state.pendingMove = false;
-                    if (!state.active) return;
-                    const loc = toLocalPx(state.lastMoveEv.clientX, state.lastMoveEv.clientY);
-                    const cssW = loc.cssW, cssH = loc.cssH;
-                    const prevRect = state.currentRectPx ? { ...state.currentRectPx } : null;
+                    trimState.pendingMove = false;
+                    if (!trimState.active) return;
+
+                    const loc = toLocalPx(trimState.lastMoveEv.clientX, trimState.lastMoveEv.clientY);
+                    const { cssW, cssH } = loc;
+                    const prevRect = trimState.currentRectPx ? { ...trimState.currentRectPx } : null;
 
                     // モード別処理
-                    if (state.mode === 'maybe-draw') {
-                        const dx = loc.x - state.startClientLocal.x;
-                        const dy = loc.y - state.startClientLocal.y;
+                    if (trimState.mode === 'maybe-draw') {
+                        const dx = loc.x - trimState.startClientLocal.x;
+                        const dy = loc.y - trimState.startClientLocal.y;
                         const distSq = dx * dx + dy * dy;
                         const THRESHOLD_PX = 8;
                         if (distSq >= THRESHOLD_PX * THRESHOLD_PX) {
-                            state.mode = 'draw';
-                            state.currentRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
+                            trimState.mode = 'draw';
+                            trimState.currentRectPx = { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
                         } else {
                             return;
                         }
                     }
 
-                    if (state.mode === 'draw') {
-                        const rawX = Math.min(loc.x, state.startClientLocal.x);
-                        const rawY = Math.min(loc.y, state.startClientLocal.y);
-                        const rawW = Math.abs(loc.x - state.startClientLocal.x);
-                        const rawH = Math.abs(loc.y - state.startClientLocal.y);
+                    if (trimState.mode === 'draw') {
+                        const rawX = Math.min(loc.x, trimState.startClientLocal.x);
+                        const rawY = Math.min(loc.y, trimState.startClientLocal.y);
+                        const rawW = Math.abs(loc.x - trimState.startClientLocal.x);
+                        const rawH = Math.abs(loc.y - trimState.startClientLocal.y);
 
-                        state.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
+                        trimState.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
 
-                        let dispX = rawX;
-                        let dispY = rawY;
-                        let dispW = rawW;
-                        let dispH = rawH;
+                        let dispX = rawX < 0 ? 0 : rawX;
+                        let dispY = rawY < 0 ? 0 : rawY;
+                        let dispW = rawX < 0 ? Math.max(0, Math.min(trimState.startClientLocal.x - dispX, rawW)) : rawW;
+                        let dispH = rawY < 0 ? Math.max(0, Math.min(trimState.startClientLocal.y - dispY, rawH)) : rawH;
 
-                        if (rawX < 0) {
-                            dispX = 0;
-                            dispW = Math.max(0, Math.min(state.startClientLocal.x - dispX, rawW));
-                        }
-                        if (rawY < 0) {
-                            dispY = 0;
-                            dispH = Math.max(0, Math.min(state.startClientLocal.y - dispY, rawH));
-                        }
-
-                        // 【重要】描画中も毎フレーム再描画（互換性確保）
-                        try {
-                            if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                const norm = {
-                                    X: dispX / Math.max(1, cssW),
-                                    Y: dispY / Math.max(1, cssH),
-                                    Width: dispW / Math.max(1, cssW),
-                                    Height: dispH / Math.max(1, cssH)
-                                };
-                                window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                            }
-                        } catch (e) { console.error(e); }
-
-                        if (!state.didDrag && prevRect && (prevRect.x !== state.currentRectPx.x || prevRect.y !== state.currentRectPx.y || prevRect.w !== state.currentRectPx.w || prevRect.h !== state.currentRectPx.h)) {
-                            state.didDrag = true;
+                        // 描画中も毎フレーム再描画
+                        if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                            const norm = {
+                                X: dispX / cssW,
+                                Y: dispY / cssH,
+                                Width: dispW / cssW,
+                                Height: dispH / cssH
+                            };
+                            window.drawTrimOverlayAsSvg(canvasId, [norm]);
                         }
 
-                    } else if (state.mode === 'move' && state.startRectPx) {
-                        const dx = loc.x - state.startClientLocal.x;
-                        const dy = loc.y - state.startClientLocal.y;
+                        if (!trimState.didDrag && prevRect) {
+                            const changed = prevRect.x !== trimState.currentRectPx.x ||
+                                           prevRect.y !== trimState.currentRectPx.y ||
+                                           prevRect.w !== trimState.currentRectPx.w ||
+                                           prevRect.h !== trimState.currentRectPx.h;
+                            if (changed) trimState.didDrag = true;
+                        }
 
-                        const cssWVal = cssW;
-                        const cssHVal = cssH;
+                    } else if (trimState.mode === 'move' && trimState.startRectPx) {
+                        const dx = loc.x - trimState.startClientLocal.x;
+                        const dy = loc.y - trimState.startClientLocal.y;
+                        let nx = trimState.startRectPx.x + dx;
+                        let ny = trimState.startRectPx.y + dy;
 
-                        let nx = state.startRectPx.x + dx;
-                        let ny = state.startRectPx.y + dy;
+                        nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
+                        ny = Math.max(0, Math.min(cssH - trimState.startRectPx.h, ny));
 
-                        nx = Math.max(0, Math.min(cssWVal - state.startRectPx.w, nx));
-                        ny = Math.max(0, Math.min(cssHVal - state.startRectPx.h, ny));
+                        trimState.currentRectPx = {
+                            x: Math.round(nx),
+                            y: Math.round(ny),
+                            w: Math.round(trimState.startRectPx.w),
+                            h: Math.round(trimState.startRectPx.h)
+                        };
+                        trimState.didDrag = true;
 
-                        state.currentRectPx = { x: Math.round(nx), y: Math.round(ny), w: Math.round(state.startRectPx.w), h: Math.round(state.startRectPx.h) };
-
-                        state.didDrag = true;
-                    } else if (state.mode === 'resize' && state.startRectPx) {
-                        const dx = loc.x - state.startClientLocal.x;
-                        const dy = loc.y - state.startClientLocal.y;
-                        let sx = state.startRectPx.x, sy = state.startRectPx.y, sw = state.startRectPx.w, sh = state.startRectPx.h;
+                    } else if (trimState.mode === 'resize' && trimState.startRectPx) {
+                        const dx = loc.x - trimState.startClientLocal.x;
+                        const dy = loc.y - trimState.startClientLocal.y;
+                        const { x: sx, y: sy, w: sw, h: sh } = trimState.startRectPx;
                         const ex = sx + sw, ey = sy + sh;
-                        const hKey = state.resizeHandle;
+                        const hKey = trimState.resizeHandle;
 
-                        let propLeft = sx;
-                        let propRight = ex;
-                        let propTop = sy;
-                        let propBottom = ey;
+                        let propLeft = sx, propRight = ex, propTop = sy, propBottom = ey;
 
-                        if (hKey === 'nw' || hKey === 'w' || hKey === 'sw') {
-                            propLeft = clamp(sx + dx, 0, cssW);
-                        }
-                        if (hKey === 'ne' || hKey === 'e' || hKey === 'se') {
-                            propRight = clamp(ex + dx, 0, cssW);
-                        }
-                        if (hKey === 'nw' || hKey === 'n' || hKey === 'ne') {
-                            propTop = clamp(sy + dy, 0, cssH);
-                        }
-                        if (hKey === 'sw' || hKey === 's' || hKey === 'se') {
-                            propBottom = clamp(ey + dy, 0, cssH);
-                        }
+                        if (['nw', 'w', 'sw'].includes(hKey)) propLeft = clamp(sx + dx, 0, cssW);
+                        if (['ne', 'e', 'se'].includes(hKey)) propRight = clamp(ex + dx, 0, cssW);
+                        if (['nw', 'n', 'ne'].includes(hKey)) propTop = clamp(sy + dy, 0, cssH);
+                        if (['sw', 's', 'se'].includes(hKey)) propBottom = clamp(ey + dy, 0, cssH);
 
                         let newLeft = Math.min(propLeft, propRight);
                         let newRight = Math.max(propLeft, propRight);
@@ -642,43 +579,35 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                         const MIN_SIZE = 1;
                         if (newRight - newLeft < MIN_SIZE) {
-                            if (propRight >= propLeft) {
-                                newRight = Math.min(cssW, newLeft + MIN_SIZE);
-                            } else {
-                                newLeft = Math.max(0, newRight - MIN_SIZE);
-                            }
+                            newRight = propRight >= propLeft ? Math.min(cssW, newLeft + MIN_SIZE) : newLeft;
+                            newLeft = propRight < propLeft ? Math.max(0, newRight - MIN_SIZE) : newLeft;
                         }
                         if (newBottom - newTop < MIN_SIZE) {
-                            if (propBottom >= propTop) {
-                                newBottom = Math.min(cssH, newTop + MIN_SIZE);
-                            } else {
-                                newTop = Math.max(0, newBottom - MIN_SIZE);
-                            }
+                            newBottom = propBottom >= propTop ? Math.min(cssH, newTop + MIN_SIZE) : newTop;
+                            newTop = propBottom < propTop ? Math.max(0, newBottom - MIN_SIZE) : newTop;
                         }
 
-                        const finalW = newRight - newLeft;
-                        const finalH = newBottom - newTop;
-                        state.currentRectPx = { x: Math.round(newLeft), y: Math.round(newTop), w: Math.round(finalW), h: Math.round(finalH) };
-
-                        state.didDrag = true;
+                        trimState.currentRectPx = {
+                            x: Math.round(newLeft),
+                            y: Math.round(newTop),
+                            w: Math.round(newRight - newLeft),
+                            h: Math.round(newBottom - newTop)
+                        };
+                        trimState.didDrag = true;
                     }
 
-                    // 【重要】変更があれば必ず再描画（互換性確保）
-                    try {
-                        if (state.currentRectPx) {
-                            const changed = !prevRect || prevRect.x !== state.currentRectPx.x || prevRect.y !== state.currentRectPx.y || prevRect.w !== state.currentRectPx.w || prevRect.h !== state.currentRectPx.h;
-                            if (changed) {
-                                if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                    const norm = rectPxToNormalized(state.currentRectPx);
-                                    window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                                }
-                            }
-                        } else {
-                            if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                window.drawTrimOverlayAsSvg(canvasId, []);
-                            }
+                    // 変更があれば再描画
+                    if (trimState.currentRectPx) {
+                        const changed = !prevRect ||
+                                       prevRect.x !== trimState.currentRectPx.x ||
+                                       prevRect.y !== trimState.currentRectPx.y ||
+                                       prevRect.w !== trimState.currentRectPx.w ||
+                                       prevRect.h !== trimState.currentRectPx.h;
+                        if (changed && trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                            const norm = rectPxToNormalized(trimState.currentRectPx);
+                            window.drawTrimOverlayAsSvg(canvasId, [norm]);
                         }
-                    } catch (e) { console.error(e); }
+                    }
                 });
             }
 
@@ -686,271 +615,240 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             const onPointerDown = function (ev) {
                 try {
                     if (ev.button !== undefined && ev.button !== 0) return;
-                    state.active = true;
-                    state.pointerId = ev.pointerId ?? 'mouse';
-                    state.startClientX = ev.clientX;
-                    state.startClientY = ev.clientY;
-                    state.didDrag = false;
 
-                    try {
-                        state.baseRectAtDown = state.base.getBoundingClientRect();
-                        state.logicalWAtDown = Math.max(1, Math.round(state.base.clientWidth || state.baseRectAtDown.width || 1));
-                        state.logicalHAtDown = Math.max(1, Math.round(state.base.clientHeight || state.baseRectAtDown.height || 1));
-                    } catch (e) { state.baseRectAtDown = null; state.logicalWAtDown = null; state.logicalHAtDown = null; }
+                    trimState.active = true;
+                    trimState.pointerId = ev.pointerId ?? 'mouse';
+                    trimState.startClientX = ev.clientX;
+                    trimState.startClientY = ev.clientY;
+                    trimState.didDrag = false;
 
-                    state.startClientLocal = toLocalPx(ev.clientX, ev.clientY);
+                    trimState.baseRectAtDown = canvas.getBoundingClientRect();
+                    trimState.logicalWAtDown = Math.max(1, Math.round(canvas.clientWidth || trimState.baseRectAtDown.width || 1));
+                    trimState.logicalHAtDown = Math.max(1, Math.round(canvas.clientHeight || trimState.baseRectAtDown.height || 1));
 
-                    try { if (state.base.setPointerCapture) state.base.setPointerCapture(ev.pointerId); } catch (e) { }
-                    try {
-                        const t = ev.target || ev.srcElement;
-                        if (t && t.setPointerCapture && t !== state.base) {
-                            try { t.setPointerCapture(ev.pointerId); } catch (e) { }
-                        }
-                    } catch (e) { }
+                    trimState.startClientLocal = toLocalPx(ev.clientX, ev.clientY);
 
-                    const target = ev.target || ev.srcElement;
-                    state.resizeHandle = null;
+                    if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+                    const t = ev.target || ev.srcElement;
+                    if (t?.setPointerCapture && t !== canvas) {
+                        try { t.setPointerCapture(ev.pointerId); } catch (e) {}
+                    }
 
-                    if (state.overlayDom && target) {
-                        const handleAttr = (target.getAttribute && target.getAttribute('data-handle')) ?? null;
-                        const rectAttr = (target.getAttribute && target.getAttribute('data-rect')) ?? null;
-                        const entry = window._simpleTrim && window._simpleTrim[canvasId];
+                    trimState.resizeHandle = null;
+
+                    if (trimState.overlayDom && t) {
+                        const handleAttr = t.getAttribute?.('data-handle');
+                        const rectAttr = t.getAttribute?.('data-rect');
 
                         if (handleAttr !== null) {
                             const idx = Number(handleAttr);
-                            state.resizeHandle = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
-                            state.mode = 'resize';
-                            try {
-                                const cur = (entry && entry.currentRectPx) || null;
-                                state.startRectPx = cur ? { ...cur } : { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
-                            } catch (e) { state.startRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 }; }
+                            trimState.resizeHandle = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
+                            trimState.mode = 'resize';
+                            trimState.startRectPx = trimState.currentRectPx ? { ...trimState.currentRectPx } : { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
 
                         } else if (rectAttr !== null) {
-                            state.mode = 'move';
-                            try {
-                                const cur = (window._simpleTrim && window._simpleTrim[canvasId] && window._simpleTrim[canvasId].currentRectPx) || null;
-                                state.startRectPx = cur ? { ...cur } : { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
-                                try {
-                                    if (window._simpleTrim && window._simpleTrim[canvasId]) {
-                                        const mode = (window._simpleTrim[canvasId].selectionMode)
-                                            || (window._simpleTrimSettings && window._simpleTrimSettings.selectionMode)
-                                            || 'single';
-                                        if (mode === 'single') {
-                                            Object.keys(window._simpleTrim).forEach(k => {
-                                                if (k === canvasId) return;
-                                                try {
-                                                    const other = window._simpleTrim[k];
-                                                    if (other && other.selected) {
-                                                        other.selected = false;
-                                                    }
-                                                } catch (ign) { }
-                                            });
-                                        }
-                                        window._simpleTrim[canvasId].selected = true;
+                            trimState.mode = 'move';
+                            trimState.startRectPx = trimState.currentRectPx ? { ...trimState.currentRectPx } : { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
+
+                            const mode = trimState.selectionMode || window._simpleTrimSettings?.selectionMode || 'single';
+                            if (mode === 'single') {
+                                Object.keys(window._simpleTrim).forEach(k => {
+                                    if (k !== canvasId && window._simpleTrim[k]?.selected) {
+                                        window._simpleTrim[k].selected = false;
                                     }
-                                } catch (e) { }
-                                try {
-                                    if (state.currentRectPx && state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(state.currentRectPx)]);
-                                } catch (e) { }
-                            } catch (e) {
-                                state.startRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
+                                });
                             }
+                            trimState.selected = true;
+
+                            if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                                window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
+                            }
+
                         } else {
-                            state.mode = 'maybe-draw';
-                            try {
-                                const entry = window._simpleTrim && window._simpleTrim[canvasId];
-                                if (entry) {
-                                    entry.selected = false;
-                                    try {
-                                        if (entry.currentRectPx && window.drawTrimOverlayAsSvg) {
-                                            const norm = rectPxToNormalized(entry.currentRectPx);
-                                            window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                                        } else if (window.drawTrimOverlayAsSvg) {
-                                            window.drawTrimOverlayAsSvg(canvasId, []);
-                                        }
-                                    } catch (e) { }
-                                }
-                            } catch (e) { }
+                            trimState.mode = 'maybe-draw';
+                            trimState.selected = false;
+
+                            if (trimState.currentRectPx && window.drawTrimOverlayAsSvg) {
+                                window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
+                            } else if (window.drawTrimOverlayAsSvg) {
+                                window.drawTrimOverlayAsSvg(canvasId, []);
+                            }
                         }
                     } else {
-                        state.mode = 'maybe-draw';
-                        try {
-                            const entry = window._simpleTrim && window._simpleTrim[canvasId];
-                            if (entry) {
-                                entry.selected = false;
-                                try {
-                                    if (entry.currentRectPx && window.drawTrimOverlayAsSvg) {
-                                        const norm = rectPxToNormalized(entry.currentRectPx);
-                                        window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                                    } else if (window.drawTrimOverlayAsSvg) {
-                                        window.drawTrimOverlayAsSvg(canvasId, []);
-                                    }
-                                } catch (e) { }
-                            }
-                        } catch (e) { }
+                        trimState.mode = 'maybe-draw';
+                        trimState.selected = false;
+                        if (trimState.currentRectPx && window.drawTrimOverlayAsSvg) {
+                            window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
+                        } else if (window.drawTrimOverlayAsSvg) {
+                            window.drawTrimOverlayAsSvg(canvasId, []);
+                        }
                     }
 
-                    try {
-                        if (state.overlayDom && state.resizeHandle) {
-                            const cur = HANDLE_CURSOR_MAP[state.resizeHandle] || '';
-                            state.overlayDom.style.cursor = cur;
-                        } else if (state.overlayDom && state.mode === 'draw') {
-                            state.overlayDom.style.cursor = 'crosshair';
-                        } else if (state.overlayDom && state.mode === 'move') {
-                            state.overlayDom.style.cursor = 'move';
-                        } else if (state.overlayDom && state.mode === 'maybe-draw') {
-                            state.overlayDom.style.cursor = '';
+                    if (trimState.overlayDom) {
+                        if (trimState.resizeHandle) {
+                            trimState.overlayDom.style.cursor = HANDLE_CURSOR_MAP[trimState.resizeHandle] || '';
+                        } else if (trimState.mode === 'draw') {
+                            trimState.overlayDom.style.cursor = 'crosshair';
+                        } else if (trimState.mode === 'move') {
+                            trimState.overlayDom.style.cursor = 'move';
+                        } else if (trimState.mode === 'maybe-draw') {
+                            trimState.overlayDom.style.cursor = '';
                         }
-                    } catch (e) { }
+                    }
 
-                    state.handlers.move = function (mEv) { scheduleMove(mEv); };
-                    state.handlers.up = function (uEv) {
-                        if (!state.active) return;
-                        state.active = false;
-                        try { state.base.releasePointerCapture && state.base.releasePointerCapture(state.pointerId); } catch (e) { }
+                    trimState.handlers.move = (mEv) => scheduleMove(mEv);
+                    trimState.handlers.up = function (uEv) {
+                        if (!trimState.active) return;
+                        trimState.active = false;
 
-                        state.baseRectAtDown = null;
-                        state.logicalWAtDown = null;
-                        state.logicalHAtDown = null;
+                        try { if (canvas.releasePointerCapture) canvas.releasePointerCapture(trimState.pointerId); } catch (e) {}
 
-                        try {
-                            if (state.internal && state.internal.scrollPendingWhileActive) {
-                                state.internal.scrollPendingWhileActive = false;
-                                if (state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, []);
+                        trimState.baseRectAtDown = null;
+                        trimState.logicalWAtDown = null;
+                        trimState.logicalHAtDown = null;
+
+                        if (trimState.internal?.scrollPendingWhileActive) {
+                            trimState.internal.scrollPendingWhileActive = false;
+                            if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                                window.drawTrimOverlayAsSvg(canvasId, []);
                             }
-                        } catch (e) { }
+                        }
 
-                        try { if (state.overlayDom) state.overlayDom.style.cursor = ''; } catch (e) { }
+                        if (trimState.overlayDom) trimState.overlayDom.style.cursor = '';
 
-                        if (state.mode === 'maybe-draw') {
-                            state.mode = null;
-                            state.didDrag = false;
-                            try { window.removeEventListener('pointermove', state.handlers.move, { passive: false }); } catch (e) { }
-                            try { window.removeEventListener('pointerup', state.handlers.up, { passive: false }); } catch (e) { }
+                        if (trimState.mode === 'maybe-draw') {
+                            trimState.mode = null;
+                            trimState.didDrag = false;
+                            window.removeEventListener('pointermove', trimState.handlers.move, { passive: false });
+                            window.removeEventListener('pointerup', trimState.handlers.up, { passive: false });
                             return;
                         }
 
-                        const raw = state.currentRectPx || { x: 0, y: 0, w: 0, h: 0 };
+                        const raw = trimState.currentRectPx || { x: 0, y: 0, w: 0, h: 0 };
                         if (raw.w > 0 && raw.h > 0) {
                             const norm = rectPxToNormalized(raw);
-                            try { if (window._simpleTrim && window._simpleTrim[canvasId]) window._simpleTrim[canvasId].lastRawRect = raw; } catch (e) { }
-                            if (state.dotNetRef && state.dotNetRef.invokeMethodAsync) {
-                                try { state.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', norm.X, norm.Y, norm.Width, norm.Height); } catch (e) { }
+                            trimState.lastRawRect = raw;
+
+                            if (trimState.dotNetRef?.invokeMethodAsync) {
+                                trimState.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', norm.X, norm.Y, norm.Width, norm.Height).catch(() => {});
                             }
 
-                            try {
-                                const entry = window._simpleTrim && window._simpleTrim[canvasId];
-                                if (entry && state.didDrag) {
-                                    entry.selected = false;
-                                    if (entry.overlayDom && window.drawTrimOverlayAsSvg) {
-                                        try { window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw)]); } catch (e) { }
-                                    }
+                            if (trimState.didDrag) {
+                                trimState.selected = false;
+                                if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                                    window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw)]);
                                 }
-                            } catch (e) { }
+                            }
                         } else {
-                            try {
-                                if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                    window.drawTrimOverlayAsSvg(canvasId, []);
-                                }
-                            } catch (e) { }
+                            if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                                window.drawTrimOverlayAsSvg(canvasId, []);
+                            }
                         }
-                        try { window.removeEventListener('pointermove', state.handlers.move, { passive: false }); } catch (e) { }
-                        try { window.removeEventListener('pointerup', state.handlers.up, { passive: false }); } catch (e) { }
+
+                        window.removeEventListener('pointermove', trimState.handlers.move, { passive: false });
+                        window.removeEventListener('pointerup', trimState.handlers.up, { passive: false });
                     };
 
-                    window.addEventListener('pointermove', state.handlers.move, { passive: false });
-                    window.addEventListener('pointerup', state.handlers.up, { passive: false });
+                    window.addEventListener('pointermove', trimState.handlers.move, { passive: false });
+                    window.addEventListener('pointerup', trimState.handlers.up, { passive: false });
 
                     ev.preventDefault?.();
-                } catch (e) { console.error('attachTrimListeners onPointerDown error', e); }
+                } catch (e) {
+                    console.error('onPointerDown error', e);
+                }
             };
 
             const onTouchStart = function (tEv) {
                 try {
                     if (!tEv.touches || tEv.touches.length === 0) return;
                     const t = tEv.touches[0];
-                    onPointerDown({ clientX: t.clientX, clientY: t.clientY, pointerId: 'touch', button: 0, target: t.target, preventDefault: () => tEv.preventDefault() });
+                    onPointerDown({
+                        clientX: t.clientX,
+                        clientY: t.clientY,
+                        pointerId: 'touch',
+                        button: 0,
+                        target: t.target,
+                        preventDefault: () => tEv.preventDefault()
+                    });
                     tEv.preventDefault();
-                } catch (e) { console.error('attachTrimListeners onTouchStart error', e); }
+                } catch (e) {
+                    console.error('onTouchStart error', e);
+                }
             };
 
-            state.handlers.pointerDown = onPointerDown;
-            state.handlers.touchStart = onTouchStart;
+            trimState.handlers.pointerDown = onPointerDown;
+            trimState.handlers.touchStart = onTouchStart;
 
-            state.base.addEventListener('pointerdown', onPointerDown, { passive: false });
-            state.base.addEventListener('touchstart', onTouchStart, { passive: false });
+            canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false });
 
-            try {
-                if (state.base && state.base.style) state.base.style.cursor = 'crosshair';
-                if (state.overlayDom && state.overlayDom.style) state.overlayDom.style.cursor = 'crosshair';
-            } catch (e) { }
+            if (canvas.style) canvas.style.cursor = 'crosshair';
+            if (overlayDom?.style) overlayDom.style.cursor = 'crosshair';
 
-            if (state.overlayDom) {
-                try {
-                    state.overlayDom.style.pointerEvents = 'auto';
-                    state.overlayDom.addEventListener('pointerdown', onPointerDown, { passive: false, capture: true });
-                    state.overlayDom.addEventListener('touchstart', onTouchStart, { passive: false, capture: true });
+            if (overlayDom) {
+                overlayDom.style.pointerEvents = 'auto';
+                overlayDom.addEventListener('pointerdown', onPointerDown, { passive: false, capture: true });
+                overlayDom.addEventListener('touchstart', onTouchStart, { passive: false, capture: true });
 
-                    const onOverlayPointerMove = function (ev) {
-                        try {
-                            const t = ev.target;
-                            const handleAttr = (t && t.getAttribute) ? t.getAttribute('data-handle') : null;
-                            const rectAttr = (t && t.getAttribute) ? t.getAttribute('data-rect') : null;
-                            if (handleAttr !== null) {
-                                const idx = Number(handleAttr);
-                                const key = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
-                                const cur = key ? (HANDLE_CURSOR_MAP[key] || '') : '';
-                                state.overlayDom.style.cursor = cur;
-                            } else if (rectAttr !== null) {
-                                state.overlayDom.style.cursor = 'move';
-                            } else {
-                                state.overlayDom.style.cursor = '';
-                            }
-                        } catch (e) { }
-                    };
-                    state.handlers.overlayMove = onOverlayPointerMove;
-                    state.overlayDom.addEventListener('pointermove', onOverlayPointerMove, { passive: true, capture: true });
-                } catch (e) { console.error(e); }
+                const onOverlayPointerMove = function (ev) {
+                    const t = ev.target;
+                    const handleAttr = t?.getAttribute?.('data-handle');
+                    const rectAttr = t?.getAttribute?.('data-rect');
+
+                    if (handleAttr !== null) {
+                        const idx = Number(handleAttr);
+                        const key = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
+                        overlayDom.style.cursor = key ? (HANDLE_CURSOR_MAP[key] || '') : '';
+                    } else if (rectAttr !== null) {
+                        overlayDom.style.cursor = 'move';
+                    } else {
+                        overlayDom.style.cursor = '';
+                    }
+                };
+                trimState.handlers.overlayMove = onOverlayPointerMove;
+                overlayDom.addEventListener('pointermove', onOverlayPointerMove, { passive: true, capture: true });
             }
 
             let scrollPending = false;
             function onAnyScrollOrResize() {
-                try {
-                    if (state.active) {
-                        state.internal.scrollPendingWhileActive = true;
-                        return;
-                    }
-                    if (scrollPending) return;
-                    scrollPending = true;
-                    requestAnimationFrame(() => {
-                        scrollPending = false;
-                    });
-                } catch (e) { }
+                if (trimState.active) {
+                    trimState.internal.scrollPendingWhileActive = true;
+                    return;
+                }
+                if (scrollPending) return;
+                scrollPending = true;
+                requestAnimationFrame(() => { scrollPending = false; });
             }
 
-            try {
-                state.internal.hostScroll = onAnyScrollOrResize; state.host.addEventListener('scroll', state.internal.hostScroll, { passive: true });
-            } catch (e) { }
-            try {
-                const container = document.getElementById('trim-preview-container') || state.host.closest('.preview-zoom-viewport');
-                if (container) { state.internal.containerScroll = onAnyScrollOrResize; container.addEventListener('scroll', state.internal.containerScroll, { passive: true }); }
-            } catch (e) { }
+            trimState.internal.hostScroll = onAnyScrollOrResize;
+            host.addEventListener('scroll', trimState.internal.hostScroll, { passive: true });
+
+            const container = document.getElementById('trim-preview-container') || host.closest('.preview-zoom-viewport');
+            if (container) {
+                trimState.internal.containerScroll = onAnyScrollOrResize;
+                container.addEventListener('scroll', trimState.internal.containerScroll, { passive: true });
+            }
 
             return true;
-        } catch (e) { console.error('attachTrimListeners error', e); return false; }
+        } catch (e) {
+            console.error('attachTrimListeners error', e);
+            return false;
+        }
     };
 
     window.detachTrimListeners = function (canvasId) {
         try {
-            const entry = window._simpleTrim && window._simpleTrim[canvasId];
-            if (!entry) {
-                try { cleanupTrimEntry(canvasId); } catch (e) { }
+            const trimState = window._simpleTrim?.[canvasId];
+            if (!trimState) {
+                cleanupTrimEntry(canvasId);
                 return false;
             }
-
             cleanupTrimEntry(canvasId);
             return true;
-        } catch (e) { console.error('detachTrimListeners error', e); return false; }
+        } catch (e) {
+            console.error('detachTrimListeners error', e);
+            return false;
+        }
     };
 })();
 
@@ -985,9 +883,7 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
                     ctx.clearRect(0, 0, iw, ih);
                     ctx.drawImage(img, 0, 0, iw, ih);
 
-                    requestAnimationFrame(() => {
-                        resolve(true);
-                    });
+                    requestAnimationFrame(() => resolve(true));
                 } catch (e) {
                     console.error('drawImageToCanvasForPreview draw error', e);
                     resolve(false);
