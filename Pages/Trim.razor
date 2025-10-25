@@ -1041,8 +1041,9 @@
         {
             await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
         }
-        catch { 
-            StateHasChanged();
+        catch (Exception ex)
+        {
+            Console.WriteLine($"setPreviewZoom failed: {ex.Message}");
 
         }
     }
@@ -1050,34 +1051,34 @@
     private async Task ZoomIn()
     {
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
-        await ApplyPreviewZoomAsync();
+        _ = ApplyPreviewZoomAsync();
     }
 
     private async Task ZoomOut()
     {
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
-        await ApplyPreviewZoomAsync();
+        _ = ApplyPreviewZoomAsync();
     }
 
     private async Task FitPreviewWidth()
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
+            _ = JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
         }
-        catch
+        catch (Exception ex)
         {
-            Console.WriteLine("FitPreviewWidth failed");
+            Console.WriteLine($"FitPreviewWidth failed: {ex.Message}");
             // フォールバック: 直接倍率 1 を設定
             previewZoom = 1.0;
-            await ApplyPreviewZoomAsync();
+            _ = ApplyPreviewZoomAsync();
         }
     }
 
     private async Task SetPreviewToActualSize()
     {
         previewZoom = 1.0;
-        await ApplyPreviewZoomAsync();
+        _ = ApplyPreviewZoomAsync();
     }
 
     private bool useRasterize = false;
