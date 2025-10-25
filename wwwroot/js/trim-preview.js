@@ -720,17 +720,22 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             if (trimState.allowMultipleRects && targetRectIndex >= 0 && targetRectIndex < trimState.currentRectsPx.length) {
                                 trimState.selectedRectIndex = targetRectIndex;
                                 trimState.startRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
+                                
+                                // 【修正】currentRectPx も同期
+                                trimState.currentRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
                             } else {
                                 trimState.startRectPx = trimState.currentRectPx ? { ...trimState.currentRectPx } : { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
                             }
-
                         } else if (rectAttr !== null) {
-                            // 矩形本体クリック → 移動モード
+                             // 矩形本体クリック → 移動モード
                             trimState.mode = 'move';
 
                             if (trimState.allowMultipleRects && targetRectIndex >= 0 && targetRectIndex < trimState.currentRectsPx.length) {
                                 trimState.selectedRectIndex = targetRectIndex;
                                 trimState.startRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
+                                
+                                // 【修正】currentRectPx も同期（移動/リサイズ処理で参照されるため）
+                                trimState.currentRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
 
                                 // 他の Canvas の矩形を非選択（selectionMode === 'single' の場合）
                                 const mode = trimState.selectionMode || window._simpleTrimSettings?.selectionMode || 'single';
@@ -770,7 +775,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                     window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
                                 }
                             }
-
                         } else {
                             // 空白クリック → 新規描画開始候補
                             trimState.mode = 'maybe-draw';
