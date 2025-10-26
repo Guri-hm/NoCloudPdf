@@ -1700,6 +1700,21 @@ public class PdfDataService
         await InvokeOnChangeAsync();
     }
 
+    public async Task SetTrimRects(int pageIndex, List<TrimRectInfo> rects)
+    {
+        if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
+        {
+            var page = _model.Pages[pageIndex];
+            page.TrimRects.Clear();
+            if (rects != null && rects.Count > 0)
+            {
+                page.TrimRects.AddRange(rects);
+            }
+        }
+
+        await InvokeOnChangeAsync();
+    }
+
     public void ClearTrimRect(int pageIndex)
     {
         if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
@@ -1719,6 +1734,16 @@ public class PdfDataService
         }
 
         return null;
+    }
+
+    public List<TrimRectInfo> GetTrimRects(int pageIndex)
+    {
+        if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
+        {
+            var page = _model.Pages[pageIndex];
+            return page.TrimRects ?? new List<TrimRectInfo>();
+        }
+        return new List<TrimRectInfo>();
     }
 
     public Dictionary<int, TrimRectInfo> GetAllTrimRects()
