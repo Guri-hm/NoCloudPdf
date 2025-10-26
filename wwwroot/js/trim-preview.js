@@ -71,8 +71,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     }));
 
                     if (window.drawTrimOverlayAsSvg) {
-                        console.log("矩形削除:複数矩形");
-                        
                         window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                     }
                     if (trimState.dotNetRef?.invokeMethodAsync) {
@@ -87,8 +85,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
                     }
                     if (window.drawTrimOverlayAsSvg) {
-                        console.log("矩形削除:単一矩形");
-                        
                         window.drawTrimOverlayAsSvg(canvasId, []);
                     }
                 }
@@ -159,7 +155,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
         // 複数矩形を順次描画
         rects.forEach((rect, rectIndex) => {
-            console.log(`Drawing rect ${rectIndex}:`, rect);
             const normX = Number(rect.X ?? rect.x ?? 0);
             const normY = Number(rect.Y ?? rect.y ?? 0);
             const normW = Number(rect.Width ?? rect.width ?? 0);
@@ -566,10 +561,19 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         // 状態だけ更新（描画は下の changed 判定で一度だけ行う）
                         trimState.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
 
+                        // 画面外へのはみ出しをこの時点で切り詰める（disp を currentRectPx に保存）
                         let dispX = rawX < 0 ? 0 : rawX;
                         let dispY = rawY < 0 ? 0 : rawY;
                         let dispW = rawX < 0 ? Math.max(0, Math.min(trimState.startClientLocal.x - dispX, rawW)) : rawW;
                         let dispH = rawY < 0 ? Math.max(0, Math.min(trimState.startClientLocal.y - dispY, rawH)) : rawH;
+
+                        // 整数化して状態に入れる（以降の比較/描画が安定する）
+                        trimState.currentRectPx = {
+                            x: Math.round(dispX),
+                            y: Math.round(dispY),
+                            w: Math.round(dispW),
+                            h: Math.round(dispH)
+                        };
 
                         if (!trimState.didDrag && prevRect) {
                             const changed = prevRect.x !== trimState.currentRectPx.x ||
@@ -658,7 +662,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                             Height: trimState.currentRectPx.h / cssH
                                         }
                                     ];
-                                    console.log("描画(集約):複数矩形");
                                     window.drawTrimOverlayAsSvg(canvasId, tempRects);
                                 } else {
                                     if (trimState.selectedRectIndex >= 0 && trimState.selectedRectIndex < trimState.currentRectsPx.length) {
@@ -668,13 +671,11 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                         X: r.x / cssW, Y: r.y / cssH,
                                         Width: r.w / cssW, Height: r.h / cssH
                                     }));
-                                    console.log("リサイズ/移動(集約):複数矩形");
                                     window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                                 }
                             } else {
                                 // 単一矩形時：既存動作
                                 const norm = rectPxToNormalized(trimState.currentRectPx);
-                                console.log("描画(集約):単一矩形");
                                 window.drawTrimOverlayAsSvg(canvasId, [norm]);
                             }
                         }
@@ -703,7 +704,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     }
                 }
                 if (window.drawTrimOverlayAsSvg) {
-                    console.log("描画開始:maybe-draw");
                     window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                 }
             }
@@ -784,7 +784,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                     Width: r.w / trimState.logicalWAtDown,
                                     Height: r.h / trimState.logicalHAtDown
                                 }));
-                                console.log("矩形移動:複数矩形");
                                 window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
 
                             } else {
@@ -802,8 +801,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 trimState.selected = true;
 
                                 if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
-                                    console.log("矩形移動:単一矩形");
-
                                     window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
                                 }
                             }
@@ -884,8 +881,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 // ドラッグ確定後は非選択で再描画
                                 if (trimState.didDrag) {
                                     trimState.selectedRectIndex = -1;
-                                    console.log("確定:複数矩形");
-
                                     window.drawTrimOverlayAsSvg(canvasId, rectsToCommit);
                                 }
 
@@ -902,15 +897,12 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 if (trimState.didDrag) {
                                     trimState.selected = false;
                                     if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
-                                        console.log("確定:単一矩形");
                                         window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw)]);
                                     }
                                 }
                             }
                         } else {
                             if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
-                                console.log("大きさ0矩形:クリア");
-
                                 window.drawTrimOverlayAsSvg(canvasId, []);
                             }
                         }
