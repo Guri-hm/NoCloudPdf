@@ -811,7 +811,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         startMaybeDraw();
                     }
 
-                    // カーソル変更（既存と同じ）
+                    // カーソル変更
                     if (trimState.overlayDom) {
                         if (trimState.resizeHandle) {
                             trimState.overlayDom.style.cursor = HANDLE_CURSOR_MAP[trimState.resizeHandle] || '';
@@ -881,9 +881,10 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 }
 
                             } else {
-                                // 単一矩形時：既存動作（上書き）
+                                // 単一矩形時：上書き
                                 trimState.lastRawRect = raw;
-                                trimState.currentRectsPx = [raw]; // 配列にも保存（互換性維持）
+                                // 配列にも保存（互換性維持）
+                                trimState.currentRectsPx = [raw];
 
                                 if (trimState.dotNetRef?.invokeMethodAsync) {
                                     trimState.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', norm.X, norm.Y, norm.Width, norm.Height).catch(() => {});

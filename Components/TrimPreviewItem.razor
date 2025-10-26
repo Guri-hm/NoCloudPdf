@@ -41,6 +41,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        Console.WriteLine($"OnAfterRenderAsync called idx={Index}");
         // 初期化済みならスキップ
         if (isInitialized) return;
         
@@ -147,16 +148,9 @@
 
     // JS から単一矩形が確定したときに呼ばれる
     [JSInvokable("CommitTrimRectFromJs")]
-    public async Task CommitTrimRectFromJs(double x, double y, double width, double height)
+    public Task CommitTrimRectFromJs(double x, double y, double width, double height)
     {
-        try
-        {
-            await PdfDataService.SetTrimRect(Index, x, y, width, height);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"CommitTrimRectFromJs failed idx={Index}: {ex.Message}");
-        }
+            return PdfDataService.SetTrimRect(Index, x, y, width, height,notify: false);
     }
 
     // JS から複数矩形が確定したときに呼ばれる
