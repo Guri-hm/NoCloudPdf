@@ -1254,7 +1254,6 @@
             int w = settings.ImageNaturalWidth;
             int h = settings.ImageNaturalHeight;
 
-            // フォールバック: ダイアログで取得できていなければ既存の canvas から取得
             if (w <= 0 || h <= 0)
             {
                 try
@@ -1303,7 +1302,7 @@
                 await PdfDataService.SetTrimRect(idx, nx, ny, nw, nh);
             }
 
-            // 再描画: 対象ページの drawTrimOverlayAsSvg を即座に実行
+            // 再描画: await せず fire-and-forget で呼び出し（レンダリング中断を避ける）
             foreach (var idx in targetPages)
             {
                 try
@@ -1312,11 +1311,11 @@
                     if (r != null)
                     {
                         var rect = new { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height };
-                        await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{idx}", new[] { rect });
+                        _ = JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{idx}", new[] { rect });
                     }
                     else
                     {
-                        await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{idx}", Array.Empty<object>());
+                        _ = JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{idx}", Array.Empty<object>());
                     }
                 }
                 catch (Exception ex)
@@ -1336,7 +1335,7 @@
         finally
         {
             isBusy = false;
-            StateHasChanged();
+            // StateHasChanged は不要（isBusy の変更で自動的にレンダリングされる）
         }
     }
 
