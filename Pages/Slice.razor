@@ -291,7 +291,6 @@
         try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
         _visibleObserverLastCount = -1;
 
-        try { await JSRuntime.InvokeVoidAsync("unregisterPanelResize"); } catch { }
         try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
 
         try

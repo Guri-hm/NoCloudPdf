@@ -38,7 +38,6 @@
     [Parameter] public string RightContainerId { get; set; } = "trim-preview-container";
 
     private DotNetObjectReference<SplitPane>? _dotNetRef;
-    private bool _registered = false;
 
     private string LeftWidthPx => $"{Math.Max(0, LeftWidth)}px";
 
@@ -49,13 +48,10 @@
             _dotNetRef = DotNetObjectReference.Create(this);
             try
             {
-                // registerPanelResize(dotNetRef, handleId, debounceMs)
                 await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef, HandleId, 1500);
-                _registered = true;
             }
             catch
             {
-                _registered = false;
             }
         }
     }
@@ -88,11 +84,7 @@
     {
         try
         {
-            if (_registered)
-            {
-                await JSRuntime.InvokeVoidAsync("unregisterPanelResize");
-                _registered = false;
-            }
+            await JSRuntime.InvokeVoidAsync("unregisterPanelResize");
         }
         catch { }
         _dotNetRef?.Dispose();
