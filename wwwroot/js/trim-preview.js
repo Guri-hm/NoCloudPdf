@@ -539,12 +539,14 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     const { cssW, cssH } = loc;
                     const prevRect = trimState.currentRectPx ? { ...trimState.currentRectPx } : null;
 
+                    // クリック（選択）とドラッグ（新規描画）の判定
                     if (trimState.mode === 'maybe-draw') {
                         const dx = loc.x - trimState.startClientLocal.x;
                         const dy = loc.y - trimState.startClientLocal.y;
                         const distSq = dx * dx + dy * dy;
                         const THRESHOLD_PX = 8;
                         if (distSq >= THRESHOLD_PX * THRESHOLD_PX) {
+                            // ドラッグ開始と判定
                             trimState.mode = 'draw';
                             trimState.currentRectPx = { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
                         } else {
@@ -832,13 +834,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         trimState.baseRectAtDown = null;
                         trimState.logicalWAtDown = null;
                         trimState.logicalHAtDown = null;
-
-                        if (trimState.internal?.scrollPendingWhileActive) {
-                            trimState.internal.scrollPendingWhileActive = false;
-                            if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
-                                window.drawTrimOverlayAsSvg(canvasId, []);
-                            }
-                        }
 
                         if (trimState.overlayDom) trimState.overlayDom.style.cursor = '';
 
