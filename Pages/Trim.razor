@@ -1048,19 +1048,21 @@
         }
     }
 
-    private async Task ZoomIn()
+    private Task ZoomIn()
     {
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
         _ = ApplyPreviewZoomAsync();
+        return Task.CompletedTask;
     }
 
-    private async Task ZoomOut()
+    private Task ZoomOut()
     {
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
         _ = ApplyPreviewZoomAsync();
+        return Task.CompletedTask;
     }
 
-    private async Task FitPreviewWidth()
+    private Task FitPreviewWidth()
     {
         try
         {
@@ -1073,12 +1075,14 @@
             previewZoom = 1.0;
             _ = ApplyPreviewZoomAsync();
         }
+        return Task.CompletedTask;
     }
 
-    private async Task SetPreviewToActualSize()
+    private Task SetPreviewToActualSize()
     {
         previewZoom = 1.0;
         _ = ApplyPreviewZoomAsync();
+        return Task.CompletedTask;
     }
 
     private bool useRasterize = false;
