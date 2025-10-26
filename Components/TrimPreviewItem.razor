@@ -34,7 +34,7 @@
 
     private ElementReference canvasRef;
     private bool isLoading = true;
-    private bool isInitialized = false; // 初回初期化フラグ
+    private bool isInitialized = false;
     private string CanvasId => $"trim-preview-canvas-{Index}";
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
@@ -42,10 +42,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         Console.WriteLine($"OnAfterRenderAsync called idx={Index}");
-        // 初期化済みならスキップ
         if (isInitialized) return;
-        
-        // 初回または再レンダリング時に描画を試行
         await InitializeCanvasAsync();
     }
 
@@ -55,7 +52,6 @@
         {
             if (Item.RawData is not PageItem page) return;
 
-            // 画像ソース取得
             string? src = null;
             if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
             {
@@ -64,31 +60,24 @@
 
             if (string.IsNullOrEmpty(src)) return;
 
-            // Canvas に描画
             await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
 
-            // Canvas の準備完了を待つ（単一の待機処理）
             const int CANVAS_READY_TIMEOUT_MS = 500;
             var ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, CANVAS_READY_TIMEOUT_MS);
 
-            // ローディング解除
             if (isLoading)
             {
                 isLoading = false;
                 StateHasChanged();
             }
 
-            // 初回のみリスナー登録と矩形復元
             if (!isInitialized)
             {
                 await InitializeTrimmingAsync();
                 isInitialized = true;
             }
         }
-        catch (OperationCanceledException)
-        {
-            // キャンセル時は無視
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             Console.WriteLine($"TrimPreviewItem.InitializeCanvasAsync error idx={Index}: {ex.Message}");
@@ -106,13 +95,24 @@
         {
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
-            // リスナー登録
             if (IsDrawingMode)
             {
                 await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef, "single", AllowMultipleRects);
             }
 
-            // 保存されている矩形を復元
+            await RedrawTrimOverlayAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"TrimPreviewItem.InitializeTrimmingAsync error idx={Index}: {ex.Message}");
+        }
+    }
+
+    // 矩形描画だけを再実行する public メソッド（外部から呼べる）
+    public async Task RedrawTrimOverlayAsync()
+    {
+        try
+        {
             if (AllowMultipleRects)
             {
                 var rects = PdfDataService.GetTrimRects(Index);
@@ -142,18 +142,16 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"TrimPreviewItem.InitializeTrimmingAsync error idx={Index}: {ex.Message}");
+            Console.WriteLine($"RedrawTrimOverlayAsync error idx={Index}: {ex.Message}");
         }
     }
 
-    // JS から単一矩形が確定したときに呼ばれる
     [JSInvokable("CommitTrimRectFromJs")]
     public Task CommitTrimRectFromJs(double x, double y, double width, double height)
     {
-            return PdfDataService.SetTrimRect(Index, x, y, width, height,notify: false);
+        return PdfDataService.SetTrimRect(Index, x, y, width, height, notify: false);
     }
 
-    // JS から複数矩形が確定したときに呼ばれる
     [JSInvokable("CommitMultipleRectsFromJs")]
     public void CommitMultipleRectsFromJs(JsonElement[] rects)
     {
@@ -195,7 +193,6 @@
         }
     }
 
-    // JS から削除要求があったときに呼ばれる
     [JSInvokable("ClearTrimRectFromJs")]
     public Task ClearTrimRectFromJs()
     {

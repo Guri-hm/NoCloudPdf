@@ -1247,6 +1247,7 @@
     {
         try
         {
+            Console.WriteLine("Applying trim range settings...");
             isBusy = true;
             StateHasChanged();
 
@@ -1300,6 +1301,28 @@
             foreach (var idx in targetPages)
             {
                 await PdfDataService.SetTrimRect(idx, nx, ny, nw, nh);
+            }
+
+            // 再描画: 対象ページの drawTrimOverlayAsSvg を即座に実行
+            foreach (var idx in targetPages)
+            {
+                try
+                {
+                    var r = PdfDataService.GetTrimRect(idx);
+                    if (r != null)
+                    {
+                        var rect = new { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height };
+                        await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{idx}", new[] { rect });
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{idx}", Array.Empty<object>());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Redraw overlay failed for page {idx}: {ex.Message}");
+                }
             }
 
             ShowMessage("トリミング範囲を適用しました", MessageType.Success);
