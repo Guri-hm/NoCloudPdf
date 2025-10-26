@@ -695,7 +695,7 @@
         }
     }
 
-    private async Task ClearAllTrims()
+    private Task ClearAllTrims()
     {
         try
         {
@@ -722,22 +722,19 @@
             {
                 try
                 {
-                    await JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", Array.Empty<object>());
+                    _ = JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", Array.Empty<object>());
                 }
-                catch
-                {
-                }
+                catch { }
             }
 
             ShowMessage("すべてのトリミング範囲をクリアしました", MessageType.Success);
-            StateHasChanged();
         }
         catch
         {
             ShowMessage("トリミング範囲のクリアに失敗しました", MessageType.Error);
-            StateHasChanged();
         }
-    }    
+        return Task.CompletedTask;
+    }
 
     [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
