@@ -684,22 +684,23 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             function startMaybeDraw() {
                 trimState.mode = 'maybe-draw';
 
+                let rectsToRender = [];
                 if (trimState.allowMultipleRects) {
                     trimState.selectedRectIndex = -1;
                     const baseW = trimState.logicalWAtDown || Math.max(1, Math.round(canvas.clientWidth || 1));
                     const baseH = trimState.logicalHAtDown || Math.max(1, Math.round(canvas.clientHeight || 1));
-                    const rectsToRender = trimState.currentRectsPx.map(r => ({
+                    rectsToRender = trimState.currentRectsPx.map(r => ({
                         X: r.x / baseW, Y: r.y / baseH,
                         Width: r.w / baseW, Height: r.h / baseH
                     }));
-                    if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                 } else {
                     trimState.selected = false;
-                    if (trimState.currentRectPx && window.drawTrimOverlayAsSvg) {
-                        window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
-                    } else if (window.drawTrimOverlayAsSvg) {
-                        window.drawTrimOverlayAsSvg(canvasId, []);
+                    if (trimState.currentRectPx) {
+                        rectsToRender = [rectPxToNormalized(trimState.currentRectPx)];
                     }
+                }
+                if (window.drawTrimOverlayAsSvg) {
+                    window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                 }
             }
 
