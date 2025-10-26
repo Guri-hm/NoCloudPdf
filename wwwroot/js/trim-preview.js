@@ -428,7 +428,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 base: canvas,
                 host,
                 overlay,
-                overlayDom,
+                overlayDom, //キャンバス上に置かれた SVG オーバーレイ（DOM コンテナ）への参 
                 dotNetRef,
                 selectionMode: (selectionMode === 'multi') ? 'multi' : 'single',
                 allowMultipleRects: Boolean(allowMultipleRects), // 複数矩形許可フラグ
@@ -680,6 +680,29 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 });
             }
 
+            // 空白クリック（maybe-draw）処理を共通化 ---
+            function startMaybeDraw() {
+                trimState.mode = 'maybe-draw';
+
+                if (trimState.allowMultipleRects) {
+                    trimState.selectedRectIndex = -1;
+                    const baseW = trimState.logicalWAtDown || Math.max(1, Math.round(canvas.clientWidth || 1));
+                    const baseH = trimState.logicalHAtDown || Math.max(1, Math.round(canvas.clientHeight || 1));
+                    const rectsToRender = trimState.currentRectsPx.map(r => ({
+                        X: r.x / baseW, Y: r.y / baseH,
+                        Width: r.w / baseW, Height: r.h / baseH
+                    }));
+                    if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                } else {
+                    trimState.selected = false;
+                    if (trimState.currentRectPx && window.drawTrimOverlayAsSvg) {
+                        window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
+                    } else if (window.drawTrimOverlayAsSvg) {
+                        window.drawTrimOverlayAsSvg(canvasId, []);
+                    }
+                }
+            }
+
             // PointerDown: モード判定 & キャプチャ開始
             const onPointerDown = function (ev) {
                 try {
@@ -705,6 +728,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                     trimState.resizeHandle = null;
 
+                    // SVGオーバーレイの有無
                     if (trimState.overlayDom && t) {
                         const handleAttr = t.getAttribute?.('data-handle');
                         const rectAttr = t.getAttribute?.('data-rect');
@@ -776,50 +800,12 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 }
                             }
                         } else {
-                            // 空白クリック → 新規描画開始候補
-                            trimState.mode = 'maybe-draw';
-
-                            if (trimState.allowMultipleRects) {
-                                // 複数矩形時：選択解除のみ（既存矩形は残す）
-                                trimState.selectedRectIndex = -1;
-                                const rectsToRender = trimState.currentRectsPx.map(r => ({
-                                    X: r.x / trimState.logicalWAtDown,
-                                    Y: r.y / trimState.logicalHAtDown,
-                                    Width: r.w / trimState.logicalWAtDown,
-                                    Height: r.h / trimState.logicalHAtDown
-                                }));
-                                window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
-                            } else {
-                                // 単一矩形時：既存動作（非選択状態で表示）
-                                trimState.selected = false;
-                                if (trimState.currentRectPx && window.drawTrimOverlayAsSvg) {
-                                    window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
-                                } else if (window.drawTrimOverlayAsSvg) {
-                                    window.drawTrimOverlayAsSvg(canvasId, []);
-                                }
-                            }
+                            // オーバーレイあり（svg以外をクリック） → 新規描画候補
+                            startMaybeDraw();
                         }
                     } else {
                         // オーバーレイなし → 新規描画候補
-                        trimState.mode = 'maybe-draw';
-
-                        if (trimState.allowMultipleRects) {
-                            trimState.selectedRectIndex = -1;
-                            const rectsToRender = trimState.currentRectsPx.map(r => ({
-                                X: r.x / (trimState.logicalWAtDown || 1),
-                                Y: r.y / (trimState.logicalHAtDown || 1),
-                                Width: r.w / (trimState.logicalWAtDown || 1),
-                                Height: r.h / (trimState.logicalHAtDown || 1)
-                            }));
-                            window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
-                        } else {
-                            trimState.selected = false;
-                            if (trimState.currentRectPx && window.drawTrimOverlayAsSvg) {
-                                window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
-                            } else if (window.drawTrimOverlayAsSvg) {
-                                window.drawTrimOverlayAsSvg(canvasId, []);
-                            }
-                        }
+                        startMaybeDraw();
                     }
 
                     // カーソル変更（既存と同じ）
