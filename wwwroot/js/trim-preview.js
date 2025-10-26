@@ -55,6 +55,38 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         if (!canvas) return false;
         const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
         
+        function removeRectAt(index) {
+            try {
+                if (trimState.allowMultipleRects) {
+                    if (index >= 0 && index < trimState.currentRectsPx.length) {
+                        trimState.currentRectsPx.splice(index, 1);
+                    }
+                    trimState.selectedRectIndex = -1;
+
+                    const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+                    const rectsToRender = (trimState.currentRectsPx || []).map(r => ({
+                        X: r.x / cssW, Y: r.y / cssH,
+                        Width: r.w / cssW, Height: r.h / cssH
+                    }));
+
+                    if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToRender).catch(() => {});
+                    }
+                } else {
+                    // 単一矩形時: 全削除
+                    trimState.selected = false;
+                    trimState.currentRectPx = null;
+                    trimState.currentRectsPx = [];
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
+                    }
+                    if (window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, []);
+                }
+            } catch (e) { console.error('removeRectAt error', e); }
+        }
+
         // SVGコンテナを準備（既存または新規作成）
         const overlayId = canvasId + '-overlay-svg';
         let container = document.getElementById(overlayId);
@@ -229,28 +261,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 deleteBtn.addEventListener('pointerdown', function (ev) {
                     try {
                         ev.stopPropagation();
-                        if (trimState.allowMultipleRects) {
-                            // 複数矩形時：該当矩形を削除
-                            trimState.currentRectsPx.splice(rectIndex, 1);
-                            trimState.selectedRectIndex = -1;
-                            const rectsToRender = trimState.currentRectsPx.map(r => ({
-                                X: r.x / cssW, Y: r.y / cssH,
-                                Width: r.w / cssW, Height: r.h / cssH
-                            }));
-                            window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
-                            if (trimState.dotNetRef?.invokeMethodAsync) {
-                                trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToRender).catch(() => {});
-                            }
-                        } else {
-                            // 単一矩形時：既存動作（全クリア）
-                            trimState.selected = false;
-                            trimState.currentRectPx = null;
-                            trimState.currentRectsPx = [];
-                            if (trimState.dotNetRef?.invokeMethodAsync) {
-                                trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
-                            }
-                            window.drawTrimOverlayAsSvg(canvasId, []);
-                        }
+                        removeRectAt(rectIndex);
                     } catch (e) { console.error(e); }
                 }, { passive: false });
 
@@ -281,26 +292,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             trimState.internal.keydown = function (ev) {
                 if ((ev.key === 'Delete' || ev.key === 'Del')) {
                     if (trimState.allowMultipleRects && trimState.selectedRectIndex >= 0) {
-                        // 複数矩形時：選択中の矩形を削除
-                        trimState.currentRectsPx.splice(trimState.selectedRectIndex, 1);
-                        trimState.selectedRectIndex = -1;
-                        const rectsToRender = trimState.currentRectsPx.map(r => ({
-                            X: r.x / cssW, Y: r.y / cssH,
-                            Width: r.w / cssW, Height: r.h / cssH
-                        }));
-                        window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
-                        if (trimState.dotNetRef?.invokeMethodAsync) {
-                            trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToRender).catch(() => {});
-                        }
+                        removeRectAt(trimState.selectedRectIndex);
                     } else if (!trimState.allowMultipleRects && trimState.selected) {
-                        // 単一矩形時：既存動作
-                        trimState.selected = false;
-                        trimState.currentRectPx = null;
-                        trimState.currentRectsPx = [];
-                        if (trimState.dotNetRef?.invokeMethodAsync) {
-                            trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
-                        }
-                        window.drawTrimOverlayAsSvg(canvasId, []);
+                        removeRectAt(0);
                     }
                 }
             };
