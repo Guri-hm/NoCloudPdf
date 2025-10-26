@@ -1701,7 +1701,7 @@ public class PdfDataService
             await InvokeOnChangeAsync();
     }
 
-    public async Task SetTrimRects(int pageIndex, List<TrimRectInfo> rects)
+    public void SetTrimRects(int pageIndex, List<TrimRectInfo> rects, bool notify = true)
     {
         if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
         {
@@ -1712,8 +1712,10 @@ public class PdfDataService
                 page.TrimRects.AddRange(rects);
             }
         }
-
-        await InvokeOnChangeAsync();
+        if (notify)
+        {
+            _ = InvokeOnChangeAsync();
+        }
     }
 
     public void ClearTrimRect(int pageIndex)

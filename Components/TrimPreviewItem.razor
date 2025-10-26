@@ -155,7 +155,7 @@
 
     // JS から複数矩形が確定したときに呼ばれる
     [JSInvokable("CommitMultipleRectsFromJs")]
-    public async Task CommitMultipleRectsFromJs(JsonElement[] rects)
+    public void CommitMultipleRectsFromJs(JsonElement[] rects)
     {
         try
         {
@@ -186,8 +186,7 @@
 
             if (rectList.Count > 0)
             {
-                await PdfDataService.SetTrimRects(Index, rectList);
-                Console.WriteLine($"CommitMultipleRectsFromJs: saved {rectList.Count} rects for idx={Index}");
+                PdfDataService.SetTrimRects(Index, rectList, notify: false);
             }
         }
         catch (Exception ex)
