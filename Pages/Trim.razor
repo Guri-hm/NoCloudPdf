@@ -87,10 +87,13 @@
 
                 <div class="preview-zoom-viewport w-full h-full">
                     <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
-                        @for (int i = 0; i < DisplayItems.Count; i++)
+                        @foreach (var (item, index) in DisplayItems.Select((x, i) => (x, i)))
                         {
-                            var item = DisplayItems[i];
-                            <TrimPreviewItem Item="@item" Index="@i"  IsDrawingMode="@isDrawingMode" />
+                            string? keyName = $"{item.Id}-{_rotationCounter}";
+                            <TrimPreviewItem @key="keyName"
+                                            Item="@item"
+                                            Index="@index"
+                                            IsDrawingMode="@isDrawingMode" />
                         }
                     </div>
                 </div>
@@ -215,7 +218,6 @@
 }
 
 @code {
-    
     protected override void OnInitialized()
     {
         PdfDataService.OnChange += OnServiceChanged;
@@ -467,23 +469,18 @@
 
     private Task RotateAllLeft() => RotateAll(-90);
     private Task RotateAllRight() => RotateAll(90);
+    private int _rotationCounter = 0;
+
     private async Task RotateAll(int angle)
     {
         isBusy = true;
         StateHasChanged();
         await Task.Yield();
 
-        await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+        _ = PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+        _rotationCounter++;
 
         isBusy = false;
-        StateHasChanged();
-
-        // 回転後は矩形をクリア
-        trimRects.Clear();
-        foreach (var item in previewItems)
-        {
-            item.TrimRect = null;
-        }
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）

@@ -87,10 +87,13 @@
 
                 <div class="preview-zoom-viewport w-full h-full">
                     <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
-                        @for (int i = 0; i < DisplayItems.Count; i++)
+                        @foreach (var (item, index) in DisplayItems.Select((x, i) => (x, i)))
                         {
-                            var item = DisplayItems[i];
-                            <TrimPreviewItem Item="@item" Index="@i"  IsDrawingMode="@isDrawingMode" AllowMultipleRects="@(true)"/>
+                            string? keyName = $"{item.Id}-{_rotationCounter}";
+                            <TrimPreviewItem @key="keyName"
+                                            Item="@item"
+                                            Index="@index"
+                                            IsDrawingMode="@isDrawingMode"  AllowMultipleRects="@(true)"/>
                         }
                     </div>
                 </div>
@@ -464,23 +467,18 @@
 
     private Task RotateAllLeft() => RotateAll(-90);
     private Task RotateAllRight() => RotateAll(90);
+    private int _rotationCounter = 0;
+
     private async Task RotateAll(int angle)
     {
         isBusy = true;
         StateHasChanged();
         await Task.Yield();
 
-        await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+        _ = PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+        _rotationCounter++;
 
         isBusy = false;
-        StateHasChanged();
-
-        // 回転後は矩形をクリア
-        trimRects.Clear();
-        foreach (var item in previewItems)
-        {
-            item.TrimRect = null;
-        }
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
@@ -657,12 +655,12 @@
     };
 
     // 現在表示ページのトリム矩形を取得して全ページへ適用する
-    private async Task ApplyCurrentTrimToAll()
+    private Task ApplyCurrentTrimToAll()
     {
         if (DisplayItems == null || DisplayItems.Count == 0)
         {
             ShowMessage("適用対象がありません。", MessageType.Warn);
-            return;
+            return Task.CompletedTask;
         }
 
         var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
@@ -670,12 +668,8 @@
         if (trimInfo == null)
         {
             ShowMessage("現在ページにトリミング範囲が設定されていません。", MessageType.Warn);
-            return;
+            return Task.CompletedTask;
         }
-
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
 
         try
         {
@@ -683,6 +677,7 @@
             {
                 PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
             }
+            _ = PdfDataService.RedrawAllTrimOverlaysAsync();
             ShowMessage("現在のトリム範囲をすべてのページに適用しました", MessageType.Success);
         }
         catch (Exception ex)
@@ -692,9 +687,9 @@
         }
         finally
         {
-            isBusy = false;
-            StateHasChanged();
         }
+        return Task.CompletedTask;
+
     }
 
     private Task ClearAllTrims()
