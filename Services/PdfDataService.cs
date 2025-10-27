@@ -1763,6 +1763,78 @@ public class PdfDataService
         return result;
     }
 
+    /// <summary>
+    /// サービスに保存された全ページの矩形をクリアして再描画する（JS呼び出しを行う）
+    /// UI側で再レンダリングを避けたい場合は呼び出し側で await しない運用でも可
+    /// </summary>
+    public async Task RedrawAllTrimOverlaysAsync()
+    {
+        try
+        {
+            var count = _model.Pages?.Count ?? 0;
+            if (count == 0) return;
+
+            // まず全オーバーレイをクリア（順次実行してDOMを初期化）
+            var clearTasks = Enumerable.Range(0, count)
+                .Select(i => _jsRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", Array.Empty<object>()).AsTask())
+                .ToArray();
+            try { await Task.WhenAll(clearTasks); } catch { /* per-canvas ignore */ }
+
+            // サービスに保存されている矩形を全ページ分描画
+            var drawTasks = new List<Task>(count);
+            for (int i = 0; i < count; i++)
+            {
+                try
+                {
+                    var rects = GetTrimRects(i);
+                    if (rects != null && rects.Count > 0)
+                    {
+                        var rectsToRender = rects.Select(r => new { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height }).ToArray();
+                        drawTasks.Add(_jsRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", rectsToRender).AsTask());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"RedrawAllTrimOverlaysAsync: draw failed for page {i}: {ex.Message}");
+                }
+            }
+
+            if (drawTasks.Count > 0)
+            {
+                try { await Task.WhenAll(drawTasks); } catch { /* ignore per-canvas errors */ }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"RedrawAllTrimOverlaysAsync error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 指定ページの矩形を再描画する（非同期 fire-and-forget 呼び出しが可能）
+    /// </summary>
+    public Task RedrawTrimOverlayForPageAsync(int pageIndex)
+    {
+        try
+        {
+            var rects = GetTrimRects(pageIndex);
+            if (rects != null && rects.Count > 0)
+            {
+                var rectsToRender = rects.Select(r => new { X = r.X, Y = r.Y, Width = r.Width, Height = r.Height }).ToArray();
+                _ = _jsRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{pageIndex}", rectsToRender);
+            }
+            else
+            {
+                _ = _jsRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{pageIndex}", Array.Empty<object>());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"RedrawTrimOverlayForPageAsync error page={pageIndex}: {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
+
     // バッファリング用フィールド（クラス内）
     private readonly object _notifyLock = new();
     private CancellationTokenSource? _bufferNotifyCts;
