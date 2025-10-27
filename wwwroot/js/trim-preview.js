@@ -711,6 +711,12 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             // PointerDown: モード判定 & キャプチャ開始
             const onPointerDown = function (ev) {
                 try {
+
+                    // パンモードならトリム処理を完全に無視
+                    if (window._previewInteractionMode === 'pan' || (window._previewPan && window._previewPan.enabled)) {
+                        return;
+                    }
+
                     if (ev.button !== undefined && ev.button !== 0) return;
 
                     trimState.active = true;
@@ -805,10 +811,12 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 }
                             }
                         } else {
+                            console.log(`Overlay exists (svg other than click) → New drawing candidate`);
                             // オーバーレイあり（svg以外をクリック） → 新規描画候補
                             startMaybeDraw();
                         }
                     } else {
+                        console.log(`Overlay does not exist → New drawing candidate`);
                         // オーバーレイなし → 新規描画候補
                         startMaybeDraw();
                     }
@@ -974,7 +982,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             let scrollPending = false;
             function onAnyScrollOrResize() {
                 if (trimState.active) {
-                    trimState.internal.scrollPendingWhileActive = true;
                     return;
                 }
                 if (scrollPending) return;

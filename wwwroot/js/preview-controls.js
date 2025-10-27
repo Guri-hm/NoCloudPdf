@@ -88,7 +88,6 @@ window.computeAndApplyFitZoom = function () {
     }
 };
 
-
 window.setPreviewPanEnabled = function (enabled) {
     try {
         const viewport = document.querySelector('.preview-zoom-viewport');
@@ -126,7 +125,6 @@ window.setPreviewPanEnabled = function (enabled) {
 
         const onPointerDown = function (ev) {
             try {
-
                 if (ev.button !== 0) return;
                 state.active = true;
                 state.pointerId = ev.pointerId;
@@ -173,75 +171,15 @@ window.setPreviewPanEnabled = function (enabled) {
 
 window.setPreviewInteractionMode = function (mode) {
     try {
-        // mode: 'pan' | 'trim' | 'none'
         mode = (mode || '').toString().toLowerCase();
-
-        if (mode === 'pan') {
-            // トリム抑止してパン有効
-            if (typeof window.toggleTrimListenersSuppressed === 'function') {
-                window.toggleTrimListenersSuppressed(true);
-            }
-            if (typeof window.setPreviewPanEnabled === 'function') {
-                window.setPreviewPanEnabled(true);
-            }
-        } else if (mode === 'trim') {
-            // パン無効にしてトリム復帰
-            if (typeof window.setPreviewPanEnabled === 'function') {
-                window.setPreviewPanEnabled(false);
-            }
-            if (typeof window.toggleTrimListenersSuppressed === 'function') {
-                window.toggleTrimListenersSuppressed(false);
-            }
-        } else {
-            // none: 両方無効（安全）
-            if (typeof window.setPreviewPanEnabled === 'function') {
-                window.setPreviewPanEnabled(false);
-            }
-            if (typeof window.toggleTrimListenersSuppressed === 'function') {
-                window.toggleTrimListenersSuppressed(false);
-            }
-        }
-
         window._previewInteractionMode = mode;
-        return true;
-    } catch (e) {
-        console.error('setPreviewInteractionMode error', e);
-        return false;
-    }
-};
-
-// 全 trim listeners の抑止/復帰切替（テスト用）
-window.toggleTrimListenersSuppressed = function (suppress) {
-    try {
-        if (typeof window._simpleTrim !== 'object') {
-            window._simpleTrim = window._simpleTrim || {};
+        if (mode === 'pan') {
+            window.setPreviewPanEnabled(true);
+        } else {
+            window.setPreviewPanEnabled(false);
         }
-        // 引数省略時はトグル
-        if (typeof suppress === 'undefined') suppress = !Boolean(window._simpleTrimSuppressed);
-        window._simpleTrimSuppressed = Boolean(suppress);
 
-        Object.keys(window._simpleTrim).forEach(k => {
-            try {
-                const ts = window._simpleTrim[k];
-                if (!ts) return;
-                ts.suppressed = window._simpleTrimSuppressed;
-
-                // overlay と canvas の pointer-events を切り替える（イベント到達を防ぐ）
-                if (ts.overlayDom && ts.overlayDom.style) {
-                    ts.overlayDom.style.pointerEvents = window._simpleTrimSuppressed ? 'none' : 'auto';
-                    ts.overlayDom.style.cursor = window._simpleTrimSuppressed ? '' : (ts.resizeHandle ? (HANDLE_CURSOR_MAP?.[ts.resizeHandle] || '') : (ts.mode === 'move' ? 'move' : (ts.mode === 'draw' ? 'crosshair' : '')) );
-                }
-                if (ts.base && ts.base.style) {
-                    // canvas 本体も抑止（overlay が無い場合を考慮）
-                    ts.base.style.pointerEvents = window._simpleTrimSuppressed ? 'none' : 'auto';
-                    ts.base.style.cursor = window._simpleTrimSuppressed ? '' : (ts.mode === 'draw' ? 'crosshair' : '');
-                }
-            } catch (e) { /* ignore per-entry errors */ }
-        });
         return true;
-    } catch (e) {
-        console.error('toggleTrimListenersSuppressed error', e);
-        return false;
-    }
+    } catch (e) { console.error(e); return false; }
 };
 window._previewPan = window._previewPan || { enabled: false, handlers: null, state: null };
