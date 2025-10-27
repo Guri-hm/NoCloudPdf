@@ -60,10 +60,8 @@
     [JSInvokable("CommitPanelWidth")]
     public async Task CommitPanelWidth(int width)
     {
-        // clamp if necessary here or in caller
         LeftWidth = Math.Max(0, width);
         await LeftWidthChanged.InvokeAsync(LeftWidth);
-        StateHasChanged();
     }
 
     [JSInvokable("OnPanelMouseMove")]
