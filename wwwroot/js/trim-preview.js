@@ -715,7 +715,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 try {
 
                     // パンモードならトリム処理を完全に無視
-                    if (window._previewInteractionMode === 'pan' || (window._previewPan && window._previewPan.enabled)) {
+                    if (window._previewPan.enabled) {
                         return;
                     }
 
