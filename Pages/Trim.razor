@@ -259,7 +259,7 @@
     }
 
     // 上部バーの入力でページ移動
-    private async Task OnTopBarPageInputChanged(ChangeEventArgs e)
+    private Task OnTopBarPageInputChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e?.Value?.ToString(), out var v))
         {
@@ -269,10 +269,11 @@
             try
             {
                 // スクロール移動
-                await JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
+                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
             }
             catch { }
         }
+        return Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
@@ -664,12 +665,12 @@
     };
 
     // 現在表示ページのトリム矩形を取得して全ページへ適用する
-    private async Task ApplyCurrentTrimToAll()
+    private Task ApplyCurrentTrimToAll()
     {
         if (DisplayItems == null || DisplayItems.Count == 0)
         {
             ShowMessage("適用対象がありません。", MessageType.Warn);
-            return;
+            return Task.CompletedTask;
         }
 
         var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
@@ -677,7 +678,7 @@
         if (trimInfo == null)
         {
             ShowMessage("現在ページにトリミング範囲が設定されていません。", MessageType.Warn);
-            return;
+            return Task.CompletedTask;
         }
 
         try
@@ -696,8 +697,9 @@
         }
         finally
         {
-            isBusy = false;
         }
+        return Task.CompletedTask;
+
     }
 
     private Task ClearAllTrims()
