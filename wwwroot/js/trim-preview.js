@@ -197,7 +197,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             mainRect.setAttribute('data-rect', 'true');
             mainRect.setAttribute('data-rect-index', String(rectIndex));
             mainRect.style.pointerEvents = 'auto';
-            mainRect.style.cursor = 'move';
+            if (isSelected) {
+                mainRect.style.cursor = 'move';
+            }
             g.appendChild(mainRect);
 
             // リサイズハンドル（選択中の矩形のみ表示）
@@ -804,6 +806,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                         }
                                     });
                                 }
+
                                 trimState.selected = true;
 
                                 if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
@@ -811,12 +814,10 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 }
                             }
                         } else {
-                            console.log(`Overlay exists (svg other than click) → New drawing candidate`);
                             // オーバーレイあり（svg以外をクリック） → 新規描画候補
                             startMaybeDraw();
                         }
                     } else {
-                        console.log(`Overlay does not exist → New drawing candidate`);
                         // オーバーレイなし → 新規描画候補
                         startMaybeDraw();
                     }

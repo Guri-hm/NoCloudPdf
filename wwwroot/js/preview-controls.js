@@ -172,6 +172,7 @@ window.setPreviewPanEnabled = function (enabled) {
 window.setPreviewInteractionMode = function (mode) {
     try {
         mode = (mode || '').toString().toLowerCase();
+        // panのときにトリミング用のイベント処理を中止するために利用
         window._previewInteractionMode = mode;
         if (mode === 'pan') {
             window.setPreviewPanEnabled(true);
