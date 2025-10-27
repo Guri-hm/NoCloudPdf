@@ -1687,7 +1687,7 @@ public class PdfDataService
     //     }
     // }
 
-    public async Task SetTrimRect(int pageIndex, double x, double y, double width, double height, bool notify = true)
+    public void  SetTrimRect(int pageIndex, double x, double y, double width, double height, bool notify = true)
     {
         // 優先して PageItem 側に格納する
         if (pageIndex >= 0 && pageIndex < _model.Pages.Count)
@@ -1698,7 +1698,7 @@ public class PdfDataService
         }
 
         if (notify)
-            await InvokeOnChangeAsync();
+            _ = InvokeOnChangeAsync();
     }
 
     public void SetTrimRects(int pageIndex, List<TrimRectInfo> rects, bool notify = true)

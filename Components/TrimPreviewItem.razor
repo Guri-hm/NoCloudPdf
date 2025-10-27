@@ -149,7 +149,8 @@
     [JSInvokable("CommitTrimRectFromJs")]
     public Task CommitTrimRectFromJs(double x, double y, double width, double height)
     {
-        return PdfDataService.SetTrimRect(Index, x, y, width, height, notify: false);
+        PdfDataService.SetTrimRect(Index, x, y, width, height, notify: false);
+        return Task.CompletedTask;
     }
 
     [JSInvokable("CommitMultipleRectsFromJs")]

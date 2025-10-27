@@ -675,11 +675,13 @@
 
         isBusy = true;
         StateHasChanged();
+        await Task.Yield();
+
         try
         {
             for (int i = 0; i < DisplayItems.Count; i++)
             {
-                await PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
+                PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
             }
             ShowMessage("現在のトリム範囲をすべてのページに適用しました", MessageType.Success);
         }
@@ -1282,7 +1284,7 @@
 
             foreach (var idx in targetPages)
             {
-                await PdfDataService.SetTrimRect(idx, nx, ny, nw, nh);
+                PdfDataService.SetTrimRect(idx, nx, ny, nw, nh);
             }
 
             ShowMessage("トリミング範囲を適用しました", MessageType.Success);
