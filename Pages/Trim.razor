@@ -994,15 +994,6 @@
         isResizingPanel = false;
     }
 
-    // JS側で視覚的に幅を変更し，最終確定でJSがこのメソッドを呼ぶ
-    [JSInvokable("CommitPanelWidth")]
-    public void CommitPanelWidth(int width)
-    {
-        // 必要な最小/最大チェックを行って UI に反映（1回の StateHasChanged）
-        thumbnailAreaWidth = Math.Max(200, Math.Min( Math.Min(600, width), (int) (BrowserViewportWidth() - 260) ));
-        StateHasChanged();
-    }
-
     private int BrowserViewportWidth()
     {
         // 既定値フォールバック
