@@ -214,6 +214,7 @@
 }
 
 @code {
+    
     protected override void OnInitialized()
     {
         PdfDataService.OnChange += OnServiceChanged;
@@ -383,9 +384,10 @@
     {
         // drawingMode == false の時にパンを有効にする
         isDrawingMode = drawingMode;
+
         try
         {
-            await JSRuntime.InvokeVoidAsync("setPreviewPanEnabled", !drawingMode);
+            await JSRuntime.InvokeVoidAsync("setPreviewInteractionMode", drawingMode ? "trim" : "pan");
         }
         catch { }
     }
