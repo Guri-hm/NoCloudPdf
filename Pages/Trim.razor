@@ -682,6 +682,8 @@
 
         isBusy = true;
         StateHasChanged();
+        await Task.Yield();
+        
         try
         {
             for (int i = 0; i < DisplayItems.Count; i++)
@@ -698,7 +700,6 @@
         finally
         {
             isBusy = false;
-            StateHasChanged();
         }
     }
 
