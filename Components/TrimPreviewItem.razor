@@ -41,7 +41,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        //Console.WriteLine($"OnAfterRenderAsync called idx={Index}");
+        Console.WriteLine($"OnAfterRenderAsync called idx={Index}");
         if (isInitialized) return;
         await InitializeCanvasAsync();
     }

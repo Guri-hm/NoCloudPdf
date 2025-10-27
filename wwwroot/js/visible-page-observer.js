@@ -1,7 +1,7 @@
 
 window._visiblePageObserver = window._visiblePageObserver || {};
 // スクロール時のアクティブページを取得
-window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 1000) {
+window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 500) {
     try {
 
         try { window.unregisterVisiblePageObserver(containerId); } catch (e) { }
@@ -46,6 +46,10 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
                                     state.lastIdx = state.pendingBest;
                                     dotNetRef.invokeMethodAsync('SetVisiblePageFromJs', state.pendingBest)
                                         .catch(() => { /* ignore */ });
+                                    const topInput = document.getElementById('topbar-page-input');
+                                    if (topInput) {
+                                        topInput.value = String(state.pendingBest + 1);
+                                    }
                                 }
                             } catch (e) { /* ignore */ }
                             state.timer = null;

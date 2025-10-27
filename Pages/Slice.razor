@@ -29,6 +29,7 @@
                     </h1>
                     <div class="ml-4 flex items-center gap-2">
                         <input type="number"
+                            id="topbar-page-input"
                             min="1"
                             max="@Math.Max(1, DisplayItems.Count)"
                             value="@displayedPageNumber"
@@ -251,7 +252,6 @@
             if (pageIndex >= DisplayItems.Count) pageIndex = Math.Max(0, DisplayItems.Count - 1);
             previewIndex = pageIndex;
             displayedPageNumber = pageIndex + 1;
-            InvokeAsync(StateHasChanged);
         }
         catch { }
         return Task.CompletedTask;
@@ -818,7 +818,7 @@
             {
                 try
                 {   
-                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container", 1000);
+                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container");
                     _visibleObserverLastCount = DisplayItems.Count;
                 }
                 catch { _visibleObserverLastCount = -1; }
