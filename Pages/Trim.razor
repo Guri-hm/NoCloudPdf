@@ -331,7 +331,7 @@
             };
 
             // fire-and-forget で JS 側にメッセージ表示を依頼
-            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 5000);
+            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 3000);
         }
         catch (Exception ex)
         {

@@ -3,8 +3,6 @@ window.messageBar = window.messageBar || {};
 (function () {
     let autoCloseTimer = null;
     let progressInterval = null;
-    let currentAutoCloseMs = 0;
-    let progressStartTime = 0;
 
     const typeStyles = {
         success: {
@@ -35,10 +33,14 @@ window.messageBar = window.messageBar || {};
             }
 
             // 既存のタイマーとインターバルをキャンセル
-            clearTimeout(autoCloseTimer);
-            clearInterval(progressInterval);
-            autoCloseTimer = null;
-            progressInterval = null;
+            if (autoCloseTimer) {
+                clearTimeout(autoCloseTimer);
+                autoCloseTimer = null;
+            }
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
 
             // メッセージとスタイルを設定
             textEl.textContent = message;
@@ -49,38 +51,38 @@ window.messageBar = window.messageBar || {};
 
             // プログレスバーを初期状態（100%）に設定
             progressEl.style.width = '100%';
+            progressEl.style.transition = 'none'; // 初期設定時は transition を無効化
 
             // 表示
             container.style.display = 'block';
 
-            // プログレスバーのアニメーション（60fps で更新）
-            currentAutoCloseMs = autoCloseMs;
-            progressStartTime = Date.now();
+            // 次フレームで transition を有効化してアニメーション開始
+            requestAnimationFrame(() => {
+                progressEl.style.transition = `width ${autoCloseMs}ms linear`;
+                progressEl.style.width = '0%';
+            });
 
-            progressInterval = setInterval(() => {
-                const elapsed = Date.now() - progressStartTime;
-                const remaining = Math.max(0, currentAutoCloseMs - elapsed);
-                const percent = (remaining / currentAutoCloseMs) * 100;
-                progressEl.style.width = `${percent}%`;
+            // プログレスバーが 0% になったタイミングで非表示（CSS transition の終了を検知）
+            const onTransitionEnd = () => {
+                progressEl.removeEventListener('transitionend', onTransitionEnd);
+                window.messageBar.hide();
+            };
+            progressEl.addEventListener('transitionend', onTransitionEnd);
 
-                if (remaining <= 0) {
-                    clearInterval(progressInterval);
-                    progressInterval = null;
-                }
-            }, 16); // 約60fps
-
-            // 自動クローズタイマー
-            if (autoCloseMs > 0) {
-                autoCloseTimer = setTimeout(() => {
-                    window.messageBar.hide();
-                    autoCloseTimer = null;
-                }, autoCloseMs);
-            }
+            // フォールバック: CSS transition が発火しない場合のためのタイマー
+            autoCloseTimer = setTimeout(() => {
+                progressEl.removeEventListener('transitionend', onTransitionEnd);
+                window.messageBar.hide();
+                autoCloseTimer = null;
+            }, autoCloseMs + 100); // 少し余裕を持たせる
 
             // 閉じるボタンのイベントリスナー（既存のリスナーを削除してから追加）
             const newCloseBtn = closeBtn.cloneNode(true);
             closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-            newCloseBtn.addEventListener('click', () => window.messageBar.hide());
+            newCloseBtn.addEventListener('click', () => {
+                progressEl.removeEventListener('transitionend', onTransitionEnd);
+                window.messageBar.hide();
+            });
 
         } catch (e) {
             console.error('messageBar.show error', e);
@@ -94,10 +96,14 @@ window.messageBar = window.messageBar || {};
                 container.style.display = 'none';
             }
 
-            clearTimeout(autoCloseTimer);
-            clearInterval(progressInterval);
-            autoCloseTimer = null;
-            progressInterval = null;
+            if (autoCloseTimer) {
+                clearTimeout(autoCloseTimer);
+                autoCloseTimer = null;
+            }
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
         } catch (e) {
             console.error('messageBar.hide error', e);
         }
