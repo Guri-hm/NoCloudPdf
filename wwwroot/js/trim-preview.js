@@ -197,7 +197,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             mainRect.setAttribute('data-rect', 'true');
             mainRect.setAttribute('data-rect-index', String(rectIndex));
             mainRect.style.pointerEvents = 'auto';
-            mainRect.classList.add = 'main-rect';
 
             g.appendChild(mainRect);
 
@@ -887,12 +886,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                                 if (trimState.dotNetRef?.invokeMethodAsync) {
                                     trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToCommit).catch(() => {});
-                                }
-
-                                // ドラッグ確定後は非選択で再描画
-                                if (trimState.didDrag) {
-                                    trimState.selectedRectIndex = -1;
-                                    window.drawTrimOverlayAsSvg(canvasId, rectsToCommit);
                                 }
 
                             } else {

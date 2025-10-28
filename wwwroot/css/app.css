@@ -271,10 +271,8 @@ input[type=number] {
     -webkit-overflow-scrolling: touch;
     cursor: default;
 }
-.preview-zoom-viewport.pan-active {
-    cursor: grab;
-}
 /* svgオーバレイ上は基本がccosshairなのでここで一時上書き */
+.preview-zoom-viewport.pan-active,
 .preview-zoom-viewport.pan-active svg{
     cursor: grab;
 }
