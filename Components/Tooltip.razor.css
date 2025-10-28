@@ -6,6 +6,15 @@
 .tooltip-wrapper:focus {
     outline: 2px solid #3b82f6;
     outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* フォーカス時の視覚的フィードバックを強化 */
+.tooltip-wrapper:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 4px;
+    background-color: rgba(59, 130, 246, 0.1);
 }
 
 .tooltip-popup {
@@ -17,12 +26,12 @@
     line-height: 1.4;
     padding: 8px 12px;
     border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.2); /* 白い枠線で背景と区別 */
+    border: 1px solid rgba(255, 255, 255, 0.2);
     white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
     max-width: 300px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1); /* 影を強化 */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
     pointer-events: none;
     transition: opacity 150ms ease, visibility 150ms ease;
 }
@@ -32,7 +41,7 @@
     width: 8px;
     height: 8px;
     background: inherit;
-    border: inherit; /* 親の border を継承 */
+    border: inherit;
     transform: rotate(45deg);
 }
 
