@@ -685,12 +685,12 @@
                 PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
             }
             _ = PdfDataService.RedrawAllTrimOverlaysAsync();
-            ShowMessage("現在のトリム範囲をすべてのページに適用しました", MessageType.Success);
+            ShowMessage("すべてのページに適用しました", MessageType.Success);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ApplyCurrentTrimToAll error: {ex.Message}");
-            ShowMessage("全ページへの適用に失敗しました", MessageType.Error);
+            ShowMessage("すべてのページへの適用に失敗しました", MessageType.Error);
         }
         finally
         {

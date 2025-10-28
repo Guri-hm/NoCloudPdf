@@ -644,7 +644,7 @@
     {
         new DropdownMenuItem
         {
-        Label = "選択中の範囲を全ページに適用",
+        Label = "現在ページの範囲を全ページに適用",
         OnClick = EventCallback.Factory.Create(this,ApplyCurrentTrimToAll)
         },
         new DropdownMenuItem
@@ -664,10 +664,10 @@
         }
 
         var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
-        var trimInfo = PdfDataService.GetTrimRect(idx);
-        if (trimInfo == null)
+        var trimRects = PdfDataService.GetTrimRects(idx);
+        if (trimRects == null || trimRects.Count == 0)
         {
-            ShowMessage("現在ページにトリミング範囲が設定されていません。", MessageType.Warn);
+            ShowMessage("現在ページに書き出し範囲が設定されていません。", MessageType.Warn);
             return Task.CompletedTask;
         }
 
@@ -675,15 +675,15 @@
         {
             for (int i = 0; i < DisplayItems.Count; i++)
             {
-                PdfDataService.SetTrimRect(i, trimInfo.X, trimInfo.Y, trimInfo.Width, trimInfo.Height);
+                PdfDataService.SetTrimRects(i, new List<TrimRectInfo>(trimRects), notify: false);
             }
             _ = PdfDataService.RedrawAllTrimOverlaysAsync();
-            ShowMessage("現在のトリム範囲をすべてのページに適用しました", MessageType.Success);
+            ShowMessage("すべてのページに適用しました", MessageType.Success);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ApplyCurrentTrimToAll error: {ex.Message}");
-            ShowMessage("全ページへの適用に失敗しました", MessageType.Error);
+            ShowMessage("すべてのページへの適用に失敗しました", MessageType.Error);
         }
         finally
         {
