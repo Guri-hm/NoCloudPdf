@@ -1,6 +1,7 @@
 @* ホバーした要素の周囲にツールチップを表示するラッパーコンポーネント *@
 <span id="@_wrapperId"
       class="tooltip-wrapper"
+      @key="@_wrapperId"
       @onmouseenter="ShowTooltip"
       @onmouseleave="HideTooltip"
       @onfocus="ShowTooltip"
@@ -14,6 +15,7 @@
     <span id="@_tooltipId"
           class="tooltip-popup"
           role="tooltip"
+          @key="@_tooltipId"
           style="opacity:0; visibility:hidden;">
         @Text
         <span class="tooltip-arrow"></span>
