@@ -1,107 +1,18 @@
 @using NoCloudPdf.Models
 
-@if (!string.IsNullOrEmpty(Message))
-{
-    <div class="fixed top-20 right-4 z-50 max-w-md" style="min-width:180px;">
-        <div class="w-full h-2 rounded-t-lg overflow-hidden bg-gray-300">
-            <div class="@BarColor message-bar-anim h-full transition-all"
-                 style="width:100%; animation-duration:@($"{(AutoCloseMs ?? 3000)}ms");"
-                 @key="_messageInstanceId">
-            </div>
-        </div>
-        <div class="px-4 py-2 rounded-b-lg shadow transition-all duration-300 @BoxColor">
-            <div class="flex items-start gap-2">
-                <div class="flex-1">
-                    @Message
-                </div>
-                <button class="ml-2" @onclick="OnCloseClicked" style="color:inherit;">
-                    ✕
-                </button>
-            </div>
+<!-- 常に DOM に存在させ、JS 側で表示/非表示を制御 -->
+<div id="message-bar-container" class="fixed top-20 right-4 z-50 max-w-md" style="min-width:180px; display:none;">
+    <div class="w-full h-2 rounded-t-lg overflow-hidden bg-gray-300">
+        <div id="message-bar-progress" class="h-full transition-all bg-gray-400"></div>
+    </div>
+    <div id="message-bar-box" class="px-4 py-2 rounded-b-lg shadow transition-all duration-300 bg-gray-100 text-gray-900 border border-gray-400">
+        <div class="flex items-start gap-2">
+            <div id="message-bar-text" class="flex-1"></div>
+            <button id="message-bar-close" class="ml-2" style="color:inherit;">✕</button>
         </div>
     </div>
-}
+</div>
+
 @code {
-
-    [Parameter] public string? Message { get; set; }
-    [Parameter] public MessageType Type { get; set; } = MessageType.Success;
-    [Parameter] public EventCallback OnClose { get; set; }
-    [Parameter] public int? AutoCloseMs { get; set; }
-
-    private string BarColor => Type switch
-    {
-        MessageType.Success => "bg-green-500",
-        MessageType.Warn => "bg-yellow-400",
-        MessageType.Error => "bg-red-500",
-        _ => "bg-gray-400"
-    };
-    private string BoxColor => Type switch
-    {
-        MessageType.Success => "bg-green-100 text-green-900 border border-green-400",
-        MessageType.Warn => "bg-yellow-100 text-yellow-900 border border-yellow-400",
-        MessageType.Error => "bg-red-400 text-white",
-        _ => "bg-gray-100 text-gray-900 border border-gray-400"
-    };
-
-    private CancellationTokenSource? _autoCloseCts;
-    private int _messageInstanceId = 0;
-
-    // 追加: 直前の状態を保持
-    private string? _lastMessage;
-    private int? _lastAutoCloseMs;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // メッセージが空なら現在のタイマーをキャンセルして状態をクリア
-        if (string.IsNullOrEmpty(Message))
-        {
-            _autoCloseCts?.Cancel();
-            _autoCloseCts = null;
-            _lastMessage = null;
-            _lastAutoCloseMs = null;
-            return;
-        }
-
-        // AutoCloseMs が未指定なら何もしない（従来の挙動を維持）
-        if (!AutoCloseMs.HasValue)
-            return;
-
-        // メッセージと AutoCloseMs が前回と同じならタイマーを再生成しない
-        if (_lastMessage == Message && _lastAutoCloseMs == AutoCloseMs)
-        {
-            return;
-        }
-
-        // 新しいメッセージまたは設定なので既存タイマーを取消して新しく作る
-        _autoCloseCts?.Cancel();
-        _autoCloseCts = new CancellationTokenSource();
-        _messageInstanceId++;
-
-        // 現在の状態を保存
-        _lastMessage = Message;
-        _lastAutoCloseMs = AutoCloseMs;
-
-        try
-        {
-            await Task.Delay(AutoCloseMs.Value, _autoCloseCts.Token);
-            if (!_autoCloseCts.Token.IsCancellationRequested && OnClose.HasDelegate)
-                await OnClose.InvokeAsync();
-        }
-        catch (TaskCanceledException)
-        {
-        }
-    }
-
-    private async Task OnCloseClicked()
-    {
-        _autoCloseCts?.Cancel();
-        _autoCloseCts = null;
-
-        // クリアしておくことで、同じメッセージを手動で再表示した場合に再度タイマーが始まる
-        _lastMessage = null;
-        _lastAutoCloseMs = null;
-
-        if (OnClose.HasDelegate)
-            await OnClose.InvokeAsync();
-    }
+    // パラメータは不要（JS 側で完全に制御）
 }
