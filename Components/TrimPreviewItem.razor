@@ -29,6 +29,7 @@
 @code {
     [Parameter] public DisplayItem Item { get; set; } = default!;
     [Parameter] public int Index { get; set; }
+    // 今後の拡張(styleの切り替えなど)のためにパラメータを渡しているが現状利用していない
     [Parameter] public bool IsDrawingMode { get; set; } = false;
     [Parameter] public bool AllowMultipleRects { get; set; } = false;
 
@@ -95,10 +96,7 @@
         {
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
-            if (IsDrawingMode)
-            {
-                await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef, "single", AllowMultipleRects);
-            }
+            await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef, "single", AllowMultipleRects);
 
             await RedrawTrimOverlayAsync();
         }

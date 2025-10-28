@@ -115,7 +115,6 @@ window.setPreviewPanEnabled = function (enabled) {
         }
 
         window._previewPan.enabled = true;
-        viewport.style.cursor = 'grab';
         viewport.style.touchAction = 'none';
         viewport.classList.add('pan-active');
 

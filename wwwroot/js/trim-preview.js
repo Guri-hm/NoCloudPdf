@@ -104,7 +104,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             container.style.zIndex = '45';
             host.appendChild(container);
         }
-
+        
         const canvasRect = canvas.getBoundingClientRect();
         const offset = getOffsetRelativeTo(canvas, host);
         const relLeft = Math.round(offset.x);
@@ -112,13 +112,13 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
         const cssW = Math.max(1, Math.round(canvas.clientWidth || canvasRect.width || 0));
         const cssH = Math.max(1, Math.round(canvas.clientHeight || canvasRect.height || 0));
-
+        
         // コンテナを Canvas と同じ位置・サイズに配置
         container.style.left = relLeft + 'px';
         container.style.top = relTop + 'px';
         container.style.width = cssW + 'px';
         container.style.height = cssH + 'px';
-
+        
         // SVG 要素を準備（初回のみ作成）
         let svg = container.querySelector('svg');
         if (!svg) {
@@ -197,9 +197,8 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             mainRect.setAttribute('data-rect', 'true');
             mainRect.setAttribute('data-rect-index', String(rectIndex));
             mainRect.style.pointerEvents = 'auto';
-            if (isSelected) {
-                mainRect.style.cursor = 'move';
-            }
+            mainRect.classList.add = 'main-rect';
+
             g.appendChild(mainRect);
 
             // リサイズハンドル（選択中の矩形のみ表示）
@@ -393,6 +392,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     // リスナー登録: ドラッグ・リサイズ・移動
     // ========================================
     window.attachTrimListeners = function (canvasId, dotNetRef, selectionMode = 'single', allowMultipleRects = false) {
+        console.log('attachTrimListeners start');
         try {
             //登録時はパンモード解除
             window._previewPan.enabled = false;
@@ -955,8 +955,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
             canvas.addEventListener('touchstart', onTouchStart, { passive: false });
 
-            if (canvas.style) canvas.style.cursor = 'crosshair';
-            if (overlayDom?.style) overlayDom.style.cursor = 'crosshair';
+            if (overlayDom?.style) {
+                overlayDom.style.cursor = 'crosshair';
+            } 
 
             if (overlayDom) {
                 overlayDom.style.pointerEvents = 'auto';
