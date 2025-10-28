@@ -391,7 +391,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     // リスナー登録: ドラッグ・リサイズ・移動
     // ========================================
     window.attachTrimListeners = function (canvasId, dotNetRef, selectionMode = 'single', allowMultipleRects = false) {
-        console.log('attachTrimListeners start');
         try {
             //登録時はパンモード解除
             window._previewPan.enabled = false;
