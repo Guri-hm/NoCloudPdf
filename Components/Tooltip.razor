@@ -1,27 +1,65 @@
-<span class="tooltip-trigger" tabindex="@TabIndex"
-      onmouseenter="positionEditorTooltip(this,'@TooltipId')"
-      onfocus="positionEditorTooltip(this,'@TooltipId')"
-      onmouseleave="hideEditorTooltip('@TooltipId')"
-      onblur="hideEditorTooltip('@TooltipId')">
-    <i class="@IconClass"></i>
-    <span id="@TooltipId" class="tooltip" role="tooltip" aria-hidden="true" style="display:none">
-        @if (ChildContent != null)
-        {
-            @ChildContent
-        }
-        else
-        {
-            @Text
-        }
-        <span class="arrow"></span>
-    </span>
+@* ホバーした要素の周囲にツールチップを表示するラッパーコンポーネント *@
+<span id="@_wrapperId"
+      class="tooltip-wrapper"
+      @onmouseenter="ShowTooltip"
+      @onmouseleave="HideTooltip"
+      @onfocus="ShowTooltip"
+      @onblur="HideTooltip"
+      tabindex="@(Focusable ? 0 : -1)">
+    @ChildContent
 </span>
 
-@code {
-    [Parameter] public string? IconClass { get; set; } = "fa fa-info-circle text-gray-500 cursor-pointer";
-    [Parameter] public string? Text { get; set; }
-    [Parameter] public RenderFragment? ChildContent { get; set; }
-    [Parameter] public int TabIndex { get; set; } = 0;
+@if (!string.IsNullOrWhiteSpace(Text) && _isVisible)
+{
+    <span id="@_tooltipId"
+          class="tooltip-popup"
+          role="tooltip"
+          style="opacity:0; visibility:hidden;">
+        @Text
+        <span class="tooltip-arrow"></span>
+    </span>
+}
 
-    private string TooltipId { get; set; } = "tooltip-" + Guid.NewGuid().ToString("N");
+@code {
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public bool Focusable { get; set; } = false;
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private string _wrapperId = "tooltip-wrapper-" + Guid.NewGuid().ToString("N");
+    private string _tooltipId = "tooltip-popup-" + Guid.NewGuid().ToString("N");
+    private bool _isVisible = false;
+
+    private async Task ShowTooltip()
+    {
+        if (string.IsNullOrWhiteSpace(Text)) return;
+        
+        _isVisible = true;
+        StateHasChanged();
+
+        await Task.Delay(10);
+
+        try
+        {
+            // JS 側で位置計算→表示まで行う
+            await JSRuntime.InvokeVoidAsync("tooltipHelper.show", _wrapperId, _tooltipId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Tooltip ShowTooltip error: {ex.Message}");
+        }
+    }
+
+    private async Task HideTooltip()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("tooltipHelper.hide", _tooltipId);
+        }
+        catch { }
+        
+        _isVisible = false;
+        StateHasChanged();
+    }
 }

@@ -25,6 +25,9 @@
                     <ActionButtonGroup T="string" Actions="resetActions" />
                     <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
                     <h1 class="hidden md:inline text-lg font-bold">トリミング
+                        <Tooltip Text="通常のトリミング（無効時）は単に非表示にするだけで、ファイルサイズは変わりません。非表示部分を削除したい場合はラスタ化を有効にしてください。">
+                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                        </Tooltip>
                     </h1>
                     <div class="ml-4 flex items-center gap-2">
                         <input type="number"
@@ -52,7 +55,10 @@
                     </DropdownButton>
                     <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
                         <input type="checkbox" @bind="useRasterize" class="form-checkbox h-5 w-5 accent-blue-500" />
-                        ラスタ化<Tooltip>ラスタ化を有効にすると、トリミング時にPDFを画像として再描画します。テキスト選択や検索ができなくなり、画質が若干低下する可能性があります。通常のトリミング（無効時）は単に非表示にするだけで、ファイルサイズは変わりません。</Tooltip>
+                        ラスタ化
+                         <Tooltip Text="ラスタ化を有効にすると、トリミング時にPDFを画像として再描画します。テキスト選択や検索ができなくなり、画質が若干低下する可能性があります。">
+                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                        </Tooltip>
                     </label>
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />

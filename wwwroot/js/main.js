@@ -11,3 +11,4 @@ import './panel-resize.js';
 import './preview-controls.js';
 import './trim-preview.js';
 import './visible-page-observer.js';
+import './tooltip-helper.js';

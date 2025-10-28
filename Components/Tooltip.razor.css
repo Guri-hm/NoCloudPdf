@@ -1,54 +1,70 @@
-.tooltip {
+.tooltip-wrapper {
+    display: inline-block;
+    position: relative;
+}
+
+.tooltip-wrapper:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.tooltip-popup {
     position: fixed;
-    z-index: 60;
-    background: #111827;
+    z-index: 9999;
+    background: #1f2937;
     color: #fff;
-    font-size: 12px;
-    padding: 6px 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 8px 12px;
     border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2); /* 白い枠線で背景と区別 */
     white-space: normal;
-    word-break: break-word;
+    word-wrap: break-word;
     overflow-wrap: break-word;
-    max-width: 200px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-    transition: opacity 120ms ease, transform 120ms ease;
-    opacity: 1;
+    max-width: 300px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1); /* 影を強化 */
     pointer-events: none;
+    transition: opacity 150ms ease, visibility 150ms ease;
 }
 
-.tooltip .arrow {
+.tooltip-arrow {
     position: absolute;
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     background: inherit;
+    border: inherit; /* 親の border を継承 */
     transform: rotate(45deg);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
-.tooltip[data-dir="top"] .arrow {
-    bottom: -5px;
+/* 方向ごとの矢印位置と border の調整 */
+.tooltip-popup[data-placement^="top"] .tooltip-arrow {
+    bottom: -4px;
     left: 50%;
-    transform: translateX(-50%) rotate(45deg);
+    margin-left: -4px;
+    border-top: none;
+    border-left: none;
 }
 
-.tooltip[data-dir="bottom"] .arrow {
-    top: -5px;
+.tooltip-popup[data-placement^="bottom"] .tooltip-arrow {
+    top: -4px;
     left: 50%;
-    transform: translateX(-50%) rotate(45deg);
+    margin-left: -4px;
+    border-bottom: none;
+    border-right: none;
 }
 
-.tooltip[data-dir="left"] .arrow {
-    right: -5px;
+.tooltip-popup[data-placement^="left"] .tooltip-arrow {
+    right: -4px;
     top: 50%;
-    transform: translateY(-50%) rotate(45deg);
+    margin-top: -4px;
+    border-left: none;
+    border-bottom: none;
 }
 
-.tooltip[data-dir="right"] .arrow {
-    left: -5px;
+.tooltip-popup[data-placement^="right"] .tooltip-arrow {
+    left: -4px;
     top: 50%;
-    transform: translateY(-50%) rotate(45deg);
-}
-
-.tooltip-trigger:focus {
-    outline: none;
+    margin-top: -4px;
+    border-right: none;
+    border-top: none;
 }
