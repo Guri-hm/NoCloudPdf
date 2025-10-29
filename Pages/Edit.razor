@@ -233,13 +233,8 @@
     <LoadingOverlay Message="処理中です..." />
 }
 <!-- メッセージ表示エリア -->
-@if (message != null && !string.IsNullOrEmpty(message.Text))
-{
-    <MessageBar Message="@message.Text"
-                Type="@message.Type"
-                OnClose="ClearMessage"
-                AutoCloseMs="5000" />
-}
+<MessageBar />
+
 <PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
 
 <!-- ファイル選択用の隠しinput -->
@@ -279,16 +274,36 @@
     }
     private bool isBusy = false;
     private string? mergedPdfUrl;
-    private MessageInfo? message;
     private void ShowMessage(string? text, MessageType type)
     {
-        message = new MessageInfo { Text = text ?? string.Empty, Type = type };
-        StateHasChanged();
+        if (string.IsNullOrEmpty(text)) return;
+
+        try
+        {
+            var typeStr = type switch
+            {
+                MessageType.Success => "success",
+                MessageType.Warn => "warn",
+                MessageType.Error => "error",
+                _ => "success"
+            };
+
+            // fire-and-forget で JS 側にメッセージ表示を依頼
+            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 3000);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ShowMessage error: {ex.Message}");
+        }
     }
 
     private void ClearMessage()
     {
-        message = null;
+        try
+        {
+            _ = JSRuntime.InvokeVoidAsync("messageBar.hide");
+        }
+        catch { }
     }
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;

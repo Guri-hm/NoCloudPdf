@@ -5,7 +5,7 @@
 @using NoCloudPdf.Services
 @using System.Text.Json
 @using NoCloudPdf.Components
-@inject IJSRuntime JS
+@inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject PdfDataService PdfDataService
 
@@ -346,30 +346,45 @@
     <LoadingOverlay Message="処理中です..." />
 }
 <!-- メッセージ表示エリア -->
-@if (message != null && !string.IsNullOrEmpty(message.Text))
-{
-    <MessageBar Message="@message.Text"
-                Type="@message.Type"
-                OnClose="ClearMessage"
-                AutoCloseMs="5000" />
-}
+<MessageBar />
+
 @code {
     // ページ表示時の元PDFデータを保持
     private string? originalPageData;
     private bool hasSaved = false;
     private bool isBusy = false;
-    private MessageInfo? message;
-
-    private void ShowMessage(string text, MessageType type)
+    private void ShowMessage(string? text, MessageType type)
     {
-        message = new MessageInfo { Text = text, Type = type };
-        StateHasChanged();
+        if (string.IsNullOrEmpty(text)) return;
+
+        try
+        {
+            var typeStr = type switch
+            {
+                MessageType.Success => "success",
+                MessageType.Warn => "warn",
+                MessageType.Error => "error",
+                _ => "success"
+            };
+
+            // fire-and-forget で JS 側にメッセージ表示を依頼
+            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 3000);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ShowMessage error: {ex.Message}");
+        }
     }
 
     private void ClearMessage()
     {
-        message = null;
+        try
+        {
+            _ = JSRuntime.InvokeVoidAsync("messageBar.hide");
+        }
+        catch { }
     }
+
     private DotNetObjectReference<EditPage>? _dotNetRef;
     private PageSourceInfo? cachedPageSource;
 
@@ -495,7 +510,7 @@
         if (element.FitTextToArea)
         {
             // 最大行幅を取得
-            var maxLineWidth = await JS.InvokeAsync<double>(
+            var maxLineWidth = await JSRuntime.InvokeAsync<double>(
                 "measureMaxLineWidth",
                 element.Text,
                 element.FontSize * zoomLevel,
@@ -508,7 +523,7 @@
         }
         await Task.Yield();
 
-        var scrollH = await JS.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+        var scrollH = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
         if (scrollH > 0)
         {
             element.Height = Math.Max(6, scrollH / zoomLevel);
@@ -726,7 +741,7 @@
         }
 
         // 新しく取得
-        cachedCanvasRect = await JS.InvokeAsync<RectDto>("getElementRect", $"#pdf-canvas-{canvasUniqueId}");
+        cachedCanvasRect = await JSRuntime.InvokeAsync<RectDto>("getElementRect", $"#pdf-canvas-{canvasUniqueId}");
         canvasRectCacheTime = now;
         return cachedCanvasRect;
     }
@@ -775,7 +790,7 @@
                         if (element.FitTextToArea)
                         {
                             newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthNW = await JS.InvokeAsync<double>(
+                            var maxLineWidthNW = await JSRuntime.InvokeAsync<double>(
                                 "measureMaxLineWidth",
                                 element.Text,
                                 newFontSize * zoomLevel,
@@ -795,7 +810,7 @@
                         if (element.FitTextToArea)
                         {
                             newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthNE = await JS.InvokeAsync<double>(
+                            var maxLineWidthNE = await JSRuntime.InvokeAsync<double>(
                                 "measureMaxLineWidth",
                                 element.Text,
                                 newFontSize * zoomLevel,
@@ -814,7 +829,7 @@
                         if (element.FitTextToArea)
                         {
                             newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthSW = await JS.InvokeAsync<double>(
+                            var maxLineWidthSW = await JSRuntime.InvokeAsync<double>(
                                 "measureMaxLineWidth",
                                 element.Text,
                                 newFontSize * zoomLevel,
@@ -834,7 +849,7 @@
                         if (element.FitTextToArea)
                         {
                             newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthSE = await JS.InvokeAsync<double>(
+                            var maxLineWidthSE = await JSRuntime.InvokeAsync<double>(
                                 "measureMaxLineWidth",
                                 element.Text,
                                 newFontSize * zoomLevel,
@@ -851,7 +866,7 @@
                         if (element.FitTextToArea)
                         {
                             newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthN = await JS.InvokeAsync<double>(
+                            var maxLineWidthN = await JSRuntime.InvokeAsync<double>(
                                 "measureMaxLineWidth",
                                 element.Text,
                                 newFontSize * zoomLevel,
@@ -874,7 +889,7 @@
                         if (element.FitTextToArea)
                         {
                             newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthS = await JS.InvokeAsync<double>(
+                            var maxLineWidthS = await JSRuntime.InvokeAsync<double>(
                                 "measureMaxLineWidth",
                                 element.Text,
                                 newFontSize * zoomLevel,
@@ -1052,7 +1067,7 @@
             editingElement.FontSize = value;
             if (editingElement.FitTextToArea)
             {
-                var maxLineWidth = await JS.InvokeAsync<double>(
+                var maxLineWidth = await JSRuntime.InvokeAsync<double>(
                     "measureMaxLineWidth",
                     editingElement.Text,
                     editingElement.FontSize * zoomLevel,
@@ -1068,7 +1083,7 @@
                 el.FontSize = value;
                 if (el.FitTextToArea)
                 {
-                    var maxLineWidth = await JS.InvokeAsync<double>(
+                    var maxLineWidth = await JSRuntime.InvokeAsync<double>(
                         "measureMaxLineWidth",
                         el.Text,
                         el.FontSize * zoomLevel,
@@ -1105,7 +1120,7 @@
         try
         {
             await textInputRef.FocusAsync();
-            var totalParentPx = await JS.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+            var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
             if (totalParentPx > 0) element.Height = Math.Max(6, totalParentPx / zoomLevel);
         }
         catch
@@ -1371,7 +1386,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                     if (element.FitTextToArea)
                     {
                         newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthNW = await JS.InvokeAsync<double>(
+                        var maxLineWidthNW = await JSRuntime.InvokeAsync<double>(
                             "measureMaxLineWidth",
                             element.Text,
                             newFontSize * zoomLevel,
@@ -1389,7 +1404,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                     if (element.FitTextToArea)
                     {
                         newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthNE = await JS.InvokeAsync<double>(
+                        var maxLineWidthNE = await JSRuntime.InvokeAsync<double>(
                             "measureMaxLineWidth",
                             element.Text,
                             newFontSize * zoomLevel,
@@ -1406,7 +1421,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                     if (element.FitTextToArea)
                     {
                         newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSW = await JS.InvokeAsync<double>(
+                        var maxLineWidthSW = await JSRuntime.InvokeAsync<double>(
                             "measureMaxLineWidth",
                             element.Text,
                             newFontSize * zoomLevel,
@@ -1424,7 +1439,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                     if (element.FitTextToArea)
                     {
                         newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSE = await JS.InvokeAsync<double>(
+                        var maxLineWidthSE = await JSRuntime.InvokeAsync<double>(
                             "measureMaxLineWidth",
                             element.Text,
                             newFontSize * zoomLevel,
@@ -1439,7 +1454,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                     if (element.FitTextToArea)
                     {
                         newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthN = await JS.InvokeAsync<double>(
+                        var maxLineWidthN = await JSRuntime.InvokeAsync<double>(
                             "measureMaxLineWidth",
                             element.Text,
                             newFontSize * zoomLevel,
@@ -1460,7 +1475,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                     if (element.FitTextToArea)
                     {
                         newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthS = await JS.InvokeAsync<double>(
+                        var maxLineWidthS = await JSRuntime.InvokeAsync<double>(
                             "measureMaxLineWidth",
                             element.Text,
                             newFontSize * zoomLevel,
@@ -1553,7 +1568,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
     {
         // canvas の実表示サイズを取得して、その中で画像が最大で表示されるサイズを決める
         var canvasSelector = $"#pdf-canvas-{canvasUniqueId}";
-        var canvasRect = await JS.InvokeAsync<RectDto>("getElementRect", canvasSelector);
+        var canvasRect = await JSRuntime.InvokeAsync<RectDto>("getElementRect", canvasSelector);
 
         // フォールバックは displayWidth/displayHeight（既に Redraw で設定済み）
         var availW = canvasRect.width > 0 ? canvasRect.width : pageWidth * zoomLevel;
@@ -1610,13 +1625,13 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             var base64 = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
             if (contentType == "image/png" || contentType == "image/jpeg")
             {
-                var size = await JS.InvokeAsync<SizeDto>("getImageSizeFromBase64", base64);
+                var size = await JSRuntime.InvokeAsync<SizeDto>("getImageSizeFromBase64", base64);
                 await OnImageBase64Loaded(base64, size.width, size.height);
             }
             else if (contentType == "image/gif" || contentType == "image/bmp" ||
                     contentType == "image/webp" || contentType == "image/svg+xml")
             {
-                var result = await JS.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64,contentType);
+                var result = await JSRuntime.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64,contentType);
                 await OnImageBase64Loaded(result.pngBase64, result.width, result.height);
             }
             else
@@ -1646,8 +1661,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             await Task.Yield();
 
             _dotNetRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
-            await JS.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
+            await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
+            await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
 
             var allPages = PdfDataService.GetModel().Pages;
             var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
@@ -1663,10 +1678,10 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             // ここで元データを保持
             originalPageData = pageItem.PageData;
 
-            cachedPageSource = await JS.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
+            cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
             if (cachedPageSource == null)
             {
-                cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JS.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
+                cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JSRuntime.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
             }
 
             // 回転角度を考慮して幅・高さを入れ替え
@@ -1692,8 +1707,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
     public async ValueTask DisposeAsync()
     {
-        await JS.InvokeVoidAsync("unregisterGlobalMouseUp");
-        await JS.InvokeVoidAsync("unregisterGlobalMouseMove");
+        await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
+        await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
         _dotNetRef?.Dispose();
 
     }
@@ -1702,7 +1717,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
     {
         if (hasSaved)
         {
-            var confirmed = await JS.InvokeAsync<bool>("confirm", "ページ遷移すると、追加した要素の再編集できなくなります。本当に移動しますか？");
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "ページ遷移すると、追加した要素の再編集できなくなります。本当に移動しますか？");
             if (!confirmed)
                 return;
         }
@@ -1755,7 +1770,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
         // getElementRectなどの値を確実に取得できるように待機
         await InvokeAsync(StateHasChanged);
-        await JS.InvokeVoidAsync("waitForNextFrame");
+        await JSRuntime.InvokeVoidAsync("waitForNextFrame");
 
         var src = cachedPageSource;
         if (src == null)
@@ -1769,7 +1784,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
 
         // 編集領域コンテナの可用サイズを取得
-        var containerRect = await JS.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
+        var containerRect = await JSRuntime.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
         var availW = Math.Max(1, containerRect.width);
         var availH = Math.Max(1, containerRect.height);
 
@@ -1786,7 +1801,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
         var rotateAngle = pageItem.RotateAngle;
 
-        await JS.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel, rotateAngle);
+        await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel, rotateAngle);
     }
 
     private void SetTool(EditTool tool)
@@ -1836,7 +1851,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
 
         // JSでクリックターゲットのタグ名を取得
-        var tagName = await JS.InvokeAsync<string>("getTagNameFromEvent", e);
+        var tagName = await JSRuntime.InvokeAsync<string>("getTagNameFromEvent", e);
         if (tagName == "INPUT" || tagName == "BUTTON") return;
 
         // すでにテキスト編集中の要素があれば追加しない
@@ -1862,7 +1877,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         if (currentTool == EditTool.Text)
         {
             // JSで正確なキャンバス座標を取得
-            var coords = await JS.InvokeAsync<CanvasCoords>(
+            var coords = await JSRuntime.InvokeAsync<CanvasCoords>(
             "getCanvasCoords",
             $"#pdf-canvas-{canvasUniqueId}",
             e.ClientX,
@@ -1892,8 +1907,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             try
             {
                 await textInputRef.FocusAsync();
-                await JS.InvokeVoidAsync("selectAllTextarea", textInputRef);
-                await JS.InvokeVoidAsync("autoResizeTextarea", textInputRef);
+                await JSRuntime.InvokeVoidAsync("selectAllTextarea", textInputRef);
+                await JSRuntime.InvokeVoidAsync("autoResizeTextarea", textInputRef);
             }
             catch
             {
@@ -2067,7 +2082,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 var editJson = JsonSerializer.Serialize(elementsForSave);
 
                 // 元データ（originalPageData）に編集要素を追加して新PDF生成
-                var newPdfBase64 = await JS.InvokeAsync<string>(
+                var newPdfBase64 = await JSRuntime.InvokeAsync<string>(
                     "editPdfPageWithElements",
                     originalPageData, // extractPdfPageで取得したPDF Base64
                     editJson
@@ -2075,7 +2090,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 pageItem.PageData = newPdfBase64;
                 pageItem.Thumbnail = "";
                 
-                var newThumbnail = await JS.InvokeAsync<string>(
+                var newThumbnail = await JSRuntime.InvokeAsync<string>(
                     "generatePdfThumbnailFromPageData", pageItem.PageData);
                 pageItem.Thumbnail = newThumbnail;
 
