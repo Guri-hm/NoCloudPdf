@@ -759,9 +759,6 @@ input[type=number] {
   .z-\[250\] {
     z-index: 250;
   }
-  .z-\[300\] {
-    z-index: 300;
-  }
   .z-\[9999\] {
     z-index: 9999;
   }
@@ -1437,10 +1434,6 @@ input[type=number] {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 2px;
   }
-  .border-b-4 {
-    border-bottom-style: var(--tw-border-style);
-    border-bottom-width: 4px;
-  }
   .border-l {
     border-left-style: var(--tw-border-style);
     border-left-width: 1px;
@@ -1479,6 +1472,9 @@ input[type=number] {
   }
   .border-blue-400 {
     border-color: var(--color-blue-400);
+  }
+  .border-blue-500 {
+    border-color: var(--color-blue-500);
   }
   .border-blue-500\/60 {
     border-color: color-mix(in srgb, oklch(62.3% 0.214 259.815) 60%, transparent);

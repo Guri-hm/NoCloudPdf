@@ -41,6 +41,27 @@ public class MessageService
         }
         catch { }
     }
+    
+    public async Task ShowLoadingAsync(string message = "処理中です...")
+    {
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync("loadingOverlay.show", message);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"MessageService.ShowLoadingAsync error: {ex.Message}");
+        }
+    }
+
+    public async Task HideLoadingAsync()
+    {
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync("loadingOverlay.hide");
+        }
+        catch { }
+    }
 }
 
 public enum MessageType
