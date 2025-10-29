@@ -573,18 +573,11 @@
     {
         CompletionState.ResetAll(); // グローバルな完了フラグをリセット
 
-        AppResetHelper.ResetPage(
-            PdfDataService,
-            () => { /* ページ固有の状態リセット */ },
-            () => { 
-                mergedPdfUrl = null;
-                mergedFileName = "";
-                mergedFileSize = "";
-                mergedPageCount = 0;
-            },
-            msg => _ = MessageService.ShowAsync(msg, MessageType.Error),
-            StateHasChanged
-        );
+        PdfDataService.Clear();
+        mergedPdfUrl = null;
+        mergedFileName = "";
+        mergedFileSize = "";
+        mergedPageCount = 0;
     }
 
 

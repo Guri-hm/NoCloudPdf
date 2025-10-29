@@ -839,20 +839,14 @@
     {
         CompletionState.ResetAll();
 
-        AppResetHelper.ResetPage(
-            PdfDataService,
-            () => { /* ページ固有の状態リセット */ },
-            () => { 
-
-                resultPdfInfos.Clear();
-                resultZipUrl = "";
-                resultZipName = "";
-                resultZipSize = "";
-                resultTotalPageCount = 0;
-            },
-            msg => _ = MessageService.ShowAsync(msg, MessageType.Error),
-            StateHasChanged
-        );
+        PdfDataService.Clear();
+        
+        resultPdfInfos.Clear();
+        resultZipUrl = "";
+        resultZipName = "";
+        resultZipSize = "";
+        resultTotalPageCount = 0;
+    
     }
 
     // 隣接サムネイルとの入れ替え機能
