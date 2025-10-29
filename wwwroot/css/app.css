@@ -15,8 +15,8 @@ h1:focus {
 }
 
 article {
-    /* ホワイトスモーク */
-    background-color: #F5F5F5;
+    /* やや灰色い青紫系の色(tailwindのgray-50) */
+    background-color: #f9fafb;
 }
 
 button:not([disabled]),
