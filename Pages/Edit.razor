@@ -229,10 +229,9 @@
         }
     </div>
 }
-@if (isBusy)
-{
-    <LoadingOverlay Message="処理中です..." />
-}
+<!-- ローディング中 -->
+<LoadingOverlay />
+
 <!-- メッセージ表示エリア -->
 <MessageBar />
 
@@ -273,7 +272,6 @@
         passwordTcs?.TrySetCanceled();
         passwordTcs = null;
     }
-    private bool isBusy = false;
     private string? mergedPdfUrl;
 
     // 統一アーキテクチャ対応プロパティ
@@ -479,9 +477,7 @@
     {
         try
         {
-            isBusy = true;
-            StateHasChanged();
-            await Task.Yield();
+            await MessageService.ShowLoadingAsync("作成中...");
 
             var mergeItems = PdfDataService.GetModel().Pages;
 
@@ -530,8 +526,7 @@
         }
         finally
         {
-            isBusy = false;
-            StateHasChanged();
+            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -623,14 +618,17 @@
     private Task RotateAllRight() => RotateAll(90);
     private async Task RotateAll(int angle)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
 
-        await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+        try{
+            await MessageService.ShowLoadingAsync("回転中...");
+            await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
 
-        isBusy = false;
-        StateHasChanged();
+        }catch(Exception ex){
+            _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }finally{
+            await MessageService.HideLoadingAsync();
+        }
+
     }
 
     private async void RemoveItemFromPreview()
@@ -744,15 +742,8 @@
     // 空白ページを挿入
     public async Task InsertBlankPage(int position)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
-
         await PdfDataService.InsertBlankPageWithDisplayModeAsync(
             CurrentDisplayMode, DisplayItems, position);
-
-        isBusy = false;
-        StateHasChanged();
     }
 
     // PDF挿入
@@ -772,17 +763,21 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
+        try{
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await PdfDataService.HandleFileInputAsync(
+                e,
+                insertPosition >= 0 ? insertPosition : null
+            );
+            insertPosition = -1;
 
-        await PdfDataService.HandleFileInputAsync(
-            e,
-            insertPosition >= 0 ? insertPosition : null
-        );
-        insertPosition = -1;
-        isBusy = false;
-        StateHasChanged();
+        }catch (Exception ex){
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+
+        }finally{
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     private List<DropdownMenuItem> sortMenuItems => new()
@@ -871,25 +866,29 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
 
     private async Task ReverseOrder()
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
-
-        if (CurrentDisplayMode == DisplayMode.File)
+        try
         {
-            // ファイル単位：ファイルごと逆順
-            var model = PdfDataService.GetModel();
-            var fileIds = DisplayItems.Select(x => x.Id).Reverse().ToList();
-            PdfDataService.ReorderFiles(fileIds);
-        }
-        else if (CurrentDisplayMode == DisplayMode.Page)
-        {
-            // ページ単位：ページごと逆順
-            PdfDataService.ReversePages();
-        }
+            await MessageService.ShowLoadingAsync("逆順中...");
 
-        isBusy = false;
-        StateHasChanged();
+            if (CurrentDisplayMode == DisplayMode.File)
+            {
+                // ファイル単位：ファイルごと逆順
+                var model = PdfDataService.GetModel();
+                var fileIds = DisplayItems.Select(x => x.Id).Reverse().ToList();
+                PdfDataService.ReorderFiles(fileIds);
+            }
+            else if (CurrentDisplayMode == DisplayMode.Page)
+            {
+                // ページ単位：ページごと逆順
+                PdfDataService.ReversePages();
+            }
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"逆順中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }finally{
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     private async Task SelectSort(bool ascending)
@@ -898,46 +897,53 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
     }
     private async Task SortByName(bool ascending)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
-
-        if (CurrentDisplayMode == DisplayMode.File)
+        try
         {
-            var sorted = ascending
-            ? DisplayItems.OrderBy(x => x.DisplayName).Select(x => x.Id).ToList()
-            : DisplayItems.OrderByDescending(x => x.DisplayName).Select(x => x.Id).ToList();
-            PdfDataService.ReorderFiles(sorted);
+            await MessageService.ShowLoadingAsync("ソート中...");
+            if (CurrentDisplayMode == DisplayMode.File)
+            {
+                var sorted = ascending
+                ? DisplayItems.OrderBy(x => x.DisplayName).Select(x => x.Id).ToList()
+                : DisplayItems.OrderByDescending(x => x.DisplayName).Select(x => x.Id).ToList();
+                PdfDataService.ReorderFiles(sorted);
+            }
+            else if (CurrentDisplayMode == DisplayMode.Page)
+            {
+                PdfDataService.SortPagesByName(ascending);
+            }
         }
-        else if (CurrentDisplayMode == DisplayMode.Page)
+        catch (Exception ex)
         {
-            PdfDataService.SortPagesByName(ascending);
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ソート中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            return;
         }
-
-        isBusy = false;
-        StateHasChanged();
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
-
         try
         {
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );
-        }
+        }catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }   
         finally
         {
-            isBusy = false;
-            StateHasChanged();
+            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -1031,9 +1037,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
     try
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
+        await MessageService.ShowLoadingAsync("設定中...");
 
         var model = PdfDataService.GetModel();
         var pages = model.Pages;
@@ -1099,8 +1103,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
     }
     finally
     {
-        isBusy = false;
-        StateHasChanged();
+        await MessageService.HideLoadingAsync();
     }
 }
 

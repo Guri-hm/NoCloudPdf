@@ -192,10 +192,9 @@
         }
     </div>
 }
-@if (isBusy)
-{
-    <LoadingOverlay Message="処理中です..." />
-}
+<!-- ローディング中 -->
+<LoadingOverlay />
+
 <!-- メッセージ表示エリア -->
 <MessageBar />
 
@@ -311,7 +310,6 @@
         _dotNetRef = null;
     }
 
-    private bool isBusy = false;
     private string? mergedPdfUrl;
 
     // 統一アーキテクチャ対応プロパティ
@@ -452,14 +450,15 @@
 
     private async Task RotateAll(int angle)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
-
-        _ = PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
-        _rotationCounter++;
-
-        isBusy = false;
+        try{
+            await MessageService.ShowLoadingAsync("回転中...");
+            await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+            _rotationCounter++;
+        }catch(Exception ex){
+            _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }finally{
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
@@ -468,15 +467,10 @@
     // 空白ページを挿入
     public async Task InsertBlankPage(int position)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
 
         await PdfDataService.InsertBlankPageWithDisplayModeAsync(
             CurrentDisplayMode, DisplayItems, position);
 
-        isBusy = false;
-        StateHasChanged();
     }
 
     // PDF挿入
@@ -495,17 +489,21 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
+        try{
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await PdfDataService.HandleFileInputAsync(
+                e,
+                insertPosition >= 0 ? insertPosition : null
+            );
+            insertPosition = -1;
 
-        await PdfDataService.HandleFileInputAsync(
-            e,
-            insertPosition >= 0 ? insertPosition : null
-        );
-        insertPosition = -1;
-        isBusy = false;
-        StateHasChanged();
+        }catch (Exception ex){
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+
+        }finally{
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     private List<ActionButtonItem> resetActions => new()
@@ -714,12 +712,9 @@
     [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
-
         try
         {
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
@@ -729,8 +724,7 @@
         }
         finally
         {
-            isBusy = false;
-            StateHasChanged();
+            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -1049,9 +1043,8 @@
 
         try
         {
-            isBusy = true;
-            StateHasChanged();
-            await Task.Yield();
+            await MessageService.ShowLoadingAsync("書き出し中...");
+
 
             // スナップショット（UI 再レンダリングで変わらないように）
             var displayList = DisplayItems.ToList();
@@ -1159,7 +1152,7 @@
         }
         finally
         {
-            isBusy = false;
+            await MessageService.HideLoadingAsync();
             StateHasChanged();
         }
     }
@@ -1203,8 +1196,7 @@
     {
         try
         {
-            isBusy = true;
-            StateHasChanged();
+            await MessageService.ShowLoadingAsync("適用中...");
 
             int w = settings.ImageNaturalWidth;
             int h = settings.ImageNaturalHeight;
@@ -1268,7 +1260,7 @@
         }
         finally
         {
-            isBusy = false;
+            await MessageService.HideLoadingAsync();
             StateHasChanged();
         }
     }

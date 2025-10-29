@@ -342,10 +342,9 @@
 
 
 </div>
-@if (isBusy)
-{
-    <LoadingOverlay Message="処理中です..." />
-}
+<!-- ローディング中 -->
+<LoadingOverlay />
+
 <!-- メッセージ表示エリア -->
 <MessageBar />
 
@@ -353,7 +352,6 @@
     // ページ表示時の元PDFデータを保持
     private string? originalPageData;
     private bool hasSaved = false;
-    private bool isBusy = false;
 
     private DotNetObjectReference<EditPage>? _dotNetRef;
     private PageSourceInfo? cachedPageSource;
@@ -1626,52 +1624,57 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
     {
         if (firstRender)
         {
-            isBusy = true;
-            StateHasChanged();
-            await Task.Yield();
+            try{
 
-            _dotNetRef = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
-            await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
+                await MessageService.ShowLoadingAsync("読み込み中...");
 
-            var allPages = PdfDataService.GetModel().Pages;
-            var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
+                await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
 
-            if (pageItem == null)
+                var allPages = PdfDataService.GetModel().Pages;
+                var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
+
+                if (pageItem == null)
+                {
+                    Navigation.NavigateTo("/edit");
+                    return;
+                }
+
+                fileName = pageItem.FileName ?? "";
+
+                // ここで元データを保持
+                originalPageData = pageItem.PageData;
+
+                cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
+                if (cachedPageSource == null)
+                {
+                    cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JSRuntime.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
+                }
+
+                // 回転角度を考慮して幅・高さを入れ替え
+                var rotateAngle = pageItem.RotateAngle;
+                if (rotateAngle % 180 != 0)
+                {
+                    pageWidth = (int)cachedPageSource.origH;
+                    pageHeight = (int)cachedPageSource.origW;
+                }
+                else
+                {
+                    pageWidth = (int)cachedPageSource.origW;
+                    pageHeight = (int)cachedPageSource.origH;
+                }
+
+                // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
+                await RedrawPdfPage(applyFit: true);
+            }catch(Exception ex)
             {
-                Navigation.NavigateTo("/edit");
-                return;
+                Console.WriteLine($"初期化エラー: {ex.Message}");
+            }finally{
+                await MessageService.HideLoadingAsync();
+
             }
 
-            fileName = pageItem.FileName ?? "";
-
-            // ここで元データを保持
-            originalPageData = pageItem.PageData;
-
-            cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
-            if (cachedPageSource == null)
-            {
-                cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JSRuntime.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
-            }
-
-            // 回転角度を考慮して幅・高さを入れ替え
-            var rotateAngle = pageItem.RotateAngle;
-            if (rotateAngle % 180 != 0)
-            {
-                pageWidth = (int)cachedPageSource.origH;
-                pageHeight = (int)cachedPageSource.origW;
-            }
-            else
-            {
-                pageWidth = (int)cachedPageSource.origW;
-                pageHeight = (int)cachedPageSource.origH;
-            }
-
-            // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
-            await RedrawPdfPage(applyFit: true);
-
-            isBusy = false;
-            StateHasChanged();
         }
     }
 
@@ -2036,9 +2039,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
     private async Task SaveChanges()
     {
-        isBusy = true;
-        StateHasChanged();
-        await Task.Yield();
 
         // 現在のページを取得
         var allPages = PdfDataService.GetModel().Pages;
@@ -2048,6 +2048,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         {
             try
             {
+                await MessageService.ShowLoadingAsync("保存中...");
                 var elementsForSave = GetElementsForSave(pageWidth, pageHeight, pageItem.RotateAngle);
                 var editJson = JsonSerializer.Serialize(elementsForSave);
 
@@ -2074,15 +2075,12 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             }
             finally
             {
-                isBusy = false;
-                StateHasChanged();
+                await MessageService.HideLoadingAsync();
             }
         }
         else
         {
             _ = MessageService.ShowAsync("ページ情報が見つかりません", type: MessageType.Error);
-            isBusy = false;
-            StateHasChanged();
         }
     }
 }
