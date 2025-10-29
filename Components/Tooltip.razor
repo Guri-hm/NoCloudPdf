@@ -34,20 +34,34 @@
     private string _wrapperId = "tooltip-wrapper-" + Guid.NewGuid().ToString("N");
     private string _tooltipId = "tooltip-popup-" + Guid.NewGuid().ToString("N");
     private bool _isVisible = false;
+    private CancellationTokenSource? _showCts;
 
     private async Task ShowTooltip()
     {
         if (string.IsNullOrWhiteSpace(Text)) return;
         
+        // 既存の表示処理をキャンセル
+        _showCts?.Cancel();
+        _showCts = new CancellationTokenSource();
+        var currentCts = _showCts;
+        
         _isVisible = true;
         StateHasChanged();
 
-        // DOM のレンダリングを確実に待つ
-        await Task.Delay(50);
-
         try
         {
+            // DOM のレンダリングを確実に待つ
+            await Task.Delay(50, currentCts.Token);
+
+            // キャンセルされていないか確認
+            if (currentCts.IsCancellationRequested || currentCts != _showCts)
+                return;
+
             await JSRuntime.InvokeVoidAsync("tooltipHelper.show", _wrapperId, _tooltipId);
+        }
+        catch (OperationCanceledException)
+        {
+            // キャンセルされた場合は何もしない
         }
         catch (Exception ex)
         {
@@ -57,6 +71,10 @@
 
     private async Task HideTooltip()
     {
+        // 表示処理をキャンセル
+        _showCts?.Cancel();
+        _showCts = null;
+
         try
         {
             await JSRuntime.InvokeVoidAsync("tooltipHelper.hide", _tooltipId);
@@ -65,5 +83,11 @@
         
         _isVisible = false;
         StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _showCts?.Cancel();
+        _showCts?.Dispose();
     }
 }
