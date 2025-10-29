@@ -776,9 +776,7 @@
 
         await PdfDataService.HandleFileInputAsync(
             e,
-            insertPosition >= 0 ? insertPosition : null,
-            msg => _ = MessageService.ShowAsync(msg, MessageType.Error),
-            msg => _ = MessageService.ShowAsync(msg, MessageType.Warn)
+            insertPosition >= 0 ? insertPosition : null
         );
         insertPosition = -1;
         isBusy = false;
@@ -944,8 +942,6 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
-                msg => _ = MessageService.ShowAsync(msg, MessageType.Error),
-                msg => _ = MessageService.ShowAsync(msg, MessageType.Warn),
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );

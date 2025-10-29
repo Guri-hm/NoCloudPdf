@@ -723,8 +723,6 @@
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
-                async msg => await MessageService.ShowAsync(msg, MessageType.Error),
-                async msg => await MessageService.ShowAsync(msg, MessageType.Warn),
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );

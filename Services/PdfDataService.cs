@@ -12,14 +12,17 @@ namespace NoCloudPdf.Services;
 public class PdfDataService
 {
     private readonly IJSRuntime _jsRuntime;
+    private readonly MessageService _messageService;
+    public PdfDataService(IJSRuntime jsRuntime, MessageService messageService)
+    {
+        _jsRuntime = jsRuntime;
+        _messageService = messageService;
+    }
+
     private UnifiedPdfModel _model = new();
     public event Action? OnChange;
     // キャンセル用トークン管理
     private Dictionary<string, CancellationTokenSource> _loadingTokens = new();
-    public PdfDataService(IJSRuntime jsRuntime)
-    {
-        _jsRuntime = jsRuntime;
-    }
     public long TotalFileSize => _model.Files.Values.Sum(f => f.FileData?.LongLength ?? 0);
 
     /// <summary>
@@ -737,7 +740,7 @@ public class PdfDataService
         }
         catch (Exception ex)
         {
-            setErrorMessage?.Invoke($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}");
+            await _messageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Warn);
             return false;
         }
     }
@@ -1525,14 +1528,9 @@ public class PdfDataService
 
     public async Task HandleFileInputAsync(
     InputFileChangeEventArgs e,
-    int? insertPosition = null,
-    Action<string>? setErrorMessage = null,
-    Action<string>? setWarnMessage = null)
+    int? insertPosition = null)
     {
         if (e.FileCount == 0) return;
-
-        setErrorMessage?.Invoke("");
-        setWarnMessage?.Invoke("");
 
         const long maxFileSize = 100 * 1024 * 1024; // 100MB
         const long maxTotalSize = 200 * 1024 * 1024; // 200MB
@@ -1541,7 +1539,7 @@ public class PdfDataService
         long newFilesSize = e.GetMultipleFiles().Sum(f => f.Size);
         if (TotalFileSize + newFilesSize > maxTotalSize)
         {
-            setWarnMessage?.Invoke($"合計ファイルサイズが上限（{maxTotalSize / 1024 / 1024}MB）を超えています。");
+            await _messageService.ShowAsync($"合計ファイルサイズが上限（{maxTotalSize / 1024 / 1024}MB）を超えています。");
             return;
         }
 
@@ -1552,7 +1550,7 @@ public class PdfDataService
             // 1ファイルごとのサイズチェック
             if (file.Size > maxFileSize)
             {
-                setErrorMessage?.Invoke($"ファイル「{file.Name}」は最大サイズ（{maxFileSize / 1024 / 1024}MB）を超えています。");
+                await _messageService.ShowAsync($"ファイル「{file.Name}」は最大サイズ（{maxFileSize / 1024 / 1024}MB）を超えています。", MessageType.Warn);
                 continue;
             }
 
@@ -1578,18 +1576,18 @@ public class PdfDataService
                 }
                 else
                 {
-                    setWarnMessage?.Invoke($"未対応のファイル形式です: {file.Name}");
+                    await _messageService.ShowAsync($"未対応のファイル形式です: {file.Name}");
                     continue;
                 }
 
                 if (!success)
                 {
-                    setErrorMessage?.Invoke($"ファイルの処理に失敗しました: {file.Name}");
+                    await _messageService.ShowAsync($"ファイルの処理に失敗しました: {file.Name}", MessageType.Warn);
                 }
             }
             catch (Exception ex)
             {
-                setErrorMessage?.Invoke($"ファイル処理エラー: {file.Name} - {ex.Message}");
+                await _messageService.ShowAsync($"ファイル処理エラー: {file.Name} - {ex.Message}", MessageType.Error);
             }
         }
 
@@ -1598,8 +1596,6 @@ public class PdfDataService
     public async Task<bool> HandleDroppedFileAsync(
         string fileName,
         string base64Data,
-        Action<string>? setErrorMessage = null,
-        Action<string>? setWarnMessage = null,
         Func<string, byte[], Task<bool>>? onPdf = null,
         Func<string, byte[], Task<bool>>? onImage = null)
     {
@@ -1619,13 +1615,13 @@ public class PdfDataService
         }
         else
         {
-            setWarnMessage?.Invoke($"未対応のファイル形式です: {fileName}");
+            await _messageService.ShowAsync($"未対応のファイル形式です: {fileName}", MessageType.Warn);
             return false;
         }
 
         if (!success)
         {
-            setErrorMessage?.Invoke($"ファイルの処理に失敗しました: {fileName}");
+            await _messageService.ShowAsync($"ファイルの処理に失敗しました: {fileName}", MessageType.Error);
         }
 
         return success;
