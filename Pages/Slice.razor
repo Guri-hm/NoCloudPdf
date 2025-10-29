@@ -317,7 +317,6 @@
 
     private bool isBusy = false;
     private string? mergedPdfUrl;
-    private MessageInfo? message;
     private void ShowMessage(string? text, MessageType type)
     {
         if (string.IsNullOrEmpty(text)) return;
@@ -349,7 +348,7 @@
         }
         catch { }
     }
-    
+
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
