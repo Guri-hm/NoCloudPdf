@@ -196,13 +196,8 @@
     <LoadingOverlay Message="処理中です..." />
 }
 <!-- メッセージ表示エリア -->
-@if (message != null && !string.IsNullOrEmpty(message.Text))
-{
-    <MessageBar Message="@message.Text"
-                Type="@message.Type"
-                OnClose="ClearMessage"
-                AutoCloseMs="5000" />
-}
+<MessageBar />
+
 <PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
 
 <!-- ファイル選択用の隠しinput -->
