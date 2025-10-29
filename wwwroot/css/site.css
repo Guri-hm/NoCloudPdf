@@ -13,7 +13,7 @@ h1:focus {
   outline: none;
 }
 article {
-  background-color: #F5F5F5;
+  background-color: #f9fafb;
 }
 button:not([disabled]),
 [role="button"]:not([disabled]),
@@ -937,6 +937,9 @@ input[type=number] {
   }
   .h-32 {
     height: calc(var(--spacing) * 32);
+  }
+  .h-48 {
+    height: calc(var(--spacing) * 48);
   }
   .h-\[1em\] {
     height: 1em;
@@ -2810,6 +2813,11 @@ input[type=number] {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
+  .md\:grid-cols-3 {
+    @media (width >= 48rem) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
   .md\:flex-col {
     @media (width >= 48rem) {
       flex-direction: column;
@@ -3007,6 +3015,11 @@ input[type=number] {
           opacity: 100%;
         }
       }
+    }
+  }
+  .lg\:grid-cols-4 {
+    @media (width >= 64rem) {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
   .xl\:col-span-3 {

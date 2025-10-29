@@ -1620,3 +1620,76 @@ window.getImageSizeFromDataUrl = function (dataUrl) {
         }
     });
 };
+
+window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWidth, normHeight, rotateAngle = 0, dpi = 150) {
+    try {
+        const binaryString = atob(pageDataBase64);
+        const uint8Array = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            uint8Array[i] = binaryString.charCodeAt(i);
+        }
+
+        if (!window.pdfjsLib) throw new Error("pdfjsLib is not loaded");
+        
+        const loadingTask = pdfjsLib.getDocument({
+            data: uint8Array,
+            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+        });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+
+        // 回転を正規化（0/90/180/270）
+        const angle = ((Number(rotateAngle) || 0) % 360 + 360) % 360;
+        const quant = (Math.round(angle / 90) * 90) % 360;
+
+        // PDF の実寸（ポイント単位、1pt = 1/72 inch）を取得
+        const baseViewport = page.getViewport({ scale: 1.0, rotation: 0 });
+        const pdfWidthPt = baseViewport.width;
+        const pdfHeightPt = baseViewport.height;
+
+        // DPI に基づいた scale を計算（72dpi = scale 1.0）
+        const scale = dpi / 72;
+
+        // 回転を適用した viewport で描画
+        const viewport = page.getViewport({ scale: scale, rotation: quant });
+
+        // ソースキャンバスにページ全体を描画（回転適用済み）
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = Math.max(1, Math.round(viewport.width));
+        srcCanvas.height = Math.max(1, Math.round(viewport.height));
+        const srcCtx = srcCanvas.getContext('2d', { alpha: false });
+        
+        // 白背景を描画（透明部分対策）
+        srcCtx.fillStyle = '#FFFFFF';
+        srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
+        
+        await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
+
+        // 正規化座標を「回転適用後のキャンバス座標」に変換
+        const sx = Math.max(0, Math.min(srcCanvas.width, Math.round(normX * srcCanvas.width)));
+        const sy = Math.max(0, Math.min(srcCanvas.height, Math.round(normY * srcCanvas.height)));
+        const sw = Math.max(1, Math.min(srcCanvas.width - sx, Math.round(normWidth * srcCanvas.width)));
+        const sh = Math.max(1, Math.min(srcCanvas.height - sy, Math.round(normHeight * srcCanvas.height)));
+
+        // 切り出しキャンバス
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = sw;
+        cropCanvas.height = sh;
+        const cropCtx = cropCanvas.getContext('2d', { alpha: false });
+
+        // 白背景を描画
+        cropCtx.fillStyle = '#FFFFFF';
+        cropCtx.fillRect(0, 0, sw, sh);
+
+        // drawImage で切り出す
+        cropCtx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        return cropCanvas.toDataURL('image/png');
+
+    } catch (error) {
+        console.error('cropPdfPageToImage error:', error);
+        throw error;
+    }
+};

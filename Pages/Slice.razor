@@ -54,10 +54,11 @@
                             </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
-                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
-                        <input type="checkbox" @bind="useRasterize" class="form-checkbox h-5 w-5 accent-blue-500" />
-                        ラスタ化
-                    </label>
+                    <select @bind="exportDpi" class="px-2 py-1 border border-gray-300 rounded bg-white text-gray-900 text-sm">
+                        <option value="72">実寸（72dpi）</option>
+                        <option value="150">高品質（150dpi）</option>
+                        <option value="300">印刷用（300dpi）</option>
+                    </select>
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
@@ -105,7 +106,7 @@
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
-                @onclick="MergeTrimmedPagesAsync">
+                @onclick="ExportSlicedImagesAsync">
                 完了
             </button>
         </div>    
@@ -117,7 +118,7 @@
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
 
-@if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
+@if (CompletionState.ShowMergedResult && slicedImages.Any())
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -129,15 +130,37 @@
     <!-- メインエリア -->
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
-            <!-- PDFプレビュー -->
-            <PdfPreviewCanvas MergedPageCount="mergedPageCount" />
+            <!-- 画像ギャラリー（スクロール可能） -->
+            <div class="flex-1 overflow-auto p-6 bg-gray-50">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    @foreach (var image in slicedImages)
+                    {
+                        <div class="bg-white rounded-lg shadow p-4 flex flex-col gap-2">
+                            <!-- 画像表示エリアを固定高さに -->
+                            <div class="w-full h-48 flex items-center justify-center bg-gray-100 rounded overflow-hidden">
+                                <img src="@image.DataUrl" 
+                                    alt="@image.FileName" 
+                                    class="max-w-full max-h-full object-contain" />
+                            </div>
+                            <span class="text-sm text-gray-600 truncate w-full text-center">@image.FileName</span>
+                            <button
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded text-sm w-full"
+                                @onclick="() => DownloadSingleImage(image)">
+                                <i class="fa-solid fa-download"></i> ダウンロード
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
             <!-- 情報パネル（PCのみ表示） -->
             <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
                 <InfoPanel Title="完了" FileName="@mergedFileName" FileSize="@mergedFileSize" PageCount="@mergedPageCount">
-                    <SplitButton
-                        PrimaryLabel="PDFでダウンロード"
-                        OnPrimaryClick="DownloadMergedPdf"
-                        MenuItems="@downloadMenuItems" />
+                    <button
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center"
+                        @onclick="DownloadAllImagesAsZip">
+                        <i class="fa-solid fa-download"></i>
+                        すべてZIPでダウンロード
+                    </button>
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
@@ -157,12 +180,12 @@
                         <span>完了</span>
                     </div>
                     <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
-                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
-                    <div class="text-gray-600 text-sm">ページ数: @mergedPageCount</div>
-                    <SplitButton
-                        PrimaryLabel="PDFでダウンロード"
-                        OnPrimaryClick="DownloadMergedPdf"
-                        MenuItems="@downloadMenuItems" />
+                    <div class="text-gray-600 text-sm">書き出し枚数: @mergedPageCount</div>
+                    <button
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full"
+                        @onclick="DownloadAllImagesAsZip">
+                        <i class="fa-solid fa-download"></i> すべてZIPでダウンロード
+                    </button>
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
@@ -174,7 +197,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <!-- 展開ボタン -->
+
             @if (!isMenuOpen)
             {
                 <button
@@ -311,8 +334,6 @@
         _dotNetRef = null;
     }
 
-    private string? mergedPdfUrl;
-
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
@@ -328,7 +349,9 @@
     private bool isMenuOpen = false;
     private string mergedFileName = "";
     private string mergedFileSize = "";
+
     private int mergedPageCount = 0;
+    private int exportDpi = 72;
 
     private int GetCurrentFilePageIndex()
     {
@@ -380,20 +403,6 @@
         catch { }
     }
 
-    private List<SplitButton.MenuActionItem> downloadMenuItems => new()
-    {
-        new SplitButton.MenuActionItem
-        {
-            Label = "PDFでダウンロード",
-            OnClick = EventCallback.Factory.Create(this, DownloadMergedPdf)
-        },
-        new SplitButton.MenuActionItem
-        {
-            Label = "PNG画像でダウンロード",
-            OnClick = EventCallback.Factory.Create(this, DownloadMergedPng)
-        }
-    };
-
     private List<ActionButtonItem> primaryActions => new()
     {
         new ActionButtonItem
@@ -401,7 +410,7 @@
             Label = "完了",
             IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
             Title = "完了",
-            OnClick = EventCallback.Factory.Create(this, MergeTrimmedPagesAsync),
+            OnClick = EventCallback.Factory.Create(this, ExportSlicedImagesAsync),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
             IconPosition = "right",
             TextColor = "text-white"
@@ -439,7 +448,8 @@
         CompletionState.ResetAll(); // グローバルな完了フラグをリセット
 
         PdfDataService.Clear();
-        mergedPdfUrl = null;
+
+        slicedImages.Clear();
         mergedFileName = "";
         mergedFileSize = "";
         mergedPageCount = 0;
@@ -749,7 +759,6 @@
         StateHasChanged();
     }
 
-    private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
     private bool previewZoomInitialized = false;
     private int displayedPageNumber = 1;
@@ -823,19 +832,6 @@
             _dropAreaRegistered = false;
         }
 
-        if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl) && mergedPageCount > 0 && !_renderedMergedPages)
-        {
-            _renderedMergedPages = true;
-            var canvasIds = Enumerable.Range(0, mergedPageCount)
-            .Select(i => $"merged-canvas-{i}")
-            .ToArray();
-            await JSRuntime.InvokeVoidAsync("renderPdfPages", mergedPdfUrl, canvasIds);
-        }
-        else if (!CompletionState.ShowMergedResult)
-        {
-            _renderedMergedPages = false;
-        }
-
     }
 
     // 利用可能幅をjavascriptからうけとって幅を調節
@@ -869,49 +865,47 @@
         StateHasChanged();
     }
 
-    private async void DownloadMergedPdf()
+    /// <summary>
+    /// 単一画像をダウンロード
+    /// </summary>
+    private async Task DownloadSingleImage(SlicedImage image)
     {
-        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
-            return;
-
         try
         {
-            await JSRuntime.InvokeVoidAsync(
-            "downloadFileFromUrl",
-            mergedPdfUrl,
-            mergedFileName,
-            "application/pdf"
-            );
+            await JSRuntime.InvokeVoidAsync("downloadFileFromUrl", image.DataUrl, image.FileName, "image/png");
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"PDFのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"画像のダウンロードに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
-    private async void DownloadMergedPng()
+    /// <summary>
+    /// すべての画像を ZIP でダウンロード
+    /// </summary>
+    private async Task DownloadAllImagesAsZip()
     {
-        if (string.IsNullOrEmpty(mergedPdfUrl) || string.IsNullOrEmpty(mergedFileName))
-            return;
-
-        var pdfUrls = new List<string> { mergedPdfUrl };
-        var pdfNames = new List<string> { mergedFileName };
-        var zipName = Path.ChangeExtension(mergedFileName, ".zip");
-
         try
         {
-            // JSでPNGまたはZIPダウンロードを実行
-            await JSRuntime.InvokeVoidAsync(
-            "downloadAllPdfsAsPngZip",
-            pdfUrls,
-            pdfNames,
-            zipName
-            );
+            await MessageService.ShowLoadingAsync("ZIP作成中...");
+
+            var imageData = slicedImages.Select(img => new
+            {
+                fileName = img.FileName,
+                dataUrl = img.DataUrl
+            }).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("downloadImagesAsZip", imageData, mergedFileName);
+
+            _ = MessageService.ShowAsync("ZIPファイルをダウンロードしました", MessageType.Success);
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"PNGダウンロードに失敗しました: {ex.Message}",MessageType.Error);
-            StateHasChanged();
+            _ = MessageService.ShowAsync($"ZIPダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -1035,8 +1029,22 @@
     }
 
     private bool useRasterize = false;
-    // トリミング矩形を各ページに適用して 1 PDF に結合する処理
-    private async Task MergeTrimmedPagesAsync()
+
+    // 切り出し画像のデータモデル
+    private class SlicedImage
+    {
+        public string Id { get; set; } = "";
+        public string DataUrl { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public int OriginalPageIndex { get; set; }
+        public int RectIndex { get; set; }
+    }
+
+    private List<SlicedImage> slicedImages = new();
+    /// <summary>
+    /// 各ページの矩形を画像として切り出す
+    /// </summary>
+    private async Task ExportSlicedImagesAsync()
     {
         if (DisplayItems == null || DisplayItems.Count == 0)
             return;
@@ -1045,116 +1053,120 @@
         {
             await MessageService.ShowLoadingAsync("書き出し中...");
 
-
-            // スナップショット（UI 再レンダリングで変わらないように）
+            slicedImages.Clear();
             var displayList = DisplayItems.ToList();
             var pageCount = displayList.Count;
 
-            // 必要情報を先に集めて検証する
-            var pageInfos = new List<(int Index, DisplayItem Item, PageItem Page, TrimRectInfo? Trim)>(pageCount);
+            int imageCounter = 1;
 
-            for (int i = 0; i < pageCount; i++)
+            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
             {
-                var item = displayList[i];
+                var item = displayList[pageIndex];
                 if (item.RawData is not PageItem page)
-                {
-                    _ = MessageService.ShowAsync($"ページ情報が見つかりません: {item.DisplayName}", MessageType.Error);
-                    return;
-                }
-
-                pageInfos.Add((i, item, page, PdfDataService.GetTrimRect(i)));
-            }
-
-            // 準備できていないページを検出（まとめて一度だけ判定）
-            var notReady = pageInfos.Count(p => string.IsNullOrEmpty(p.Page.PageData) || p.Page.HasError);
-            if (notReady > 0)
-            {
-                _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
-                return;
-            }
-
-            // マージ用データを作成（トリムは JS 側で処理）
-            var mergeData = new List<object>(pageCount);
-
-            for (int idx = 0; idx < pageInfos.Count; idx++)
-            {
-                var info = pageInfos[idx];
-                var page = info.Page;
+                    continue;
 
                 if (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError)
-                {
-                    _ = MessageService.ShowAsync($"ページデータが不足しています: {info.Item.DisplayName}", MessageType.Error);
-                    return;
-                }
+                    continue;
 
-                string pageDataToUse = page.PageData;
+                // 複数矩形を取得
+                var rects = PdfDataService.GetTrimRects(pageIndex);
+                if (rects == null || rects.Count == 0)
+                    continue; // 矩形がないページはスキップ
 
-                if (info.Trim != null)
+                // 矩形ごとに画像を切り出し
+                for (int rectIndex = 0; rectIndex < rects.Count; rectIndex++)
                 {
+                    var rect = rects[rectIndex];
                     try
                     {
-                        // ラスタライズオプションに応じて関数を選択
-                        var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
-
                         var rotate = page.RotateAngle % 360;
-                        pageDataToUse = await JSRuntime.InvokeAsync<string>(
-                            cropFunction,
-                            page.PageData,
-                            info.Trim.X,
-                            info.Trim.Y,
-                            info.Trim.Width,
-                            info.Trim.Height,
-                            rotate
-                        );
 
-                        if (string.IsNullOrEmpty(pageDataToUse))
+                        // PDF の矩形を画像として切り出し（JS 関数を使用）
+                        var imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                        "cropPdfPageToImage",
+                        page.PageData,
+                        rect.X,
+                        rect.Y,
+                        rect.Width,
+                        rect.Height,
+                        rotate,
+                        exportDpi
+                        );
+                        
+                        if (!string.IsNullOrEmpty(imageDataUrl))
                         {
-                            _ = MessageService.ShowAsync($"ページのトリミングに失敗しました: {info.Item.DisplayName}", MessageType.Error);
-                            return;
+                            var fileName = $"slice_{imageCounter:D3}.png";
+                            slicedImages.Add(new SlicedImage
+                            {
+                                Id = $"slice-{pageIndex}-{rectIndex}",
+                                DataUrl = imageDataUrl,
+                                FileName = fileName,
+                                OriginalPageIndex = pageIndex,
+                                RectIndex = rectIndex
+                            });
+                            imageCounter++;
                         }
                     }
                     catch (Exception ex)
                     {
-                        _ = MessageService.ShowAsync($"トリミング処理に失敗しました: {ex.Message}", MessageType.Error);
-                        return;
+                        Console.WriteLine($"Error exporting slice page={pageIndex} rect={rectIndex}: {ex.Message}");
                     }
                 }
-
-                mergeData.Add(new
-                {
-                    pageData = pageDataToUse,
-                    // ラスタ版は画像化で回転済み→0、ベクトル版は元の回転を保持
-                    rotateAngle = useRasterize ? 0 : (page.RotateAngle % 360)
-                });
             }
 
-            // 結合（JS）
-            try
+            if (slicedImages.Count == 0)
             {
-                mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-                if (!string.IsNullOrEmpty(mergedPdfUrl))
-                {
-                    mergedFileName = $"trim_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                    mergedFileSize = await JSRuntime.InvokeAsync<string>("getPdfFileSize", mergedPdfUrl);
-                    mergedPageCount = pageInfos.Count;
-                    CompletionState.SetCompletion(CompletionStateService.CompletionType.Trimmed);
-                }
-                else
-                {
-                    _ = MessageService.ShowAsync("PDFの結合に失敗しました。", MessageType.Error);
-                }
+                _ = MessageService.ShowAsync("書き出す範囲が設定されていません。", MessageType.Warn);
+                return;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"MergeTrimmedPagesAsync error: {ex.Message}");
-                _ = MessageService.ShowAsync("トリミング適用後の結合中にエラーが発生しました。", MessageType.Error);
-            }
+
+            // 完了画面へ遷移
+            mergedFileName = $"sliced_{DateTime.Now:yyyyMMddHHmm}.zip";
+            mergedFileSize = FormatFileSize(slicedImages.Sum(img => EstimateImageSize(img.DataUrl)));
+            mergedPageCount = slicedImages.Count;
+            CompletionState.SetCompletion(CompletionStateService.CompletionType.Trimmed);
+
+            _ = MessageService.ShowAsync($"{slicedImages.Count} 枚の画像を書き出しました", MessageType.Success);
+
+        }catch(Exception ex)
+        {
+            Console.WriteLine($"ExportSlicedImagesAsync error: {ex.Message}");
+            _ = MessageService.ShowAsync($"書き出し中にエラーが発生しました: {ex.Message}", MessageType.Error);
+
         }
         finally
         {
             await MessageService.HideLoadingAsync();
             StateHasChanged();
         }
+    }
+
+    /// <summary>
+    /// Base64 画像データのサイズを概算（バイト）
+    /// </summary>
+    private long EstimateImageSize(string dataUrl)
+    {
+        if (string.IsNullOrEmpty(dataUrl)) return 0;
+        var base64Index = dataUrl.IndexOf(",");
+        if (base64Index < 0) return 0;
+        var base64 = dataUrl.Substring(base64Index + 1);
+        return (long)(base64.Length * 0.75); // Base64 → バイナリ変換の概算
+    }
+
+        /// <summary>
+    /// ファイルサイズを人間が読める形式にフォーマット
+    /// </summary>
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
     }
 
     private bool isTrimRangeDialogOpen = false;
