@@ -444,20 +444,19 @@
         mergedPageCount = 0;
     }
 
-    private Task RotateAllLeft() => RotateAll(-90);
-    private Task RotateAllRight() => RotateAll(90);
+    private void RotateAllLeft() => RotateAll(-90);
+    private void RotateAllRight() => RotateAll(90);
     private int _rotationCounter = 0;
 
-    private async Task RotateAll(int angle)
+    private void RotateAll(int angle)
     {
         try{
-            await MessageService.ShowLoadingAsync("回転中...");
-            await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+            PdfDataService.RotateAll(CurrentDisplayMode, DisplayItems, angle);
             _rotationCounter++;
+            _ = MessageService.ShowAsync($"回転が完了しました", MessageType.Success);
         }catch(Exception ex){
             _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
         }finally{
-            await MessageService.HideLoadingAsync();
         }
     }
 

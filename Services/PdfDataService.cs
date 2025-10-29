@@ -1248,7 +1248,7 @@ public class PdfDataService
     /// <summary>
     /// 指定されたアイテムを回転
     /// </summary>
-    public async Task<bool> RotateItemAsync(int index, int angle = 90)
+    public bool RotateItem(int index, int angle = 90)
     {
         try
         {
@@ -1263,7 +1263,6 @@ public class PdfDataService
             pageItem.RotateAngle = (pageItem.RotateAngle + angle + 360) % 360;
             pageItem.PreviewImage = null;
 
-            await InvokeOnChangeAsync();
             return true;
         }
         catch (Exception ex)
@@ -1273,7 +1272,7 @@ public class PdfDataService
         }
     }
 
-    public async Task<bool> RotateFileAsync(string fileId, int angle)
+    public bool RotateFile(string fileId, int angle)
     {
         var pageIndexes = _model.Pages
             .Select((p, idx) => new { Page = p, Index = idx })
@@ -1284,7 +1283,7 @@ public class PdfDataService
         bool allSuccess = true;
         foreach (var idx in pageIndexes)
         {
-            var success = await RotateItemAsync(idx, angle);
+            var success = RotateItem(idx, angle);
             if (!success) allSuccess = false;
         }
         return allSuccess;
@@ -1627,20 +1626,20 @@ public class PdfDataService
         return success;
     }
 
-    public async Task RotateAllAsync(DisplayMode mode, IList<DisplayItem> displayItems, int angle)
+    public void RotateAll(DisplayMode mode, IList<DisplayItem> displayItems, int angle)
     {
         if (mode == DisplayMode.File)
         {
             foreach (var file in displayItems)
             {
-                await RotateFileAsync(file.Id, angle);
+                RotateFile(file.Id, angle);
             }
         }
         else
         {
             for (int i = 0; i < displayItems.Count; i++)
             {
-                await RotateItemAsync(i, angle);
+                RotateItem(i, angle);
             }
         }
     }

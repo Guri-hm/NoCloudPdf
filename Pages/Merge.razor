@@ -378,7 +378,7 @@
     {
         if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
         {
-            await PdfDataService.RotateItemAsync(previewIndex, -90);
+            PdfDataService.RotateItem(previewIndex, -90);
             await ShowPreviewAsync(previewIndex);
         }
     }
@@ -387,7 +387,7 @@
     {
         if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
         {
-            await PdfDataService.RotateItemAsync(previewIndex, 90);
+            PdfDataService.RotateItem(previewIndex, 90);
             await ShowPreviewAsync(previewIndex);
         }
     }
@@ -589,14 +589,13 @@
     }
 
     // 回転処理
-    private async Task RotatePage(int index, int angle = 90)
+    private Task RotatePage(int index, int angle = 90)
     {
-        Console.WriteLine($"Rotating page {index} by {angle} degrees");
         if (index >= 0 && index < DisplayItems.Count)
         {
             try
             {
-                await PdfDataService.RotateItemAsync(index, angle);
+                PdfDataService.RotateItem(index, angle);
             }
             catch (Exception ex)
             {
@@ -604,25 +603,26 @@
                 _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
             }
         }
+        return Task.CompletedTask;
     }
 
-    private async Task RotateFile(string fileId)
+    private Task RotateFile(string fileId)
     {
-        await PdfDataService.RotateFileAsync(fileId, 90);
+        PdfDataService.RotateFile(fileId, 90);
+        return Task.CompletedTask;
     }
 
-    private Task RotateAllLeft() => RotateAll(-90);
-    private Task RotateAllRight() => RotateAll(90);
-    private async Task RotateAll(int angle)
+    private void RotateAllLeft() => RotateAll(-90);
+    private void RotateAllRight() => RotateAll(90);
+    private void RotateAll(int angle)
     {
         try{
-            await MessageService.ShowLoadingAsync("回転中...");
-            await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
+            PdfDataService.RotateAll(CurrentDisplayMode, DisplayItems, angle);
+            _ = MessageService.ShowAsync($"回転が完了しました", MessageType.Success);
 
         }catch(Exception ex){
             _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
         }finally{
-            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -1002,6 +1002,9 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        Console.WriteLine($"[LoadingOverlay] OnAfterRender called, firstRender={firstRender}");
+
+
         if (firstRender)
         {
             _currentInstance = this;
