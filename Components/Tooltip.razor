@@ -42,7 +42,8 @@
         _isVisible = true;
         StateHasChanged();
 
-        await Task.Delay(10);
+        // DOM のレンダリングを確実に待つ
+        await Task.Delay(50);
 
         try
         {
