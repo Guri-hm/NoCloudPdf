@@ -601,7 +601,7 @@
                 return;
             }
 
-            ClearMessage();
+            _ = MessageService.HideAsync();
 
             var splitGroups = new List<List<PageItem>>();
             var currentGroup = new List<PageItem>();
