@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
+@inject MessageService MessageService
 @inject CompletionStateService CompletionState
 @inject ModalService ModalService
 @using Microsoft.AspNetCore.Components.Web
@@ -339,37 +340,6 @@
         passwordTcs = null;
     }
     private bool isBusy = false;
-    private void ShowMessage(string? text, MessageType type)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-
-        try
-        {
-            var typeStr = type switch
-            {
-                MessageType.Success => "success",
-                MessageType.Warn => "warn",
-                MessageType.Error => "error",
-                _ => "success"
-            };
-
-            // fire-and-forget で JS 側にメッセージ表示を依頼
-            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 3000);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"ShowMessage error: {ex.Message}");
-        }
-    }
-
-    private void ClearMessage()
-    {
-        try
-        {
-            _ = JSRuntime.InvokeVoidAsync("messageBar.hide");
-        }
-        catch { }
-    }
 
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
@@ -622,12 +592,12 @@
             var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
             {
-                ShowMessage($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+                _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
                 return;
             }
             if (allPages.Count == 0)
             {
-                ShowMessage("分割対象がありません。", MessageType.Error);
+                _ = MessageService.ShowAsync("分割対象がありません。", MessageType.Error);
                 return;
             }
 
@@ -677,7 +647,7 @@
                 }
                 else
                 {
-                    ShowMessage($"PDFの分割に失敗しました。グループ {groupIndex} のページ数: {group.Count}", MessageType.Error);
+                    _ = MessageService.ShowAsync($"PDFの分割に失敗しました。グループ {groupIndex} のページ数: {group.Count}", MessageType.Error);
                     return;
                 }
                 groupIndex++;
@@ -697,13 +667,13 @@
             }
             else
             {
-                ShowMessage("分割PDFの生成に失敗しました。", MessageType.Error);
+                _ = MessageService.ShowAsync("分割PDFの生成に失敗しました。", MessageType.Error);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            ShowMessage("PDFの分割中にエラーが発生しました。", MessageType.Error);
+            _ = MessageService.ShowAsync("PDFの分割中にエラーが発生しました。", MessageType.Error);
         }
         finally
         {
@@ -726,14 +696,14 @@
 
             if (selectedPages.Count == 0)
             {
-                ShowMessage("抽出対象が選択されていません。", MessageType.Warn);
+                _ = MessageService.ShowAsync("抽出対象が選択されていません。", MessageType.Warn);
                 return;
             }
 
             var notReadyCount = selectedPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
             {
-                ShowMessage($"抽出対象に読み込み未完了またはエラーのページが {notReadyCount} ページあります。", MessageType.Warn);
+                _ = MessageService.ShowAsync($"抽出対象に読み込み未完了またはエラーのページが {notReadyCount} ページあります。", MessageType.Warn);
                 return;
             }
 
@@ -812,13 +782,13 @@
             }
             else
             {
-                ShowMessage("抽出PDFの生成に失敗しました。", MessageType.Error);
+                _ = MessageService.ShowAsync("抽出PDFの生成に失敗しました。", MessageType.Error);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            ShowMessage("PDFの抽出中にエラーが発生しました。", MessageType.Error);
+            _ = MessageService.ShowAsync("PDFの抽出中にエラーが発生しました。", MessageType.Error);
         }
         finally
         {
@@ -839,7 +809,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error removing item {index}: {ex.Message}");
-            ShowMessage($"削除に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"削除に失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -854,7 +824,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error opening file dialog: {ex.Message}");
-            ShowMessage($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -880,7 +850,7 @@
                 resultZipSize = "";
                 resultTotalPageCount = 0;
             },
-            msg => ShowMessage(msg, MessageType.Error),
+            msg => _ = MessageService.ShowAsync(msg, MessageType.Error),
             StateHasChanged
         );
     }
@@ -905,7 +875,7 @@
         }
         catch (Exception ex)
         {
-            ShowMessage($"サムネイルの入れ替えに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"サムネイルの入れ替えに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -922,7 +892,7 @@
             catch (Exception ex)
             {
                 Console.WriteLine($"Error rotating item {index}: {ex.Message}");
-                ShowMessage($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+                _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
             }
         }
     }
@@ -1042,7 +1012,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error in UpdateOrderInternal: {ex.Message}");
-            ShowMessage($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -1078,7 +1048,7 @@
             DisplayItems,
             position,
             pos => insertPosition = pos,
-            msg => ShowMessage(msg, MessageType.Error)
+            msg => _ = MessageService.ShowAsync(msg, MessageType.Error)
         );
     }
 
@@ -1094,8 +1064,8 @@
         await PdfDataService.HandleFileInputAsync(
             e,
             insertPosition >= 0 ? insertPosition : null,
-            msg => { ShowMessage(msg, MessageType.Error); },
-            msg => { ShowMessage(msg, MessageType.Warn); }
+            msg => { _ = MessageService.ShowAsync(msg, MessageType.Error); },
+            msg => { _ = MessageService.ShowAsync(msg, MessageType.Warn); }
         );
         insertPosition = -1;
         isBusy = false;
@@ -1228,8 +1198,8 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
-                msg => { ShowMessage(msg, MessageType.Error); },
-                msg => { ShowMessage(msg, MessageType.Warn); },
+                msg => { _ = MessageService.ShowAsync(msg, MessageType.Error); },
+                msg => { _ = MessageService.ShowAsync(msg, MessageType.Warn); },
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );
@@ -1437,7 +1407,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
         catch (Exception ex)
         {
-            ShowMessage($"ZIPのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"ZIPのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
             StateHasChanged();
         }
     }
@@ -1468,7 +1438,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
         }
         catch (Exception ex)
         {
-            ShowMessage($"PNGダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"PNGダウンロードに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -1500,7 +1470,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             
             if (!string.IsNullOrEmpty(errorMsg))
             {
-                ShowMessage(errorMsg, MessageType.Error);
+                _ = MessageService.ShowAsync(errorMsg, MessageType.Error);
             }
         }
     }

@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
+@inject MessageService MessageService
 @inject CompletionStateService CompletionState
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
@@ -237,7 +238,7 @@
         // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
         Console.WriteLine($"OnDialogError called: {message}");
         isTrimRangeDialogOpen = false;
-        ShowMessage(message, MessageType.Error);
+        _ = MessageService.ShowAsync(message, MessageType.Error);
         StateHasChanged();
         await Task.CompletedTask;
     }
@@ -312,37 +313,6 @@
 
     private bool isBusy = false;
     private string? mergedPdfUrl;
-    private void ShowMessage(string? text, MessageType type)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-
-        try
-        {
-            var typeStr = type switch
-            {
-                MessageType.Success => "success",
-                MessageType.Warn => "warn",
-                MessageType.Error => "error",
-                _ => "success"
-            };
-
-            // fire-and-forget で JS 側にメッセージ表示を依頼
-            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 3000);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"ShowMessage error: {ex.Message}");
-        }
-    }
-
-    private void ClearMessage()
-    {
-        try
-        {
-            _ = JSRuntime.InvokeVoidAsync("messageBar.hide");
-        }
-        catch { }
-    }
 
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
@@ -454,7 +424,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error opening file dialog: {ex.Message}");
-            ShowMessage($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -478,7 +448,7 @@
                 mergedFileSize = "";
                 mergedPageCount = 0;
             },
-            msg => ShowMessage(msg, MessageType.Error),
+            async msg => await MessageService.ShowAsync(msg, MessageType.Error),
             StateHasChanged
         );
     }
@@ -523,8 +493,7 @@
             CurrentDisplayMode,
             DisplayItems,
             position,
-            pos => insertPosition = pos,
-            msg => ShowMessage(msg, MessageType.Error)
+            pos => insertPosition = pos
         );
     }
 
@@ -539,9 +508,7 @@
 
         await PdfDataService.HandleFileInputAsync(
             e,
-            insertPosition >= 0 ? insertPosition : null,
-            msg => { ShowMessage(msg, MessageType.Error); },
-            msg => { ShowMessage(msg, MessageType.Warn); }
+            insertPosition >= 0 ? insertPosition : null
         );
         insertPosition = -1;
         isBusy = false;
@@ -677,7 +644,7 @@
     {
         if (DisplayItems == null || DisplayItems.Count == 0)
         {
-            ShowMessage("適用対象がありません。", MessageType.Warn);
+            _ = MessageService.ShowAsync("適用対象がありません。", MessageType.Warn);
             return Task.CompletedTask;
         }
 
@@ -685,7 +652,7 @@
         var trimRects = PdfDataService.GetTrimRects(idx);
         if (trimRects == null || trimRects.Count == 0)
         {
-            ShowMessage("現在ページに書き出し範囲が設定されていません。", MessageType.Warn);
+            _ = MessageService.ShowAsync("現在ページに書き出し範囲が設定されていません。", MessageType.Warn);
             return Task.CompletedTask;
         }
 
@@ -696,12 +663,12 @@
                 PdfDataService.SetTrimRects(i, new List<TrimRectInfo>(trimRects), notify: false);
             }
             _ = PdfDataService.RedrawAllTrimOverlaysAsync();
-            ShowMessage("すべてのページに適用しました", MessageType.Success);
+            _ = MessageService.ShowAsync("すべてのページに適用しました", MessageType.Success);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ApplyCurrentTrimToAll error: {ex.Message}");
-            ShowMessage("すべてのページへの適用に失敗しました", MessageType.Error);
+            _ = MessageService.ShowAsync("すべてのページへの適用に失敗しました", MessageType.Error);
         }
         finally
         {
@@ -742,11 +709,11 @@
                 catch { }
             }
 
-            ShowMessage("すべてのトリミング範囲をクリアしました", MessageType.Success);
+            _ = MessageService.ShowAsync("すべてのトリミング範囲をクリアしました", MessageType.Success);
         }
         catch
         {
-            ShowMessage("トリミング範囲のクリアに失敗しました", MessageType.Error);
+            _ = MessageService.ShowAsync("トリミング範囲のクリアに失敗しました", MessageType.Error);
         }
         return Task.CompletedTask;
     }
@@ -763,8 +730,8 @@
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
-                msg => { ShowMessage(msg, MessageType.Error); },
-                msg => { ShowMessage(msg, MessageType.Warn); },
+                async msg => await MessageService.ShowAsync(msg, MessageType.Error),
+                async msg => await MessageService.ShowAsync(msg, MessageType.Warn),
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );
@@ -933,7 +900,7 @@
         }
         catch (Exception ex)
         {
-            ShowMessage($"PDFのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"PDFのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -958,7 +925,7 @@
         }
         catch (Exception ex)
         {
-            ShowMessage($"PNGダウンロードに失敗しました: {ex.Message}",MessageType.Error);
+            _ = MessageService.ShowAsync($"PNGダウンロードに失敗しました: {ex.Message}",MessageType.Error);
             StateHasChanged();
         }
     }
@@ -1107,7 +1074,7 @@
                 var item = displayList[i];
                 if (item.RawData is not PageItem page)
                 {
-                    ShowMessage($"ページ情報が見つかりません: {item.DisplayName}", MessageType.Error);
+                    _ = MessageService.ShowAsync($"ページ情報が見つかりません: {item.DisplayName}", MessageType.Error);
                     return;
                 }
 
@@ -1118,7 +1085,7 @@
             var notReady = pageInfos.Count(p => string.IsNullOrEmpty(p.Page.PageData) || p.Page.HasError);
             if (notReady > 0)
             {
-                ShowMessage($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
+                _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
                 return;
             }
 
@@ -1132,7 +1099,7 @@
 
                 if (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError)
                 {
-                    ShowMessage($"ページデータが不足しています: {info.Item.DisplayName}", MessageType.Error);
+                    _ = MessageService.ShowAsync($"ページデータが不足しています: {info.Item.DisplayName}", MessageType.Error);
                     return;
                 }
 
@@ -1158,13 +1125,13 @@
 
                         if (string.IsNullOrEmpty(pageDataToUse))
                         {
-                            ShowMessage($"ページのトリミングに失敗しました: {info.Item.DisplayName}", MessageType.Error);
+                            _ = MessageService.ShowAsync($"ページのトリミングに失敗しました: {info.Item.DisplayName}", MessageType.Error);
                             return;
                         }
                     }
                     catch (Exception ex)
                     {
-                        ShowMessage($"トリミング処理に失敗しました: {ex.Message}", MessageType.Error);
+                        _ = MessageService.ShowAsync($"トリミング処理に失敗しました: {ex.Message}", MessageType.Error);
                         return;
                     }
                 }
@@ -1190,13 +1157,13 @@
                 }
                 else
                 {
-                    ShowMessage("PDFの結合に失敗しました。", MessageType.Error);
+                    _ = MessageService.ShowAsync("PDFの結合に失敗しました。", MessageType.Error);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"MergeTrimmedPagesAsync error: {ex.Message}");
-                ShowMessage("トリミング適用後の結合中にエラーが発生しました。", MessageType.Error);
+                _ = MessageService.ShowAsync("トリミング適用後の結合中にエラーが発生しました。", MessageType.Error);
             }
         }
         finally
@@ -1215,7 +1182,7 @@
         {
             if (DisplayItems == null || DisplayItems.Count == 0)
             {
-                ShowMessage("対象のページがありません。", MessageType.Warn);
+                _ = MessageService.ShowAsync("対象のページがありません。", MessageType.Warn);
                 return;
             }
             var idx = Math.Max(0, Math.Min(DisplayItems.Count - 1, displayedPageNumber - 1));
@@ -1270,7 +1237,7 @@
 
             if (w <= 0 || h <= 0)
             {
-                ShowMessage("プレビュー画像のサイズを取得できませんでした", MessageType.Error);
+                _ = MessageService.ShowAsync("プレビュー画像のサイズを取得できませんでした", MessageType.Error);
                 return;
             }
 
@@ -1300,13 +1267,13 @@
                 PdfDataService.SetTrimRect(idx, nx, ny, nw, nh);
             }
 
-            ShowMessage("トリミング範囲を適用しました", MessageType.Success);
+            _ = MessageService.ShowAsync("トリミング範囲を適用しました", MessageType.Success);
             isTrimRangeDialogOpen = false;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"ApplyTrimRangeSettings error: {ex.Message}");
-            ShowMessage("トリミング範囲の適用に失敗しました", MessageType.Error);
+            _ = MessageService.ShowAsync("トリミング範囲の適用に失敗しました", MessageType.Error);
         }
         finally
         {

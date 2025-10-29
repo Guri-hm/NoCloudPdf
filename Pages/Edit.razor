@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
+@inject MessageService MessageService
 @inject CompletionStateService CompletionState
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
@@ -262,7 +263,7 @@
     {
         PdfDataService.OnChange -= OnServiceChanged;
         _dotNetRef?.Dispose();
-        
+
         if (_dropAreaRegistered)
         {
             JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
@@ -274,37 +275,7 @@
     }
     private bool isBusy = false;
     private string? mergedPdfUrl;
-    private void ShowMessage(string? text, MessageType type)
-    {
-        if (string.IsNullOrEmpty(text)) return;
 
-        try
-        {
-            var typeStr = type switch
-            {
-                MessageType.Success => "success",
-                MessageType.Warn => "warn",
-                MessageType.Error => "error",
-                _ => "success"
-            };
-
-            // fire-and-forget で JS 側にメッセージ表示を依頼
-            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 3000);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"ShowMessage error: {ex.Message}");
-        }
-    }
-
-    private void ClearMessage()
-    {
-        try
-        {
-            _ = JSRuntime.InvokeVoidAsync("messageBar.hide");
-        }
-        catch { }
-    }
     // 統一アーキテクチャ対応プロパティ
     private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
     private OperationMode CurrentOperationMode = OperationMode.Edit;
@@ -518,17 +489,17 @@
             var notReadyCount = mergeItems.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
             if (notReadyCount > 0)
             {
-                ShowMessage($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+                _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
                 return;
             }
 
             if (mergeItems.Count == 0)
             {
-                ShowMessage("結合対象がありません。", MessageType.Error);
+                _ = MessageService.ShowAsync("結合対象がありません。", MessageType.Error);
                 return;
             }
 
-            ClearMessage();
+            _ = MessageService.HideAsync();
 
             // JSに渡すためのデータを整形
             var mergeData = mergeItems.Select(item => new MergePageDto
@@ -555,7 +526,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            ShowMessage("PDF/画像の結合中にエラーが発生しました。", MessageType.Error);
+            _ = MessageService.ShowAsync("PDF/画像の結合中にエラーが発生しました。", MessageType.Error);
         }
         finally
         {
@@ -575,7 +546,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error removing item {index}: {ex.Message}");
-            ShowMessage($"削除に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"削除に失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -590,7 +561,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error opening file dialog: {ex.Message}");
-            ShowMessage($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -614,7 +585,7 @@
                 mergedFileSize = "";
                 mergedPageCount = 0;
             },
-            msg => ShowMessage(msg, MessageType.Error),
+            async msg => await MessageService.ShowAsync(msg, MessageType.Error),
             StateHasChanged
         );
     }
@@ -628,7 +599,7 @@
         }
         catch (Exception ex)
         {
-            ShowMessage($"サムネイルの入れ替えに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"サムネイルの入れ替えに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -644,7 +615,7 @@
             catch (Exception ex)
             {
                 Console.WriteLine($"Error rotating item {index}: {ex.Message}");
-                ShowMessage($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+                _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
             }
         }
     }
@@ -661,7 +632,7 @@
         isBusy = true;
         StateHasChanged();
         await Task.Yield();
-        
+
         await PdfDataService.RotateAllAsync(CurrentDisplayMode, DisplayItems, angle);
 
         isBusy = false;
@@ -762,7 +733,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error in UpdateOrderInternal: {ex.Message}");
-            ShowMessage($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -785,7 +756,7 @@
 
         await PdfDataService.InsertBlankPageWithDisplayModeAsync(
             CurrentDisplayMode, DisplayItems, position);
-        
+
         isBusy = false;
         StateHasChanged();
     }
@@ -798,7 +769,7 @@
             DisplayItems,
             position,
             pos => insertPosition = pos,
-            msg => ShowMessage(msg, MessageType.Error)
+            async msg => await MessageService.ShowAsync(msg, MessageType.Error)
         );
     }
 
@@ -814,8 +785,8 @@
         await PdfDataService.HandleFileInputAsync(
             e,
             insertPosition >= 0 ? insertPosition : null,
-            msg => { ShowMessage(msg, MessageType.Error); },
-            msg => { ShowMessage(msg, MessageType.Warn); }
+            async msg => { await MessageService.ShowAsync(msg, MessageType.Error); },
+            async msg => { await MessageService.ShowAsync(msg, MessageType.Warn); }
         );
         insertPosition = -1;
         isBusy = false;
@@ -967,8 +938,8 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
-                msg => { ShowMessage(msg, MessageType.Error); },
-                msg => { ShowMessage(msg, MessageType.Warn); },
+                async msg => {await MessageService.ShowAsync(msg, MessageType.Error); },
+                async msg => { await MessageService.ShowAsync(msg, MessageType.Warn); },
                 async (name, data) => await PdfDataService.AddOrInsertPdfFileAsync(name, data, null),
                 async (name, data) => await PdfDataService.AddOrInsertImageFileAsync(name, data, null)
             );
@@ -1064,7 +1035,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 {
     if (!setting.Stamps.Any())
     {
-        ShowMessage("スタンプが設定されていません。", MessageType.Warn);
+        _ = MessageService.ShowAsync("スタンプが設定されていません。", MessageType.Warn);
         return;
     }
 
@@ -1079,7 +1050,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
         if (!pages.Any())
         {
-            ShowMessage("処理対象のページがありません。", MessageType.Warn);
+            _ = MessageService.ShowAsync("処理対象のページがありません。", MessageType.Warn);
             return;
         }
 
@@ -1087,7 +1058,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
         var notReadyCount = pages.Count(p => string.IsNullOrEmpty(p.PageData) || p.HasError);
         if (notReadyCount > 0)
         {
-            ShowMessage($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+            _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
             return;
         }
 
@@ -1125,16 +1096,16 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
             catch (Exception ex)
             {
                 Console.WriteLine($"ページ {i + 1} のヘッダー・フッター適用でエラー: {ex.Message}");
-                ShowMessage($"ページ {i + 1} の処理中にエラーが発生しました。", MessageType.Error);
+                _ = MessageService.ShowAsync($"ページ {i + 1} の処理中にエラーが発生しました。", MessageType.Error);
             }
         }
 
-        ShowMessage($"{pages.Count} ページにヘッダー・フッターを適用しました。", MessageType.Success);
+        _ = MessageService.ShowAsync($"{pages.Count} ページにヘッダー・フッターを適用しました。", MessageType.Success);
     }
     catch (Exception ex)
     {
         Console.WriteLine($"ヘッダー・フッター適用エラー: {ex.Message}");
-        ShowMessage("ヘッダー・フッターの適用中にエラーが発生しました。", MessageType.Error);
+        _ = MessageService.ShowAsync("ヘッダー・フッターの適用中にエラーが発生しました。", MessageType.Error);
     }
     finally
     {
@@ -1261,7 +1232,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
         }
         catch (Exception ex)
         {
-            ShowMessage($"PDFのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"PDFのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
         }
     }
 
@@ -1286,7 +1257,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
         }
         catch (Exception ex)
         {
-            ShowMessage($"PNGダウンロードに失敗しました: {ex.Message}",MessageType.Error);
+            _ = MessageService.ShowAsync($"PNGダウンロードに失敗しました: {ex.Message}",MessageType.Error);
             StateHasChanged();
         }
     }
@@ -1330,7 +1301,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
             
             if (!string.IsNullOrEmpty(errorMsg))
             {
-                ShowMessage(errorMsg, MessageType.Error);
+                _ = MessageService.ShowAsync(errorMsg, MessageType.Error);
             }
         }
     }

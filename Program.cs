@@ -11,6 +11,8 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 // 統一PDFデータサービスを登録
 builder.Services.AddScoped<PdfDataService>();
+// メッセージ表示サービスを登録
+builder.Services.AddScoped<MessageService>();
 // 統一状態管理サービスを登録
 builder.Services.AddSingleton<CompletionStateService>();
 

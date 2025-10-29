@@ -8,6 +8,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject PdfDataService PdfDataService
+@inject MessageService MessageService
 
 <HeadContent>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -353,37 +354,6 @@
     private string? originalPageData;
     private bool hasSaved = false;
     private bool isBusy = false;
-    private void ShowMessage(string? text, MessageType type)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-
-        try
-        {
-            var typeStr = type switch
-            {
-                MessageType.Success => "success",
-                MessageType.Warn => "warn",
-                MessageType.Error => "error",
-                _ => "success"
-            };
-
-            // fire-and-forget で JS 側にメッセージ表示を依頼
-            _ = JSRuntime.InvokeVoidAsync("messageBar.show", text, typeStr, 3000);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"ShowMessage error: {ex.Message}");
-        }
-    }
-
-    private void ClearMessage()
-    {
-        try
-        {
-            _ = JSRuntime.InvokeVoidAsync("messageBar.hide");
-        }
-        catch { }
-    }
 
     private DotNetObjectReference<EditPage>? _dotNetRef;
     private PageSourceInfo? cachedPageSource;
@@ -1608,7 +1578,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         var files = e.GetMultipleFiles();
         if (files == null || files.Count == 0)
         {
-            ShowMessage("ファイルが選択されていません。", MessageType.Warn);
+            _ = MessageService.ShowAsync("ファイルが選択されていません。", MessageType.Warn);
             return;
         }
 
@@ -1636,18 +1606,18 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             }
             else
             {
-                ShowMessage("対応していない画像形式です。PNG, JPEG, GIF, BMP, WebP, SVGのみ追加できます。", MessageType.Warn);
+                _ = MessageService.ShowAsync("対応していない画像形式です。PNG, JPEG, GIF, BMP, WebP, SVGのみ追加できます。", MessageType.Warn);
                 return;
             }
         }
         catch (IOException ex)
         {
-            ShowMessage("画像サイズが大きすぎます（最大5MBまで）。", MessageType.Warn);
+            _ = MessageService.ShowAsync("画像サイズが大きすぎます（最大5MBまで）。", MessageType.Warn);
             Console.WriteLine($"画像サイズエラー: {ex.Message}");
         }
         catch (Exception ex)
         {
-            ShowMessage("画像の読み込みに失敗しました。", MessageType.Error);
+            _ = MessageService.ShowAsync("画像の読み込みに失敗しました。", MessageType.Error);
             Console.WriteLine($"画像読み込みエラー: {ex.Message}");
         }
     }
@@ -2094,12 +2064,12 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                     "generatePdfThumbnailFromPageData", pageItem.PageData);
                 pageItem.Thumbnail = newThumbnail;
 
-                ShowMessage($"変更を保存しました", type: MessageType.Success);
+                _ = MessageService.ShowAsync($"変更を保存しました", type: MessageType.Success);
                 hasSaved = true;
             }
             catch (Exception ex)
             {
-                ShowMessage($"保存時エラー: {ex.Message}",type: MessageType.Error);
+                _ = MessageService.ShowAsync($"保存時エラー: {ex.Message}",type: MessageType.Error);
                 Console.WriteLine($"保存時エラー: {ex}");
             }
             finally
@@ -2110,7 +2080,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
         else
         {
-            ShowMessage("ページ情報が見つかりません", type: MessageType.Error);
+            _ = MessageService.ShowAsync("ページ情報が見つかりません", type: MessageType.Error);
             isBusy = false;
             StateHasChanged();
         }
