@@ -245,7 +245,6 @@ input[type=number] {
   flex: 0 0 var(--thumbnail-width);
   max-width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
 }
 .topbar-columns {
   display: flex;
