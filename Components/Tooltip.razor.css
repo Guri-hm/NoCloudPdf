@@ -1,79 +1,41 @@
-.tooltip-wrapper {
-    display: inline-block;
-    position: relative;
-}
-
-.tooltip-wrapper:focus {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-    border-radius: 4px;
-}
-
-/* フォーカス時の視覚的フィードバックを強化 */
-.tooltip-wrapper:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-    border-radius: 4px;
-    background-color: rgba(59, 130, 246, 0.1);
-}
-
-.tooltip-popup {
-    position: fixed;
-    z-index: 9999;
-    background: #1f2937;
-    color: #fff;
-    font-size: 13px;
-    line-height: 1.4;
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    white-space: normal;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    max-width: 300px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
-    pointer-events: none;
-    transition: opacity 150ms ease, visibility 150ms ease;
-}
-
+/* 矢印のスタイルはTailwindでの再現が難しい */
 .tooltip-arrow {
     position: absolute;
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
     background: inherit;
     border: inherit;
     transform: rotate(45deg);
 }
 
-/* 方向ごとの矢印位置と border の調整 */
 .tooltip-popup[data-placement^="top"] .tooltip-arrow {
-    bottom: -4px;
+    bottom: -6px;
     left: 50%;
-    margin-left: -4px;
+    margin-left: -6px;
     border-top: none;
     border-left: none;
 }
 
 .tooltip-popup[data-placement^="bottom"] .tooltip-arrow {
-    top: -4px;
+    top: -6px;
     left: 50%;
-    margin-left: -4px;
+    margin-left: -6px;
     border-bottom: none;
     border-right: none;
 }
 
 .tooltip-popup[data-placement^="left"] .tooltip-arrow {
-    right: -4px;
+    right: -6px;
     top: 50%;
-    margin-top: -4px;
+    margin-top: -6px;
     border-left: none;
     border-bottom: none;
 }
 
 .tooltip-popup[data-placement^="right"] .tooltip-arrow {
-    left: -4px;
+    left: -6px;
     top: 50%;
-    margin-top: -4px;
+    margin-top: -6px;
     border-right: none;
     border-top: none;
 }

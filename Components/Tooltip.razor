@@ -1,6 +1,6 @@
 @* ホバーした要素の周囲にツールチップを表示するラッパーコンポーネント *@
 <span id="@_wrapperId"
-      class="tooltip-wrapper"
+      class="inline-block relative @(Focusable ? "focus:outline-2 focus:outline-blue-500 focus:outline-offset-2 focus:rounded focus-visible:bg-blue-50" : "")"
       @key="@_wrapperId"
       @onmouseenter="ShowTooltip"
       @onmouseleave="HideTooltip"
@@ -15,7 +15,7 @@
 @if (!string.IsNullOrWhiteSpace(Text) && _isVisible)
 {
     <span id="@_tooltipId"
-          class="tooltip-popup"
+          class="tooltip-popup fixed z-[9999] bg-gray-800 text-white text-sm leading-relaxed px-3 py-2 rounded-md border border-white/20 break-words max-w-[300px] shadow-[0_4px_16px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-none transition-all duration-150"
           role="tooltip"
           @key="@_tooltipId"
           style="opacity:0; visibility:hidden;">
@@ -27,7 +27,7 @@
 @code {
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Text { get; set; }
-    [Parameter] public bool Focusable { get; set; } = true; // デフォルトで Tab キー対応
+    [Parameter] public bool Focusable { get; set; } = true;
 
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
 
