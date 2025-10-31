@@ -333,24 +333,94 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
-        // スナップ計算関数
+    // スナップ補助線を描画
+    function drawSnapGuides(canvasId, snapLines) {
+        try {
+            const overlayContainer = document.getElementById(canvasId + '-overlay-svg');
+            if (!overlayContainer) return;
+
+            // 補助線専用の SVG を探す（なければ作成）
+            let guideSvg = overlayContainer.querySelector('.snap-guide-svg');
+            if (!guideSvg) {
+                guideSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                guideSvg.classList.add('snap-guide-svg');
+                guideSvg.setAttribute('width', '100%');
+                guideSvg.setAttribute('height', '100%');
+                guideSvg.style.pointerEvents = 'none';
+                guideSvg.style.position = 'absolute';
+                guideSvg.style.left = '0';
+                guideSvg.style.top = '0';
+                guideSvg.style.zIndex = '44'; // 矩形より下、背景より上
+                overlayContainer.appendChild(guideSvg);
+            }
+
+            // viewBox を動的に設定
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
+            const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+            guideSvg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
+            guideSvg.setAttribute('preserveAspectRatio', 'none');
+
+            // 既存の補助線をクリア
+            while (guideSvg.firstChild) {
+                guideSvg.removeChild(guideSvg.firstChild);
+            }
+
+            if (!snapLines || snapLines.length === 0) return;
+
+            // 補助線を描画
+            snapLines.forEach(line => {
+                const snapLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                
+                if (line.type === 'vertical') {
+                    snapLine.setAttribute('x1', String(line.position));
+                    snapLine.setAttribute('y1', '0');
+                    snapLine.setAttribute('x2', String(line.position));
+                    snapLine.setAttribute('y2', String(cssH));
+                } else { // horizontal
+                    snapLine.setAttribute('x1', '0');
+                    snapLine.setAttribute('y1', String(line.position));
+                    snapLine.setAttribute('x2', String(cssW));
+                    snapLine.setAttribute('y2', String(line.position));
+                }
+
+                snapLine.setAttribute('stroke', 'rgba(59,130,246,0.8)'); // 青色
+                snapLine.setAttribute('stroke-width', '2');
+                snapLine.setAttribute('stroke-dasharray', '5 5'); // 破線
+                snapLine.setAttribute('vector-effect', 'non-scaling-stroke'); // ズームしても線幅を維持
+                snapLine.style.pointerEvents = 'none';
+
+                guideSvg.appendChild(snapLine);
+            });
+
+        } catch (e) {
+            console.error('drawSnapGuides error', e);
+        }
+    }
+
+    // スナップ計算関数（補助線情報も返す）
     function snapValue(value, targets, threshold) {
+        const result = { snapped: value, hasSnap: false, snapTarget: null };
+
         if (!window._trimSnapSettings.enabled || !targets || targets.length === 0) {
-            return value;
+            return result;
         }
 
         let closestDist = Infinity;
-        let snappedValue = value;
 
         for (const target of targets) {
             const dist = Math.abs(value - target);
             if (dist < threshold && dist < closestDist) {
                 closestDist = dist;
-                snappedValue = target;
+                result.snapped = target;
+                result.hasSnap = true;
+                result.snapTarget = target;
             }
         }
 
-        return snappedValue;
+        return result;
     }
 
     // 既存矩形からスナップターゲットを収集
@@ -582,7 +652,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     // スナップターゲットを収集
                     const snapTargets = collectSnapTargets(canvasId);
                     const snapThreshold = window._trimSnapSettings.threshold || 10;
-
+                    // 表示する補助線
+                    const activeSnapLines = [];
+                    
                     // クリック（選択）とドラッグ（新規描画）の判定
                     if (trimState.mode === 'maybe-draw') {
                         const dx = loc.x - trimState.startClientLocal.x;
@@ -610,10 +682,16 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         const snappedRight = snapValue(rawX + rawW, snapTargets.x, snapThreshold);
                         const snappedBottom = snapValue(rawY + rawH, snapTargets.y, snapThreshold);
 
-                        rawX = snappedLeft;
-                        rawY = snappedTop;
-                        rawW = snappedRight - snappedLeft;
-                        rawH = snappedBottom - snappedTop;
+                        // 補助線を追加
+                        if (snappedLeft.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
+                        if (snappedTop.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
+                        if (snappedRight.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
+                        if (snappedBottom.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
+
+                        rawX = snappedLeft.snapped;
+                        rawY = snappedTop.snapped;
+                        rawW = snappedRight.snapped - snappedLeft.snapped;
+                        rawH = snappedBottom.snapped - snappedTop.snapped;
 
                         // 状態だけ更新（描画は下の changed 判定で一度だけ行う）
                         // trimState.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
@@ -653,22 +731,28 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         const snappedBottom = snapValue(ny + trimState.startRectPx.h, snapTargets.y, snapThreshold);
 
                         // 左上優先でスナップ
-                        nx = snappedLeft;
-                        ny = snappedTop;
+                        nx = snappedLeft.snapped;
+                        ny = snappedTop.snapped;
 
                         // nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
                         // ny = Math.max(0, Math.min(cssH - trimState.startRectPx.h, ny));
                         // 右下もスナップする場合（より近い方を優先）
-                        const leftDist = Math.abs(nx - snappedLeft);
-                        const rightDist = Math.abs((nx + trimState.startRectPx.w) - snappedRight);
-                        if (rightDist < leftDist) {
-                            nx = snappedRight - trimState.startRectPx.w;
+                        const leftDist = Math.abs(nx - snappedLeft.snapped);
+                        const rightDist = Math.abs((nx + trimState.startRectPx.w) - snappedRight.snapped);
+                        if (rightDist < leftDist && snappedRight.hasSnap) {
+                            nx = snappedRight.snapped - trimState.startRectPx.w;
+                            activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
+                        } else if (snappedLeft.hasSnap) {
+                            activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
                         }
 
-                        const topDist = Math.abs(ny - snappedTop);
-                        const bottomDist = Math.abs((ny + trimState.startRectPx.h) - snappedBottom);
-                        if (bottomDist < topDist) {
-                            ny = snappedBottom - trimState.startRectPx.h;
+                        const topDist = Math.abs(ny - snappedTop.snapped);
+                        const bottomDist = Math.abs((ny + trimState.startRectPx.h) - snappedBottom.snapped);
+                        if (bottomDist < topDist && snappedBottom.hasSnap) {
+                            ny = snappedBottom.snapped - trimState.startRectPx.h;
+                            activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
+                        } else if (snappedTop.hasSnap) {
+                            activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
                         }
 
                         nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
@@ -698,16 +782,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                         // スナップ適用（リサイズ中）
                         if (['nw', 'w', 'sw'].includes(hKey)) {
-                            propLeft = snapValue(propLeft, snapTargets.x, snapThreshold);
+                            const snapped = snapValue(propLeft, snapTargets.x, snapThreshold);
+                            propLeft = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
                         }
                         if (['ne', 'e', 'se'].includes(hKey)) {
-                            propRight = snapValue(propRight, snapTargets.x, snapThreshold);
+                            const snapped = snapValue(propRight, snapTargets.x, snapThreshold);
+                            propRight = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
                         }
                         if (['nw', 'n', 'ne'].includes(hKey)) {
-                            propTop = snapValue(propTop, snapTargets.y, snapThreshold);
+                            const snapped = snapValue(propTop, snapTargets.y, snapThreshold);
+                            propTop = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
                         }
                         if (['sw', 's', 'se'].includes(hKey)) {
-                            propBottom = snapValue(propBottom, snapTargets.y, snapThreshold);
+                            const snapped = snapValue(propBottom, snapTargets.y, snapThreshold);
+                            propBottom = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
                         }
 
                         let newLeft = Math.min(propLeft, propRight);
@@ -733,6 +825,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         };
                         trimState.didDrag = true;
                     }
+
+                    // 補助線を描画
+                    drawSnapGuides(canvasId, activeSnapLines);
 
                     // 変更があれば再描画（複数矩形対応）
                     if (trimState.currentRectPx) {
@@ -934,6 +1029,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     // ドラッグ終了時のイベント
                     trimState.handlers.up = function (uEv) {
                         if (!trimState.active) return;
+                        // 補助線をクリア
+                        drawSnapGuides(canvasId, []);
+                        
                         trimState.active = false;
 
                         try { if (canvas.releasePointerCapture) canvas.releasePointerCapture(trimState.pointerId); } catch (e) {}
@@ -1034,7 +1132,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     console.error('onTouchStart error', e);
                 }
             };
-
+            
             trimState.handlers.pointerDown = onPointerDown;
             trimState.handlers.touchStart = onTouchStart;
 
@@ -1116,7 +1214,6 @@ window.setTrimSnapEnabled = function(enabled) {
     try {
         window._trimSnapSettings = window._trimSnapSettings || {};
         window._trimSnapSettings.enabled = Boolean(enabled);
-        console.log('Trim snap enabled:', window._trimSnapSettings.enabled);
         return true;
     } catch (e) {
         console.error('setTrimSnapEnabled error', e);
