@@ -1,22 +1,14 @@
-// ========================================
-// Tesseract.js 遅延ロード + OCRヘルパー
-// ========================================
-
 window.ocrHelper = {
     worker: null,
     isLibraryLoaded: false,
     loadingPromise: null,
 
-    /**
-     * Tesseract.js を動的にロード（初回のみ）
-     */
     async loadLibrary() {
         if (this.isLibraryLoaded) {
             return true;
         }
 
         if (this.loadingPromise) {
-            // 既にロード中の場合は同じPromiseを返す
             return this.loadingPromise;
         }
 
@@ -31,7 +23,7 @@ window.ocrHelper = {
             };
             script.onerror = (error) => {
                 console.error('[OCR] Failed to load Tesseract.js', error);
-                this.loadingPromise = null; // 失敗時はリトライ可能にする
+                this.loadingPromise = null;
                 reject(error);
             };
             document.head.appendChild(script);
@@ -42,12 +34,10 @@ window.ocrHelper = {
     
     async initialize(lang = 'eng+jpn') {
         try {
-            // ライブラリが未ロードなら先にロード
             if (!this.isLibraryLoaded) {
                 await this.loadLibrary();
             }
 
-            // Workerが既に存在する場合は再利用
             if (!this.worker) {
                 console.log('[OCR] Initializing worker with language:', lang);
                 this.worker = await Tesseract.createWorker(lang, 1, {
@@ -59,11 +49,61 @@ window.ocrHelper = {
                 });
                 console.log('[OCR] Worker initialized');
             }
+            
             return true;
         } catch (error) {
             console.error('[OCR] Initialization error:', error);
             return false;
         }
+    },
+
+    /**
+     * 画像を回転（-180°～180°対応）
+     */
+    async rotateImage(imageDataUrl, angle) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 角度をラジアンに変換
+                    const rad = (angle * Math.PI) / 180;
+                    const cos = Math.abs(Math.cos(rad));
+                    const sin = Math.abs(Math.sin(rad));
+                    
+                    // 回転後のキャンバスサイズを計算
+                    canvas.width = Math.ceil(img.width * cos + img.height * sin);
+                    canvas.height = Math.ceil(img.width * sin + img.height * cos);
+                    
+                    // 背景を白で塗りつぶし
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 中心点を原点として回転
+                    ctx.translate(canvas.width / 2, canvas.height / 2);
+                    ctx.rotate(rad);
+                    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                    
+                    console.log('[OCR] Image rotated:', {
+                        originalSize: `${img.width}x${img.height}`,
+                        rotatedSize: `${canvas.width}x${canvas.height}`,
+                        angle: angle.toFixed(2)
+                    });
+                    
+                    resolve(canvas.toDataURL('image/png'));
+                } catch (error) {
+                    console.error('[OCR] Rotation error:', error);
+                    reject(error);
+                }
+            };
+            img.onerror = () => {
+                console.error('[OCR] Failed to load image for rotation');
+                reject(new Error('Failed to load image for rotation'));
+            };
+            img.src = imageDataUrl;
+        });
     },
 
     async recognize(imageDataUrl, options = {}) {
@@ -76,18 +116,23 @@ window.ocrHelper = {
             }
 
             const { 
-                psmMode = 3, // Page segmentation mode
-                oem = 1 // OCR Engine mode (LSTM)
+                psmMode = 3,
+                autoRotate = false
             } = options;
 
+            console.log('[OCR] Recognition options:', { psmMode, autoRotate });
+            
+            let processedImage = imageDataUrl;
+
+            // PSMのみ設定
             await this.worker.setParameters({
-                tessedit_pageseg_mode: psmMode,
-                tessedit_ocr_engine_mode: oem
+                tessedit_pageseg_mode: psmMode
             });
 
             console.log('[OCR] Starting recognition...');
-            const result = await this.worker.recognize(imageDataUrl);
-            console.log('[OCR] Recognition complete');
+            const result = await this.worker.recognize(processedImage);
+            console.log('[OCR] Recognition complete. Text length:', result.data.text.length);
+            console.log('[OCR] Confidence:', result.data.confidence);
 
             return {
                 text: result.data.text,
@@ -106,37 +151,66 @@ window.ocrHelper = {
 
     async terminate() {
         if (this.worker) {
-            console.log('[OCR] Terminating worker');
+            console.log('[OCR] Terminating main worker');
             await this.worker.terminate();
             this.worker = null;
         }
     },
 
-    /**
-     * メモリクリーンアップ（言語データを再ロードせずWorkerのみリセット）
-     */
     async reset() {
         await this.terminate();
-        // 次回 initialize() 時に新しいWorkerが作成される
     }
 };
 
-// クリップボードコピー
+/**
+ * クリップボードにテキストをコピー（モダンなClipboard API使用）
+ */
 window.copyToClipboard = async function(text) {
+    // モダンなClipboard APIを使用（推奨）
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (error) {
+            console.error('Clipboard API error:', error);
+            // フォールバック処理へ
+        }
+    }
+    
+    // フォールバック: テキストエリアを使った方法（execCommandは使わない）
     try {
-        await navigator.clipboard.writeText(text);
-        return true;
-    } catch (error) {
-        console.error('Clipboard copy error:', error);
-        // フォールバック
         const textarea = document.createElement('textarea');
         textarea.value = text;
         textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
+        textarea.style.left = '-999999px';
+        textarea.style.top = '-999999px';
+        textarea.setAttribute('readonly', '');
         document.body.appendChild(textarea);
-        textarea.select();
-        const success = document.execCommand('copy');
+        
+        // iOS対応: contentEditableとRange APIを使用
+        if (navigator.userAgent.match(/ipad|iphone/i)) {
+            const range = document.createRange();
+            range.selectNodeContents(textarea);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            textarea.setSelectionRange(0, text.length);
+        } else {
+            textarea.select();
+        }
+        
+        // モダンブラウザでもexecCommandのフォールバックが必要な場合のみ
+        let success = false;
+        try {
+            success = document.execCommand('copy');
+        } catch (err) {
+            console.error('execCommand fallback failed:', err);
+        }
+        
         document.body.removeChild(textarea);
         return success;
+    } catch (error) {
+        console.error('Fallback copy error:', error);
+        return false;
     }
 };
