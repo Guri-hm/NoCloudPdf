@@ -1,4 +1,4 @@
-﻿@page "/slice"
+﻿@page "/ocr"
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
@@ -11,7 +11,7 @@
 @using NoCloudPdf.Services
 @using NoCloudPdf.Components
 
-<PageTitle>NoCloudPDF-スライス</PageTitle>
+<PageTitle>NoCloudPDF-OCR</PageTitle>
 
 @if (IsFilesLoaded && !CompletionState.ShowMergedResult)
 {
@@ -25,8 +25,8 @@
                 <div class="flex flex-wrap gap-2 items-center">
                     <ActionButtonGroup T="string" Actions="resetActions" />
                     <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
-                    <h1 class="hidden md:inline text-lg font-bold">スライス
-                        <Tooltip Text="範囲選択した部分のみ，画像として書き出します。">
+                    <h1 class="hidden md:inline text-lg font-bold">文字認識
+                        <Tooltip Text="範囲選択した部分の文字認識をおこないます。">
                             <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                         </Tooltip>
                     </h1>
@@ -43,22 +43,16 @@
                     </div>
                     <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
                         OnClick="OnToggleDrawingMode" />
-                    <ActionButtonGroup T="string" Actions="rotateActions" />
                     <ActionButtonGroup T="string" Actions="zoomActions" />
 
                     <DropdownButton T="string" MenuId="trimMenu" MenuItems="applyTrimItems">
                         <Trigger>
                             <DropdownTriggerButton>
                                 <ActivityZoneIcon/>
-                                <span class="hidden xl:inline">書き出し範囲</span>
+                                <span class="hidden xl:inline">範囲設定</span>
                             </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
-                    <select @bind="exportDpi" class="px-2 py-1 border border-gray-300 rounded bg-white text-gray-900 text-sm">
-                        <option value="72">実寸（72dpi）</option>
-                        <option value="150">高品質（150dpi）</option>
-                        <option value="300">印刷用（300dpi）</option>
-                    </select>
                     <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
                         <input type="checkbox" @bind="useSnapToGrid" @bind:after="OnSnapToGridChanged" class="form-checkbox h-5 w-5 accent-blue-500" />
                         スナップ
@@ -351,7 +345,7 @@
     // ファイル単位表示時のファイル内ページ番号（0始まり）
     // プレビュー中のファイル内で、何ページ目を表示しているか
     private int filePageIndex = 0;
-    private DotNetObjectReference<Slice>? _dotNetRef;
+    private DotNetObjectReference<Ocr>? _dotNetRef;
     private bool isDragOver = false;
     private bool isMenuOpen = false;
     private string mergedFileName = "";
@@ -378,10 +372,10 @@
         new ToggleButtonItem<bool>
         {
             Value = true,
-            Label = "スライス",
+            Label = "範囲選択",
             IconFragment = builder =>
             {
-                builder.OpenComponent(0, typeof(SliceIcon));
+                builder.OpenComponent(0, typeof(CropFreeIcon));
                 builder.AddAttribute(1, "Class", "w-5 h-5");
                 builder.CloseComponent();
             }
@@ -479,7 +473,7 @@
     }
 
     // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
-    public static Slice? _currentInstance;
+    public static Ocr? _currentInstance;
 
     // 空白ページを挿入
     public async Task InsertBlankPage(int position)
@@ -548,36 +542,6 @@
             IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
             Title = "編集に戻る",
             OnClick = EventCallback.Factory.Create(this, BackToEdit),
-        }
-    };
-
-    private List<ActionButtonItem> rotateActions => new()
-    {
-        new ActionButtonItem
-        {
-            Label = "左",
-            Icon = builder =>
-            {
-                builder.OpenComponent(0, typeof(RotateLeftIcon));
-                builder.AddAttribute(1, "Class", "w-6 h-6"); 
-                builder.CloseComponent();
-            },
-            Title = "左回転",
-            OnClick = EventCallback.Factory.Create(this, RotateAllLeft),
-            IconPosition = "left"
-        },
-        new ActionButtonItem
-        {
-            Label = "右",
-            Icon = builder =>
-            {
-                builder.OpenComponent(0, typeof(RotateRightIcon));
-                builder.AddAttribute(1, "Class", "w-6 h-6"); 
-                builder.CloseComponent();
-            },
-            Title = "右回転",
-            OnClick = EventCallback.Factory.Create(this, RotateAllRight),
-            IconPosition = "left"
         }
     };
 
