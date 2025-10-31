@@ -14,3 +14,4 @@ import './visible-page-observer.js';
 import './tooltip-helper.js';
 import './message-bar.js';
 import './loading-overlay.js';
+import './ocr-helper.js';

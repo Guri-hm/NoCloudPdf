@@ -60,6 +60,28 @@
                             <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                         </Tooltip>
                     </label>
+                    <!-- OCR設定 -->
+                    <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
+                        <label class="text-sm font-medium">文字方向:</label>
+                        <select @bind="ocrTextDirection" class="px-2 py-1 rounded border border-gray-300 text-sm">
+                            <option value="auto">自動検出</option>
+                            <option value="horizontal">横書き</option>
+                            <option value="vertical">縦書き</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
+                        <label class="text-sm font-medium">読み順:</label>
+                        <select @bind="ocrReadingOrder" class="px-2 py-1 rounded border border-gray-300 text-sm">
+                            <option value="ltr">左→右</option>
+                            <option value="rtl">右→左</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
+                        <label class="text-sm font-medium">DPI:</label>
+                        <input type="number" @bind="exportDpi" min="72" max="600" step="50" 
+                            class="w-16 px-2 py-1 rounded border border-gray-300 text-sm" />
+                    </div>
+
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
@@ -107,7 +129,7 @@
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
-                @onclick="ExportSlicedImagesAsync">
+                @onclick="ExecuteOcrAsync">
                 完了
             </button>
         </div>    
@@ -119,7 +141,7 @@
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
 
-@if (CompletionState.ShowMergedResult && slicedImages.Any())
+@if (CompletionState.ShowMergedResult && ocrResults.Any())
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -131,36 +153,77 @@
     <!-- メインエリア -->
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
-            <!-- 画像ギャラリー（スクロール可能） -->
+            <!-- OCR結果表示エリア（スクロール可能） -->
             <div class="flex-1 overflow-auto p-6 bg-gray-50">
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    @foreach (var image in slicedImages)
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    @foreach (var result in ocrResults)
                     {
-                        <div class="bg-white rounded-lg shadow p-4 flex flex-col gap-2">
-                            <!-- 画像表示エリアを固定高さに -->
-                            <div class="w-full h-48 flex items-center justify-center bg-gray-100 rounded overflow-hidden">
-                                <img src="@image.DataUrl" 
-                                    alt="@image.FileName" 
-                                    class="max-w-full max-h-full object-contain" />
+                        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                            <!-- 画像プレビュー -->
+                            <div class="w-full bg-gray-100 border-b border-gray-200">
+                                <img src="@result.ImageDataUrl" 
+                                    alt="@result.FileName" 
+                                    class="w-full h-auto object-contain max-h-64" />
                             </div>
-                            <span class="text-sm text-gray-600 truncate w-full text-center">@image.FileName</span>
-                            <button
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded text-sm w-full"
-                                @onclick="() => DownloadSingleImage(image)">
-                                <i class="fa-solid fa-download"></i> ダウンロード
-                            </button>
+                            
+                            <!-- OCR結果 -->
+                            <div class="p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-semibold text-gray-700">@result.FileName</span>
+                                    <span class="text-xs text-gray-500">信頼度: @result.Confidence.ToString("F1")%</span>
+                                </div>
+                                
+                                <!-- 認識テキスト -->
+                                <div class="relative">
+                                    <textarea 
+                                        class="w-full h-32 p-3 border border-gray-300 rounded resize-none font-mono text-sm"
+                                        readonly>@result.Text</textarea>
+                                    <button
+                                        class="absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs flex items-center gap-1"
+                                        @onclick="() => CopyToClipboard(result.Text)">
+                                        <i class="fa-solid fa-copy"></i>
+                                        コピー
+                                    </button>
+                                </div>
+
+                                <!-- 行ごとの結果（詳細） -->
+                                @if (result.Lines != null && result.Lines.Any())
+                                {
+                                    <details class="mt-3">
+                                        <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                                            行ごとの詳細を表示 (@result.Lines.Count 行)
+                                        </summary>
+                                        <div class="mt-2 space-y-2 max-h-48 overflow-auto">
+                                            @foreach (var (line, index) in result.Lines.Select((l, i) => (l, i)))
+                                            {
+                                                <div class="flex items-start gap-2 p-2 bg-gray-50 rounded text-xs">
+                                                    <span class="font-mono text-gray-500 flex-shrink-0">@(index + 1)</span>
+                                                    <span class="flex-1 break-all">@line.Text</span>
+                                                    <button
+                                                        class="flex-shrink-0 text-blue-600 hover:text-blue-800"
+                                                        @onclick="() => CopyToClipboard(line.Text)"
+                                                        title="コピー">
+                                                        <i class="fa-solid fa-copy"></i>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    </details>
+                                }
+                            </div>
                         </div>
                     }
                 </div>
             </div>
+            
             <!-- 情報パネル（PCのみ表示） -->
             <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
                 <InfoPanel Title="完了" FileName="@mergedFileName" FileSize="@mergedFileSize" PageCount="@mergedPageCount">
                     <button
                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center"
-                        @onclick="DownloadAllImagesAsZip">
+                        @onclick="DownloadAllOcrResultsAsText">
                         <i class="fa-solid fa-download"></i>
-                        すべてZIPでダウンロード
+                        すべてテキストでダウンロード
                     </button>
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
@@ -181,11 +244,11 @@
                         <span>完了</span>
                     </div>
                     <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
-                    <div class="text-gray-600 text-sm">書き出し枚数: @mergedPageCount</div>
+                    <div class="text-gray-600 text-sm">認識完了: @mergedPageCount 件</div>
                     <button
                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full"
-                        @onclick="DownloadAllImagesAsZip">
-                        <i class="fa-solid fa-download"></i> すべてZIPでダウンロード
+                        @onclick="DownloadAllOcrResultsAsText">
+                        <i class="fa-solid fa-download"></i> すべてテキストでダウンロード
                     </button>
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
@@ -210,7 +273,6 @@
                 </button>
             }
         </div>
-        <!-- メニュー展開時はPDFのスクロールを禁止 -->
         @if (isMenuOpen)
         {
             <div class="fixed inset-0 bg-black/30 z-[199] touch-none" @onclick="() => isMenuOpen = false"></div>
@@ -316,6 +378,15 @@
         try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
         _visibleObserverLastCount = -1;
 
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("ocrHelper.terminate");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OCR cleanup error: {ex.Message}");
+        }
+        
         try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
 
         try
@@ -352,7 +423,6 @@
     private string mergedFileSize = "";
 
     private int mergedPageCount = 0;
-    private int exportDpi = 72;
 
     private int GetCurrentFilePageIndex()
     {
@@ -411,7 +481,7 @@
             Label = "完了",
             IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
             Title = "完了",
-            OnClick = EventCallback.Factory.Create(this, ExportSlicedImagesAsync),
+            OnClick = EventCallback.Factory.Create(this, ExecuteOcrAsync),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
             IconPosition = "right",
             TextColor = "text-white"
@@ -450,7 +520,7 @@
 
         PdfDataService.Clear();
 
-        slicedImages.Clear();
+        ocrResults.Clear();
         mergedFileName = "";
         mergedFileSize = "";
         mergedPageCount = 0;
@@ -851,35 +921,6 @@
         }
     }
 
-    /// <summary>
-    /// すべての画像を ZIP でダウンロード
-    /// </summary>
-    private async Task DownloadAllImagesAsZip()
-    {
-        try
-        {
-            await MessageService.ShowLoadingAsync("ZIP作成中...");
-
-            var imageData = slicedImages.Select(img => new
-            {
-                fileName = img.FileName,
-                dataUrl = img.DataUrl
-            }).ToArray();
-
-            await JSRuntime.InvokeVoidAsync("downloadImagesAsZip", imageData, mergedFileName);
-
-            _ = MessageService.ShowAsync("ZIPファイルをダウンロードしました", MessageType.Success);
-        }
-        catch (Exception ex)
-        {
-            _ = MessageService.ShowAsync($"ZIPダウンロードに失敗しました: {ex.Message}", MessageType.Error);
-        }
-        finally
-        {
-            await MessageService.HideLoadingAsync();
-        }
-    }
-
     private bool isDrawingMode = true;
     private int selectedPageIndex = -1;
 
@@ -1009,24 +1050,133 @@
         public int RectIndex { get; set; }
     }
 
-    private List<SlicedImage> slicedImages = new();
+    // OCR設定
+    private string ocrTextDirection = "auto"; // auto, horizontal, vertical
+    private string ocrReadingOrder = "ltr"; // ltr, rtl
+    private int exportDpi = 300; // OCR用の高解像度
+
+    // OCR結果データモデル
+    private class OcrResult
+    {
+        public string Id { get; set; } = "";
+        public string ImageDataUrl { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string Text { get; set; } = "";
+        public double Confidence { get; set; }
+        public List<OcrLine> Lines { get; set; } = new();
+        public int OriginalPageIndex { get; set; }
+        public int RectIndex { get; set; }
+    }
+
+    private class OcrLine
+    {
+        public string Text { get; set; } = "";
+        public double Confidence { get; set; }
+    }
+
+    private List<OcrResult> ocrResults = new();
+    // JSON デシリアライズ用クラス
+    private class OcrResultJson
+    {
+        public string text { get; set; } = "";
+        public double confidence { get; set; }
+        public List<OcrLineJson>? lines { get; set; }
+    }
+
+    private class OcrLineJson
+    {
+        public string text { get; set; } = "";
+        public double confidence { get; set; }
+    }
+
     /// <summary>
-    /// 各ページの矩形を画像として切り出す
+    /// クリップボードにコピー
     /// </summary>
-    private async Task ExportSlicedImagesAsync()
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            var success = await JSRuntime.InvokeAsync<bool>("copyToClipboard", text);
+            if (success)
+            {
+                _ = MessageService.ShowAsync("クリップボードにコピーしました", MessageType.Success);
+            }
+            else
+            {
+                _ = MessageService.ShowAsync("コピーに失敗しました", MessageType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Clipboard copy error: {ex.Message}");
+            _ = MessageService.ShowAsync("コピーに失敗しました", MessageType.Error);
+        }
+    }
+
+    /// <summary>
+    /// すべてのOCR結果をテキストファイルでダウンロード
+    /// </summary>
+    private async Task DownloadAllOcrResultsAsText()
+    {
+        try
+        {
+            var allText = string.Join("\n\n" + new string('=', 50) + "\n\n",
+                ocrResults.Select(r => $"[{r.FileName}]\n信頼度: {r.Confidence:F1}%\n\n{r.Text}"));
+
+            var bytes = System.Text.Encoding.UTF8.GetBytes(allText);
+            var base64 = Convert.ToBase64String(bytes);
+            var dataUrl = $"data:text/plain;charset=utf-8;base64,{base64}";
+
+            await JSRuntime.InvokeVoidAsync("downloadFileFromUrl", dataUrl, mergedFileName, "text/plain");
+
+            _ = MessageService.ShowAsync("テキストファイルをダウンロードしました", MessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _ = MessageService.ShowAsync($"ダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+    /// <summary>
+    /// OCR処理を実行
+    /// </summary>
+    private async Task ExecuteOcrAsync()
     {
         if (DisplayItems == null || DisplayItems.Count == 0)
             return;
 
         try
         {
-            await MessageService.ShowLoadingAsync("書き出し中...");
+            await MessageService.ShowLoadingAsync("OCR処理中...");
 
-            slicedImages.Clear();
+            // Tesseract.js 初期化
+            var initialized = await JSRuntime.InvokeAsync<bool>("ocrHelper.initialize", "eng+jpn");
+            if (!initialized)
+            {
+                _ = MessageService.ShowAsync("OCR エンジンの初期化に失敗しました", MessageType.Error);
+                return;
+            }
+
+            ocrResults.Clear();
             var displayList = DisplayItems.ToList();
             var pageCount = displayList.Count;
 
             int imageCounter = 1;
+            int totalRects = 0;
+
+            // 総矩形数をカウント
+            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
+            {
+                var rects = PdfDataService.GetTrimRects(pageIndex);
+                if (rects != null) totalRects += rects.Count;
+            }
+
+            if (totalRects == 0)
+            {
+                _ = MessageService.ShowAsync("書き出す範囲が設定されていません。", MessageType.Warn);
+                return;
+            }
+
+            int processedCount = 0;
 
             for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
             {
@@ -1037,39 +1187,66 @@
                 if (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError)
                     continue;
 
-                // 複数矩形を取得
                 var rects = PdfDataService.GetTrimRects(pageIndex);
                 if (rects == null || rects.Count == 0)
-                    continue; // 矩形がないページはスキップ
+                    continue;
 
-                // 矩形ごとに画像を切り出し
-                for (int rectIndex = 0; rectIndex < rects.Count; rectIndex++)
-                {
-                    var rect = rects[rectIndex];
-                    try
+                    for (int rectIndex = 0; rectIndex < rects.Count; rectIndex++)
                     {
-                        var rotate = page.RotateAngle % 360;
-
-                        // PDF の矩形を画像として切り出し（JS 関数を使用）
-                        var imageDataUrl = await JSRuntime.InvokeAsync<string>(
-                        "cropPdfPageToImage",
-                        page.PageData,
-                        rect.X,
-                        rect.Y,
-                        rect.Width,
-                        rect.Height,
-                        rotate,
-                        exportDpi
-                        );
-                        
-                        if (!string.IsNullOrEmpty(imageDataUrl))
+                        var rect = rects[rectIndex];
+                        try
                         {
-                            var fileName = $"slice_{imageCounter:D3}.png";
-                            slicedImages.Add(new SlicedImage
+                            processedCount++;
+                            await MessageService.ShowLoadingAsync($"OCR処理中... ({processedCount}/{totalRects})");
+
+                            // 回転角度を正規化
+                            var rotate = normalizeRotationAngle(page.RotateAngle);
+
+                            // 重要：矩形座標をそのまま渡す（JavaScript側で回転を処理）
+                            var imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                                "cropPdfPageToImage",
+                                page.PageData,
+                                rect.X,      // 正規化座標 (0-1)
+                                rect.Y,      // 正規化座標 (0-1)
+                                rect.Width,  // 正規化サイズ (0-1)
+                                rect.Height, // 正規化サイズ (0-1)
+                                rotate,      // 正規化された回転角度 (0/90/180/270)
+                                exportDpi    // DPI
+                            );
+
+                        if (string.IsNullOrEmpty(imageDataUrl))
+                            continue;
+
+                        // PSM（Page Segmentation Mode）を決定
+                        int psmMode = ocrTextDirection switch
+                        {
+                            "horizontal" => 6, // 単一ブロック（横書き）
+                            "vertical" => 5,   // 縦書きテキスト
+                            _ => 3             // 自動検出
+                        };
+
+                        // OCR実行
+                        var ocrData = await JSRuntime.InvokeAsync<OcrResultJson>(
+                            "ocrHelper.recognize",
+                            imageDataUrl,
+                            new { psmMode }
+                        );
+
+                        if (ocrData != null)
+                        {
+                            var fileName = $"ocr_{imageCounter:D3}.txt";
+                            ocrResults.Add(new OcrResult
                             {
-                                Id = $"slice-{pageIndex}-{rectIndex}",
-                                DataUrl = imageDataUrl,
+                                Id = $"ocr-{pageIndex}-{rectIndex}",
+                                ImageDataUrl = imageDataUrl,
                                 FileName = fileName,
+                                Text = ocrData.text ?? "",
+                                Confidence = ocrData.confidence,
+                                Lines = ocrData.lines?.Select(l => new OcrLine
+                                {
+                                    Text = l.text ?? "",
+                                    Confidence = l.confidence
+                                }).ToList() ?? new(),
                                 OriginalPageIndex = pageIndex,
                                 RectIndex = rectIndex
                             });
@@ -1078,36 +1255,45 @@
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error exporting slice page={pageIndex} rect={rectIndex}: {ex.Message}");
+                        Console.WriteLine($"Error processing OCR page={pageIndex} rect={rectIndex}: {ex.Message}");
                     }
                 }
             }
 
-            if (slicedImages.Count == 0)
+            if (ocrResults.Count == 0)
             {
-                _ = MessageService.ShowAsync("書き出す範囲が設定されていません。", MessageType.Warn);
+                _ = MessageService.ShowAsync("OCR処理に失敗しました", MessageType.Error);
                 return;
             }
 
             // 完了画面へ遷移
-            mergedFileName = $"sliced_{DateTime.Now:yyyyMMddHHmm}.zip";
-            mergedFileSize = FormatFileSize(slicedImages.Sum(img => EstimateImageSize(img.DataUrl)));
-            mergedPageCount = slicedImages.Count;
+            mergedFileName = $"ocr_results_{DateTime.Now:yyyyMMddHHmm}.txt";
+            mergedFileSize = FormatFileSize(ocrResults.Sum(r => System.Text.Encoding.UTF8.GetByteCount(r.Text)));
+            mergedPageCount = ocrResults.Count;
             CompletionState.SetCompletion(CompletionStateService.CompletionType.Trimmed);
 
-            _ = MessageService.ShowAsync($"{slicedImages.Count} 枚の画像を書き出しました", MessageType.Success);
+            _ = MessageService.ShowAsync($"{ocrResults.Count} 件の文字認識が完了しました", MessageType.Success);
 
-        }catch(Exception ex)
+        }
+        catch (Exception ex)
         {
-            Console.WriteLine($"ExportSlicedImagesAsync error: {ex.Message}");
-            _ = MessageService.ShowAsync($"書き出し中にエラーが発生しました: {ex.Message}", MessageType.Error);
-
+            Console.WriteLine($"ExecuteOcrAsync error: {ex.Message}");
+            _ = MessageService.ShowAsync($"OCR処理中にエラーが発生しました: {ex.Message}", MessageType.Error);
         }
         finally
         {
             await MessageService.HideLoadingAsync();
             StateHasChanged();
         }
+    }
+
+    /// <summary>
+    /// 回転角度を正規化（JavaScript の normalizeRotationAngle と同じ）
+    /// </summary>
+    private int normalizeRotationAngle(int angle)
+    {
+        var normalized = ((angle % 360) + 360) % 360;
+        return (int)Math.Round(normalized / 90.0) * 90 % 360;
     }
 
     /// <summary>
@@ -1259,4 +1445,6 @@
             Console.WriteLine($"OnSnapToGridChanged error: {ex.Message}");
         }
     }
+
+
 }
