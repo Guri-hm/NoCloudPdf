@@ -59,6 +59,13 @@
                         <option value="150">高品質（150dpi）</option>
                         <option value="300">印刷用（300dpi）</option>
                     </select>
+                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
+                        <input type="checkbox" @bind="useSnapToGrid" @bind:after="OnSnapToGridChanged" class="form-checkbox h-5 w-5 accent-blue-500" />
+                        スナップ
+                        <Tooltip Text="既存の矩形の位置に合わせて、新しい矩形を自動的にスナップ（吸着）させます。">
+                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                        </Tooltip>
+                    </label>
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
@@ -1277,4 +1284,17 @@
         }
     }
 
+    private bool useSnapToGrid = false;
+
+    private async Task OnSnapToGridChanged()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setTrimSnapEnabled", useSnapToGrid);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnSnapToGridChanged error: {ex.Message}");
+        }
+    }
 }

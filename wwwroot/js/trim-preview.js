@@ -329,8 +329,48 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 // ========================================
 (function () {
     window._simpleTrim = window._simpleTrim || {};
+    window._trimSnapSettings = { enabled: false, threshold: 10 }; // スナップ有効化フラグと閾値（ピクセル）
 
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+        // スナップ計算関数
+    function snapValue(value, targets, threshold) {
+        if (!window._trimSnapSettings.enabled || !targets || targets.length === 0) {
+            return value;
+        }
+
+        let closestDist = Infinity;
+        let snappedValue = value;
+
+        for (const target of targets) {
+            const dist = Math.abs(value - target);
+            if (dist < threshold && dist < closestDist) {
+                closestDist = dist;
+                snappedValue = target;
+            }
+        }
+
+        return snappedValue;
+    }
+
+    // 既存矩形からスナップターゲットを収集
+    function collectSnapTargets(canvasId) {
+        const targets = { x: [], y: [] };
+        
+        try {
+            const trimState = window._simpleTrim[canvasId];
+            if (!trimState || !trimState.currentRectsPx) return targets;
+
+            trimState.currentRectsPx.forEach(rect => {
+                targets.x.push(rect.x, rect.x + rect.w); // 左端と右端
+                targets.y.push(rect.y, rect.y + rect.h); // 上端と下端
+            });
+        } catch (e) {
+            console.error('collectSnapTargets error', e);
+        }
+
+        return targets;
+    }
 
     // ========================================
     // クリーンアップ: リスナー・DOM削除
@@ -539,6 +579,10 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     const { cssW, cssH } = loc;
                     const prevRect = trimState.currentRectPx ? { ...trimState.currentRectPx } : null;
 
+                    // スナップターゲットを収集
+                    const snapTargets = collectSnapTargets(canvasId);
+                    const snapThreshold = window._trimSnapSettings.threshold || 10;
+
                     // クリック（選択）とドラッグ（新規描画）の判定
                     if (trimState.mode === 'maybe-draw') {
                         const dx = loc.x - trimState.startClientLocal.x;
@@ -555,13 +599,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     }
 
                     if (trimState.mode === 'draw') {
-                        const rawX = Math.min(loc.x, trimState.startClientLocal.x);
-                        const rawY = Math.min(loc.y, trimState.startClientLocal.y);
-                        const rawW = Math.abs(loc.x - trimState.startClientLocal.x);
-                        const rawH = Math.abs(loc.y - trimState.startClientLocal.y);
+                        let rawX = Math.min(loc.x, trimState.startClientLocal.x);
+                        let rawY = Math.min(loc.y, trimState.startClientLocal.y);
+                        let rawW = Math.abs(loc.x - trimState.startClientLocal.x);
+                        let rawH = Math.abs(loc.y - trimState.startClientLocal.y);
+
+                        // スナップ適用（描画中）
+                        const snappedLeft = snapValue(rawX, snapTargets.x, snapThreshold);
+                        const snappedTop = snapValue(rawY, snapTargets.y, snapThreshold);
+                        const snappedRight = snapValue(rawX + rawW, snapTargets.x, snapThreshold);
+                        const snappedBottom = snapValue(rawY + rawH, snapTargets.y, snapThreshold);
+
+                        rawX = snappedLeft;
+                        rawY = snappedTop;
+                        rawW = snappedRight - snappedLeft;
+                        rawH = snappedBottom - snappedTop;
 
                         // 状態だけ更新（描画は下の changed 判定で一度だけ行う）
-                        trimState.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
+                        // trimState.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
 
                         // 画面外へのはみ出しをこの時点で切り詰める（disp を currentRectPx に保存）
                         let dispX = rawX < 0 ? 0 : rawX;
@@ -591,6 +646,31 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         let nx = trimState.startRectPx.x + dx;
                         let ny = trimState.startRectPx.y + dy;
 
+                                                // スナップ適用（移動中）
+                        const snappedLeft = snapValue(nx, snapTargets.x, snapThreshold);
+                        const snappedTop = snapValue(ny, snapTargets.y, snapThreshold);
+                        const snappedRight = snapValue(nx + trimState.startRectPx.w, snapTargets.x, snapThreshold);
+                        const snappedBottom = snapValue(ny + trimState.startRectPx.h, snapTargets.y, snapThreshold);
+
+                        // 左上優先でスナップ
+                        nx = snappedLeft;
+                        ny = snappedTop;
+
+                        // nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
+                        // ny = Math.max(0, Math.min(cssH - trimState.startRectPx.h, ny));
+                        // 右下もスナップする場合（より近い方を優先）
+                        const leftDist = Math.abs(nx - snappedLeft);
+                        const rightDist = Math.abs((nx + trimState.startRectPx.w) - snappedRight);
+                        if (rightDist < leftDist) {
+                            nx = snappedRight - trimState.startRectPx.w;
+                        }
+
+                        const topDist = Math.abs(ny - snappedTop);
+                        const bottomDist = Math.abs((ny + trimState.startRectPx.h) - snappedBottom);
+                        if (bottomDist < topDist) {
+                            ny = snappedBottom - trimState.startRectPx.h;
+                        }
+
                         nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
                         ny = Math.max(0, Math.min(cssH - trimState.startRectPx.h, ny));
 
@@ -615,6 +695,20 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         if (['ne', 'e', 'se'].includes(hKey)) propRight = clamp(ex + dx, 0, cssW);
                         if (['nw', 'n', 'ne'].includes(hKey)) propTop = clamp(sy + dy, 0, cssH);
                         if (['sw', 's', 'se'].includes(hKey)) propBottom = clamp(ey + dy, 0, cssH);
+
+                        // スナップ適用（リサイズ中）
+                        if (['nw', 'w', 'sw'].includes(hKey)) {
+                            propLeft = snapValue(propLeft, snapTargets.x, snapThreshold);
+                        }
+                        if (['ne', 'e', 'se'].includes(hKey)) {
+                            propRight = snapValue(propRight, snapTargets.x, snapThreshold);
+                        }
+                        if (['nw', 'n', 'ne'].includes(hKey)) {
+                            propTop = snapValue(propTop, snapTargets.y, snapThreshold);
+                        }
+                        if (['sw', 's', 'se'].includes(hKey)) {
+                            propBottom = snapValue(propBottom, snapTargets.y, snapThreshold);
+                        }
 
                         let newLeft = Math.min(propLeft, propRight);
                         let newRight = Math.max(propLeft, propRight);
@@ -1016,6 +1110,19 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         }
     };
 })();
+
+// スナップ機能の有効化/無効化
+window.setTrimSnapEnabled = function(enabled) {
+    try {
+        window._trimSnapSettings = window._trimSnapSettings || {};
+        window._trimSnapSettings.enabled = Boolean(enabled);
+        console.log('Trim snap enabled:', window._trimSnapSettings.enabled);
+        return true;
+    } catch (e) {
+        console.error('setTrimSnapEnabled error', e);
+        return false;
+    }
+};
 
 // ========================================
 // Canvas プレビュー描画: data URL から画像を描画
