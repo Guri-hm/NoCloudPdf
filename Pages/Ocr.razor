@@ -61,11 +61,17 @@
                         </Tooltip>
                     </label>
                     <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
-                        <label class="text-sm font-medium">DPI:</label>
-                        <input type="number" @bind="exportDpi" min="72" max="600" step="50" 
-                            class="w-16 px-2 py-1 rounded border border-gray-300 text-sm" />
+                        <label class="text-sm font-medium">画質 (DPI):</label>
+                        <select @bind="exportDpi" class="px-2 py-1 rounded border border-gray-300 text-sm">
+                            <option value="150">150 (低画質・高速)</option>
+                            <option value="200">200 (推奨)</option>
+                            <option value="300">300 (高画質)</option>
+                            <option value="400">400 (最高画質・低速)</option>
+                        </select>
+                        <Tooltip Text="高すぎる設定はノイズ増加で精度が低下する可能性があります。">
+                            <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer ml-1" />
+                        </Tooltip>
                     </div>
-
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
@@ -149,6 +155,14 @@
         <!-- プレビュー画面のヘッダー下部に設定パネル -->
         <div class="bg-gray-100 border-b border-gray-300 p-3 flex justify-center items-center gap-4">
             <div class="flex items-center gap-2">
+                <label class="text-sm font-medium">認識言語:</label>
+                <select @bind="ocrLanguage" class="px-2 py-1 rounded border border-gray-300 text-sm">
+                    <option value="jpn">日本語のみ</option>
+                    <option value="eng+jpn">日本語 + 英数字（推奨）</option>
+                    <option value="eng">英語のみ</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
                 <label class="text-sm font-medium">文字方向:</label>
                 <select @bind="ocrTextDirection" class="px-2 py-1 rounded border border-gray-300 text-sm">
                     <option value="auto">自動検出</option>
@@ -163,6 +177,14 @@
                     <option value="ltr">左→右</option>
                     <option value="rtl">右→左</option>
                 </select>
+            </div>
+            <!-- DPI表示（変更不可） -->
+            <div class="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded border border-blue-200">
+                <i class="fa-solid fa-image text-blue-600"></i>
+                <span class="text-sm font-medium text-blue-800">画質: @exportDpi DPI</span>
+                <Tooltip Text="DPIは編集画面で設定できます。変更するには編集画面に戻ってください。">
+                    <InfoIcon Class="w-4 h-4 text-blue-600 cursor-pointer" />
+                </Tooltip>
             </div>
         </div>
         <!-- メインコンテンツ -->
@@ -518,7 +540,6 @@
     private int previewIndex = -1;
     private DotNetObjectReference<Ocr>? _dotNetRef;
     private bool isDragOver = false;
-    private bool isMenuOpen = false;
     private string mergedFileName = "";
     private string mergedFileSize = "";
     private int mergedPageCount = 0;
@@ -552,10 +573,10 @@
     // ========================================
     // OCR関連
     // ========================================
-    
+    private string ocrLanguage = "eng+jpn"; // jpn, eng+jpn, eng
     private string ocrTextDirection = "auto"; // auto, horizontal, vertical
     private string ocrReadingOrder = "auto";// auto, ltr, rtl
-    private int exportDpi = 300;
+    private int exportDpi = 200;
     // コピーオプション
     private bool copyRemoveSpaces = false;
     private bool copyRemoveNewlines = false;
@@ -695,7 +716,8 @@
             
             await MessageService.ShowLoadingAsync("OCR処理中...");
             
-            var initialized = await JSRuntime.InvokeAsync<bool>("ocrHelper.initialize", "eng+jpn");
+            // 選択された言語でOCRエンジンを初期化
+            var initialized = await JSRuntime.InvokeAsync<bool>("ocrHelper.initialize", ocrLanguage);
             if (!initialized)
             {
                 _ = MessageService.ShowAsync("OCR エンジンの初期化に失敗しました", MessageType.Error);

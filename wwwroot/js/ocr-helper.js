@@ -2,6 +2,7 @@ window.ocrHelper = {
     worker: null,
     isLibraryLoaded: false,
     loadingPromise: null,
+    currentLanguage: null,  // 現在初期化されている言語
 
     async loadLibrary() {
         if (this.isLibraryLoaded) {
@@ -31,11 +32,19 @@ window.ocrHelper = {
 
         return this.loadingPromise;
     },
-
+    
     async initialize(lang = 'eng+jpn') {
         try {
             if (!this.isLibraryLoaded) {
                 await this.loadLibrary();
+            }
+
+            // 言語が変更された場合は、既存のworkerを終了して再初期化
+            if (this.worker && this.currentLanguage !== lang) {
+                console.log(`[OCR] Language changed from ${this.currentLanguage} to ${lang}, reinitializing...`);
+                await this.worker.terminate();
+                this.worker = null;
+                this.currentLanguage = null;
             }
 
             if (!this.worker) {
@@ -47,12 +56,15 @@ window.ocrHelper = {
                         }
                     }
                 });
-                console.log('[OCR] Worker initialized');
+                this.currentLanguage = lang;
+                console.log('[OCR] Worker initialized successfully');
             }
-
+            
             return true;
         } catch (error) {
             console.error('[OCR] Initialization error:', error);
+            this.worker = null;
+            this.currentLanguage = null;
             return false;
         }
     },
@@ -67,31 +79,31 @@ window.ocrHelper = {
                 try {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-
+                    
                     // 角度をラジアンに変換
                     const rad = (angle * Math.PI) / 180;
                     const cos = Math.abs(Math.cos(rad));
                     const sin = Math.abs(Math.sin(rad));
-
+                    
                     // 回転後のキャンバスサイズを計算
                     canvas.width = Math.ceil(img.width * cos + img.height * sin);
                     canvas.height = Math.ceil(img.width * sin + img.height * cos);
-
+                    
                     // 背景を白で塗りつぶし
                     ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+                    
                     // 中心点を原点として回転
                     ctx.translate(canvas.width / 2, canvas.height / 2);
                     ctx.rotate(rad);
                     ctx.drawImage(img, -img.width / 2, -img.height / 2);
-
+                    
                     console.log('[OCR] Image rotated:', {
                         originalSize: `${img.width}x${img.height}`,
                         rotatedSize: `${canvas.width}x${canvas.height}`,
                         angle: angle.toFixed(2)
                     });
-
+                    
                     resolve(canvas.toDataURL('image/png'));
                 } catch (error) {
                     console.error('[OCR] Rotation error:', error);
@@ -118,7 +130,7 @@ window.ocrHelper = {
             // C#からのプロパティ名（PascalCase）を受け取る
             const {
                 PsmMode = 3,
-                psmMode = PsmMode,  // 後方互換性のため
+                psmMode = PsmMode,
                 AutoRotate = false,
                 autoRotate = AutoRotate,
                 ReadingOrder = 'auto',
@@ -126,6 +138,7 @@ window.ocrHelper = {
             } = options;
 
             console.log('[OCR] Recognition options:', {
+                language: this.currentLanguage,
                 psmMode,
                 autoRotate,
                 readingOrder
@@ -140,14 +153,11 @@ window.ocrHelper = {
 
             // 読み取り順序の設定
             if (readingOrder === 'rtl') {
-                // 右から左の読み取り順序を強制
                 params.textord_force_make_prop_words = 0;
                 params.textord_tabfind_find_tables = 0;
             } else if (readingOrder === 'ltr') {
-                // 左から右の読み取り順序を強制
                 params.textord_force_make_prop_words = 1;
             }
-            // 'auto'の場合はデフォルト設定を使用
 
             await this.worker.setParameters(params);
 
@@ -165,9 +175,7 @@ window.ocrHelper = {
             })) || [];
 
             if (readingOrder === 'rtl') {
-                // 各行のテキストを文字単位で逆順にする
                 finalLines = finalLines.map(line => {
-                    // 文字単位で完全に逆順にする
                     const reversed = line.text.split('').reverse().join('');
                     return {
                         text: reversed,
@@ -176,9 +184,7 @@ window.ocrHelper = {
                     };
                 });
 
-                // 全体のテキストも再構成
                 finalText = finalLines.map(line => line.text).join('\n');
-
                 console.log('[OCR] Text reversed (RTL mode)');
             }
 
@@ -195,9 +201,10 @@ window.ocrHelper = {
 
     async terminate() {
         if (this.worker) {
-            console.log('[OCR] Terminating main worker');
+            console.log('[OCR] Terminating worker');
             await this.worker.terminate();
             this.worker = null;
+            this.currentLanguage = null;
         }
     },
 
