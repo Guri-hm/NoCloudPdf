@@ -194,17 +194,15 @@
                 {
                     <div class="border-2 rounded-lg overflow-hidden @(item.IsSelected ? "border-blue-500 shadow-lg" : "border-gray-300") bg-white">
                         <!-- 画像プレビューエリア（固定高さ） -->
-                        <div class="relative bg-gray-100 flex items-center justify-center" style="height: 300px;">
-                            <img src="@item.ImageDataUrl" 
-                                 class="max-w-full max-h-full object-contain" 
-                                 alt="@item.FileName"
-                                 style="@GetRotationStyle(item.RotationAngle)" />
-                            <label class="absolute top-2 right-2 cursor-pointer bg-white rounded-md p-1 shadow-md hover:bg-gray-50 transition">
-                                <input type="checkbox" 
-                                       @bind="item.IsSelected" 
-                                       class="w-5 h-5 accent-blue-600 cursor-pointer" />
-                            </label>
-                        </div>
+                        <ImageViewer ImageSrc="@item.ImageDataUrl"
+                            AltText="@item.FileName"
+                            Height="300px"
+                            ShowControls="true"
+                            ShowCheckbox="true"
+                            IsSelected="@item.IsSelected"
+                            IsSelectedChanged="@(async (bool val) => { item.IsSelected = val; await Task.CompletedTask; })"
+                            RotationAngle="@item.RotationAngle" />
+                        
                         
                         <!-- コントロールエリア -->
                         <div class="p-4 bg-white border-t border-gray-200">
@@ -346,12 +344,13 @@
                     @foreach (var result in ocrResults)
                     {
                         <div class="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-                            <!-- 画像プレビュー（固定高さ） -->
-                            <div class="relative bg-gray-100 border-b border-gray-200 flex items-center justify-center" style="height: 300px;">
-                                <img src="@result.ImageDataUrl" 
-                                    alt="@result.FileName" 
-                                    class="max-w-full max-h-full object-contain" />
-                            </div>
+                            <!-- 画像ビューアー（ズーム・パン対応） -->
+                            <ImageViewer ImageSrc="@result.ImageDataUrl"
+                                AltText="@result.FileName"
+                                Height="300px"
+                                ShowControls="true"
+                                ShowCheckbox="false"
+                                RotationAngle="0" />
                             
                             <!-- OCR結果 -->
                             <div class="p-4 flex-1 flex flex-col">
@@ -1638,14 +1637,6 @@
         {
             Console.WriteLine($"OnSnapToGridChanged error: {ex.Message}");
         }
-    }
-    // OCRプレビュー画像の回転スタイルを取得
-    private string GetRotationStyle(double angle)
-    {
-        if (Math.Abs(angle) < 0.1)
-            return "";
-        
-        return $"transform: rotate({angle}deg);";
     }
 
     // すべて選択

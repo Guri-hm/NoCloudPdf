@@ -1,0 +1,188 @@
+@inject IJSRuntime JSRuntime
+
+<div class="relative bg-gray-100 overflow-hidden" style="height: @Height">
+    <div class="absolute inset-0 flex items-center justify-center"
+         id="@containerId"
+         style="cursor: @(isPanning ? "grabbing" : (zoom > 1.0 ? "grab" : "default"));"
+         @onmousedown="StartPan"
+         @onmousemove="DoPan"
+         @onmouseup="EndPan"
+         @onmouseleave="EndPan"
+         @onwheel="HandleWheel"
+         @onwheel:preventDefault="true">
+        
+        <img src="@ImageSrc"
+             alt="@AltText"
+             class="transition-transform duration-100 select-none"
+             style="@GetImageStyle()"
+             draggable="false" />
+        
+        <!-- ズームコントロール -->
+        @if (ShowControls)
+        {
+            <div class="absolute bottom-2 right-2 flex gap-1 bg-black/70 rounded px-2 py-1">
+                <button class="text-white hover:text-blue-300 transition p-1" @onclick="ZoomOut" @onclick:stopPropagation="true" title="縮小">
+                    <i class="fa-solid fa-search-minus"></i>
+                </button>
+                <span class="text-white text-xs font-mono min-w-[3rem] text-center leading-6">@((zoom * 100).ToString("F0"))%</span>
+                <button class="text-white hover:text-blue-300 transition p-1" @onclick="ZoomIn" @onclick:stopPropagation="true" title="拡大">
+                    <i class="fa-solid fa-search-plus"></i>
+                </button>
+                <button class="text-white hover:text-blue-300 transition p-1" @onclick="ResetZoom" @onclick:stopPropagation="true" title="リセット">
+                    <i class="fa-solid fa-undo"></i>
+                </button>
+            </div>
+        }
+    </div>
+    
+    @if (ShowCheckbox)
+    {
+        <label class="absolute top-2 right-2 cursor-pointer bg-white rounded-md p-1 shadow-md hover:bg-gray-50 transition z-10">
+            <input type="checkbox" 
+                   checked="@IsSelected" 
+                   @onchange="OnCheckboxChanged"
+                   class="w-5 h-5 accent-blue-600 cursor-pointer" />
+        </label>
+    }
+</div>
+
+@code {
+    [Parameter] public string ImageSrc { get; set; } = "";
+    [Parameter] public string AltText { get; set; } = "";
+    [Parameter] public string Height { get; set; } = "300px";
+    [Parameter] public bool ShowControls { get; set; } = true;
+    [Parameter] public bool ShowCheckbox { get; set; } = false;
+    [Parameter] public bool IsSelected { get; set; } = false;
+    [Parameter] public EventCallback<bool> IsSelectedChanged { get; set; }
+    [Parameter] public double RotationAngle { get; set; } = 0;
+
+    private string containerId = $"img-viewer-{Guid.NewGuid():N}";
+    private double zoom = 1.0;
+    private double panX = 0;
+    private double panY = 0;
+    private bool isPanning = false;
+    private double panStartX = 0;
+    private double panStartY = 0;
+    private double panStartOffsetX = 0;
+    private double panStartOffsetY = 0;
+
+    private const double ZoomStep = 0.25;
+    private const double MinZoom = 0.5;
+    private const double MaxZoom = 3.0;
+
+    private void ZoomIn()
+    {
+        zoom = Math.Min(MaxZoom, zoom + ZoomStep);
+        StateHasChanged();
+    }
+
+    private void ZoomOut()
+    {
+        zoom = Math.Max(MinZoom, zoom - ZoomStep);
+        // ズームアウト時にパン位置を調整（画像が小さくなったら中央に戻す）
+        if (zoom <= 1.0)
+        {
+            panX = 0;
+            panY = 0;
+        }
+        StateHasChanged();
+    }
+
+    private void ResetZoom()
+    {
+        zoom = 1.0;
+        panX = 0;
+        panY = 0;
+        StateHasChanged();
+    }
+
+    private void HandleWheel(WheelEventArgs e)
+    {
+        // Ctrl + ホイールでズーム
+        if (e.CtrlKey)
+        {
+            if (e.DeltaY < 0)
+                ZoomIn();
+            else
+                ZoomOut();
+        }
+    }
+
+    private void StartPan(MouseEventArgs e)
+    {
+        if (zoom <= 1.0) return; // ズームしていない場合はパン不要
+        
+        isPanning = true;
+        panStartX = e.ClientX;
+        panStartY = e.ClientY;
+        panStartOffsetX = panX;
+        panStartOffsetY = panY;
+    }
+
+    private void DoPan(MouseEventArgs e)
+    {
+        if (!isPanning || zoom <= 1.0) return;
+
+        double deltaX = e.ClientX - panStartX;
+        double deltaY = e.ClientY - panStartY;
+
+        panX = panStartOffsetX + deltaX;
+        panY = panStartOffsetY + deltaY;
+
+        StateHasChanged();
+    }
+
+    private void EndPan(MouseEventArgs e)
+    {
+        isPanning = false;
+    }
+
+    private string GetImageStyle()
+    {
+        var transforms = new List<string>();
+        
+        // CSS transformは右から左に適用されるため、逆順に記述
+        
+        // 3. パンを先に記述（実際には最初に適用される）
+        if (Math.Abs(panX) > 0.1 || Math.Abs(panY) > 0.1)
+        {
+            transforms.Add($"translate({panX}px, {panY}px)");
+        }
+        
+        // 2. ズームを記述
+        if (zoom != 1.0)
+        {
+            transforms.Add($"scale({zoom})");
+        }
+        
+        // 1. 回転を最後に記述（実際には最後に適用される）
+        if (Math.Abs(RotationAngle) > 0.1)
+        {
+            transforms.Add($"rotate({RotationAngle}deg)");
+        }
+
+        var styles = new List<string>
+        {
+            "max-width: 100%",
+            "max-height: 100%",
+            "object-fit: contain"
+        };
+
+        if (transforms.Any())
+        {
+            styles.Add($"transform: {string.Join(" ", transforms)}");
+            styles.Add("transform-origin: center");
+        }
+
+        return string.Join("; ", styles) + ";";
+    }
+
+    private async Task OnCheckboxChanged(ChangeEventArgs e)
+    {
+        if (e.Value is bool value)
+        {
+            IsSelected = value;
+            await IsSelectedChanged.InvokeAsync(value);
+        }
+    }
+}
