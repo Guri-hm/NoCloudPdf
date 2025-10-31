@@ -1,9 +1,7 @@
-
 window._visiblePageObserver = window._visiblePageObserver || {};
-// スクロール時のアクティブページを取得
-window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 1000) {
-    try {
 
+window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 500) {
+    try {
         try { window.unregisterVisiblePageObserver(containerId); } catch (e) { }
 
         const container = document.getElementById(containerId);
@@ -16,46 +14,91 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
 
         const cb = function (entries) {
             try {
+                // viewport の中心座標を取得
+                const containerRect = container.getBoundingClientRect();
+                const viewportCenterY = containerRect.top + containerRect.height / 2;
+
                 let bestIdx = -1;
+                let bestDistance = Infinity;
                 let bestRatio = 0;
+
+                // 一定以上表示されている要素の最小 ratio（20% 以上表示されているもののみ対象）
+                const MIN_VISIBLE_RATIO = 0.2;
+
                 entries.forEach(en => {
                     const ratio = en.intersectionRatio || 0;
-                    const id = en.target && en.target.id;
+                    
+                    // 20% 以上表示されている要素のみ対象にする
+                    if (ratio < MIN_VISIBLE_RATIO) return;
+
+                    const id = en.target?.id;
                     if (!id) return;
+
                     const parts = id.split('-');
                     const idx = Number(parts[parts.length - 1]);
                     if (!Number.isFinite(idx)) return;
-                    if (ratio > bestRatio) {
+
+                    // 要素の中心座標を計算
+                    const rect = en.target.getBoundingClientRect();
+                    const elementCenterY = rect.top + rect.height / 2;
+                    const distance = Math.abs(elementCenterY - viewportCenterY);
+
+                    // 優先順位: 
+                    // 1) viewport 中心に最も近い要素
+                    // 2) 距離が近い場合（要素の高さの 10% 以内）は intersectionRatio が大きい方
+                    const elementHeight = rect.height;
+                    const distanceThreshold = elementHeight * 0.1; // 要素の高さの 10% を閾値にする
+
+                    const isCloser = distance < bestDistance - distanceThreshold;
+                    const isSimilarDistanceButMoreVisible = 
+                        Math.abs(distance - bestDistance) <= distanceThreshold && ratio > bestRatio;
+
+                    if (isCloser || isSimilarDistanceButMoreVisible) {
+                        bestDistance = distance;
                         bestRatio = ratio;
                         bestIdx = idx;
                     }
                 });
-                if (bestIdx >= 0) {
 
-                    try {
+                if (bestIdx >= 0 && bestIdx !== state.lastIdx) {
+                    state.pendingBest = bestIdx;
+                    if (state.timer) clearTimeout(state.timer);
 
-                        if (state.lastIdx === bestIdx) {
+                    state.timer = setTimeout(() => {
+                        try {
+                            if (state.lastIdx !== state.pendingBest) {
+                                state.lastIdx = state.pendingBest;
 
-                            return;
-                        }
-                        state.pendingBest = bestIdx;
-                        if (state.timer) clearTimeout(state.timer);
-                        state.timer = setTimeout(() => {
-                            try {
-                                if (state.lastIdx !== state.pendingBest) {
-                                    state.lastIdx = state.pendingBest;
-                                    dotNetRef.invokeMethodAsync('SetVisiblePageFromJs', state.pendingBest)
-                                        .catch(() => { /* ignore */ });
-                                }
-                            } catch (e) { /* ignore */ }
-                            state.timer = null;
-                        }, state.debounceMs);
-                    } catch (e) { /* ignore */ }
+                                // UI を直接更新（再レンダリング回避）
+                                try {
+                                    const topInput = document.getElementById('topbar-page-input');
+                                    if (topInput) {
+                                        topInput.value = String(state.pendingBest + 1);
+                                    }
+                                } catch (e) { /* ignore */ }
+
+                                // Blazor 側に通知（StateHasChanged を呼ばない実装であること前提）
+                                try {
+                                    if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
+                                        dotNetRef.invokeMethodAsync('SetVisiblePageFromJs', state.pendingBest)
+                                            .catch(() => { /* ignore */ });
+                                    }
+                                } catch (e) { /* ignore */ }
+                            }
+                        } catch (e) { /* ignore */ }
+                        state.timer = null;
+                    }, state.debounceMs);
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                console.error('visible page observer callback error', e);
+            }
         };
 
-        const obs = new IntersectionObserver(cb, { root: container, threshold: [0, 0.25, 0.5, 0.75, 1] });
+        // threshold を減らして発火頻度を下げる（0.5 前後のみ検出）
+        const obs = new IntersectionObserver(cb, { 
+            root: container, 
+            threshold: [0, 0.2, 0.5, 0.8, 1] // 発火を減らして安定化
+        });
         items.forEach(it => obs.observe(it));
 
         window._visiblePageObserver = window._visiblePageObserver || {};

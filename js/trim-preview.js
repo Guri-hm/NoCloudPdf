@@ -1,3 +1,6 @@
+// ========================================
+// Canvas描画完了待機
+// ========================================
 window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
     try {
         if (!canvasId) return false;
@@ -16,7 +19,6 @@ window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
             await new Promise(r => requestAnimationFrame(r));
             const w = el.clientWidth, h = el.clientHeight;
             if (w > 0 && h > 0) {
-
                 await new Promise(r => requestAnimationFrame(r));
                 const w2 = el.clientWidth, h2 = el.clientHeight;
                 if (w === w2 && h === h2) return true;
@@ -29,13 +31,67 @@ window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
     }
 };
 
+// ========================================
+// ヘルパー: 祖先要素を基準とした offsetLeft/Top を計算
+// ========================================
+function getOffsetRelativeTo(element, ancestor) {
+    let x = 0, y = 0;
+    let el = element;
+    while (el && el !== ancestor && el !== document.body) {
+        x += el.offsetLeft || 0;
+        y += el.offsetTop || 0;
+        el = el.offsetParent;
+    }
+    return { x, y };
+}
 
+// ========================================
+// SVGオーバーレイ描画: トリム矩形の表示
+// ========================================
 window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     try {
         if (!canvasId) return false;
-        const base = document.getElementById(canvasId);
-        if (!base) return false;
-        const host = base.parentElement || base.closest('.tp-preview-page') || base.closest('.preview-zoom-inner') || document.body;
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return false;
+        const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
+        
+        function removeRectAt(index) {
+            try {
+                if (trimState.allowMultipleRects) {
+                    if (index >= 0 && index < trimState.currentRectsPx.length) {
+                        trimState.currentRectsPx.splice(index, 1);
+                    }
+                    trimState.selectedRectIndex = -1;
+
+                    const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+                    const rectsToRender = (trimState.currentRectsPx || []).map(r => ({
+                        X: r.x / cssW, Y: r.y / cssH,
+                        Width: r.w / cssW, Height: r.h / cssH
+                    }));
+
+                    if (window.drawTrimOverlayAsSvg) {
+                        window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                    }
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToRender).catch(() => {});
+                    }
+                } else {
+                    // 単一矩形時: 全削除
+                    trimState.selected = false;
+                    trimState.currentRectPx = null;
+                    trimState.currentRectsPx = [];
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
+                    }
+                    if (window.drawTrimOverlayAsSvg) {
+                        window.drawTrimOverlayAsSvg(canvasId, []);
+                    }
+                }
+            } catch (e) { console.error('removeRectAt error', e); }
+        }
+
+        // SVGコンテナを準備（既存または新規作成）
         const overlayId = canvasId + '-overlay-svg';
         let container = document.getElementById(overlayId);
         if (!container) {
@@ -48,239 +104,217 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             container.style.zIndex = '45';
             host.appendChild(container);
         }
+        
+        const canvasRect = canvas.getBoundingClientRect();
+        const offset = getOffsetRelativeTo(canvas, host);
+        const relLeft = Math.round(offset.x);
+        const relTop = Math.round(offset.y);
 
-        const baseRect = base.getBoundingClientRect();
-
-        function getOffsetRelativeTo(element, ancestor) {
-            let x = 0, y = 0;
-            let el = element;
-            while (el && el !== ancestor && el !== document.body) {
-                x += el.offsetLeft || 0;
-                y += el.offsetTop || 0;
-                el = el.offsetParent;
-            }
-            return { x, y };
-        }
-
-        const off = getOffsetRelativeTo(base, host);
-        const relLeft = Math.round(off.x);
-        const relTop = Math.round(off.y);
-
-        const cssW = Math.max(1, Math.round(base.clientWidth || baseRect.width || 0));
-        const cssH = Math.max(1, Math.round(base.clientHeight || baseRect.height || 0));
-
+        const cssW = Math.max(1, Math.round(canvas.clientWidth || canvasRect.width || 0));
+        const cssH = Math.max(1, Math.round(canvas.clientHeight || canvasRect.height || 0));
+        
+        // コンテナを Canvas と同じ位置・サイズに配置
         container.style.left = relLeft + 'px';
         container.style.top = relTop + 'px';
         container.style.width = cssW + 'px';
         container.style.height = cssH + 'px';
-
+        
+        // SVG 要素を準備（初回のみ作成）
         let svg = container.querySelector('svg');
         if (!svg) {
             svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.setAttribute('width', '100%');
             svg.setAttribute('height', '100%');
-            // viewBox を設定して内部座標を論理ピクセルに合わせる
             svg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
             svg.setAttribute('preserveAspectRatio', 'none');
             svg.style.pointerEvents = 'none';
             container.appendChild(svg);
         }
 
+        // 既存の子要素をクリア
         while (svg.firstChild) svg.removeChild(svg.firstChild);
 
+        // グローバルトリム状態の初期化
         window._simpleTrim = window._simpleTrim || {};
         if (!window._simpleTrim[canvasId]) window._simpleTrim[canvasId] = {};
-        const entry = window._simpleTrim[canvasId];
+        const trimState = window._simpleTrim[canvasId];
 
+        // 矩形なし → 空のオーバーレイのみ配置して終了
         if (!Array.isArray(rects) || rects.length === 0) {
-            entry.overlayDom = container;
-            entry.currentRectPx = null;
+            trimState.overlayDom = container;
+            trimState.currentRectPx = null;
+            trimState.currentRectsPx = [];
             container.style.pointerEvents = 'none';
             svg.style.pointerEvents = 'none';
             return true;
         }
 
+        // 矩形あり → 描画処理
         container.style.pointerEvents = 'auto';
         svg.style.pointerEvents = 'auto';
 
-        const r = rects[0];
-        const nx = Number(r.X ?? r.x ?? 0);
-        const ny = Number(r.Y ?? r.y ?? 0);
-        const nw = Number(r.Width ?? r.width ?? 0);
-        const nh = Number(r.Height ?? r.height ?? 0);
+        // 複数矩形を順次描画
+        rects.forEach((rect, rectIndex) => {
+            const normX = Number(rect.X ?? rect.x ?? 0);
+            const normY = Number(rect.Y ?? rect.y ?? 0);
+            const normW = Number(rect.Width ?? rect.width ?? 0);
+            const normH = Number(rect.Height ?? rect.height ?? 0);
 
-        // logical (非スケール) 座標に基づく矩形
-        const rx = Math.round(nx * cssW);
-        const ry = Math.round(ny * cssH);
-        const rw = Math.round(nw * cssW);
-        const rh = Math.round(nh * cssH);
+            // 正規化座標 → ピクセル座標
+            const rectX = Math.round(normX * cssW);
+            const rectY = Math.round(normY * cssH);
+            const rectW = Math.round(normW * cssW);
+            const rectH = Math.round(normH * cssH);
 
-        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.setAttribute('transform', `translate(0,0)`);
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('data-rect-index', String(rectIndex)); // 矩形識別用
 
-        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bg.setAttribute('x', '0');
-        bg.setAttribute('y', '0');
-        bg.setAttribute('width', String(cssW));
-        bg.setAttribute('height', String(cssH));
-        bg.setAttribute('fill', 'transparent');
-        bg.style.pointerEvents = 'none';
-        g.appendChild(bg);
+            // 背景（透明、イベント無視）
+            const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bg.setAttribute('x', '0');
+            bg.setAttribute('y', '0');
+            bg.setAttribute('width', String(cssW));
+            bg.setAttribute('height', String(cssH));
+            bg.setAttribute('fill', 'transparent');
+            bg.style.pointerEvents = 'none';
+            g.appendChild(bg);
 
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', String(rx));
-        rect.setAttribute('y', String(ry));
-        rect.setAttribute('width', String(Math.max(0, rw)));
-        rect.setAttribute('height', String(Math.max(0, rh)));
-        rect.setAttribute('fill', 'rgba(59,130,246,0.12)');
+            // メイン矩形（塗り + 枠）
+            const mainRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            mainRect.setAttribute('x', String(rectX));
+            mainRect.setAttribute('y', String(rectY));
+            mainRect.setAttribute('width', String(Math.max(0, rectW)));
+            mainRect.setAttribute('height', String(Math.max(0, rectH)));
+            mainRect.setAttribute('fill', 'rgba(59,130,246,0.12)');
 
-        const isSelected = !!(entry && entry.selected);
-        rect.setAttribute('stroke', isSelected ? 'rgba(37,99,235,1)' : 'rgba(59,130,246,0.95)');
-        rect.setAttribute('stroke-width', isSelected ? '3' : '2');
-        rect.style.pointerEvents = 'auto';
-        rect.style.cursor = 'move';
-        rect.setAttribute('data-rect', 'true');
-        g.appendChild(rect);
+            // 選択判定（複数時は selectedRectIndex、単一時は selected フラグ）
+            const isSelected = trimState.allowMultipleRects 
+                ? (trimState.selectedRectIndex === rectIndex)
+                : Boolean(trimState.selected);
 
-        const HANDLE = 12;
-        const half = Math.round(HANDLE / 2);
-        const points = [
-            [rx, ry],
-            [rx + rw / 2, ry],
-            [rx + rw, ry],
-            [rx + rw, ry + rh / 2],
-            [rx + rw, ry + rh],
-            [rx + rw / 2, ry + rh],
-            [rx, ry + rh],
-            [rx, ry + rh / 2]
-        ];
-        const keyMap = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-        const cursorMap = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' };
-        points.forEach((p, idx) => {
-            const h = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            h.setAttribute('x', String(Math.round(p[0] - half)));
-            h.setAttribute('y', String(Math.round(p[1] - half)));
-            h.setAttribute('width', String(HANDLE));
-            h.setAttribute('height', String(HANDLE));
-            h.setAttribute('fill', 'rgba(59,130,246,0.95)');
-            h.setAttribute('data-handle', String(idx));
-            h.style.pointerEvents = 'auto';
-            const k = keyMap[idx];
-            h.style.cursor = cursorMap[k] || 'default';
-            g.appendChild(h);
+            mainRect.setAttribute('stroke', isSelected ? 'rgba(37,99,235,1)' : 'rgba(59,130,246,0.95)');
+            mainRect.setAttribute('stroke-width', isSelected ? '3' : '2');
+            mainRect.setAttribute('data-rect', 'true');
+            mainRect.setAttribute('data-rect-index', String(rectIndex));
+            mainRect.style.pointerEvents = 'auto';
+
+            g.appendChild(mainRect);
+
+            // リサイズハンドル（選択中の矩形のみ表示）
+            if (isSelected) {
+                const HANDLE_SIZE = 12;
+                const handleHalf = Math.round(HANDLE_SIZE / 2);
+                const handlePositions = [
+                    [rectX, rectY], [rectX + rectW / 2, rectY], [rectX + rectW, rectY],
+                    [rectX + rectW, rectY + rectH / 2], [rectX + rectW, rectY + rectH],
+                    [rectX + rectW / 2, rectY + rectH], [rectX, rectY + rectH], [rectX, rectY + rectH / 2]
+                ];
+                const handleKeys = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+                const handleCursors = {
+                    nw: 'nwse-resize', se: 'nwse-resize',
+                    ne: 'nesw-resize', sw: 'nesw-resize',
+                    n: 'ns-resize', s: 'ns-resize',
+                    e: 'ew-resize', w: 'ew-resize'
+                };
+
+                handlePositions.forEach(([px, py], idx) => {
+                    const handle = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    handle.setAttribute('x', String(Math.round(px - handleHalf)));
+                    handle.setAttribute('y', String(Math.round(py - handleHalf)));
+                    handle.setAttribute('width', String(HANDLE_SIZE));
+                    handle.setAttribute('height', String(HANDLE_SIZE));
+                    handle.setAttribute('fill', 'rgba(59,130,246,0.95)');
+                    handle.setAttribute('data-handle', String(idx));
+                    handle.setAttribute('data-rect-index', String(rectIndex));
+                    handle.style.pointerEvents = 'auto';
+                    handle.style.cursor = handleCursors[handleKeys[idx]] || 'default';
+                    g.appendChild(handle);
+                });
+
+                // 削除ボタン（選択中のみ）
+                let deleteX = rectX + rectW + 10;
+                let deleteY = rectY - 10;
+                deleteX = Math.min(cssW - 12, Math.max(12, deleteX));
+                deleteY = Math.min(cssH - 12, Math.max(12, deleteY));
+
+                const deleteBtn = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                deleteBtn.style.pointerEvents = 'auto';
+
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', String(deleteX));
+                circle.setAttribute('cy', String(deleteY));
+                circle.setAttribute('r', '10');
+                circle.setAttribute('fill', 'rgba(0,0,0,0.6)');
+                circle.setAttribute('data-close', 'true');
+                circle.setAttribute('data-rect-index', String(rectIndex));
+                circle.style.cursor = 'pointer';
+                deleteBtn.appendChild(circle);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', String(deleteX));
+                text.setAttribute('y', String(deleteY + 4));
+                text.setAttribute('fill', '#fff');
+                text.setAttribute('font-size', '12');
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('data-close', 'true');
+                text.setAttribute('data-rect-index', String(rectIndex));
+                text.style.pointerEvents = 'none';
+                text.textContent = '×';
+                deleteBtn.appendChild(text);
+
+                deleteBtn.addEventListener('pointerdown', function (ev) {
+                    try {
+                        ev.stopPropagation();
+                        removeRectAt(rectIndex);
+                    } catch (e) { console.error(e); }
+                }, { passive: false });
+
+                g.appendChild(deleteBtn);
+            }
+
+            svg.appendChild(g);
         });
 
-        if (isSelected) {
-            let cx = rx + rw + 10;
-            let cy = ry - 10;
-            cx = Math.min(cssW - 12, Math.max(12, cx));
-            cy = Math.min(cssH - 12, Math.max(12, cy));
-            const btnG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            btnG.setAttribute('transform', `translate(0,0)`);
-            btnG.style.pointerEvents = 'auto';
+        // ピクセル座標を状態に保存
+        if (!trimState.active) {
+            trimState.overlayDom = container;
+            trimState.currentRectsPx = rects.map(r => ({
+                x: Number(r.X ?? r.x ?? 0) * cssW,
+                y: Number(r.Y ?? r.y ?? 0) * cssH,
+                w: Number(r.Width ?? r.width ?? 0) * cssW,
+                h: Number(r.Height ?? r.height ?? 0) * cssH
+            }));
+            // 単一矩形互換用（最後の矩形）
+            trimState.currentRectPx = trimState.currentRectsPx.length > 0 
+                ? { ...trimState.currentRectsPx[trimState.currentRectsPx.length - 1] }
+                : null;
+        }
 
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', String(cx));
-            circle.setAttribute('cy', String(cy));
-            circle.setAttribute('r', '10');
-            circle.setAttribute('fill', 'rgba(0,0,0,0.6)');
-            circle.setAttribute('data-close', 'true');
-            circle.style.cursor = 'pointer';
-            btnG.appendChild(circle);
-
-            const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            txt.setAttribute('x', String(cx));
-            txt.setAttribute('y', String(cy + 4));
-            txt.setAttribute('fill', '#fff');
-            txt.setAttribute('font-size', '12');
-            txt.setAttribute('text-anchor', 'middle');
-            txt.setAttribute('data-close', 'true');
-            txt.style.pointerEvents = 'none';
-            txt.textContent = '×';
-            btnG.appendChild(txt);
-
-            btnG.addEventListener('pointerdown', function (ev) {
-                try {
-                    ev.stopPropagation();
-                    if (entry) {
-                        entry.selected = false;
-                        entry.currentRectPx = null;
-                        if (entry.dotNetRef && entry.dotNetRef.invokeMethodAsync) {
-                            try { entry.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs'); } catch (e) { }
-                        }
-                        window.drawTrimOverlayAsSvg(canvasId, []);
+        // キーボードイベント登録（Delete で削除）
+        if (!trimState.internal) trimState.internal = {};
+        if (!trimState.internal.keydown) {
+            trimState.internal.keydown = function (ev) {
+                if ((ev.key === 'Delete' || ev.key === 'Del')) {
+                    if (trimState.allowMultipleRects && trimState.selectedRectIndex >= 0) {
+                        removeRectAt(trimState.selectedRectIndex);
+                    } else if (!trimState.allowMultipleRects && trimState.selected) {
+                        removeRectAt(0);
                     }
-                } catch (e) { }
-            }, { passive: false });
-
-            g.appendChild(btnG);
+                }
+            };
+            document.addEventListener('keydown', trimState.internal.keydown);
         }
 
-        svg.appendChild(g);
+        // オーバーレイイベント登録（初回のみ）
+        if (trimState.handlers && !container.__trimHooked) {
+            const safeInvoke = (fn, ev) => { try { fn(ev); } catch (e) {} };
+            trimState.internal.overlayPointerDown = (ev) => safeInvoke(trimState.handlers.pointerDown, ev);
+            trimState.internal.overlayMove = (ev) => safeInvoke(trimState.handlers.overlayMove, ev);
 
-        try {
-            const rxFloat = nx * cssW;
-            const ryFloat = ny * cssH;
-            const rwFloat = nw * cssW;
-            const rhFloat = nh * cssH;
-
-            entry.overlayDom = container;
-
-            if (!entry.active) {
-                entry.currentRectPx = { x: rxFloat, y: ryFloat, w: rwFloat, h: rhFloat };
-            }
-        } catch (e) {
-            console.error('drawTrimOverlayAsSvg sync error', e);
-        }
-
-        try {
-
-            if (!entry.internal) entry.internal = {};
-            if (!entry.internal.keydown) {
-                entry.internal.keydown = function (ev) {
-                    try {
-                        if (ev.key === 'Delete' || ev.key === 'Del') {
-                            if (entry && entry.selected) {
-
-                                entry.selected = false;
-                                entry.currentRectPx = null;
-                                if (entry.dotNetRef && entry.dotNetRef.invokeMethodAsync) {
-                                    try { entry.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs'); } catch (e) { }
-                                }
-                                window.drawTrimOverlayAsSvg(canvasId, []);
-                            }
-                        }
-                    } catch (e) { }
-                };
-                document.addEventListener('keydown', entry.internal.keydown);
-            }
-        } catch (e) { }
-
-        try {
-            const entry2 = window._simpleTrim[canvasId];
-            if (entry2 && !container.__trimHooked) {
-                entry2.internal = entry2.internal || {};
-                if (!entry2.internal.overlayPointerDown) {
-                    entry2.internal.overlayPointerDown = function (ev) { try { entry2.handlers.pointerDown(ev); } catch (e) { } };
-                    container.addEventListener('pointerdown', entry2.internal.overlayPointerDown, { passive: false, capture: true });
-                    container.addEventListener('touchstart', entry2.internal.overlayPointerDown, { passive: false, capture: true });
-                }
-                if (!entry2.internal.overlayMove) {
-                    entry2.internal.overlayMove = function (ev) { try { entry2.handlers.overlayMove(ev); } catch (e) { } };
-                    container.addEventListener('pointermove', entry2.internal.overlayMove, { passive: true, capture: true });
-                }
-                if (!entry2.internal.overlayOver) {
-                    entry2.internal.overlayOver = function (ev) { try { entry2.handlers.overlayOver && entry2.handlers.overlayOver(ev); } catch (e) { } };
-                    container.addEventListener('pointerover', entry2.internal.overlayOver, { passive: true, capture: true });
-                }
-                if (!entry2.internal.overlayOut) {
-                    entry2.internal.overlayOut = function (ev) { try { entry2.handlers.overlayOut && entry2.handlers.overlayOut(ev); } catch (e) { } };
-                    container.addEventListener('pointerout', entry2.internal.overlayOut, { passive: true, capture: true });
-                }
-                container.__trimHooked = true;
-            }
-        } catch (e) {
-            console.error('drawTrimOverlayAsSvg hook error', e);
+            container.addEventListener('pointerdown', trimState.internal.overlayPointerDown, { passive: false, capture: true });
+            container.addEventListener('touchstart', trimState.internal.overlayPointerDown, { passive: false, capture: true });
+            container.addEventListener('pointermove', trimState.internal.overlayMove, { passive: true, capture: true });
+            container.__trimHooked = true;
         }
 
         return true;
@@ -290,111 +324,202 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     }
 };
 
+// ========================================
+// トリムリスナー管理: ドラッグ & リサイズ処理
+// ========================================
 (function () {
     window._simpleTrim = window._simpleTrim || {};
+    window._trimSnapSettings = { enabled: false, threshold: 10 }; // スナップ有効化フラグと閾値（ピクセル）
 
-    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
+    // スナップ補助線を描画
+    function drawSnapGuides(canvasId, snapLines) {
+        try {
+            const overlayContainer = document.getElementById(canvasId + '-overlay-svg');
+            if (!overlayContainer) return;
+
+            // 補助線専用の SVG を探す（なければ作成）
+            let guideSvg = overlayContainer.querySelector('.snap-guide-svg');
+            if (!guideSvg) {
+                guideSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                guideSvg.classList.add('snap-guide-svg');
+                guideSvg.setAttribute('width', '100%');
+                guideSvg.setAttribute('height', '100%');
+                guideSvg.style.pointerEvents = 'none';
+                guideSvg.style.position = 'absolute';
+                guideSvg.style.left = '0';
+                guideSvg.style.top = '0';
+                guideSvg.style.zIndex = '44'; // 矩形より下、背景より上
+                overlayContainer.appendChild(guideSvg);
+            }
+
+            // viewBox を動的に設定
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
+            const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+            guideSvg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
+            guideSvg.setAttribute('preserveAspectRatio', 'none');
+
+            // 既存の補助線をクリア
+            while (guideSvg.firstChild) {
+                guideSvg.removeChild(guideSvg.firstChild);
+            }
+
+            if (!snapLines || snapLines.length === 0) return;
+
+            // 補助線を描画
+            snapLines.forEach(line => {
+                const snapLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                
+                if (line.type === 'vertical') {
+                    snapLine.setAttribute('x1', String(line.position));
+                    snapLine.setAttribute('y1', '0');
+                    snapLine.setAttribute('x2', String(line.position));
+                    snapLine.setAttribute('y2', String(cssH));
+                } else { // horizontal
+                    snapLine.setAttribute('x1', '0');
+                    snapLine.setAttribute('y1', String(line.position));
+                    snapLine.setAttribute('x2', String(cssW));
+                    snapLine.setAttribute('y2', String(line.position));
+                }
+
+                snapLine.setAttribute('stroke', 'rgba(59,130,246,0.8)'); // 青色
+                snapLine.setAttribute('stroke-width', '2');
+                snapLine.setAttribute('stroke-dasharray', '5 5'); // 破線
+                snapLine.setAttribute('vector-effect', 'non-scaling-stroke'); // ズームしても線幅を維持
+                snapLine.style.pointerEvents = 'none';
+
+                guideSvg.appendChild(snapLine);
+            });
+
+        } catch (e) {
+            console.error('drawSnapGuides error', e);
+        }
+    }
+
+    // スナップ計算関数（補助線情報も返す）
+    function snapValue(value, targets, threshold) {
+        const result = { snapped: value, hasSnap: false, snapTarget: null };
+
+        if (!window._trimSnapSettings.enabled || !targets || targets.length === 0) {
+            return result;
+        }
+
+        let closestDist = Infinity;
+
+        for (const target of targets) {
+            const dist = Math.abs(value - target);
+            if (dist < threshold && dist < closestDist) {
+                closestDist = dist;
+                result.snapped = target;
+                result.hasSnap = true;
+                result.snapTarget = target;
+            }
+        }
+
+        return result;
+    }
+
+    // 既存矩形からスナップターゲットを収集
+    function collectSnapTargets(canvasId) {
+        const targets = { x: [], y: [] };
+        
+        try {
+            const trimState = window._simpleTrim[canvasId];
+            if (!trimState || !trimState.currentRectsPx) return targets;
+
+            trimState.currentRectsPx.forEach(rect => {
+                targets.x.push(rect.x, rect.x + rect.w); // 左端と右端
+                targets.y.push(rect.y, rect.y + rect.h); // 上端と下端
+            });
+        } catch (e) {
+            console.error('collectSnapTargets error', e);
+        }
+
+        return targets;
+    }
+
+    // ========================================
+    // クリーンアップ: リスナー・DOM削除
+    // ========================================
     function cleanupTrimEntry(canvasId) {
-
         const safe = {
             removeListener(el, ev, fn, opts) {
-                try { if (el && fn) el.removeEventListener(ev, fn, opts); } catch (e) { /* ignore */ }
+                try { if (el && fn) el.removeEventListener(ev, fn, opts); } catch (e) {}
             },
             removeWindowListener(ev, fn, opts) {
-                try { if (fn) window.removeEventListener(ev, fn, opts); } catch (e) { /* ignore */ }
+                try { if (fn) window.removeEventListener(ev, fn, opts); } catch (e) {}
             },
             removeDocumentListener(ev, fn, opts) {
-                try { if (fn) document.removeEventListener(ev, fn, opts); } catch (e) { /* ignore */ }
+                try { if (fn) document.removeEventListener(ev, fn, opts); } catch (e) {}
             },
             removeElement(el) {
                 try {
                     if (!el) return;
-                    try { if (el.style) el.style.pointerEvents = 'none'; } catch (e) { }
-                    try { if (typeof el.remove === 'function') el.remove(); } catch (e) { }
-
-                    try { if (el.width !== undefined) { el.width = 0; el.height = 0; } } catch (e) { }
-                } catch (e) { /* ignore */ }
+                    if (el.style) el.style.pointerEvents = 'none';
+                    if (typeof el.remove === 'function') el.remove();
+                    if (el.width !== undefined) { el.width = 0; el.height = 0; }
+                } catch (e) {}
             }
         };
 
         try {
-            const entry = window._simpleTrim && window._simpleTrim[canvasId];
-            if (!entry) return;
+            const trimState = window._simpleTrim?.[canvasId];
+            if (!trimState) return;
 
-            safe.removeListener(entry.base, 'pointerdown', entry.handlers?.pointerDown, { passive: false });
-            safe.removeListener(entry.base, 'touchstart', entry.handlers?.touchStart, { passive: false });
+            safe.removeListener(trimState.base, 'pointerdown', trimState.handlers?.pointerDown, { passive: false });
+            safe.removeListener(trimState.base, 'touchstart', trimState.handlers?.touchStart, { passive: false });
+            safe.removeWindowListener('pointermove', trimState.handlers?.move, { passive: false });
+            safe.removeWindowListener('pointerup', trimState.handlers?.up, { passive: false });
 
-            safe.removeWindowListener('pointermove', entry.handlers?.move, { passive: false });
-            safe.removeWindowListener('pointerup', entry.handlers?.up, { passive: false });
+            safe.removeElement(trimState.overlay || document.getElementById(canvasId + '-overlay'));
 
-            safe.removeElement(entry.overlay || document.getElementById(canvasId + '-overlay'));
-
-            const od = entry.overlayDom || document.getElementById(canvasId + '-overlay-svg');
-            if (od) {
-                safe.removeListener(od, 'pointerdown', entry.internal?.overlayPointerDown, true);
-                safe.removeListener(od, 'touchstart', entry.internal?.overlayPointerDown, true);
-                safe.removeListener(od, 'pointermove', entry.internal?.overlayMove, true);
-                safe.removeListener(od, 'pointerover', entry.internal?.overlayOver, true);
-                safe.removeListener(od, 'pointerout', entry.internal?.overlayOut, true);
-                safe.removeElement(od);
+            const overlayDom = trimState.overlayDom || document.getElementById(canvasId + '-overlay-svg');
+            if (overlayDom) {
+                safe.removeListener(overlayDom, 'pointerdown', trimState.internal?.overlayPointerDown, true);
+                safe.removeListener(overlayDom, 'touchstart', trimState.internal?.overlayPointerDown, true);
+                safe.removeListener(overlayDom, 'pointermove', trimState.internal?.overlayMove, true);
+                safe.removeElement(overlayDom);
             }
 
-            safe.removeDocumentListener('keydown', entry.internal?.keydown);
+            safe.removeDocumentListener('keydown', trimState.internal?.keydown);
+            safe.removeListener(trimState.host, 'scroll', trimState.internal?.hostScroll, { passive: true });
 
-            safe.removeListener(entry.host, 'scroll', entry.internal?.hostScroll, { passive: true });
-            if (entry.internal && entry.internal.container) {
-                safe.removeListener(entry.internal.container, 'scroll', entry.internal?.containerScroll, { passive: true });
-            }
+            if (trimState.handlers) Object.keys(trimState.handlers).forEach(k => trimState.handlers[k] = null);
+            if (trimState.internal) Object.keys(trimState.internal).forEach(k => trimState.internal[k] = null);
 
-            try {
-                if (entry.handlers) {
-                    entry.handlers.pointerDown = null;
-                    entry.handlers.touchStart = null;
-                    entry.handlers.move = null;
-                    entry.handlers.up = null;
-                }
-                if (entry.internal) {
-                    entry.internal.overlayPointerDown = null;
-                    entry.internal.overlayMove = null;
-                    entry.internal.overlayOver = null;
-                    entry.internal.overlayOut = null;
-                    entry.internal.keydown = null;
-                    entry.internal.hostScroll = null;
-                    entry.internal.containerScroll = null;
-                    entry.internal.windowScroll = null;
-                    entry.internal.resize = null;
-                }
-            } catch (e) { /* ignore */ }
-
-            try { delete window._simpleTrim[canvasId]; } catch (e) { /* ignore */ }
+            delete window._simpleTrim[canvasId];
         } catch (e) {
             console.error('cleanupTrimEntry error', e);
         }
     }
 
-    window.attachTrimListeners = function (canvasId, dotNetRef, selectionMode = 'single') {
+    // ========================================
+    // リスナー登録: ドラッグ・リサイズ・移動
+    // ========================================
+    window.attachTrimListeners = function (canvasId, dotNetRef, selectionMode = 'single', allowMultipleRects = false) {
         try {
+            //登録時はパンモード解除
+            window._previewPan.enabled = false;
             if (!canvasId) return false;
-            const base = document.getElementById(canvasId);
-            if (!base) {
-                console.warn(`trim attach: canvas not found: ${canvasId}`);
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.warn(`attachTrimListeners: canvas not found: ${canvasId}`);
                 return false;
             }
 
+            // 既存の選択状態を保持
             let preservedSelected = false;
-            try {
-                window._simpleTrim = window._simpleTrim || {};
-                const existing = window._simpleTrim[canvasId];
-                if (existing && existing.selected) {
-                    preservedSelected = true;
-                }
-            } catch (e) { /* ignore */ }
+            const existing = window._simpleTrim[canvasId];
+            if (existing?.selected) preservedSelected = true;
 
-            try { cleanupTrimEntry(canvasId); } catch (e) { /* ignore */ }
+            cleanupTrimEntry(canvasId);
 
-            const host = base.parentElement || base.closest('.tp-preview-page') || base.closest('.preview-zoom-inner') || document.body;
-            try { if (getComputedStyle(host).position === 'static') host.style.position = 'relative'; } catch (e) { /* ignore */ }
+            const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
+            if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
 
             const overlayId = canvasId + '-overlay';
             let overlay = document.getElementById(overlayId);
@@ -407,33 +532,39 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 host.appendChild(overlay);
             }
 
-            const svgContainerId = canvasId + '-overlay-svg';
-            const overlayDom = document.getElementById(svgContainerId) || null;
+            const overlayDom = document.getElementById(canvasId + '-overlay-svg') || null;
 
-            const state = {
-                base, host, overlay, overlayDom, dotNetRef,
+            const trimState = {
+                base: canvas,
+                host,
+                overlay,
+                overlayDom, //キャンバス上に置かれた SVG オーバーレイ（DOM コンテナ）への参 
+                dotNetRef,
                 selectionMode: (selectionMode === 'multi') ? 'multi' : 'single',
-                active: false, mode: null,              // mode: null | 'maybe-draw' | 'draw' | 'move' | 'resize'
+                allowMultipleRects: Boolean(allowMultipleRects), // 複数矩形許可フラグ
+                active: false,
+                mode: null,
                 pointerId: null,
-                startClientX: 0, startClientY: 0,
+                startClientX: 0,
+                startClientY: 0,
                 startClientLocal: null,
                 startRectPx: null,
-                currentRectPx: null,
+                currentRectPx: null, // 単一矩形互換用（最後の矩形）
+                currentRectsPx: [], // 複数矩形管理用（配列）
+                selectedRectIndex: -1, // 選択中の矩形インデックス（複数時のみ使用）
                 pendingMove: false,
                 handlers: {},
                 internal: {},
                 resizeHandle: null,
                 baseRectAtDown: null,
                 logicalWAtDown: null,
-                didDrag: false
+                logicalHAtDown: null,
+                didDrag: false,
+                selected: preservedSelected
             };
 
-            state.internal = state.internal || {};
-            state.internal.lastAttachedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-
-            if (preservedSelected) state.selected = true;
-
-            window._simpleTrim[canvasId] = state;
+            trimState.internal.lastAttachedAt = performance.now();
+            window._simpleTrim[canvasId] = trimState;
 
             const HANDLE_KEY_MAP = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
             const HANDLE_CURSOR_MAP = {
@@ -443,181 +574,232 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 e: 'ew-resize', w: 'ew-resize'
             };
 
+            // 座標変換: クライアント座標 → Canvas 内論理ピクセル
             function toLocalPx(clientX, clientY) {
                 try {
-                    // logical (unscaled) size
-                    const logicalW = (state.logicalWAtDown && state.active) ? state.logicalWAtDown : Math.max(1, Math.round(state.base.clientWidth || state.base.getBoundingClientRect().width || 1));
-                    const logicalH = (state.logicalHAtDown && state.active) ? state.logicalHAtDown : Math.max(1, Math.round(state.base.clientHeight || state.base.getBoundingClientRect().height || 1));
+                    const logicalW = (trimState.logicalWAtDown && trimState.active)
+                        ? trimState.logicalWAtDown
+                        : Math.max(1, Math.round(canvas.clientWidth || canvas.getBoundingClientRect().width || 1));
+                    const logicalH = (trimState.logicalHAtDown && trimState.active)
+                        ? trimState.logicalHAtDown
+                        : Math.max(1, Math.round(canvas.clientHeight || canvas.getBoundingClientRect().height || 1));
 
-                    // preview scale: prefer explicit previewZoom state, otherwise fallback to bounding rect ratio
-                    const bRect = state.base.getBoundingClientRect();
-                    const scaleFromRects = (bRect.width && logicalW) ? (bRect.width / logicalW) : 1;
-                    const previewScale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : scaleFromRects;
-                    const scale = previewScale || 1;
+                    const canvasRect = canvas.getBoundingClientRect();
+                    const scaleFromRects = (canvasRect.width && logicalW) ? (canvasRect.width / logicalW) : 1;
+                    const scale = window._previewZoomState?.lastZoom || scaleFromRects || 1;
 
-                    // compute base offset relative to host (unscaled logical px)
-                    function getOffsetRelativeTo(element, ancestor) {
-                        let x = 0, y = 0;
-                        let el = element;
-                        while (el && el !== ancestor && el !== document.body) {
-                            x += el.offsetLeft || 0;
-                            y += el.offsetTop || 0;
-                            el = el.offsetParent;
-                        }
-                        return { x, y };
-                    }
+                    const offset = getOffsetRelativeTo(canvas, host);
+                    const hostRect = host.getBoundingClientRect();
+                    const canvasLeftInViewport = hostRect.left + offset.x * scale;
+                    const canvasTopInViewport = hostRect.top + offset.y * scale;
 
-                    const rel = getOffsetRelativeTo(state.base, state.host);
-                    const hostRect = state.host.getBoundingClientRect();
+                    const xInScaled = clientX - canvasLeftInViewport;
+                    const yInScaled = clientY - canvasTopInViewport;
 
-                    // left/top of base in viewport coordinates (scaled)
-                    const baseLeftInViewport = hostRect.left + rel.x * scale;
-                    const baseTopInViewport = hostRect.top + rel.y * scale;
-
-                    const xInScaled = clientX - baseLeftInViewport;
-                    const yInScaled = clientY - baseTopInViewport;
-                    const localX = xInScaled / scale;
-                    const localY = yInScaled / scale;
-
-                    return { x: localX, y: localY, cssW: logicalW, cssH: logicalH };
+                    return {
+                        x: xInScaled / scale,
+                        y: yInScaled / scale,
+                        cssW: logicalW,
+                        cssH: logicalH
+                    };
                 } catch (e) {
-                    // fallback to previous behavior on any error
-                    const b = state.base.getBoundingClientRect();
-                    const logicalW = Math.max(1, Math.round(state.base.clientWidth || b.width || 1));
-                    const logicalH = Math.max(1, Math.round(state.base.clientHeight || b.height || 1));
-                    const scale = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
-                    return { x: (clientX - b.left) / scale, y: (clientY - b.top) / scale, cssW: logicalW, cssH: logicalH };
+                    const b = canvas.getBoundingClientRect();
+                    const logicalW = Math.max(1, Math.round(canvas.clientWidth || b.width || 1));
+                    const logicalH = Math.max(1, Math.round(canvas.clientHeight || b.height || 1));
+                    const scale = window._previewZoomState?.lastZoom || 1;
+                    return {
+                        x: (clientX - b.left) / scale,
+                        y: (clientY - b.top) / scale,
+                        cssW: logicalW,
+                        cssH: logicalH
+                    };
                 }
             }
 
-            function rectPxToNormalized(rPx) {
-                const logicalW = Math.max(1, Math.round(state.base.clientWidth || 1));
-                const logicalH = Math.max(1, Math.round(state.base.clientHeight || 1));
-                const left = Number(rPx.x || 0);
-                const top = Number(rPx.y || 0);
-                const right = left + Number(rPx.w || 0);
-                const bottom = top + Number(rPx.h || 0);
-                const leftClamped = clamp(left, 0, logicalW);
-                const topClamped = clamp(top, 0, logicalH);
-                const rightClamped = clamp(right, 0, logicalW);
-                const bottomClamped = clamp(bottom, 0, logicalH);
-                const widthClamped = Math.max(0, rightClamped - leftClamped);
-                const heightClamped = Math.max(0, bottomClamped - topClamped);
+            function rectPxToNormalized(rectPx) {
+                const logicalW = Math.max(1, Math.round(canvas.clientWidth || 1));
+                const logicalH = Math.max(1, Math.round(canvas.clientHeight || 1));
+                const left = Number(rectPx.x || 0);
+                const top = Number(rectPx.y || 0);
+                const right = left + Number(rectPx.w || 0);
+                const bottom = top + Number(rectPx.h || 0);
+                const leftC = clamp(left, 0, logicalW);
+                const topC = clamp(top, 0, logicalH);
+                const rightC = clamp(right, 0, logicalW);
+                const bottomC = clamp(bottom, 0, logicalH);
                 return {
-                    X: leftClamped / logicalW,
-                    Y: topClamped / logicalH,
-                    Width: widthClamped / logicalW,
-                    Height: heightClamped / logicalH
+                    X: leftC / logicalW,
+                    Y: topC / logicalH,
+                    Width: Math.max(0, rightC - leftC) / logicalW,
+                    Height: Math.max(0, bottomC - topC) / logicalH
                 };
             }
 
+            // ムーブイベント処理（requestAnimationFrame で間引き）
             function scheduleMove(ev) {
-                state.lastMoveEv = ev;
-                if (state.pendingMove) return;
-                state.pendingMove = true;
+                trimState.lastMoveEv = ev;
+                if (trimState.pendingMove) return;
+                trimState.pendingMove = true;
+
                 requestAnimationFrame(() => {
-                    state.pendingMove = false;
-                    if (!state.active) return;
-                    const loc = toLocalPx(state.lastMoveEv.clientX, state.lastMoveEv.clientY);
-                    const cssW = loc.cssW, cssH = loc.cssH;
-                    const prevRect = state.currentRectPx ? { ...state.currentRectPx } : null;
-                    let alreadyDrawn = false;
+                    trimState.pendingMove = false;
+                    if (!trimState.active) return;
 
-                    if (state.mode === 'maybe-draw') {
-                        const dx = loc.x - state.startClientLocal.x;
-                        const dy = loc.y - state.startClientLocal.y;
+                    const loc = toLocalPx(trimState.lastMoveEv.clientX, trimState.lastMoveEv.clientY);
+                    const { cssW, cssH } = loc;
+                    const prevRect = trimState.currentRectPx ? { ...trimState.currentRectPx } : null;
+
+                    // スナップターゲットを収集
+                    const snapTargets = collectSnapTargets(canvasId);
+                    const snapThreshold = window._trimSnapSettings.threshold || 10;
+                    // 表示する補助線
+                    const activeSnapLines = [];
+                    
+                    // クリック（選択）とドラッグ（新規描画）の判定
+                    if (trimState.mode === 'maybe-draw') {
+                        const dx = loc.x - trimState.startClientLocal.x;
+                        const dy = loc.y - trimState.startClientLocal.y;
                         const distSq = dx * dx + dy * dy;
-                        const THRESHOLD_PX = 8; // squared threshold uses 8px
+                        const THRESHOLD_PX = 8;
                         if (distSq >= THRESHOLD_PX * THRESHOLD_PX) {
-
-                            state.mode = 'draw';
-                            state.currentRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
+                            // ドラッグ開始と判定
+                            trimState.mode = 'draw';
+                            trimState.currentRectPx = { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
                         } else {
-
                             return;
                         }
                     }
 
-                    if (state.mode === 'draw') {
-                        const rawX = Math.min(loc.x, state.startClientLocal.x);
-                        const rawY = Math.min(loc.y, state.startClientLocal.y);
-                        const rawW = Math.abs(loc.x - state.startClientLocal.x);
-                        const rawH = Math.abs(loc.y - state.startClientLocal.y);
+                    if (trimState.mode === 'draw') {
+                        let rawX = Math.min(loc.x, trimState.startClientLocal.x);
+                        let rawY = Math.min(loc.y, trimState.startClientLocal.y);
+                        let rawW = Math.abs(loc.x - trimState.startClientLocal.x);
+                        let rawH = Math.abs(loc.y - trimState.startClientLocal.y);
 
-                        state.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
+                        // スナップ適用（描画中）
+                        const snappedLeft = snapValue(rawX, snapTargets.x, snapThreshold);
+                        const snappedTop = snapValue(rawY, snapTargets.y, snapThreshold);
+                        const snappedRight = snapValue(rawX + rawW, snapTargets.x, snapThreshold);
+                        const snappedBottom = snapValue(rawY + rawH, snapTargets.y, snapThreshold);
 
-                        let dispX = rawX;
-                        let dispY = rawY;
-                        let dispW = rawW;
-                        let dispH = rawH;
+                        // 補助線を追加
+                        if (snappedLeft.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
+                        if (snappedTop.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
+                        if (snappedRight.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
+                        if (snappedBottom.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
 
-                        if (rawX < 0) {
-                            dispX = 0;
-                            dispW = Math.max(0, Math.min(state.startClientLocal.x - dispX, rawW));
+                        rawX = snappedLeft.snapped;
+                        rawY = snappedTop.snapped;
+                        rawW = snappedRight.snapped - snappedLeft.snapped;
+                        rawH = snappedBottom.snapped - snappedTop.snapped;
+
+                        // 状態だけ更新（描画は下の changed 判定で一度だけ行う）
+                        // trimState.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
+
+                        // 画面外へのはみ出しをこの時点で切り詰める（disp を currentRectPx に保存）
+                        let dispX = rawX < 0 ? 0 : rawX;
+                        let dispY = rawY < 0 ? 0 : rawY;
+                        let dispW = rawX < 0 ? Math.max(0, Math.min(trimState.startClientLocal.x - dispX, rawW)) : rawW;
+                        let dispH = rawY < 0 ? Math.max(0, Math.min(trimState.startClientLocal.y - dispY, rawH)) : rawH;
+
+                        // 整数化して状態に入れる（以降の比較/描画が安定する）
+                        trimState.currentRectPx = {
+                            x: Math.round(dispX),
+                            y: Math.round(dispY),
+                            w: Math.round(dispW),
+                            h: Math.round(dispH)
+                        };
+
+                        if (!trimState.didDrag && prevRect) {
+                            const changed = prevRect.x !== trimState.currentRectPx.x ||
+                                        prevRect.y !== trimState.currentRectPx.y ||
+                                        prevRect.w !== trimState.currentRectPx.w ||
+                                        prevRect.h !== trimState.currentRectPx.h;
+                            if (changed) trimState.didDrag = true;
                         }
-                        if (rawY < 0) {
-                            dispY = 0;
-                            dispH = Math.max(0, Math.min(state.startClientLocal.y - dispY, rawH));
+
+                    } else if (trimState.mode === 'move' && trimState.startRectPx) {
+                        const dx = loc.x - trimState.startClientLocal.x;
+                        const dy = loc.y - trimState.startClientLocal.y;
+                        let nx = trimState.startRectPx.x + dx;
+                        let ny = trimState.startRectPx.y + dy;
+
+                                                // スナップ適用（移動中）
+                        const snappedLeft = snapValue(nx, snapTargets.x, snapThreshold);
+                        const snappedTop = snapValue(ny, snapTargets.y, snapThreshold);
+                        const snappedRight = snapValue(nx + trimState.startRectPx.w, snapTargets.x, snapThreshold);
+                        const snappedBottom = snapValue(ny + trimState.startRectPx.h, snapTargets.y, snapThreshold);
+
+                        // 左上優先でスナップ
+                        nx = snappedLeft.snapped;
+                        ny = snappedTop.snapped;
+
+                        // nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
+                        // ny = Math.max(0, Math.min(cssH - trimState.startRectPx.h, ny));
+                        // 右下もスナップする場合（より近い方を優先）
+                        const leftDist = Math.abs(nx - snappedLeft.snapped);
+                        const rightDist = Math.abs((nx + trimState.startRectPx.w) - snappedRight.snapped);
+                        if (rightDist < leftDist && snappedRight.hasSnap) {
+                            nx = snappedRight.snapped - trimState.startRectPx.w;
+                            activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
+                        } else if (snappedLeft.hasSnap) {
+                            activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
                         }
 
-                        try {
-                            if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                const norm = {
-                                    X: dispX / Math.max(1, cssW),
-                                    Y: dispY / Math.max(1, cssH),
-                                    Width: dispW / Math.max(1, cssW),
-                                    Height: dispH / Math.max(1, cssH)
-                                };
-                                window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                                alreadyDrawn = true;
-                            } else {
-                                try { drawRectFromPx({ x: Math.round(dispX), y: Math.round(dispY), w: Math.round(dispW), h: Math.round(dispH) }); alreadyDrawn = true; } catch (e) { }
-                            }
-                        } catch (e) { console.error(e); }
-
-                        if (!state.didDrag && prevRect && (prevRect.x !== state.currentRectPx.x || prevRect.y !== state.currentRectPx.y || prevRect.w !== state.currentRectPx.w || prevRect.h !== state.currentRectPx.h)) {
-                            state.didDrag = true;
+                        const topDist = Math.abs(ny - snappedTop.snapped);
+                        const bottomDist = Math.abs((ny + trimState.startRectPx.h) - snappedBottom.snapped);
+                        if (bottomDist < topDist && snappedBottom.hasSnap) {
+                            ny = snappedBottom.snapped - trimState.startRectPx.h;
+                            activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
+                        } else if (snappedTop.hasSnap) {
+                            activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
                         }
 
-                    } else if (state.mode === 'move' && state.startRectPx) {
-                        const dx = loc.x - state.startClientLocal.x;
-                        const dy = loc.y - state.startClientLocal.y;
+                        nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
+                        ny = Math.max(0, Math.min(cssH - trimState.startRectPx.h, ny));
 
-                        const cssWVal = cssW;
-                        const cssHVal = cssH;
+                        trimState.currentRectPx = {
+                            x: Math.round(nx),
+                            y: Math.round(ny),
+                            w: Math.round(trimState.startRectPx.w),
+                            h: Math.round(trimState.startRectPx.h)
+                        };
+                        trimState.didDrag = true;
 
-                        let nx = state.startRectPx.x + dx;
-                        let ny = state.startRectPx.y + dy;
-
-                        nx = Math.max(0, Math.min(cssWVal - state.startRectPx.w, nx));
-                        ny = Math.max(0, Math.min(cssHVal - state.startRectPx.h, ny));
-
-                        state.currentRectPx = { x: Math.round(nx), y: Math.round(ny), w: Math.round(state.startRectPx.w), h: Math.round(state.startRectPx.h) };
-
-                        state.didDrag = true;
-                    } else if (state.mode === 'resize' && state.startRectPx) {
-                        const dx = loc.x - state.startClientLocal.x;
-                        const dy = loc.y - state.startClientLocal.y;
-                        let sx = state.startRectPx.x, sy = state.startRectPx.y, sw = state.startRectPx.w, sh = state.startRectPx.h;
+                    } else if (trimState.mode === 'resize' && trimState.startRectPx) {
+                        const dx = loc.x - trimState.startClientLocal.x;
+                        const dy = loc.y - trimState.startClientLocal.y;
+                        const { x: sx, y: sy, w: sw, h: sh } = trimState.startRectPx;
                         const ex = sx + sw, ey = sy + sh;
-                        const hKey = state.resizeHandle;
+                        const hKey = trimState.resizeHandle;
 
-                        let propLeft = sx;
-                        let propRight = ex;
-                        let propTop = sy;
-                        let propBottom = ey;
+                        let propLeft = sx, propRight = ex, propTop = sy, propBottom = ey;
 
-                        if (hKey === 'nw' || hKey === 'w' || hKey === 'sw') {
-                            propLeft = clamp(sx + dx, 0, cssW);
+                        if (['nw', 'w', 'sw'].includes(hKey)) propLeft = clamp(sx + dx, 0, cssW);
+                        if (['ne', 'e', 'se'].includes(hKey)) propRight = clamp(ex + dx, 0, cssW);
+                        if (['nw', 'n', 'ne'].includes(hKey)) propTop = clamp(sy + dy, 0, cssH);
+                        if (['sw', 's', 'se'].includes(hKey)) propBottom = clamp(ey + dy, 0, cssH);
+
+                        // スナップ適用（リサイズ中）
+                        if (['nw', 'w', 'sw'].includes(hKey)) {
+                            const snapped = snapValue(propLeft, snapTargets.x, snapThreshold);
+                            propLeft = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
                         }
-                        if (hKey === 'ne' || hKey === 'e' || hKey === 'se') {
-                            propRight = clamp(ex + dx, 0, cssW);
+                        if (['ne', 'e', 'se'].includes(hKey)) {
+                            const snapped = snapValue(propRight, snapTargets.x, snapThreshold);
+                            propRight = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
                         }
-                        if (hKey === 'nw' || hKey === 'n' || hKey === 'ne') {
-                            propTop = clamp(sy + dy, 0, cssH);
+                        if (['nw', 'n', 'ne'].includes(hKey)) {
+                            const snapped = snapValue(propTop, snapTargets.y, snapThreshold);
+                            propTop = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
                         }
-                        if (hKey === 'sw' || hKey === 's' || hKey === 'se') {
-                            propBottom = clamp(ey + dy, 0, cssH);
+                        if (['sw', 's', 'se'].includes(hKey)) {
+                            const snapped = snapValue(propBottom, snapTargets.y, snapThreshold);
+                            propBottom = snapped.snapped;
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
                         }
 
                         let newLeft = Math.min(propLeft, propRight);
@@ -627,346 +809,422 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                         const MIN_SIZE = 1;
                         if (newRight - newLeft < MIN_SIZE) {
-                            if (propRight >= propLeft) {
-                                newRight = Math.min(cssW, newLeft + MIN_SIZE);
-                            } else {
-                                newLeft = Math.max(0, newRight - MIN_SIZE);
-                            }
+                            newRight = propRight >= propLeft ? Math.min(cssW, newLeft + MIN_SIZE) : newLeft;
+                            newLeft = propRight < propLeft ? Math.max(0, newRight - MIN_SIZE) : newLeft;
                         }
                         if (newBottom - newTop < MIN_SIZE) {
-                            if (propBottom >= propTop) {
-                                newBottom = Math.min(cssH, newTop + MIN_SIZE);
-                            } else {
-                                newTop = Math.max(0, newBottom - MIN_SIZE);
-                            }
+                            newBottom = propBottom >= propTop ? Math.min(cssH, newTop + MIN_SIZE) : newTop;
+                            newTop = propBottom < propTop ? Math.max(0, newBottom - MIN_SIZE) : newTop;
                         }
 
-                        const finalW = newRight - newLeft;
-                        const finalH = newBottom - newTop;
-                        state.currentRectPx = { x: Math.round(newLeft), y: Math.round(newTop), w: Math.round(finalW), h: Math.round(finalH) };
-
-                        state.didDrag = true;
+                        trimState.currentRectPx = {
+                            x: Math.round(newLeft),
+                            y: Math.round(newTop),
+                            w: Math.round(newRight - newLeft),
+                            h: Math.round(newBottom - newTop)
+                        };
+                        trimState.didDrag = true;
                     }
 
-                    try {
-                        if (state.currentRectPx) {
-                            const changed = !prevRect || prevRect.x !== state.currentRectPx.x || prevRect.y !== state.currentRectPx.y || prevRect.w !== state.currentRectPx.w || prevRect.h !== state.currentRectPx.h;
-                            if (changed) {
-                                if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                    if (!alreadyDrawn) {
-                                        const norm = rectPxToNormalized(state.currentRectPx);
-                                        window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                                    }
+                    // 補助線を描画
+                    drawSnapGuides(canvasId, activeSnapLines);
+
+                    // 変更があれば再描画（複数矩形対応）
+                    if (trimState.currentRectPx) {
+                        const changed = !prevRect ||
+                                    prevRect.x !== trimState.currentRectPx.x ||
+                                    prevRect.y !== trimState.currentRectPx.y ||
+                                    prevRect.w !== trimState.currentRectPx.w ||
+                                    prevRect.h !== trimState.currentRectPx.h;
+                        if (changed && trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                            if (trimState.allowMultipleRects && (trimState.mode === 'move' || trimState.mode === 'resize' || trimState.mode === 'draw')) {
+                                // 複数矩形時：該当インデックスを更新して全体を再描画
+                                if (trimState.mode === 'draw') {
+                                    // 描画中は currentRectsPx に一時的に追加表示用の矩形を作る（描画後は上書きされる想定）
+                                    const tempRects = [
+                                        ...trimState.currentRectsPx.map(r => ({
+                                            X: r.x / cssW, Y: r.y / cssH,
+                                            Width: r.w / cssW, Height: r.h / cssH
+                                        })),
+                                        {
+                                            X: trimState.currentRectPx.x / cssW,
+                                            Y: trimState.currentRectPx.y / cssH,
+                                            Width: trimState.currentRectPx.w / cssW,
+                                            Height: trimState.currentRectPx.h / cssH
+                                        }
+                                    ];
+                                    window.drawTrimOverlayAsSvg(canvasId, tempRects);
                                 } else {
-                                    if (!alreadyDrawn) try { drawRectFromPx(state.currentRectPx); } catch (e) { }
+                                    if (trimState.selectedRectIndex >= 0 && trimState.selectedRectIndex < trimState.currentRectsPx.length) {
+                                        trimState.currentRectsPx[trimState.selectedRectIndex] = { ...trimState.currentRectPx };
+                                    }
+                                    const rectsToRender = trimState.currentRectsPx.map(r => ({
+                                        X: r.x / cssW, Y: r.y / cssH,
+                                        Width: r.w / cssW, Height: r.h / cssH
+                                    }));
+                                    window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                                 }
-                            }
-                        } else {
-                            if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                window.drawTrimOverlayAsSvg(canvasId, []);
+                            } else {
+                                // 単一矩形時：既存動作
+                                const norm = rectPxToNormalized(trimState.currentRectPx);
+                                window.drawTrimOverlayAsSvg(canvasId, [norm]);
                             }
                         }
-                    } catch (e) { console.error(e); }
+                    }
+
                 });
             }
 
+            // 空白クリック（maybe-draw）処理を共通化 ---
+            function startMaybeDraw() {
+                trimState.mode = 'maybe-draw';
+
+                let rectsToRender = [];
+                if (trimState.allowMultipleRects) {
+                    trimState.selectedRectIndex = -1;
+                    const baseW = trimState.logicalWAtDown || Math.max(1, Math.round(canvas.clientWidth || 1));
+                    const baseH = trimState.logicalHAtDown || Math.max(1, Math.round(canvas.clientHeight || 1));
+                    rectsToRender = trimState.currentRectsPx.map(r => ({
+                        X: r.x / baseW, Y: r.y / baseH,
+                        Width: r.w / baseW, Height: r.h / baseH
+                    }));
+                } else {
+                    trimState.selected = false;
+                    if (trimState.currentRectPx) {
+                        rectsToRender = [rectPxToNormalized(trimState.currentRectPx)];
+                    }
+                }
+                if (window.drawTrimOverlayAsSvg) {
+                    window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                }
+            }
+
+            // PointerDown: モード判定 & キャプチャ開始
             const onPointerDown = function (ev) {
                 try {
-                    if (ev.button !== undefined && ev.button !== 0) return;
-                    state.active = true;
-                    state.pointerId = ev.pointerId ?? 'mouse';
-                    state.startClientX = ev.clientX;
-                    state.startClientY = ev.clientY;
-                    state.didDrag = false;
 
-                    try {
-                        state.baseRectAtDown = state.base.getBoundingClientRect();
-                        state.logicalWAtDown = Math.max(1, Math.round(state.base.clientWidth || state.baseRectAtDown.width || 1));
-                        state.logicalHAtDown = Math.max(1, Math.round(state.base.clientHeight || state.baseRectAtDown.height || 1));
-                    } catch (e) { state.baseRectAtDown = null; state.logicalWAtDown = null; state.logicalHAtDown = null; }
-
-                    state.startClientLocal = toLocalPx(ev.clientX, ev.clientY);
-
-                    try { if (state.base.setPointerCapture) state.base.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
-                    try {
-                        const t = ev.target || ev.srcElement;
-                        if (t && t.setPointerCapture && t !== state.base) {
-                            try { t.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
-                        }
-                    } catch (e) { /* ignore */ }
-
-                    const target = ev.target || ev.srcElement;
-                    state.resizeHandle = null;
-
-                    if (state.overlayDom && target) {
-                        const handleAttr = (target.getAttribute && target.getAttribute('data-handle')) ?? null;
-                        const rectAttr = (target.getAttribute && target.getAttribute('data-rect')) ?? null;
-                        const entry = window._simpleTrim && window._simpleTrim[canvasId];
-
-                        if (handleAttr !== null) {
-                            const idx = Number(handleAttr);
-                            state.resizeHandle = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
-                            state.mode = 'resize';
-                            try {
-                                const cur = (entry && entry.currentRectPx) || null;
-                                state.startRectPx = cur ? { ...cur } : { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
-                            } catch (e) { state.startRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 }; }
-
-                        } else if (rectAttr !== null) {
-                            state.mode = 'move';
-                            try {
-                                const cur = (window._simpleTrim && window._simpleTrim[canvasId] && window._simpleTrim[canvasId].currentRectPx) || null;
-                                state.startRectPx = cur ? { ...cur } : { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
-                                try {
-                                    if (window._simpleTrim && window._simpleTrim[canvasId]) {
-                                        // determine effective mode: per-entry selectionMode overrides global
-                                        const mode = (window._simpleTrim[canvasId].selectionMode)
-                                            || (window._simpleTrimSettings && window._simpleTrimSettings.selectionMode)
-                                            || 'single';
-                                        if (mode === 'single') {
-                                            // clear other entries' selection (and redraw them)
-                                            Object.keys(window._simpleTrim).forEach(k => {
-                                                if (k === canvasId) return;
-                                                try {
-                                                    const other = window._simpleTrim[k];
-                                                    if (other && other.selected) {
-                                                        other.selected = false;
-                                                    }
-                                                } catch (ign) { /* ignore */ }
-                                            });
-                                        }
-                                        window._simpleTrim[canvasId].selected = true;
-                                    }
-                                } catch (e) { }
-                                try {
-                                    if (state.currentRectPx && state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(state.currentRectPx)]);
-                                } catch (e) { }
-                            } catch (e) {
-                                state.startRectPx = { x: state.startClientLocal.x, y: state.startClientLocal.y, w: 0, h: 0 };
-                            }
-                        } else {
-
-                            state.mode = 'maybe-draw';
-                            try {
-                                const entry = window._simpleTrim && window._simpleTrim[canvasId];
-                                if (entry) {
-                                    entry.selected = false;
-
-                                    try {
-                                        if (entry.currentRectPx && window.drawTrimOverlayAsSvg) {
-                                            const norm = rectPxToNormalized(entry.currentRectPx);
-                                            window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                                        } else if (window.drawTrimOverlayAsSvg) {
-
-                                            window.drawTrimOverlayAsSvg(canvasId, []);
-                                        }
-                                    } catch (e) { /* ignore per-entry redraw errors */ }
-                                }
-                            } catch (e) { /* ignore */ }
-                        }
-                    } else {
-
-                        state.mode = 'maybe-draw';
-                        try {
-                            const entry = window._simpleTrim && window._simpleTrim[canvasId];
-                            if (entry) {
-                                entry.selected = false;
-                                // 即時に再描画して「選択解除」を反映（矩形自体は残す）
-                                try {
-                                    if (entry.currentRectPx && window.drawTrimOverlayAsSvg) {
-                                        const norm = rectPxToNormalized(entry.currentRectPx);
-                                        window.drawTrimOverlayAsSvg(canvasId, [norm]);
-                                    } else if (window.drawTrimOverlayAsSvg) {
-                                        // 現在の内部矩形がない場合は空配列でクリア（従来挙動）
-                                        window.drawTrimOverlayAsSvg(canvasId, []);
-                                    }
-                                } catch (e) { /* ignore per-entry redraw errors */ }
-                            }
-                        } catch (e) { /* ignore */ }
+                    // パンモードならトリム処理を完全に無視
+                    if (window._previewPan.enabled) {
+                        return;
                     }
 
-                    try {
-                        if (state.overlayDom && state.resizeHandle) {
-                            const cur = HANDLE_CURSOR_MAP[state.resizeHandle] || '';
-                            state.overlayDom.style.cursor = cur;
-                        } else if (state.overlayDom && state.mode === 'draw') {
-                            state.overlayDom.style.cursor = 'crosshair';
-                        } else if (state.overlayDom && state.mode === 'move') {
-                            state.overlayDom.style.cursor = 'move';
-                        } else if (state.overlayDom && state.mode === 'maybe-draw') {
-                            state.overlayDom.style.cursor = ''; // keep default until movement
-                        }
-                    } catch (e) { /* ignore */ }
+                    if (ev.button !== undefined && ev.button !== 0) return;
 
-                    state.handlers.move = function (mEv) { scheduleMove(mEv); };
-                    state.handlers.up = function (uEv) {
-                        if (!state.active) return;
-                        state.active = false;
-                        try { state.base.releasePointerCapture && state.base.releasePointerCapture(state.pointerId); } catch (e) { /* ignore */ }
+                    trimState.active = true;
+                    trimState.pointerId = ev.pointerId ?? 'mouse';
+                    trimState.startClientX = ev.clientX;
+                    trimState.startClientY = ev.clientY;
+                    trimState.didDrag = false;
 
-                        state.baseRectAtDown = null;
-                        state.logicalWAtDown = null;
-                        state.logicalHAtDown = null;
+                    trimState.baseRectAtDown = canvas.getBoundingClientRect();
+                    trimState.logicalWAtDown = Math.max(1, Math.round(canvas.clientWidth || trimState.baseRectAtDown.width || 1));
+                    trimState.logicalHAtDown = Math.max(1, Math.round(canvas.clientHeight || trimState.baseRectAtDown.height || 1));
 
-                        try {
-                            if (state.internal && state.internal.scrollPendingWhileActive) {
-                                state.internal.scrollPendingWhileActive = false;
-                                if (state.overlayDom && window.drawTrimOverlayAsSvg) window.drawTrimOverlayAsSvg(canvasId, []);
+                    trimState.startClientLocal = toLocalPx(ev.clientX, ev.clientY);
+
+                    if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
+                    const t = ev.target || ev.srcElement;
+                    if (t?.setPointerCapture && t !== canvas) {
+                        try { t.setPointerCapture(ev.pointerId); } catch (e) {}
+                    }
+
+                    trimState.resizeHandle = null;
+
+                    // SVGオーバーレイの有無
+                    if (trimState.overlayDom && t) {
+                        const handleAttr = t.getAttribute?.('data-handle');
+                        const rectAttr = t.getAttribute?.('data-rect');
+                        const rectIndexAttr = t.getAttribute?.('data-rect-index');
+                        const targetRectIndex = (rectIndexAttr !== null) ? Number(rectIndexAttr) : -1;
+
+                        if (handleAttr !== null) {
+                            // ハンドルクリック → リサイズモード
+                            const idx = Number(handleAttr);
+                            trimState.resizeHandle = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
+                            trimState.mode = 'resize';
+
+                            if (trimState.allowMultipleRects && targetRectIndex >= 0 && targetRectIndex < trimState.currentRectsPx.length) {
+                                trimState.selectedRectIndex = targetRectIndex;
+                                trimState.startRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
+                                
+                                // currentRectPx も同期
+                                trimState.currentRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
+                            } else {
+                                trimState.startRectPx = trimState.currentRectPx ? { ...trimState.currentRectPx } : { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
                             }
-                        } catch (e) { /* ignore */ }
+                        } else if (rectAttr !== null) {
+                             // 矩形本体クリック → 移動モード
+                            trimState.mode = 'move';
 
-                        try { if (state.overlayDom) state.overlayDom.style.cursor = ''; } catch (e) { /* ignore */ }
+                            if (trimState.allowMultipleRects && targetRectIndex >= 0 && targetRectIndex < trimState.currentRectsPx.length) {
+                                trimState.selectedRectIndex = targetRectIndex;
+                                trimState.startRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
+                                
+                                // 【修正】currentRectPx も同期（移動/リサイズ処理で参照されるため）
+                                trimState.currentRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
 
-                        if (state.mode === 'maybe-draw') {
+                                // 他の Canvas の矩形を非選択（selectionMode === 'single' の場合）
+                                const mode = trimState.selectionMode || window._simpleTrimSettings?.selectionMode || 'single';
+                                if (mode === 'single') {
+                                    Object.keys(window._simpleTrim).forEach(k => {
+                                        if (k !== canvasId && window._simpleTrim[k]) {
+                                            window._simpleTrim[k].selectedRectIndex = -1;
+                                            window._simpleTrim[k].selected = false;
+                                        }
+                                    });
+                                }
 
-                            state.mode = null;
-                            state.didDrag = false;
-                            try { window.removeEventListener('pointermove', state.handlers.move, { passive: false }); } catch (e) { }
-                            try { window.removeEventListener('pointerup', state.handlers.up, { passive: false }); } catch (e) { }
+                                // 再描画（選択状態反映）
+                                const rectsToRender = trimState.currentRectsPx.map(r => ({
+                                    X: r.x / trimState.logicalWAtDown,
+                                    Y: r.y / trimState.logicalHAtDown,
+                                    Width: r.w / trimState.logicalWAtDown,
+                                    Height: r.h / trimState.logicalHAtDown
+                                }));
+                                window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+
+                            } else {
+                                // 単一矩形モード（既存動作）
+                                trimState.startRectPx = trimState.currentRectPx ? { ...trimState.currentRectPx } : { x: trimState.startClientLocal.x, y: trimState.startClientLocal.y, w: 0, h: 0 };
+
+                                const mode = trimState.selectionMode || window._simpleTrimSettings?.selectionMode || 'single';
+                                if (mode === 'single') {
+                                    Object.keys(window._simpleTrim).forEach(k => {
+                                        if (k !== canvasId && window._simpleTrim[k]?.selected) {
+                                            window._simpleTrim[k].selected = false;
+                                        }
+                                    });
+                                }
+
+                                trimState.selected = true;
+
+                                if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                                    window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
+                                }
+                            }
+                        } else {
+                            // オーバーレイあり（svg以外をクリック） → 新規描画候補
+                            startMaybeDraw();
+                        }
+                    } else {
+                        // オーバーレイなし → 新規描画候補
+                        startMaybeDraw();
+                    }
+
+                    // カーソル変更
+                    if (trimState.overlayDom) {
+                        if (trimState.resizeHandle) {
+                            trimState.overlayDom.style.cursor = HANDLE_CURSOR_MAP[trimState.resizeHandle] || '';
+                        } else if (trimState.mode === 'draw') {
+                            trimState.overlayDom.style.cursor = 'crosshair';
+                        } else if (trimState.mode === 'move') {
+                            trimState.overlayDom.style.cursor = 'move';
+                        } else if (trimState.mode === 'maybe-draw') {
+                            trimState.overlayDom.style.cursor = '';
+                        }
+                    }
+
+                    // ドラッグ中のイベント
+                    trimState.handlers.move = (mEv) => scheduleMove(mEv);
+                    // ドラッグ終了時のイベント
+                    trimState.handlers.up = function (uEv) {
+                        if (!trimState.active) return;
+                        // 補助線をクリア
+                        drawSnapGuides(canvasId, []);
+                        
+                        trimState.active = false;
+
+                        try { if (canvas.releasePointerCapture) canvas.releasePointerCapture(trimState.pointerId); } catch (e) {}
+
+                        trimState.baseRectAtDown = null;
+                        trimState.logicalWAtDown = null;
+                        trimState.logicalHAtDown = null;
+
+                        if (trimState.overlayDom) trimState.overlayDom.style.cursor = '';
+
+                        if (trimState.mode === 'maybe-draw') {
+                            trimState.mode = null;
+                            trimState.didDrag = false;
+                            window.removeEventListener('pointermove', trimState.handlers.move, { passive: false });
+                            window.removeEventListener('pointerup', trimState.handlers.up, { passive: false });
                             return;
                         }
 
-                        const raw = state.currentRectPx || { x: 0, y: 0, w: 0, h: 0 };
+                        const raw = trimState.currentRectPx || { x: 0, y: 0, w: 0, h: 0 };
                         if (raw.w > 0 && raw.h > 0) {
                             const norm = rectPxToNormalized(raw);
-                            try { if (window._simpleTrim && window._simpleTrim[canvasId]) window._simpleTrim[canvasId].lastRawRect = raw; } catch (e) { }
-                            if (state.dotNetRef && state.dotNetRef.invokeMethodAsync) {
-                                try { state.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', norm.X, norm.Y, norm.Width, norm.Height); } catch (e) { /* ignore */ }
-                            }
 
-                            try {
-                                const entry = window._simpleTrim && window._simpleTrim[canvasId];
-                                if (entry && state.didDrag) {
-                                    entry.selected = false;
-                                    if (entry.overlayDom && window.drawTrimOverlayAsSvg) {
-                                        try { window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw)]); } catch (e) { }
+                            if (trimState.allowMultipleRects) {
+                                // 複数矩形時：配列に追加
+                                if (trimState.mode === 'draw') {
+                                    // 新規描画 → 追加
+                                    trimState.currentRectsPx.push(raw);
+                                    trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
+                                } else if (trimState.mode === 'move' || trimState.mode === 'resize') {
+                                    // 移動/リサイズ → 該当インデックスを更新
+                                    if (trimState.selectedRectIndex >= 0 && trimState.selectedRectIndex < trimState.currentRectsPx.length) {
+                                        trimState.currentRectsPx[trimState.selectedRectIndex] = raw;
                                     }
                                 }
-                            } catch (e) { /* ignore */ }
-                        } else {
-                            try {
-                                if (state.overlayDom && window.drawTrimOverlayAsSvg) {
-                                    window.drawTrimOverlayAsSvg(canvasId, []);
+
+                                // 配列全体を .NET に通知
+                                const rectsToCommit = trimState.currentRectsPx.map(r => ({
+                                    X: r.x / (canvas.clientWidth || 1),
+                                    Y: r.y / (canvas.clientHeight || 1),
+                                    Width: r.w / (canvas.clientWidth || 1),
+                                    Height: r.h / (canvas.clientHeight || 1)
+                                }));
+
+                                if (trimState.dotNetRef?.invokeMethodAsync) {
+                                    trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToCommit).catch(() => {});
                                 }
-                            } catch (e) { /* ignore */ }
+
+                            } else {
+                                // 単一矩形時：上書き
+                                trimState.lastRawRect = raw;
+                                // 配列にも保存（互換性維持）
+                                trimState.currentRectsPx = [raw];
+
+                                if (trimState.dotNetRef?.invokeMethodAsync) {
+                                    trimState.dotNetRef.invokeMethodAsync('CommitTrimRectFromJs', norm.X, norm.Y, norm.Width, norm.Height).catch(() => {});
+                                }
+
+                                if (trimState.didDrag) {
+                                    trimState.selected = false;
+                                    if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                                        window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw)]);
+                                    }
+                                }
+                            }
+                        } else {
+                            if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
+                                window.drawTrimOverlayAsSvg(canvasId, []);
+                            }
                         }
-                        try { window.removeEventListener('pointermove', state.handlers.move, { passive: false }); } catch (e) { }
-                        try { window.removeEventListener('pointerup', state.handlers.up, { passive: false }); } catch (e) { }
+
+                        window.removeEventListener('pointermove', trimState.handlers.move, { passive: false });
+                        window.removeEventListener('pointerup', trimState.handlers.up, { passive: false });
                     };
 
-                    window.addEventListener('pointermove', state.handlers.move, { passive: false });
-                    window.addEventListener('pointerup', state.handlers.up, { passive: false });
+                    window.addEventListener('pointermove', trimState.handlers.move, { passive: false });
+                    window.addEventListener('pointerup', trimState.handlers.up, { passive: false });
 
                     ev.preventDefault?.();
-                } catch (e) { console.error('attachTrimListeners onPointerDown error', e); }
+                } catch (e) {
+                    console.error('onPointerDown error', e);
+                }
             };
 
             const onTouchStart = function (tEv) {
                 try {
                     if (!tEv.touches || tEv.touches.length === 0) return;
                     const t = tEv.touches[0];
-                    onPointerDown({ clientX: t.clientX, clientY: t.clientY, pointerId: 'touch', button: 0, target: t.target, preventDefault: () => tEv.preventDefault() });
+                    onPointerDown({
+                        clientX: t.clientX,
+                        clientY: t.clientY,
+                        pointerId: 'touch',
+                        button: 0,
+                        target: t.target,
+                        preventDefault: () => tEv.preventDefault()
+                    });
                     tEv.preventDefault();
-                } catch (e) { console.error('attachTrimListeners onTouchStart error', e); }
+                } catch (e) {
+                    console.error('onTouchStart error', e);
+                }
             };
+            
+            trimState.handlers.pointerDown = onPointerDown;
+            trimState.handlers.touchStart = onTouchStart;
 
-            state.handlers.pointerDown = onPointerDown;
-            state.handlers.touchStart = onTouchStart;
+            canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false });
 
-            state.base.addEventListener('pointerdown', onPointerDown, { passive: false });
-            state.base.addEventListener('touchstart', onTouchStart, { passive: false });
+            if (overlayDom?.style) {
+                overlayDom.style.cursor = 'crosshair';
+            } 
 
-            try {
-                if (state.base && state.base.style) state.base.style.cursor = 'crosshair';
-                if (state.overlayDom && state.overlayDom.style) state.overlayDom.style.cursor = 'crosshair';
-            } catch (e) { /* ignore */ }
+            if (overlayDom) {
+                overlayDom.style.pointerEvents = 'auto';
+                overlayDom.addEventListener('pointerdown', onPointerDown, { passive: false, capture: true });
+                overlayDom.addEventListener('touchstart', onTouchStart, { passive: false, capture: true });
 
-            if (state.overlayDom) {
-                try {
-                    state.overlayDom.style.pointerEvents = 'auto';
-                    state.overlayDom.addEventListener('pointerdown', onPointerDown, { passive: false, capture: true });
-                    state.overlayDom.addEventListener('touchstart', onTouchStart, { passive: false, capture: true });
+                const onOverlayPointerMove = function (ev) {
+                    const t = ev.target;
+                    const handleAttr = t?.getAttribute?.('data-handle');
+                    const rectAttr = t?.getAttribute?.('data-rect');
 
-                    const onOverlayPointerMove = function (ev) {
-                        try {
-                            const t = ev.target;
-                            const handleAttr = (t && t.getAttribute) ? t.getAttribute('data-handle') : null;
-                            const rectAttr = (t && t.getAttribute) ? t.getAttribute('data-rect') : null;
-                            if (handleAttr !== null) {
-                                const idx = Number(handleAttr);
-                                const key = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
-                                const cur = key ? (HANDLE_CURSOR_MAP[key] || '') : '';
-                                state.overlayDom.style.cursor = cur;
-                            } else if (rectAttr !== null) {
-                                state.overlayDom.style.cursor = 'move';
-                            } else {
-                                state.overlayDom.style.cursor = '';
-                            }
-                        } catch (e) { /* ignore */ }
-                    };
-                    state.handlers.overlayMove = onOverlayPointerMove;
-                    state.overlayDom.addEventListener('pointermove', onOverlayPointerMove, { passive: true, capture: true });
-                } catch (e) { console.error(e); }
+                    if (handleAttr !== null) {
+                        const idx = Number(handleAttr);
+                        const key = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
+                        overlayDom.style.cursor = key ? (HANDLE_CURSOR_MAP[key] || '') : '';
+                    } else if (rectAttr !== null) {
+                        overlayDom.style.cursor = 'move';
+                    } else {
+                        overlayDom.style.cursor = '';
+                    }
+                };
+                trimState.handlers.overlayMove = onOverlayPointerMove;
+                overlayDom.addEventListener('pointermove', onOverlayPointerMove, { passive: true, capture: true });
             }
 
             let scrollPending = false;
             function onAnyScrollOrResize() {
-                try {
-                    if (state.active) {
-                        state.internal.scrollPendingWhileActive = true;
-                        return;
-                    }
-                    if (scrollPending) return;
-                    scrollPending = true;
-                    requestAnimationFrame(() => {
-                        scrollPending = false;
-                        try {
-
-                            if (typeof updateOverlaySize === 'function') updateOverlaySize();
-                        } catch (e) { /* ignore */ }
-                    });
-                } catch (e) { /* ignore */ }
+                if (trimState.active) {
+                    return;
+                }
+                if (scrollPending) return;
+                scrollPending = true;
+                requestAnimationFrame(() => { scrollPending = false; });
             }
 
-            try {
-                state.internal.hostScroll = onAnyScrollOrResize; state.host.addEventListener('scroll', state.internal.hostScroll, { passive: true });
-            } catch (e) { }
-            try {
-                const container = document.getElementById('trim-preview-container') || state.host.closest('.preview-zoom-viewport');
-                if (container) { state.internal.containerScroll = onAnyScrollOrResize; container.addEventListener('scroll', state.internal.containerScroll, { passive: true }); }
-            } catch (e) { }
-            try {
-                state.internal.windowScroll = onAnyScrollOrResize;
-                state.internal.resize = onAnyScrollOrResize;
-                ensureSharedTrimResizeHandler();
-            } catch (e) { }
+            trimState.internal.hostScroll = onAnyScrollOrResize;
+            host.addEventListener('scroll', trimState.internal.hostScroll, { passive: true });
 
-            try {
-                if (!state.overlayDom && typeof updateOverlaySize === 'function') updateOverlaySize();
-            } catch (e) { /* ignore */ }
+            const container = document.getElementById('trim-preview-container') || host.closest('.preview-zoom-viewport');
+            if (container) {
+                trimState.internal.containerScroll = onAnyScrollOrResize;
+                container.addEventListener('scroll', trimState.internal.containerScroll, { passive: true });
+            }
 
             return true;
-        } catch (e) { console.error('attachTrimListeners error', e); return false; }
+        } catch (e) {
+            console.error('attachTrimListeners error', e);
+            return false;
+        }
     };
 
     window.detachTrimListeners = function (canvasId) {
         try {
-            const entry = window._simpleTrim && window._simpleTrim[canvasId];
-            if (!entry) {
-
-                try { cleanupTrimEntry(canvasId); } catch (e) { }
+            const trimState = window._simpleTrim?.[canvasId];
+            if (!trimState) {
+                cleanupTrimEntry(canvasId);
                 return false;
             }
-
             cleanupTrimEntry(canvasId);
             return true;
-        } catch (e) { console.error('detachTrimListeners error', e); return false; }
+        } catch (e) {
+            console.error('detachTrimListeners error', e);
+            return false;
+        }
     };
 })();
 
+// スナップ機能の有効化/無効化
+window.setTrimSnapEnabled = function(enabled) {
+    try {
+        window._trimSnapSettings = window._trimSnapSettings || {};
+        window._trimSnapSettings.enabled = Boolean(enabled);
+        return true;
+    } catch (e) {
+        console.error('setTrimSnapEnabled error', e);
+        return false;
+    }
+};
 
+// ========================================
+// Canvas プレビュー描画: data URL から画像を描画
+// ========================================
 window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixelRatio = true) {
-    // Promise を返すようにして、描画・レイアウト安定を待てるようにする
     return new Promise((resolve) => {
         try {
             const canvas = document.getElementById(canvasId);
@@ -983,25 +1241,18 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
                     const ih = Math.max(1, Math.round(img.naturalHeight));
                     const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
 
-                    // 内部ピクセルバッファを元画像サイズ * DPR にする
                     canvas.width = Math.round(iw * dpr);
                     canvas.height = Math.round(ih * dpr);
 
-                    // 表示サイズ（CSS）は元画像の論理ピクセルサイズに設定する
                     canvas.style.width = iw + 'px';
                     canvas.style.height = ih + 'px';
                     canvas.style.display = 'block';
 
-                    // 高DPI対応：コンテキストのスケールを設定（CSSピクセル単位で描画する）
                     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                     ctx.clearRect(0, 0, iw, ih);
-
-                    // 画像をキャンバスいっぱいに描く（アスペクトは img 自体のサイズなのでフィット）
                     ctx.drawImage(img, 0, 0, iw, ih);
 
-                    requestAnimationFrame(() => {
-                        resolve(true);
-                    });
+                    requestAnimationFrame(() => resolve(true));
                 } catch (e) {
                     console.error('drawImageToCanvasForPreview draw error', e);
                     resolve(false);

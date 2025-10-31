@@ -71,6 +71,29 @@ async function ensureJsZipLoaded() {
     }
 }
 
+// 画像を ZIP でダウンロード
+window.downloadImagesAsZip = async function (imageData, zipFileName) {
+    await ensureJsZipLoaded();
+
+    const zip = new JSZip();
+
+    for (const img of imageData) {
+        const base64Data = img.dataUrl.split(',')[1];
+        zip.file(img.fileName, base64Data, { base64: true });
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = zipFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
 window.downloadAllPdfsAsPngZip = async function (pdfUrls, pdfNames, zipName) {
     await ensureJsZipLoaded();
     const pdfjsLib = window.pdfjsLib;

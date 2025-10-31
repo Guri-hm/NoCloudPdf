@@ -88,7 +88,6 @@ window.computeAndApplyFitZoom = function () {
     }
 };
 
-
 window.setPreviewPanEnabled = function (enabled) {
     try {
         const viewport = document.querySelector('.preview-zoom-viewport');
@@ -101,24 +100,22 @@ window.setPreviewPanEnabled = function (enabled) {
                 viewport.removeEventListener('pointermove', h.move);
                 viewport.removeEventListener('pointerup', h.up);
                 viewport.removeEventListener('pointercancel', h.up);
-            } catch (e) { /* ignore */ }
+            } catch (e) {  }
 
             window._previewPan.handlers = null;
             window._previewPan.state = null;
             viewport.classList.remove('pan-active');
-            viewport.style.touchAction = ''; // restore
+            viewport.style.touchAction = '';
         }
 
         if (!enabled) {
             window._previewPan.enabled = false;
-
             viewport.style.cursor = '';
             return;
         }
 
         window._previewPan.enabled = true;
-        viewport.style.cursor = 'grab';
-        viewport.style.touchAction = 'none'; // allow pointer dragging
+        viewport.style.touchAction = 'none';
         viewport.classList.add('pan-active');
 
         const state = { active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0, pointerId: null };
@@ -126,7 +123,6 @@ window.setPreviewPanEnabled = function (enabled) {
 
         const onPointerDown = function (ev) {
             try {
-
                 if (ev.button !== 0) return;
                 state.active = true;
                 state.pointerId = ev.pointerId;
@@ -135,7 +131,7 @@ window.setPreviewPanEnabled = function (enabled) {
                 state.scrollLeft = viewport.scrollLeft;
                 state.scrollTop = viewport.scrollTop;
                 viewport.setPointerCapture && viewport.setPointerCapture(ev.pointerId);
-                viewport.classList.add('panning'); // for cursor change
+                viewport.classList.add('panning');
             } catch (e) { console.error('pan down error', e); }
         };
 
@@ -171,4 +167,16 @@ window.setPreviewPanEnabled = function (enabled) {
     }
 };
 
+window.setPreviewInteractionMode = function (mode) {
+    try {
+        mode = (mode || '').toString().toLowerCase();
+        if (mode === 'pan') {
+            window.setPreviewPanEnabled(true);
+        } else {
+            window.setPreviewPanEnabled(false);
+        }
+
+        return true;
+    } catch (e) { console.error(e); return false; }
+};
 window._previewPan = window._previewPan || { enabled: false, handlers: null, state: null };

@@ -11,3 +11,6 @@ import './panel-resize.js';
 import './preview-controls.js';
 import './trim-preview.js';
 import './visible-page-observer.js';
+import './tooltip-helper.js';
+import './message-bar.js';
+import './loading-overlay.js';

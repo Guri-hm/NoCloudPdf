@@ -1421,29 +1421,68 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     return await pdfDoc.save();
 };
 
+// ========== 共通処理関数 ==========
+/**
+ * PDF読み込み共通処理
+ */
+async function loadPdfPageForCrop(pdfBase64) {
+    const binaryString = atob(pdfBase64);
+    const uint8Array = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+    }
+
+    if (!window.pdfjsLib) throw new Error("pdfjsLib is not loaded");
+    
+    const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+    });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+
+    return { uint8Array, pdf, page };
+}
+
+/**
+ * 回転角度を0/90/180/270に正規化
+ */
+function normalizeRotationAngle(rotateAngle) {
+    const angle = ((Number(rotateAngle) || 0) % 360 + 360) % 360;
+    return (Math.round(angle / 90) * 90) % 360;
+}
+
+/**
+ * 正規化座標を実際のピクセル座標に変換（クランプ付き）
+ */
+function normalizedToPixel(normValue, maxValue, isSize = false) {
+    const pixel = Math.round(normValue * maxValue);
+    if (isSize) {
+        return Math.max(1, Math.min(maxValue, pixel));
+    }
+    return Math.max(0, Math.min(maxValue, pixel));
+}
+
+/**
+ * トリミング領域の座標計算（回転適用後のキャンバス座標）
+ */
+function calculateCropRegion(normX, normY, normWidth, normHeight, canvasWidth, canvasHeight) {
+    const sx = normalizedToPixel(normX, canvasWidth);
+    const sy = normalizedToPixel(normY, canvasHeight);
+    const sw = normalizedToPixel(normWidth, canvasWidth - sx, true);
+    const sh = normalizedToPixel(normHeight, canvasHeight - sy, true);
+    
+    return { sx, sy, sw, sh };
+}
+
+
 // トリミング後の単一ページPDF（base64）を返す（ラスタ化）。
 window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidth, normHeight, rotateAngle = 0) {
     try {
-        const binaryString = atob(pdfBase64);
-        const uint8Array = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            uint8Array[i] = binaryString.charCodeAt(i);
-        }
-
-        if (!window.pdfjsLib) throw new Error("pdfjsLib is not loaded");
-        
-        const loadingTask = pdfjsLib.getDocument({
-            data: uint8Array,
-            standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
-            wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
-            openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
-        });
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
-
-        // 回転を正規化
-        const angle = ((Number(rotateAngle) || 0) % 360 + 360) % 360;
-        const quant = (Math.round(angle / 90) * 90) % 360;
+        const { uint8Array, pdf, page } = await loadPdfPageForCrop(pdfBase64);
+        const quant = normalizeRotationAngle(rotateAngle);
 
         // 描画倍率（品質確保）
         const scale = (pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales && pdfConfig.pdfSettings.scales.unlock) || 1.5;
@@ -1458,12 +1497,8 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
         const srcCtx = srcCanvas.getContext('2d', { alpha: false });
         await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
 
-        // 正規化座標を「回転適用後のキャンバス座標」に変換
-        // viewport で回転済みなので、表示上の座標がそのままピクセル座標になる
-        const sx = Math.max(0, Math.min(srcCanvas.width, Math.round(normX * srcCanvas.width)));
-        const sy = Math.max(0, Math.min(srcCanvas.height, Math.round(normY * srcCanvas.height)));
-        const sw = Math.max(1, Math.min(srcCanvas.width - sx, Math.round(normWidth * srcCanvas.width)));
-        const sh = Math.max(1, Math.min(srcCanvas.height - sy, Math.round(normHeight * srcCanvas.height)));
+        // トリミング領域を計算（正規化座標をそのまま使用）
+        const { sx, sy, sw, sh } = calculateCropRegion(normX, normY, normWidth, normHeight, srcCanvas.width, srcCanvas.height);
 
         // 切り出しキャンバス
         const cropCanvas = document.createElement('canvas');
@@ -1482,10 +1517,8 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
         const { PDFDocument } = PDFLib;
         const doc = await PDFDocument.create();
         const png = await doc.embedPng(imgBytes);
-        const pageWidth = sw;
-        const pageHeight = sh;
-        const newPage = doc.addPage([pageWidth, pageHeight]);
-        newPage.drawImage(png, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+        const newPage = doc.addPage([sw, sh]);
+        newPage.drawImage(png, { x: 0, y: 0, width: sw, height: sh });
 
         const newPdfBytes = await doc.save();
         let binary = '';
@@ -1513,20 +1546,18 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
         const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
 
-        // 回転を正規化（0/90/180/270 に丸め）
-        const angle = ((Number(rotateAngle) || 0) % 360 + 360) % 360;
-        const quant = (Math.round(angle / 90) * 90) % 360;
+        // 回転を正規化
+        const quant = normalizeRotationAngle(rotateAngle);
 
         let llx, lly, urx, ury;
 
         if (quant === 0) {
-            // 元の処理（UI上の top-left 基準 -> PDF の left-bottom 基準に変換）
             llx = nx * pageW;
             lly = pageH * (1 - ny - nh);
             urx = llx + (nw * pageW);
             ury = lly + (nh * pageH);
         } else {
-            // 表示上の幅/高さ（回転で入れ替わる可能性あり）
+            // 回転時の座標変換処理（既存ロジック維持）
             const D_w = (quant % 180 === 0) ? pageW : pageH;
             const D_h = (quant % 180 === 0) ? pageH : pageW;
 
@@ -1535,7 +1566,6 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
             const sw = Math.max(1, nw * D_w);
             const sh = Math.max(1, nh * D_h);
 
-            // 中心を原点とした回転変換で display->PDF 座標へ変換
             const cxD = D_w / 2;
             const cyD = D_h / 2;
             const cxP = pageW / 2;
@@ -1545,7 +1575,6 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
             const sinT = Math.sin(theta);
 
             function displayToPdf(x_d, y_d) {
-                // display: origin top-left, y down -> 中心基準で y up positive にする
                 const x_c = x_d - cxD;
                 const y_c = cyD - y_d;
                 const x_pc = x_c * cosT - y_c * sinT;
@@ -1560,33 +1589,29 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
 
             const xs = [tl.x, tr.x, bl.x, br.x];
             const ys = [tl.y, tr.y, bl.y, br.y];
-            const minX = Math.min(...xs);
-            const maxX = Math.max(...xs);
-            const minY = Math.min(...ys);
-            const maxY = Math.max(...ys);
-
-            llx = minX;
-            lly = minY;
-            urx = maxX;
-            ury = maxY;
+            
+            llx = Math.min(...xs);
+            lly = Math.min(...ys);
+            urx = Math.max(...xs);
+            ury = Math.max(...ys);
         }
 
-        // ページ範囲内にクランプ
+        // クランプ処理
         const clampedLlX = Math.max(0, Math.min(pageW, Math.round(llx)));
         const clampedLlY = Math.max(0, Math.min(pageH, Math.round(lly)));
         const clampedUrX = Math.max(0, Math.min(pageW, Math.round(urx)));
         const clampedUrY = Math.max(0, Math.min(pageH, Math.round(ury)));
 
-        // 新規PDFにコピーして CropBox を設定（既存と同様）
+        // 新規PDFにコピーして CropBox を設定
         const outDoc = await PDFDocument.create();
         const [copied] = await outDoc.copyPages(srcDoc, [0]);
         outDoc.addPage(copied);
 
         copied.node.set(PDFName.of('CropBox'), outDoc.context.obj([
-            Math.round(clampedLlX),
-            Math.round(clampedLlY),
-            Math.round(clampedUrX),
-            Math.round(clampedUrY)
+            clampedLlX,
+            clampedLlY,
+            clampedUrX,
+            clampedUrY
         ]));
 
         const outBytes = await outDoc.save();
@@ -1619,4 +1644,51 @@ window.getImageSizeFromDataUrl = function (dataUrl) {
             resolve([0, 0]);
         }
     });
+};
+
+window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWidth, normHeight, rotateAngle = 0, dpi = 150) {
+    try {
+        const { uint8Array, pdf, page } = await loadPdfPageForCrop(pageDataBase64);
+        const quant = normalizeRotationAngle(rotateAngle);
+
+        // DPI に基づいた scale を計算（72dpi = scale 1.0）
+        const scale = dpi / 72;
+
+        // 回転を適用した viewport で描画
+        const viewport = page.getViewport({ scale: scale, rotation: quant });
+
+        // ソースキャンバスにページ全体を描画（回転適用済み）
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = Math.max(1, Math.round(viewport.width));
+        srcCanvas.height = Math.max(1, Math.round(viewport.height));
+        const srcCtx = srcCanvas.getContext('2d', { alpha: false });
+        
+        // 白背景を描画（透明部分対策）
+        srcCtx.fillStyle = '#FFFFFF';
+        srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
+        
+        await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
+
+        // トリミング領域を計算（正規化座標をそのまま使用）
+        const { sx, sy, sw, sh } = calculateCropRegion(normX, normY, normWidth, normHeight, srcCanvas.width, srcCanvas.height);
+
+        // 切り出しキャンバス
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = sw;
+        cropCanvas.height = sh;
+        const cropCtx = cropCanvas.getContext('2d', { alpha: false });
+
+        // 白背景を描画
+        cropCtx.fillStyle = '#FFFFFF';
+        cropCtx.fillRect(0, 0, sw, sh);
+
+        // drawImage で切り出す
+        cropCtx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        return cropCanvas.toDataURL('image/png');
+
+    } catch (error) {
+        console.error('cropPdfPageToImage error:', error);
+        throw error;
+    }
 };
