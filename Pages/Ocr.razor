@@ -43,6 +43,7 @@
                     </div>
                     <ToggleButtonGroup T="bool" Items="toggleItems" ActiveValue="isDrawingMode"
                         OnClick="OnToggleDrawingMode" />
+                    <ActionButtonGroup T="string" Actions="rotateActions" />
                     <ActionButtonGroup T="string" Actions="zoomActions" />
 
                     <DropdownButton T="string" MenuId="trimMenu" MenuItems="applyTrimItems">
@@ -614,6 +615,37 @@
             OnClick = EventCallback.Factory.Create(this, BackToEdit),
         }
     };
+
+    private List<ActionButtonItem> rotateActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "左",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateLeftIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "左回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllLeft),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Label = "右",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateRightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "右回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllRight),
+            IconPosition = "left"
+        }
+    };
+
 
     private List<ActionButtonItem> zoomActions => new()
     {
