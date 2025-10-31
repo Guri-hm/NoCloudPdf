@@ -60,23 +60,6 @@
                             <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                         </Tooltip>
                     </label>
-                    <!-- OCR設定 -->
-                    <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
-                        <label class="text-sm font-medium">文字方向:</label>
-                        <select @bind="ocrTextDirection" class="px-2 py-1 rounded border border-gray-300 text-sm">
-                            <option value="auto">自動検出</option>
-                            <option value="horizontal">横書き</option>
-                            <option value="vertical">縦書き</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
-                        <label class="text-sm font-medium">読み取り順:</label>
-                        <select @bind="ocrReadingOrder" class="px-2 py-1 rounded border border-gray-300 text-sm">
-                            <option value="auto">自動</option>
-                            <option value="ltr">左→右</option>
-                            <option value="rtl">右→左</option>
-                        </select>
-                    </div>
                     <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
                         <label class="text-sm font-medium">DPI:</label>
                         <input type="number" @bind="exportDpi" min="72" max="600" step="50" 
@@ -163,7 +146,25 @@
                 </div>
             </div>
         </div>
-        
+        <!-- プレビュー画面のヘッダー下部に設定パネル -->
+        <div class="bg-gray-100 border-b border-gray-300 p-3 flex justify-center items-center gap-4">
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium">文字方向:</label>
+                <select @bind="ocrTextDirection" class="px-2 py-1 rounded border border-gray-300 text-sm">
+                    <option value="auto">自動検出</option>
+                    <option value="horizontal">横書き</option>
+                    <option value="vertical">縦書き</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium">読み取り順:</label>
+                <select @bind="ocrReadingOrder" class="px-2 py-1 rounded border border-gray-300 text-sm">
+                    <option value="auto">自動</option>
+                    <option value="ltr">左→右</option>
+                    <option value="rtl">右→左</option>
+                </select>
+            </div>
+        </div>
         <!-- メインコンテンツ -->
         <div class="flex-1 overflow-auto bg-gray-50">
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
@@ -214,12 +215,12 @@
                                 <!-- クイック回転ボタン -->
                                 <div class="flex gap-1 justify-center">
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
-                                            @onclick="() => { item.RotationAngle = (item.RotationAngle - 90 + 360) % 360 - 180; StateHasChanged(); }"
+                                            @onclick="() => { item.RotationAngle = (item.RotationAngle + 90) % 360 - 180; StateHasChanged(); }"
                                             title="左90度回転">
                                         <i class="fa-solid fa-rotate-left"></i>
                                     </button>
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
-                                            @onclick="() => { item.RotationAngle = (item.RotationAngle + 90) % 360 - 180; StateHasChanged(); }"
+                                            @onclick="() => { item.RotationAngle = (item.RotationAngle - 90 + 360) % 360 - 180; StateHasChanged(); }"
                                             title="右90度回転">
                                         <i class="fa-solid fa-rotate-right"></i>
                                     </button>
@@ -239,19 +240,19 @@
                                 <div class="flex gap-1 justify-center items-center">
                                     <span class="text-xs text-gray-500">微調整:</span>
                                     <button class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs transition"
-                                            @onclick="() => { item.RotationAngle -= 1; StateHasChanged(); }">
+                                            @onclick="() => { item.RotationAngle += 1; StateHasChanged(); }">
                                         -1°
                                     </button>
                                     <button class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs transition"
-                                            @onclick="() => { item.RotationAngle -= 0.5; StateHasChanged(); }">
+                                            @onclick="() => { item.RotationAngle += 0.5; StateHasChanged(); }">
                                         -0.5°
                                     </button>
                                     <button class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs transition"
-                                            @onclick="() => { item.RotationAngle += 0.5; StateHasChanged(); }">
+                                            @onclick="() => { item.RotationAngle -= 0.5; StateHasChanged(); }">
                                         +0.5°
                                     </button>
                                     <button class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs transition"
-                                            @onclick="() => { item.RotationAngle += 1; StateHasChanged(); }">
+                                            @onclick="() => { item.RotationAngle -= 1; StateHasChanged(); }">
                                         +1°
                                     </button>
                                 </div>
@@ -287,7 +288,6 @@
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
-
 @if (CompletionState.ShowMergedResult && ocrResults.Any())
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
@@ -301,8 +301,26 @@
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
             <!-- OCR結果表示エリア（スクロール可能） -->
-            <div class="flex-1 overflow-auto p-6 bg-gray-50">
-                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div class="flex-1 overflow-auto bg-gray-50">
+                <!-- コピーオプション設定パネル（スクロールエリア内の上部に固定） -->
+                <div class="sticky top-0 z-10 bg-gray-100 border-b border-gray-300 p-3 flex justify-center items-center gap-4 flex-wrap shadow-sm">
+                    <span class="text-sm font-medium text-gray-700">コピー時の処理:</span>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" @bind="copyRemoveSpaces" class="form-checkbox h-4 w-4 accent-blue-600" />
+                        <span class="text-sm">半角スペースを除去</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" @bind="copyRemoveNewlines" class="form-checkbox h-4 w-4 accent-blue-600" />
+                        <span class="text-sm">改行を除去</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" @bind="copyTrimWhitespace" class="form-checkbox h-4 w-4 accent-blue-600" />
+                        <span class="text-sm">前後の空白を除去</span>
+                    </label>
+                </div>
+
+                <!-- OCR結果カード群 -->
+                <div class="p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                     @foreach (var result in ocrResults)
                     {
                         <div class="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
@@ -321,16 +339,21 @@
                                 </div>
                                 
                                 <!-- 認識テキスト -->
-                                <div class="relative flex-1 min-h-0">
+                                <div class="flex-1 min-h-0 flex flex-col gap-2">
+                                    <!-- コピーボタンを外に配置 -->
+                                    <div class="flex justify-end">
+                                        <button
+                                            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs flex items-center gap-1 shadow-md transition"
+                                            @onclick="() => CopyToClipboard(result.Text)">
+                                            <i class="fa-solid fa-copy"></i>
+                                            コピー
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- テキストエリア -->
                                     <textarea 
-                                        class="w-full h-full p-3 border border-gray-300 rounded resize-none font-mono text-sm"
-                                        readonly>@result.Text</textarea>
-                                    <button
-                                        class="absolute top-2 right-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs flex items-center gap-1 shadow-md"
-                                        @onclick="() => CopyToClipboard(result.Text)">
-                                        <i class="fa-solid fa-copy"></i>
-                                        コピー
-                                    </button>
+                                        class="w-full flex-1 p-3 border border-gray-300 rounded resize-none font-mono text-sm"
+                                        readonly>@GetDisplayText(result.Text)</textarea>
                                 </div>
 
                                 <!-- 行ごとの結果（詳細） -->
@@ -346,7 +369,7 @@
                                             {
                                                 <div class="flex items-start gap-2 p-2 bg-white rounded text-xs shadow-sm">
                                                     <span class="font-mono text-gray-500 flex-shrink-0 w-8 text-right">@(index + 1)</span>
-                                                    <span class="flex-1 break-all text-gray-800">@line.Text</span>
+                                                    <span class="flex-1 break-all text-gray-800">@GetDisplayText(line.Text)</span>
                                                     <button
                                                         class="flex-shrink-0 text-blue-600 hover:text-blue-800 transition"
                                                         @onclick="() => CopyToClipboard(line.Text)"
@@ -383,49 +406,7 @@
             </div>
         </div>
         
-        <!-- 下部スライドアップメニュー（タブレット以下のサイズのみ） -->
-        <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
-            <div
-                class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
-                <div class="flex flex-col items-center gap-4">
-                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
-                        <i class="fa-solid fa-check-circle"></i>
-                        <span>完了</span>
-                    </div>
-                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
-                    <div class="text-gray-600 text-sm">認識完了: @mergedPageCount 件</div>
-                    <button
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full transition"
-                        @onclick="DownloadAllOcrResultsAsText">
-                        <i class="fa-solid fa-download"></i> すべてテキストでダウンロード
-                    </button>
-                    <button
-                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4 transition"
-                        @onclick="StartNew">
-                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
-                        新規作成
-                    </button>
-                </div>
-                <button class="absolute top-2 right-4 text-2xl text-gray-500 hover:text-gray-700 transition" @onclick="() => isMenuOpen = false">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            @if (!isMenuOpen)
-            {
-                <button
-                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow-lg px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
-                    @onclick="() => isMenuOpen = true">
-                    <i class="fa-solid fa-check-circle text-green-600 text-2xl"></i>
-                    <span>完了</span>
-                    <i class="fa-solid fa-chevron-up ml-2"></i>
-                </button>
-            }
-        </div>
-        @if (isMenuOpen)
-        {
-            <div class="fixed inset-0 bg-black/30 z-[199] touch-none" @onclick="() => isMenuOpen = false"></div>
-        }
+        <!-- 以下省略 -->
     </div>
 }
 <!-- ローディング中 -->
@@ -575,6 +556,16 @@
     private string ocrTextDirection = "auto"; // auto, horizontal, vertical
     private string ocrReadingOrder = "auto";// auto, ltr, rtl
     private int exportDpi = 300;
+    // コピーオプション
+    private bool copyRemoveSpaces = false;
+    private bool copyRemoveNewlines = false;
+    private bool copyTrimWhitespace = false;
+    public class OcrOptions
+    {
+        public int PsmMode { get; set; }
+        public bool AutoRotate { get; set; }
+        public string ReadingOrder { get; set; } = "auto";
+    }
 
     private class OcrPreviewItem
     {
@@ -731,17 +722,26 @@
                         );
                     }
                     
+                    // PSMモードの決定（文字方向）
                     int psmMode = ocrTextDirection switch
                     {
-                        "horizontal" => 6,
-                        "vertical" => 5,
-                        _ => 3
+                        "horizontal" => 6,  // 単一の均一なテキストブロック（横書き）
+                        "vertical" => 5,    // 単一の垂直な均一なテキストブロック（縦書き）
+                        _ => 3              // 自動ページセグメンテーション
+                    };
+
+                    // OCRオプションを作成
+                    var ocrOptions = new OcrOptions
+                    {
+                        PsmMode = psmMode,
+                        AutoRotate = false,
+                        ReadingOrder = ocrReadingOrder
                     };
                     
                     var ocrData = await JSRuntime.InvokeAsync<OcrResultJson>(
                         "ocrHelper.recognize",
                         processedImage,
-                        new { psmMode, autoRotate = false }
+                        ocrOptions
                     );
                     
                     if (ocrData != null)
@@ -807,11 +807,28 @@
         }
     }
 
+    /// <summary>
+    /// 表示用のテキストを取得（コピーオプションに応じて処理）
+    /// </summary>
+    private string GetDisplayText(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        // いずれかのオプションが有効な場合のみ処理
+        if (!copyRemoveSpaces && !copyRemoveNewlines && !copyTrimWhitespace)
+            return text;
+
+        return ProcessTextForCopy(text);
+    }
+
     private async Task CopyToClipboard(string text)
     {
         try
         {
-            var success = await JSRuntime.InvokeAsync<bool>("copyToClipboard", text);
+            string processedText = ProcessTextForCopy(text);
+            
+            var success = await JSRuntime.InvokeAsync<bool>("copyToClipboard", processedText);
             if (success)
             {
                 _ = MessageService.ShowAsync("クリップボードにコピーしました", MessageType.Success);
@@ -828,12 +845,45 @@
         }
     }
 
+    private string ProcessTextForCopy(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        string result = text;
+
+        // 半角スペースを除去
+        if (copyRemoveSpaces)
+        {
+            result = result.Replace(" ", "");
+        }
+
+        // 改行を除去
+        if (copyRemoveNewlines)
+        {
+            result = result.Replace("\r\n", "").Replace("\n", "").Replace("\r", "");
+        }
+
+        // 前後の空白を除去
+        if (copyTrimWhitespace)
+        {
+            result = result.Trim();
+        }
+
+        return result;
+    }
+
     private async Task DownloadAllOcrResultsAsText()
     {
         try
         {
+            // ダウンロード時も処理後のテキストを使用
             var allText = string.Join("\n\n" + new string('=', 50) + "\n\n",
-                ocrResults.Select(r => $"[{r.FileName}]\n信頼度: {r.Confidence:F1}%\n\n{r.Text}"));
+                ocrResults.Select(r => 
+                {
+                    string displayText = GetDisplayText(r.Text);
+                    return $"[{r.FileName}]\n信頼度: {r.Confidence:F1}%\n\n{displayText}";
+                }));
 
             var bytes = System.Text.Encoding.UTF8.GetBytes(allText);
             var base64 = Convert.ToBase64String(bytes);
@@ -1275,7 +1325,7 @@
         var trimRects = PdfDataService.GetTrimRects(idx);
         if (trimRects == null || trimRects.Count == 0)
         {
-            _ = MessageService.ShowAsync("現在ページに書き出し範囲が設定されていません。", MessageType.Warn);
+            _ = MessageService.ShowAsync("現在ページに範囲が設定されていません。", MessageType.Warn);
             return Task.CompletedTask;
         }
 
@@ -1315,11 +1365,11 @@
                 catch { }
             }
 
-            _ = MessageService.ShowAsync("すべてのトリミング範囲をクリアしました", MessageType.Success);
+            _ = MessageService.ShowAsync("範囲をクリアしました", MessageType.Success);
         }
         catch
         {
-            _ = MessageService.ShowAsync("トリミング範囲のクリアに失敗しました", MessageType.Error);
+            _ = MessageService.ShowAsync("範囲のクリアに失敗しました", MessageType.Error);
         }
         return Task.CompletedTask;
     }
