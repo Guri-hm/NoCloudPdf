@@ -13,7 +13,7 @@
 
 <PageTitle>NoCloudPDF-トリミング</PageTitle>
 
-@if (IsFilesLoaded && !CompletionState.ShowMergedResult)
+@if (IsFilesLoaded && !CompletionState.ShowResult)
 {
     <div id="drop-area" class="relative h-screen flex flex-col">
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
@@ -114,13 +114,13 @@
         </div>    
     </div>
 }
-@if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
+@if (!IsFilesLoaded && !CompletionState.ShowResult)
 {
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
 
-@if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl))
+@if (CompletionState.ShowResult && !string.IsNullOrEmpty(mergedPdfUrl))
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -229,7 +229,7 @@
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
 
         // 完了状態をリセット
-        CompletionState.ResetAll();
+        CompletionState.Reset();
     }
 
     private void OnServiceChanged()
@@ -283,6 +283,7 @@
     public async ValueTask DisposeAsync()
     {
         PdfDataService.OnChange -= OnServiceChanged;
+        CompletionState.Reset();
 
         try
         {
@@ -435,13 +436,13 @@
     // その他のメソッド
     private void BackToEdit()
     {
-        CompletionState.ResetAll();
+        CompletionState.Reset();
         StateHasChanged();
     }
 
     private void StartNew()
     {
-        CompletionState.ResetAll(); // グローバルな完了フラグをリセット
+        CompletionState.Reset(); // グローバルな完了フラグをリセット
         PdfDataService.Clear();
 
         mergedPdfUrl = null;
@@ -820,7 +821,7 @@
         }
 
         // 初期画面のときのみ登録
-        if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
+        if (!IsFilesLoaded && !CompletionState.ShowResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
@@ -837,7 +838,7 @@
             _dropAreaRegistered = false;
         }
 
-        if (CompletionState.ShowMergedResult && !string.IsNullOrEmpty(mergedPdfUrl) && mergedPageCount > 0 && !_renderedMergedPages)
+        if (CompletionState.ShowResult && !string.IsNullOrEmpty(mergedPdfUrl) && mergedPageCount > 0 && !_renderedMergedPages)
         {
             _renderedMergedPages = true;
             var canvasIds = Enumerable.Range(0, mergedPageCount)
@@ -845,7 +846,7 @@
             .ToArray();
             await JSRuntime.InvokeVoidAsync("renderPdfPages", mergedPdfUrl, canvasIds);
         }
-        else if (!CompletionState.ShowMergedResult)
+        else if (!CompletionState.ShowResult)
         {
             _renderedMergedPages = false;
         }
@@ -1150,7 +1151,7 @@
                     mergedFileName = $"trim_{DateTime.Now:yyyyMMddHHmm}.pdf";
                     mergedFileSize = await JSRuntime.InvokeAsync<string>("getPdfFileSize", mergedPdfUrl);
                     mergedPageCount = pageInfos.Count;
-                    CompletionState.SetCompletion(CompletionStateService.CompletionType.Trimmed);
+                    CompletionState.SetShowResult(true);
                 }
                 else
                 {

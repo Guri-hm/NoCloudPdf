@@ -14,7 +14,7 @@
 
 <PageTitle>NoCloudPDF-分割</PageTitle>
 
-@if (IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
+@if (IsFilesLoaded && !CompletionState.ShowResult)
 {
     <div id="drop-area" class="relative min-h-screen">
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
@@ -168,13 +168,13 @@
         IsNextDisabled="@(CurrentDisplayMode == DisplayMode.File ? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
         OnRotateLeft="RotatePreviewLeft" OnRotateRight="RotatePreviewRight" OnRemove="RemoveItemFromPreview" />
 }
-@if (!IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
+@if (!IsFilesLoaded && !CompletionState.ShowResult)
 {
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
 
-@if (CompletionState.ShowSplitOrExtractResult)
+@if (CompletionState.ShowResult)
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -316,7 +316,7 @@
         };
         
         // 完了状態をリセット
-        CompletionState.ResetAll();
+        CompletionState.Reset();
     }
 
     private void OnServiceChanged()
@@ -327,6 +327,7 @@
     public void Dispose()
     {
         PdfDataService.OnChange -= OnServiceChanged;
+        CompletionState.Reset();
         _dotNetRef?.Dispose();
 
         if (_dropAreaRegistered)
@@ -658,7 +659,7 @@
                 resultZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames,  resultZipName);
                 resultZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", resultZipUrl);
                 resultTotalPageCount = resultPdfInfos.Sum(x => x.PageCount);
-                CompletionState.SetCompletion(CompletionStateService.CompletionType.SplitOrExtract );
+                CompletionState.SetShowResult(true);
 
             }
             else
@@ -771,7 +772,7 @@
                 resultZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, resultZipName);
                 resultZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", resultZipUrl);
                 resultTotalPageCount = resultPdfInfos.Sum(x => x.PageCount);
-                CompletionState.SetCompletion(CompletionStateService.CompletionType.SplitOrExtract  );
+                CompletionState.SetShowResult(true);
             }
             else
             {
@@ -823,13 +824,13 @@
     // その他のメソッド
     private void BackToEdit()
     {
-        CompletionState.ResetAll();
+        CompletionState.Reset();
         StateHasChanged();
     }
 
     private void StartNew()
     {
-        CompletionState.ResetAll();
+        CompletionState.Reset();
 
         PdfDataService.Clear();
         
@@ -1283,7 +1284,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             _dotNetRef = DotNetObjectReference.Create(this);
         }
         // 初期画面のときのみ登録
-        if (!IsFilesLoaded && !CompletionState.ShowSplitOrExtractResult)
+        if (!IsFilesLoaded && !CompletionState.ShowResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
@@ -1330,7 +1331,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
             });
         }
 
-        if (CompletionState.ShowSplitOrExtractResult && resultPdfInfos.Any())
+        if (CompletionState.ShowResult && resultPdfInfos.Any())
         {
             foreach (var info in resultPdfInfos)
             {

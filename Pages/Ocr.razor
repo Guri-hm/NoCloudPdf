@@ -13,7 +13,7 @@
 
 <PageTitle>NoCloudPDF-OCR</PageTitle>
 
-@if (IsFilesLoaded && !CompletionState.ShowMergedResult && currentState == OcrWorkflowState.Editing)
+@if (IsFilesLoaded && !CompletionState.ShowResult && currentState == OcrWorkflowState.Editing)
 {
     <div id="drop-area" class="relative h-screen flex flex-col">
         <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
@@ -303,12 +303,12 @@
     </div>
 }
 
-@if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
+@if (!IsFilesLoaded && !CompletionState.ShowResult)
 {
     <!-- 初期画面：ファイル選択 -->
     <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
 }
-@if (CompletionState.ShowMergedResult && ocrResults.Any())
+@if (CompletionState.ShowResult && ocrResults.Any())
 {
     <!-- PC: 横並び, タブレット以下: 縦並び -->
     <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
@@ -475,7 +475,7 @@
         PdfDataService.OnChange += OnServiceChanged;
         PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
-        CompletionState.ResetAll();
+        CompletionState.Reset();
     }
 
     private void OnServiceChanged()
@@ -486,6 +486,7 @@
     public async ValueTask DisposeAsync()
     {
         PdfDataService.OnChange -= OnServiceChanged;
+        CompletionState.Reset();
 
         try
         {
@@ -802,7 +803,7 @@
             mergedPageCount = ocrResults.Count;
             
             currentState = OcrWorkflowState.Completed;
-            CompletionState.SetCompletion(CompletionStateService.CompletionType.Trimmed);
+            CompletionState.SetShowResult(true);
             
             // 一部失敗した場合の通知
             if (ocrResults.Count < selectedItems.Count)
@@ -1186,7 +1187,7 @@
 
     private void BackToPreview()
     {
-        CompletionState.ResetAll();
+        CompletionState.Reset();
         currentState = OcrWorkflowState.Previewing;
         StateHasChanged();
     }
@@ -1198,7 +1199,7 @@
     }
     private void StartNew()
     {
-        CompletionState.ResetAll();
+        CompletionState.Reset();
         PdfDataService.Clear();
         ocrResults.Clear();
         ocrPreviewItems.Clear();
@@ -1478,7 +1479,7 @@
             }
         }
 
-        if (!IsFilesLoaded && !CompletionState.ShowMergedResult)
+        if (!IsFilesLoaded && !CompletionState.ShowResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
