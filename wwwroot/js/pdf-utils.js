@@ -735,9 +735,9 @@ window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = t
 
     img.onload = function () {
         try {
-            const rect = canvas.getBoundingClientRect();
-            const cssW = Math.max(1, rect.width || canvas.clientWidth || 96);
-            const cssH = Math.max(1, rect.height || canvas.clientHeight || 128);
+            // まずレイアウト幅を clientWidth/clientHeight から取得（transform の影響を受けにくい）
+            const cssW = Math.max(1, canvas.clientWidth || canvas.clientWidth || 96);
+            const cssH = Math.max(1, canvas.clientHeight || canvas.clientHeight || 128);
 
             const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
 
@@ -745,6 +745,7 @@ window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = t
             canvas.height = Math.round(cssH * dpr);
 
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
             ctx.clearRect(0, 0, cssW, cssH);
 
             const scale = Math.min(cssW / img.width, cssH / img.height);
