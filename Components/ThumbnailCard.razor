@@ -131,7 +131,7 @@
                 else if (!string.IsNullOrEmpty(Item.Thumbnail))
                 {
                     <canvas id="thumb-@Item.Id"
-                            class="w-full h-full border border-gray-200 bg-white  @rotateClass @(Mode == DisplayMode.Page ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
+                            class="w-full h-full object-contain border border-gray-200 @rotateClass @(Mode == DisplayMode.Page ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
                             draggable="false"
                             tabindex="-1"
                             style="transform: @transform;" />

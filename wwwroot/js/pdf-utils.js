@@ -729,32 +729,63 @@ window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
 window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const img = new window.Image();
+    img.crossOrigin = 'anonymous';
 
     img.onload = function () {
         try {
-            // まずレイアウト幅を clientWidth/clientHeight から取得（transform の影響を受けにくい）
-            const cssW = Math.max(1, canvas.clientWidth || canvas.clientWidth || 96);
-            const cssH = Math.max(1, canvas.clientHeight || canvas.clientHeight || 128);
+            // 親要素の内寸を使って canvas を親いっぱいにする（親の border に合わせるため）
+            const parent = canvas.parentElement || document.body;
+            const parentStyle = window.getComputedStyle(parent);
+            const padL = parseFloat(parentStyle.paddingLeft) || 0;
+            const padR = parseFloat(parentStyle.paddingRight) || 0;
+            const padT = parseFloat(parentStyle.paddingTop) || 0;
+            const padB = parseFloat(parentStyle.paddingBottom) || 0;
 
+            const availW = Math.max(1, parent.clientWidth - padL - padR);
+            const availH = Math.max(1, parent.clientHeight - padT - padB);
+
+            // CSS 表示サイズを決めてキャンバスを合わせる（親内に収めつつ画像のアスペクト比を保持）
+            const imgW = Math.max(1, img.width || 1);
+            const imgH = Math.max(1, img.height || 1);
+            const imgRatio = imgW / imgH;
+            const availRatio = availW / availH;
+
+            let cssW, cssH;
+            if (imgRatio > availRatio) {
+                cssW = availW;
+                cssH = Math.max(1, Math.round(availW / imgRatio));
+            } else {
+                cssH = availH;
+                cssW = Math.max(1, Math.round(availH * imgRatio));
+            }
+
+            // 表示サイズをキャンバスに反映（CSS サイズとピクセルバッファ）
             const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
+            canvas.style.width = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width = Math.max(1, Math.round(cssW * dpr));
+            canvas.height = Math.max(1, Math.round(cssH * dpr));
 
-            canvas.width = Math.round(cssW * dpr);
-            canvas.height = Math.round(cssH * dpr);
-
+            // 描画は CSS ピクセル座標で行う
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
 
             ctx.clearRect(0, 0, cssW, cssH);
 
-            const scale = Math.min(cssW / img.width, cssH / img.height);
-            const drawW = img.width * scale;
-            const drawH = img.height * scale;
-            ctx.drawImage(img,
-                (cssW - drawW) / 2,
-                (cssH - drawH) / 2,
-                drawW, drawH);
+            // contain モードで縮小して中央に描画（切らさない）
+            const scale = Math.min(cssW / imgW, cssH / imgH);
+            const drawW = imgW * scale;
+            const drawH = imgH * scale;
+            const offsetX = Math.round((cssW - drawW) / 2);
+            const offsetY = Math.round((cssH - drawH) / 2);
+
+            // ソース全体を目的位置へリサイズ描画
+            ctx.drawImage(img, 0, 0, imgW, imgH, offsetX, offsetY, drawW, drawH);
+
         } catch (e) {
             console.debug('drawImageToCanvas error', e);
         }
@@ -766,7 +797,6 @@ window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = t
 
     img.src = imageUrl;
 };
-
 // ========================================
 // PDF ロック解除
 // ========================================
