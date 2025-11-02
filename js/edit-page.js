@@ -65,6 +65,8 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rota
 
         const loadingTask = pdfjsLib.getDocument({
             data: bytes,
+            cMapUrl: pdfjsLib.GlobalWorkerOptions.cMapUrl,
+            cMapPacked: pdfjsLib.GlobalWorkerOptions.cMapPacked,
             standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
             wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
             openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
