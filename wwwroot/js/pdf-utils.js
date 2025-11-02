@@ -53,6 +53,8 @@ async function loadPdfDocument(uint8Array, options = {}) {
 
     const defaultOptions = {
         data: uint8Array,
+        cMapUrl: pdfjsLib.GlobalWorkerOptions.cMapUrl, 
+        cMapPacked: pdfjsLib.GlobalWorkerOptions.cMapPacked,
         standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
         wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
         openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
