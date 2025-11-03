@@ -40,10 +40,10 @@
         import * as pdfjsLib from './lib/pdfjs/pdf.mjs';
         window.pdfjsLib = pdfjsLib;
         pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdfjs/pdf.worker.mjs';
-        pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = './lib/pdfjs/standard_fonts/';
+        pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = './standard_fonts/';
         pdfjsLib.GlobalWorkerOptions.wasmUrl = './lib/pdfjs/';
         pdfjsLib.GlobalWorkerOptions.openjpegJsUrl = './lib/pdfjs/openjpeg_nowasm_fallback.js';
-        pdfjsLib.GlobalWorkerOptions.cMapUrl = './lib/pdfjs/cmaps/';
+        pdfjsLib.GlobalWorkerOptions.cMapUrl = './cmaps/';
         pdfjsLib.GlobalWorkerOptions.cMapPacked = true;
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
