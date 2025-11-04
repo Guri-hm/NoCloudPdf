@@ -688,7 +688,6 @@ public class PdfDataService
             bool allThumbnailsReadyFinal = allPages.All(p => !string.IsNullOrEmpty(p.Thumbnail));
             fileMetadata.IsFullyLoaded = allPageDataReady && allThumbnailsReadyFinal;
 
-            Console.WriteLine($"Background loading completed: {successfulPages}/{fileMetadata.PageCount} pages successfully for {fileMetadata.FileName} ({failedPages} failed)");
         }
         catch (Exception ex)
         {
