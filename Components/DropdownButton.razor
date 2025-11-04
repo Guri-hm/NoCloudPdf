@@ -15,7 +15,7 @@
             @onclick:stopPropagation>
             @foreach (var item in MenuItems)
             {
-                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 whitespace-nowrap"
+                <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 whitespace-nowrap hover:rounded-lg"
                     @onclick="() => OnMenuItemClick(item)">
                     @if (!string.IsNullOrEmpty(item.IconHtml))
                     {
