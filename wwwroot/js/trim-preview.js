@@ -1103,9 +1103,44 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             if (trimState.allowMultipleRects) {
                                 // 複数矩形時：配列に追加
                                 if (trimState.mode === 'draw') {
-                                    // 新規描画 → 追加
-                                    trimState.currentRectsPx.push(raw);
-                                    trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
+                                    // ▼ グリッド分割の適用（新規描画時のみ）
+                                    const gridDiv = window._trimGridDivision || { cols: 1, rows: 1 };
+                                    const cols = Math.max(1, gridDiv.cols);
+                                    const rows = Math.max(1, gridDiv.rows);
+
+                                    if (cols > 1 || rows > 1) {
+                                        // 描画した矩形を基準に分割
+                                        const colWidth = raw.w / cols;
+                                        const rowHeight = raw.h / rows;
+
+                                        for (let row = 0; row < rows; row++) {
+                                            for (let col = 0; col < cols; col++) {
+                                                trimState.currentRectsPx.push({
+                                                    x: raw.x + colWidth * col,
+                                                    y: raw.y + rowHeight * row,
+                                                    w: colWidth,
+                                                    h: rowHeight
+                                                });
+                                            }
+                                        }
+                                        trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
+                                        
+                                        // 分割結果を即座に再描画（視覚的フィードバック）
+                                        const rectsToRender = trimState.currentRectsPx.map(r => ({
+                                            X: r.x / (canvas.clientWidth || 1),
+                                            Y: r.y / (canvas.clientHeight || 1),
+                                            Width: r.w / (canvas.clientWidth || 1),
+                                            Height: r.h / (canvas.clientHeight || 1)
+                                        }));
+                                        if (window.drawTrimOverlayAsSvg) {
+                                            window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                                        }
+                                    } else { 
+                                        // 1×1矩形
+                                        trimState.currentRectsPx.push(raw);
+                                        trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
+                                    }
+
                                 } else if (trimState.mode === 'move' || trimState.mode === 'resize') {
                                     // 移動/リサイズ → 該当インデックスを更新
                                     if (trimState.selectedRectIndex >= 0 && trimState.selectedRectIndex < trimState.currentRectsPx.length) {
@@ -1327,6 +1362,22 @@ window.setTrimRectAspectRatio = function(ratio) {
         return true;
     } catch (e) {
         console.error('setTrimRectAspectRatio error', e);
+        return false;
+    }
+};
+
+// ========================================
+// 矩形オプション: グリッド分割（cols × rows）
+// ========================================
+window.setTrimRectGridDivision = function(cols, rows) {
+    try {
+        window._trimGridDivision = {
+            cols: Math.max(1, Math.min(5, Math.round(cols) || 1)),
+            rows: Math.max(1, Math.min(5, Math.round(rows) || 1))
+        };
+        return true;
+    } catch (e) {
+        console.error('setTrimRectGridDivision error', e);
         return false;
     }
 };
