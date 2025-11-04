@@ -13,7 +13,7 @@ h1:focus {
   outline: none;
 }
 article {
-  background-color: #f9fafb;
+  background-color: #f8f8f8;
 }
 button:not([disabled]),
 [role="button"]:not([disabled]),

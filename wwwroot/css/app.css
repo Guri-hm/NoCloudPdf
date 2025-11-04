@@ -15,8 +15,8 @@ h1:focus {
 }
 
 article {
-    /* やや灰色い青紫系の色(tailwindのgray-50) */
-    background-color: #f9fafb;
+    /* 灰色(adobe readerの背景色) */
+    background-color: #f8f8f8;
 }
 
 button:not([disabled]),
