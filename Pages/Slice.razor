@@ -59,6 +59,14 @@
                         <option value="150">高品質（150dpi）</option>
                         <option value="300">印刷用（300dpi）</option>
                     </select>
+
+                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
+                        <input type="checkbox" @bind="useAspectRatioLock" @bind:after="OnAspectRatioLockChanged" class="form-checkbox h-5 w-5 accent-blue-500" />
+                        1:1固定
+                        <Tooltip Text="新しい矩形を正方形（1:1）に固定します。">
+                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                        </Tooltip>
+                    </label>
                     <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
                         <input type="checkbox" @bind="useSnapToGrid" @bind:after="OnSnapToGridChanged" class="form-checkbox h-5 w-5 accent-blue-500" />
                         スナップ
@@ -733,6 +741,21 @@
             _ = MessageService.ShowAsync("トリミング範囲のクリアに失敗しました", MessageType.Error);
         }
         return Task.CompletedTask;
+    }
+
+    // 1:1 アスペクト比固定フラグ
+    private bool useAspectRatioLock = false;
+
+    private async Task OnAspectRatioLockChanged()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setTrimRectAspectRatio", useAspectRatioLock ? 1.0 : 0);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnAspectRatioLockChanged error: {ex.Message}");
+        }
     }
 
     [JSInvokable]

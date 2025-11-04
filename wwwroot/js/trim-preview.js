@@ -676,6 +676,52 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         let rawW = Math.abs(loc.x - trimState.startClientLocal.x);
                         let rawH = Math.abs(loc.y - trimState.startClientLocal.y);
 
+                        // アスペクト比固定（1:1 など）
+                        if (window._trimAspectRatio && window._trimAspectRatio > 0) {
+                            const targetRatio = window._trimAspectRatio;
+                            const currentRatio = rawW / Math.max(1, rawH);
+                            
+                            // 描画方向を判定（開始点から見てどちら方向にドラッグしているか）
+                            const isRightBottom = (loc.x >= trimState.startClientLocal.x) && (loc.y >= trimState.startClientLocal.y);
+                            const isLeftTop = (loc.x < trimState.startClientLocal.x) && (loc.y < trimState.startClientLocal.y);
+                            
+                            if (currentRatio > targetRatio) {
+                                // 幅が広すぎる → 高さを基準に幅を調整
+                                const newW = rawH * targetRatio;
+                                
+                                if (isRightBottom) {
+                                    // 右下方向：左上固定（既存動作）
+                                    rawW = newW;
+                                } else if (isLeftTop) {
+                                    // 左上方向：右下（開始点）を固定して左上を移動
+                                    rawX = trimState.startClientLocal.x - newW;
+                                    rawW = newW;
+                                } else {
+                                    // 斜め方向：中央を基準に調整
+                                    const centerX = (rawX + rawX + rawW) / 2;
+                                    rawX = centerX - newW / 2;
+                                    rawW = newW;
+                                }
+                            } else {
+                                // 高さが高すぎる → 幅を基準に高さを調整
+                                const newH = rawW / targetRatio;
+                                
+                                if (isRightBottom) {
+                                    // 右下方向：左上固定（既存動作）
+                                    rawH = newH;
+                                } else if (isLeftTop) {
+                                    // 左上方向：右下（開始点）を固定して左上を移動
+                                    rawY = trimState.startClientLocal.y - newH;
+                                    rawH = newH;
+                                } else {
+                                    // 斜め方向：中央を基準に調整
+                                    const centerY = (rawY + rawY + rawH) / 2;
+                                    rawY = centerY - newH / 2;
+                                    rawH = newH;
+                                }
+                            }
+                        }
+
                         // スナップ適用（描画中）
                         const snappedLeft = snapValue(rawX, snapTargets.x, snapThreshold);
                         const snappedTop = snapValue(rawY, snapTargets.y, snapThreshold);
@@ -1270,4 +1316,17 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
             resolve(false);
         }
     });
+};
+
+// ========================================
+// 矩形オプション: アスペクト比固定
+// ========================================
+window.setTrimRectAspectRatio = function(ratio) {
+    try {
+        window._trimAspectRatio = (typeof ratio === 'number' && ratio > 0) ? ratio : null;
+        return true;
+    } catch (e) {
+        console.error('setTrimRectAspectRatio error', e);
+        return false;
+    }
 };
