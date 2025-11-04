@@ -16,7 +16,7 @@
 @if (IsFilesLoaded && !CompletionState.ShowResult && currentState == OcrWorkflowState.Editing)
 {
     <div id="drop-area" class="relative h-screen flex flex-col">
-        <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
+        <DropCover Message="ここにファイルをドロップ" />
         
         <!-- 上部固定バー -->
         <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
@@ -539,7 +539,6 @@
 
     private int previewIndex = -1;
     private DotNetObjectReference<Ocr>? _dotNetRef;
-    private bool isDragOver = false;
     private string mergedFileName = "";
     private string mergedFileSize = "";
     private int mergedPageCount = 0;
@@ -1515,13 +1514,6 @@
             Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
         }
         return Task.CompletedTask;
-    }
-
-    [JSInvokable]
-    public void SetDragOver(bool over)
-    {
-        isDragOver = over;
-        StateHasChanged();
     }
 
     private async Task OpenTrimRangeDialog()

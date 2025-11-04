@@ -16,7 +16,7 @@
 @if (IsFilesLoaded && !CompletionState.ShowResult)
 {
     <div id="drop-area" class="relative h-screen flex flex-col">
-        <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
+        <DropCover Message="ここにファイルをドロップ" />
         
         <!-- 上部固定バー -->
         <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
@@ -353,7 +353,6 @@
     // プレビュー中のファイル内で、何ページ目を表示しているか
     private int filePageIndex = 0;
     private DotNetObjectReference<Slice>? _dotNetRef;
-    private bool isDragOver = false;
     private bool isMenuOpen = false;
     private string mergedFileName = "";
     private string mergedFileSize = "";
@@ -864,13 +863,6 @@
             Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
         }
         return Task.CompletedTask;
-    }
-
-    [JSInvokable]
-    public void SetDragOver(bool over)
-    {
-        isDragOver = over;
-        StateHasChanged();
     }
 
     /// <summary>

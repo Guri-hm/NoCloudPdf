@@ -17,7 +17,7 @@
 @if (IsFilesLoaded && !CompletionState.ShowResult)
 {
     <div id="drop-area" class="relative min-h-screen">
-        <DropCover IsDragOver="isDragOver" Message="ここにファイルをドロップ" />
+        <DropCover Message="ここにファイルをドロップ" />
         <!-- 上部固定バー -->
         <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
             <div
@@ -289,7 +289,6 @@
     // プレビュー中のファイル内で、何ページ目を表示しているか
     private int filePageIndex = 0;
     private DotNetObjectReference<Merge>? _dotNetRef;
-    private bool isDragOver = false;
     private bool isMenuOpen = false;
     private string mergedFileName = "";
     private string mergedFileSize = "";
@@ -1065,12 +1064,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         {
             _renderedMergedPages = false;
         }
-    }
-    [JSInvokable]
-    public void SetDragOver(bool over)
-    {
-        isDragOver = over;
-        StateHasChanged();
     }
 
     private async void DownloadMergedPdf()
