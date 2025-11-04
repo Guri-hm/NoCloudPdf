@@ -1,3 +1,26 @@
+// drop-area 内の DropCover を即時表示/非表示
+function setDropCoverVisible(area, visible) {
+    if (!area) return;
+    const cover = area.querySelector('[data-drop-cover]');
+    const inner = area.querySelector('[data-drop-cover-inner]');
+    if (!cover) return;
+    if (visible) {
+        cover.classList.remove('opacity-0', 'pointer-events-none');
+        cover.classList.add('opacity-60', 'pointer-events-auto');
+        if (inner) {
+            inner.classList.remove('scale-70');
+            inner.classList.add('scale-100');
+        }
+    } else {
+        cover.classList.remove('opacity-60', 'pointer-events-auto');
+        cover.classList.add('opacity-0', 'pointer-events-none');
+        if (inner) {
+            inner.classList.remove('scale-100');
+            inner.classList.add('scale-70');
+        }
+    }
+}
+
 // ファイルドロップによる追加
 window.registerDropArea = function (elementId, dotNetRef) {
     const area = document.getElementById(elementId);
@@ -14,7 +37,7 @@ window.registerDropArea = function (elementId, dotNetRef) {
         dragenter: function (e) {
             if (window.isSorting) return;
             dragCounter++;
-            dotNetRef.invokeMethodAsync('SetDragOver', true);
+            setDropCoverVisible(area, true);
         },
         dragover: function (e) {
             if (window.isSorting) return;
@@ -25,14 +48,14 @@ window.registerDropArea = function (elementId, dotNetRef) {
             dragCounter--;
             if (dragCounter <= 0) {
                 dragCounter = 0;
-                dotNetRef.invokeMethodAsync('SetDragOver', false);
+                setDropCoverVisible(area, false);
             }
         },
         drop: function (e) {
             if (window.isSorting) return;
             e.preventDefault();
             dragCounter = 0;
-            dotNetRef.invokeMethodAsync('SetDragOver', false);
+            setDropCoverVisible(area, false);
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 const files = Array.from(e.dataTransfer.files);
                 files.forEach(file => {
