@@ -348,7 +348,7 @@
             if (nextPage >= 0 && nextPage < pageCount)
             {
                 filePageIndex = nextPage;
-                _ = ShowPreviewAsync(previewIndex, filePageIndex);
+                await ShowPreviewAsync(previewIndex, filePageIndex);
             }
         }
         else
@@ -356,7 +356,7 @@
             var nextIndex = previewIndex + direction;
             if (nextIndex >= 0 && nextIndex < DisplayItems.Count)
             {
-                _ =  ShowPreviewAsync(nextIndex);
+                await ShowPreviewAsync(nextIndex);
             }
         }
     }
@@ -370,16 +370,16 @@
             if (inputPage >= 1 && inputPage <= CurrentFilePageCount)
             {
                 filePageIndex = inputPage - 1;
-                _ = ShowPreviewAsync(previewIndex, filePageIndex);
+                await ShowPreviewAsync(previewIndex, filePageIndex);
             }
         }
-    }
+            }
     private async Task RotatePreviewLeft()
     {
         if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
         {
             PdfDataService.RotateItem(previewIndex, -90);
-            _ =  ShowPreviewAsync(previewIndex);
+            await ShowPreviewAsync(previewIndex);
         }
     }
 
@@ -388,7 +388,7 @@
         if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
         {
             PdfDataService.RotateItem(previewIndex, 90);
-            _ = ShowPreviewAsync(previewIndex);
+            await ShowPreviewAsync(previewIndex);
         }
     }
 
@@ -1000,7 +1000,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Console.WriteLine("aaaa");
         if (firstRender)
         {
             _currentInstance = this;
@@ -1025,14 +1024,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
         }
         if (IsFilesLoaded && DisplayItems.Any())
         {
-            foreach (var item in DisplayItems)
-            {
-                await JSRuntime.InvokeVoidAsync(
-                "drawImageToCanvas",
-                $"thumb-{item.Id}",
-                item.Thumbnail
-                );
-            }
+            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
         }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）

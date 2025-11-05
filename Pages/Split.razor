@@ -519,7 +519,6 @@
         filePageIndex = pageIndex;
         previewImageUrl = null;
         isPreviewLoading = true;
-        StateHasChanged();
 
         try
         {
@@ -532,7 +531,6 @@
         }
 
         isPreviewLoading = false;
-        StateHasChanged();
     }
 
 
@@ -912,7 +910,6 @@
             int removedPageIndex = filePageIndex;
 
             PdfDataService.RemovePageFromFile(fileId, removedPageIndex);
-            await InvokeAsync(StateHasChanged);
 
             var items = DisplayItems;
             var newIndex = items.FindIndex(x => x.Id == fileId);
@@ -1303,14 +1300,7 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
 
         if (IsFilesLoaded && DisplayItems.Any())
         {
-            foreach (var item in DisplayItems)
-            {
-                await JSRuntime.InvokeVoidAsync(
-                "drawImageToCanvas",
-                $"thumb-{item.Id}",
-                item.Thumbnail
-                );
-            }
+            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
         }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）

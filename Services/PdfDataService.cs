@@ -388,6 +388,10 @@ public class PdfDataService
         public int pageRotation { get; set; } = 0; // ページのデフォルト回転角度(ページ固有の回転情報が含まれるPDFでサムネイルとプレビューの傾きがずれるためjs側で取得)
     }
 
+    private readonly object _renderLock = new();
+    private int _pendingRenders = 0;
+    private readonly int _renderBatchSize = 5; 
+
     /// <summary>
     /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示，ファイル単位表示で処理切り分け）
     /// モード切替時に処理をキャンセル
@@ -493,6 +497,8 @@ public class PdfDataService
                     pageItem.IsLoading = false;
                 }
             }
+
+            await InvokeOnChangeAsync();
             return;
         }
 
@@ -667,9 +673,6 @@ public class PdfDataService
                 pageItem.HasThumbnailError = thumbError;
                 pageItem.HasPageDataError = dataError;
 
-                // UI更新イベント発火
-                // await BufferedNotifyChangeAsync();
-                await InvokeOnChangeAsync();
                 if (!thumbError && !dataError)
                 {
                     successfulPages++;
@@ -677,10 +680,30 @@ public class PdfDataService
                 else
                 {
                     failedPages++;
-                    Console.WriteLine($"Warning: Page {pageIndex + 1} of {fileMetadata.FileName} failed to load properly");
+                }
+
+                // バッチレンダリング：N件ごとにUIを更新
+                lock (_renderLock)
+                {
+                    _pendingRenders++;
+                    if (_pendingRenders >= _renderBatchSize)
+                    {
+                        _pendingRenders = 0;
+                        _ = InvokeOnChangeAsync(); // await しない（fire-and-forget）
+                    }
                 }
 
             }
+
+            // 最後に残りを反映
+            lock (_renderLock)
+            {
+                if (_pendingRenders > 0)
+                {
+                    _pendingRenders = 0;
+                }
+            }
+            await InvokeOnChangeAsync();
 
             // 全ページのPageDataとサムネイルが揃っている場合のみIsFullyLoadedをtrueに
             var allPages = _model.Pages.Where(p => p.FileId == fileId).ToList();

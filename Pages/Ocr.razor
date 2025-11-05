@@ -1475,8 +1475,10 @@
             }
             foreach (var item in DisplayItems)
             {
+                
                 await JSRuntime.InvokeVoidAsync("drawImageToCanvas", $"trim-thumb-{item.Id}", item.Thumbnail);
             }
+
         }
         else
         {

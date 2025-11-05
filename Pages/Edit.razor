@@ -404,7 +404,6 @@
         filePageIndex = pageIndex;
         previewImageUrl = null;
         isPreviewLoading = true;
-        StateHasChanged();
         try
         {
             if (CurrentDisplayMode == DisplayMode.File)
@@ -443,7 +442,6 @@
         }
 
         isPreviewLoading = false;
-        StateHasChanged();
     }
 
 
@@ -1164,14 +1162,7 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
         }
         if (IsFilesLoaded && DisplayItems.Any())
         {
-            foreach (var item in DisplayItems)
-            {
-                await JSRuntime.InvokeVoidAsync(
-                "drawImageToCanvas",
-                $"thumb-{item.Id}",
-                item.Thumbnail
-                );
-            }
+            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
         }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
