@@ -54,38 +54,8 @@
                             </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
-                    <select @bind="exportDpi" class="px-2 py-1 border border-gray-300 rounded bg-white text-gray-900 text-sm">
-                        <option value="72">実寸（72dpi）</option>
-                        <option value="150">高品質（150dpi）</option>
-                        <option value="300">印刷用（300dpi）</option>
-                    </select>
 
-                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
-                        <input type="checkbox" @bind="useAspectRatioLock" @bind:after="OnAspectRatioLockChanged" class="form-checkbox h-5 w-5 accent-blue-500" />
-                        1:1固定
-                        <Tooltip Text="新しい矩形を正方形（1:1）に固定します。">
-                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
-                        </Tooltip>
-                    </label>
-
-                    <div class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded">
-                        <label class="text-sm">列:</label>
-                        <input type="number" min="1" max="5" @bind="gridCols" @bind:after="OnGridDivisionChanged"
-                            class="w-12 px-1 py-1 border border-gray-300 rounded text-sm text-center" />
-                        <label class="text-sm">行:</label>
-                        <input type="number" min="1" max="5" @bind="gridRows" @bind:after="OnGridDivisionChanged"
-                            class="w-12 px-1 py-1 border border-gray-300 rounded text-sm text-center" />
-                        <Tooltip Text="矩形描画時に自動分割する列数と行数を設定します。">
-                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
-                        </Tooltip>
-                    </div>
-                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
-                        <input type="checkbox" @bind="useSnapToGrid" @bind:after="OnSnapToGridChanged" class="form-checkbox h-5 w-5 accent-blue-500" />
-                        スナップ
-                        <Tooltip Text="既存の矩形の位置に合わせて、新しい矩形を自動的にスナップ（吸着）させます。">
-                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
-                        </Tooltip>
-                    </label>
+                    <ActionButtonGroup T="string" Actions="showOptionsModal" />
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
@@ -147,6 +117,23 @@
             </button>
         </div>    
     </div>
+    <OptionsModal IsOpen="@isOptionsModalOpen" 
+              OnClose="() => isOptionsModalOpen = false"
+              Title="スライスオプション">
+        <SliceOptions ExportDpi="@exportDpi"
+                    ExportDpiChanged="EventCallback.Factory.Create<int>(this, v => exportDpi = v)"
+                    UseAspectRatioLock="@useAspectRatioLock"
+                    UseAspectRatioLockChanged="EventCallback.Factory.Create<bool>(this, v => useAspectRatioLock = v)"
+                    OnAspectRatioLockChanged="EventCallback.Factory.Create(this, OnAspectRatioLockChanged)"
+                    GridCols="@gridCols"
+                    GridColsChanged="EventCallback.Factory.Create<int>(this, v => gridCols = v)"
+                    GridRows="@gridRows"
+                    GridRowsChanged="EventCallback.Factory.Create<int>(this, v => gridRows = v)"
+                    OnGridDivisionChanged="EventCallback.Factory.Create(this, OnGridDivisionChanged)"
+                    UseSnapToGrid="@useSnapToGrid"
+                    UseSnapToGridChanged="EventCallback.Factory.Create<bool>(this, v => useSnapToGrid = v)"
+                    OnSnapToGridChanged="EventCallback.Factory.Create(this, OnSnapToGridChanged)" />
+    </OptionsModal>
 }
 @if (!IsFilesLoaded && !CompletionState.ShowResult)
 {
@@ -388,6 +375,7 @@
 
     private int mergedPageCount = 0;
     private int exportDpi = 72;
+    private bool isOptionsModalOpen = false;
 
     private int GetCurrentFilePageIndex()
     {
@@ -659,6 +647,22 @@
             Title = "拡大",
             OnClick = EventCallback.Factory.Create(this, ZoomIn),
             IconPosition = "left"
+        }
+    };
+
+private List<ActionButtonItem> showOptionsModal => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "オプション",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(SettingsIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "スライスオプション",
+            OnClick = EventCallback.Factory.Create(this, () => isOptionsModalOpen = true),
         }
     };
 

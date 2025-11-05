@@ -1,0 +1,45 @@
+<div class="@($"fixed inset-0 z-[300] flex items-center justify-center {(IsOpen ? "" : "hidden")}")">
+    <!-- 背景オーバーレイ -->
+    <div class="absolute inset-0 bg-black/50" @onclick="Close"></div>
+    
+    <!-- モーダル本体 -->
+    <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <!-- ヘッダー -->
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+            <h2 class="text-xl font-bold text-gray-800">@Title</h2>
+            <button @onclick="Close" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- コンテンツ -->
+        <div class="px-6 py-4">
+            @ChildContent
+        </div>
+        
+        <!-- フッター（オプション） -->
+        @if (ShowFooter)
+        {
+            <div class="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                <button @onclick="Close" class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition">
+                    閉じる
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string Title { get; set; } = "オプション";
+    [Parameter] public bool ShowFooter { get; set; } = true;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+}

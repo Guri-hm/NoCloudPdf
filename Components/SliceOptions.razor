@@ -1,0 +1,117 @@
+<div class="space-y-6">
+    <!-- 書き出し解像度 -->
+    <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold text-gray-700">書き出し解像度</label>
+        <select @bind="ExportDpi" @bind:after="NotifyExportDpiChanged" class="px-3 py-2 border border-gray-300 rounded bg-white text-gray-900">
+            <option value="72">実寸（72dpi）</option>
+            <option value="150">高品質（150dpi）</option>
+            <option value="300">印刷用（300dpi）</option>
+        </select>
+    </div>
+
+    <div class="border-t border-gray-200"></div>
+
+    <!-- 矩形描画設定 -->
+    <div class="flex flex-col gap-4">
+        <h3 class="text-sm font-semibold text-gray-700">矩形描画設定</h3>
+        
+        <!-- 1:1固定 -->
+        <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" 
+                   @bind="UseAspectRatioLock"
+                   @bind:after="NotifyAspectRatioLockChanged"
+                   class="form-checkbox h-5 w-5 accent-blue-500" />
+            <span>1:1固定（正方形）</span>
+            <Tooltip Text="新しい矩形を正方形（1:1）に固定します。">
+                <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+            </Tooltip>
+        </label>
+
+        <!-- グリッド分割 -->
+        <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+                <span class="text-sm">グリッド分割</span>
+                <Tooltip Text="矩形描画時に自動分割する列数と行数を設定します。">
+                    <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+                </Tooltip>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-600">列:</label>
+                    <input type="number" 
+                           min="1" 
+                           max="5" 
+                           @bind="GridCols"
+                           @bind:after="NotifyGridDivisionChanged"
+                           class="w-16 px-2 py-1 border border-gray-300 rounded text-center" />
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-600">行:</label>
+                    <input type="number" 
+                           min="1" 
+                           max="5" 
+                           @bind="GridRows"
+                           @bind:after="NotifyGridDivisionChanged"
+                           class="w-16 px-2 py-1 border border-gray-300 rounded text-center" />
+                </div>
+            </div>
+        </div>
+
+        <!-- スナップ -->
+        <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" 
+                   @bind="UseSnapToGrid"
+                   @bind:after="NotifySnapToGridChanged"
+                   class="form-checkbox h-5 w-5 accent-blue-500" />
+            <span>スナップ（吸着）</span>
+            <Tooltip Text="既存の矩形の位置に合わせて、新しい矩形を自動的にスナップ（吸着）させます。">
+                <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+            </Tooltip>
+        </label>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int ExportDpi { get; set; } = 72;
+    [Parameter] public EventCallback<int> ExportDpiChanged { get; set; }
+
+    [Parameter] public bool UseAspectRatioLock { get; set; }
+    [Parameter] public EventCallback<bool> UseAspectRatioLockChanged { get; set; }
+    [Parameter] public EventCallback OnAspectRatioLockChanged { get; set; }
+
+    [Parameter] public int GridCols { get; set; } = 1;
+    [Parameter] public EventCallback<int> GridColsChanged { get; set; }
+
+    [Parameter] public int GridRows { get; set; } = 1;
+    [Parameter] public EventCallback<int> GridRowsChanged { get; set; }
+    [Parameter] public EventCallback OnGridDivisionChanged { get; set; }
+
+    [Parameter] public bool UseSnapToGrid { get; set; }
+    [Parameter] public EventCallback<bool> UseSnapToGridChanged { get; set; }
+    [Parameter] public EventCallback OnSnapToGridChanged { get; set; }
+
+    // 通知メソッド（値変更 + カスタムイベント呼び出し）
+    private async Task NotifyExportDpiChanged()
+    {
+        await ExportDpiChanged.InvokeAsync(ExportDpi);
+    }
+
+    private async Task NotifyAspectRatioLockChanged()
+    {
+        await UseAspectRatioLockChanged.InvokeAsync(UseAspectRatioLock);
+        await OnAspectRatioLockChanged.InvokeAsync();
+    }
+
+    private async Task NotifyGridDivisionChanged()
+    {
+        await GridColsChanged.InvokeAsync(GridCols);
+        await GridRowsChanged.InvokeAsync(GridRows);
+        await OnGridDivisionChanged.InvokeAsync();
+    }
+
+    private async Task NotifySnapToGridChanged()
+    {
+        await UseSnapToGridChanged.InvokeAsync(UseSnapToGrid);
+        await OnSnapToGridChanged.InvokeAsync();
+    }
+}
