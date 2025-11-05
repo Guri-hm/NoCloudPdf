@@ -598,7 +598,7 @@ public class PdfDataService
                         if (string.IsNullOrEmpty(pageItem.Thumbnail) || pageItem.HasThumbnailError)
                         {
                             // サムネイルも取得
-                            var renderCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                            var renderCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                             try
                             {
                                 var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
@@ -1856,7 +1856,7 @@ public class PdfDataService
     private readonly object _notifyLock = new();
     private CancellationTokenSource? _bufferNotifyCts;
     private bool _bufferNotifyScheduled = false;
-   private readonly TimeSpan _bufferNotifyDelay = TimeSpan.FromMilliseconds(120); // 調整
+   private readonly TimeSpan _bufferNotifyDelay = TimeSpan.FromMilliseconds(300); // 調整
    /// <summary>
    /// 頻繁に呼ばれる箇所用のバッファ通知（LoadAllPagesForFileAsync 等で使う）
    /// 呼び出し側は await して問題なし。短時間内はまとめて 1 回だけ OnChange を発火する。
