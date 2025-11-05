@@ -67,7 +67,7 @@
         </div>
         <SplitPane LeftWidth="@thumbnailAreaWidth" LeftWidthChanged="@(async w => { thumbnailAreaWidth = w; })">
             <Left>
-                <div class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
+                <div id="thumbnail-container" class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var index = i;
@@ -814,10 +814,7 @@
                 catch { _visibleObserverLastCount = -1; }
             }
             // サムネイル描画
-            foreach (var item in DisplayItems)
-            {
-                await JSRuntime.InvokeVoidAsync("drawImageToCanvas", $"trim-thumb-{item.Id}", item.Thumbnail);
-            }
+            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "thumbnail-container");
         }
         else
         {

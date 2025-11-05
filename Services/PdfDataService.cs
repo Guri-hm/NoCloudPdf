@@ -390,7 +390,37 @@ public class PdfDataService
 
     private readonly object _renderLock = new();
     private int _pendingRenders = 0;
-    private readonly int _renderBatchSize = 5; 
+    /// <summary>
+    /// ページ数に応じたバッチサイズを動的に計算
+    /// </summary>
+    private int GetDynamicBatchSize(int totalPages)
+    {
+        if (totalPages <= 50)
+        {
+            // 少量（～50ページ）：細かく更新（体感速度重視）
+            return 5;
+        }
+        else if (totalPages <= 100)
+        {
+            // 中量（50～100ページ）：中程度の更新頻度
+            return 10;
+        }
+        else if (totalPages <= 200)
+        {
+            // 多量（100～200ページ）：更新頻度を減らす
+            return 20;
+        }
+        else if (totalPages <= 500)
+        {
+            // 大量（200～500ページ）：さらに頻度を減らす
+            return 50;
+        }
+        else
+        {
+            // 超大量（500ページ以上）：最小限の更新
+            return 100;
+        }
+    } 
 
     /// <summary>
     /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示，ファイル単位表示で処理切り分け）
@@ -415,6 +445,9 @@ public class PdfDataService
             Console.WriteLine($"Skipping load for {fileId}: not found");
             return;
         }
+
+        int batchSize = GetDynamicBatchSize(fileMetadata.PageCount);
+        Console.WriteLine($"LoadAllPagesForFileAsync: {fileMetadata.FileName} ({fileMetadata.PageCount} pages) - batchSize={batchSize}");
 
         // ファイルのサムネイルがそろっていない
         if (!loadThumbnails)
@@ -598,7 +631,7 @@ public class PdfDataService
                         if (string.IsNullOrEmpty(pageItem.Thumbnail) || pageItem.HasThumbnailError)
                         {
                             // サムネイルも取得
-                            var renderCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                            var renderCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                             try
                             {
                                 var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
@@ -627,7 +660,7 @@ public class PdfDataService
                     }
                     else
                     {
-                        var dataCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                        var dataCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                         try
                         {
                             pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", dataCts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
@@ -686,7 +719,7 @@ public class PdfDataService
                 lock (_renderLock)
                 {
                     _pendingRenders++;
-                    if (_pendingRenders >= _renderBatchSize)
+                    if (_pendingRenders >= batchSize)
                     {
                         _pendingRenders = 0;
                         _ = InvokeOnChangeAsync(); // await しない（fire-and-forget）
