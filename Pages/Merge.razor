@@ -258,7 +258,7 @@
         PdfDataService.OnChange -= OnServiceChanged;
         CompletionState.Reset();
         _dotNetRef?.Dispose();
-        
+
         if (_dropAreaRegistered)
         {
             JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
@@ -348,7 +348,7 @@
             if (nextPage >= 0 && nextPage < pageCount)
             {
                 filePageIndex = nextPage;
-                await ShowPreviewAsync(previewIndex, filePageIndex);
+                _ = ShowPreviewAsync(previewIndex, filePageIndex);
             }
         }
         else
@@ -356,7 +356,7 @@
             var nextIndex = previewIndex + direction;
             if (nextIndex >= 0 && nextIndex < DisplayItems.Count)
             {
-                await ShowPreviewAsync(nextIndex);
+                _ =  ShowPreviewAsync(nextIndex);
             }
         }
     }
@@ -370,7 +370,7 @@
             if (inputPage >= 1 && inputPage <= CurrentFilePageCount)
             {
                 filePageIndex = inputPage - 1;
-                await ShowPreviewAsync(previewIndex, filePageIndex);
+                _ = ShowPreviewAsync(previewIndex, filePageIndex);
             }
         }
     }
@@ -379,7 +379,7 @@
         if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
         {
             PdfDataService.RotateItem(previewIndex, -90);
-            await ShowPreviewAsync(previewIndex);
+            _ =  ShowPreviewAsync(previewIndex);
         }
     }
 
@@ -388,7 +388,7 @@
         if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
         {
             PdfDataService.RotateItem(previewIndex, 90);
-            await ShowPreviewAsync(previewIndex);
+            _ = ShowPreviewAsync(previewIndex);
         }
     }
 
@@ -399,7 +399,6 @@
         filePageIndex = pageIndex;
         previewImageUrl = null;
         isPreviewLoading = true;
-        StateHasChanged();
         try
         {
             if (CurrentDisplayMode == DisplayMode.File)
@@ -439,7 +438,6 @@
         }
 
         isPreviewLoading = false;
-        StateHasChanged();
     }
 
 
@@ -647,7 +645,7 @@
                 if (filePageIndex < 0) filePageIndex = 0;
                 previewIndex = newIndex;
 
-                await ShowPreviewAsync(previewIndex, filePageIndex);
+                _ = ShowPreviewAsync(previewIndex, filePageIndex);
             }
             else
             {
@@ -656,7 +654,7 @@
                 {
                     previewIndex = Math.Min(previewIndex, items.Count - 1);
                     filePageIndex = 0;
-                    await ShowPreviewAsync(previewIndex, filePageIndex);
+                    _ = ShowPreviewAsync(previewIndex, filePageIndex);
                 }
                 else
                 {
@@ -671,7 +669,7 @@
             if (items.Count > 0)
             {
                 previewIndex = Math.Min(previewIndex, items.Count - 1);
-                await ShowPreviewAsync(previewIndex);
+                _ = ShowPreviewAsync(previewIndex);
             }
             else
             {
@@ -1002,6 +1000,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        Console.WriteLine("aaaa");
         if (firstRender)
         {
             _currentInstance = this;
