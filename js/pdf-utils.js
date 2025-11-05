@@ -1438,3 +1438,29 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         throw error;
     }
 };
+
+// 表示領域監視による遅延描画
+window.drawVisibleCanvases = function(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const canvas = entry.target;
+                const itemId = canvas.dataset.itemId;
+                const thumbUrl = canvas.dataset.thumbnail;
+                
+                if (thumbUrl && !canvas.dataset.drawn) {
+                    window.drawImageToCanvas(canvas.id, thumbUrl);
+                    canvas.dataset.drawn = 'true';
+                    observer.unobserve(canvas);
+                }
+            }
+        });
+    }, { rootMargin: '200px' }); // 200px手前から読み込み開始
+
+    container.querySelectorAll('canvas[data-thumbnail]').forEach(canvas => {
+        observer.observe(canvas);
+    });
+};

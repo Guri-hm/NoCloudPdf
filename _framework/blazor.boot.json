@@ -1,9 +1,9 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-/cZhDkiS7ZPxJ7le6fcF0rLY6Yb0DZp6FHnIz5oDl4I=",
+    "hash": "sha256-RkrIOcVrK0yvW1KiB2mnvQRvnix3fdS+ZMhR3HBtRDI=",
     "fingerprinting": {
-      "Microsoft.AspNetCore.Components.q2xvcu7w1s.wasm": "Microsoft.AspNetCore.Components.wasm",
+      "Microsoft.AspNetCore.Components.j7253kck3j.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.86vin5kfym.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
       "Microsoft.AspNetCore.Components.WebAssembly.i90nmfdhl2.wasm": "Microsoft.AspNetCore.Components.WebAssembly.wasm",
       "Microsoft.Extensions.Configuration.4t472g198i.wasm": "Microsoft.Extensions.Configuration.wasm",
@@ -42,9 +42,9 @@
       "System.Threading.l076ub7jlh.wasm": "System.Threading.wasm",
       "System.8rv0tdtrxz.wasm": "System.wasm",
       "System.Private.CoreLib.w7g9m6eugt.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.ddutz43a2c.wasm": "NoCloudPdf.wasm",
+      "NoCloudPdf.9b99m4t6oo.wasm": "NoCloudPdf.wasm",
       "dotnet.native.iabxf0ctbq.js": "dotnet.native.js",
-      "dotnet.native.xl6fytzog4.wasm": "dotnet.native.wasm",
+      "dotnet.native.bznwt04utg.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.drv0pr9n5o.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -58,7 +58,7 @@
       "dotnet.runtime.drv0pr9n5o.js": "sha256-yfXUv1l/B489E8p12JxUvxly0JvHL9CCsoZUDlfGH9c="
     },
     "wasmNative": {
-      "dotnet.native.xl6fytzog4.wasm": "sha256-ywqUwrbRTR/hYotdFpjET6fQPXBAACyZAlY72hczDlU="
+      "dotnet.native.bznwt04utg.wasm": "sha256-mcG8Gl1g9ArWujvoEXRQ8pb5Vl0yGn10lGjojFVlhLM="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -66,7 +66,7 @@
       "icudt_no_CJK.lfu7j35m59.dat": "sha256-L7sV7NEYP37/Qr2FPCePo5cJqRgTXRwGHuwF5Q+0Nfs="
     },
     "coreAssembly": {
-      "Microsoft.AspNetCore.Components.q2xvcu7w1s.wasm": "sha256-Mu2LQ5c23JsAwxD0F5Kbwa1OGb/egPwAWaIX5hoYlj0=",
+      "Microsoft.AspNetCore.Components.j7253kck3j.wasm": "sha256-kfKJHweNxkregUyr9Pd5syfsOOZKtO3cmSzkvWF/WE0=",
       "Microsoft.AspNetCore.Components.Web.86vin5kfym.wasm": "sha256-UBldFZyXMe9tT6TyqEC6TVpUJhuD65klihkSAco7fLg=",
       "Microsoft.AspNetCore.Components.WebAssembly.i90nmfdhl2.wasm": "sha256-6hwpiNaiiQ2Acl6i294FICNCtwNFpJFEODTD0Sm6ooI=",
       "Microsoft.Extensions.Configuration.4t472g198i.wasm": "sha256-6BnOKUkguDXwFIu87wg7rSAsgiBdsWWCCZ718o4h6eA=",
@@ -105,7 +105,7 @@
       "System.Threading.l076ub7jlh.wasm": "sha256-BYM74VCZoN8Ij59a4Qvg1Q891gvsEmqvMmPnLvmqiwo=",
       "System.8rv0tdtrxz.wasm": "sha256-xMF0eauQ5DkSzUozHLFFMQnL6DSJO09nJLtgag+Dzbw=",
       "System.Private.CoreLib.w7g9m6eugt.wasm": "sha256-pDezsvlbbTiXqA6icy5slbq8eeb6VZqZxkpul69tcuw=",
-      "NoCloudPdf.ddutz43a2c.wasm": "sha256-AYJOXQ012MRzso5J3DU19/9lC8W1vVWuncTtFViRxo8="
+      "NoCloudPdf.9b99m4t6oo.wasm": "sha256-ZU0nQH0DRpA01UU6/CY/7z/Rz1ywcn5gnwNl1IWnWqA="
     },
     "assembly": {}
   },

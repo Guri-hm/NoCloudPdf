@@ -13,7 +13,7 @@ h1:focus {
   outline: none;
 }
 article {
-  background-color: #f9fafb;
+  background-color: #f8f8f8;
 }
 button:not([disabled]),
 [role="button"]:not([disabled]),
@@ -383,6 +383,7 @@ input[type=number] {
     --container-md: 28rem;
     --container-lg: 32rem;
     --container-xl: 36rem;
+    --container-2xl: 42rem;
     --container-3xl: 48rem;
     --container-4xl: 56rem;
     --container-6xl: 72rem;
@@ -759,6 +760,9 @@ input[type=number] {
   .z-\[250\] {
     z-index: 250;
   }
+  .z-\[300\] {
+    z-index: 300;
+  }
   .z-\[9999\] {
     z-index: 9999;
   }
@@ -795,6 +799,9 @@ input[type=number] {
   .mx-3 {
     margin-inline: calc(var(--spacing) * 3);
   }
+  .mx-4 {
+    margin-inline: calc(var(--spacing) * 4);
+  }
   .mx-auto {
     margin-inline: auto;
   }
@@ -827,9 +834,6 @@ input[type=number] {
   }
   .mr-2 {
     margin-right: calc(var(--spacing) * 2);
-  }
-  .mr-3 {
-    margin-right: calc(var(--spacing) * 3);
   }
   .mb-1 {
     margin-bottom: calc(var(--spacing) * 1);
@@ -1073,6 +1077,9 @@ input[type=number] {
   }
   .w-px {
     width: 1px;
+  }
+  .max-w-2xl {
+    max-width: var(--container-2xl);
   }
   .max-w-3xl {
     max-width: var(--container-3xl);
@@ -2275,6 +2282,13 @@ input[type=number] {
       }
     }
   }
+  .hover\:rounded-lg {
+    &:hover {
+      @media (hover: hover) {
+        border-radius: var(--radius-lg);
+      }
+    }
+  }
   .hover\:border-solid {
     &:hover {
       @media (hover: hover) {
@@ -2525,6 +2539,13 @@ input[type=number] {
     &:hover {
       @media (hover: hover) {
         color: var(--color-blue-800);
+      }
+    }
+  }
+  .hover\:text-gray-600 {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-gray-600);
       }
     }
   }

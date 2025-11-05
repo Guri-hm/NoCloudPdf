@@ -676,6 +676,52 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         let rawW = Math.abs(loc.x - trimState.startClientLocal.x);
                         let rawH = Math.abs(loc.y - trimState.startClientLocal.y);
 
+                        // アスペクト比固定（1:1 など）
+                        if (window._trimAspectRatio && window._trimAspectRatio > 0) {
+                            const targetRatio = window._trimAspectRatio;
+                            const currentRatio = rawW / Math.max(1, rawH);
+                            
+                            // 描画方向を判定（開始点から見てどちら方向にドラッグしているか）
+                            const isRightBottom = (loc.x >= trimState.startClientLocal.x) && (loc.y >= trimState.startClientLocal.y);
+                            const isLeftTop = (loc.x < trimState.startClientLocal.x) && (loc.y < trimState.startClientLocal.y);
+                            
+                            if (currentRatio > targetRatio) {
+                                // 幅が広すぎる → 高さを基準に幅を調整
+                                const newW = rawH * targetRatio;
+                                
+                                if (isRightBottom) {
+                                    // 右下方向：左上固定（既存動作）
+                                    rawW = newW;
+                                } else if (isLeftTop) {
+                                    // 左上方向：右下（開始点）を固定して左上を移動
+                                    rawX = trimState.startClientLocal.x - newW;
+                                    rawW = newW;
+                                } else {
+                                    // 斜め方向：中央を基準に調整
+                                    const centerX = (rawX + rawX + rawW) / 2;
+                                    rawX = centerX - newW / 2;
+                                    rawW = newW;
+                                }
+                            } else {
+                                // 高さが高すぎる → 幅を基準に高さを調整
+                                const newH = rawW / targetRatio;
+                                
+                                if (isRightBottom) {
+                                    // 右下方向：左上固定（既存動作）
+                                    rawH = newH;
+                                } else if (isLeftTop) {
+                                    // 左上方向：右下（開始点）を固定して左上を移動
+                                    rawY = trimState.startClientLocal.y - newH;
+                                    rawH = newH;
+                                } else {
+                                    // 斜め方向：中央を基準に調整
+                                    const centerY = (rawY + rawY + rawH) / 2;
+                                    rawY = centerY - newH / 2;
+                                    rawH = newH;
+                                }
+                            }
+                        }
+
                         // スナップ適用（描画中）
                         const snappedLeft = snapValue(rawX, snapTargets.x, snapThreshold);
                         const snappedTop = snapValue(rawY, snapTargets.y, snapThreshold);
@@ -1057,9 +1103,44 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             if (trimState.allowMultipleRects) {
                                 // 複数矩形時：配列に追加
                                 if (trimState.mode === 'draw') {
-                                    // 新規描画 → 追加
-                                    trimState.currentRectsPx.push(raw);
-                                    trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
+                                    // ▼ グリッド分割の適用（新規描画時のみ）
+                                    const gridDiv = window._trimGridDivision || { cols: 1, rows: 1 };
+                                    const cols = Math.max(1, gridDiv.cols);
+                                    const rows = Math.max(1, gridDiv.rows);
+
+                                    if (cols > 1 || rows > 1) {
+                                        // 描画した矩形を基準に分割
+                                        const colWidth = raw.w / cols;
+                                        const rowHeight = raw.h / rows;
+
+                                        for (let row = 0; row < rows; row++) {
+                                            for (let col = 0; col < cols; col++) {
+                                                trimState.currentRectsPx.push({
+                                                    x: raw.x + colWidth * col,
+                                                    y: raw.y + rowHeight * row,
+                                                    w: colWidth,
+                                                    h: rowHeight
+                                                });
+                                            }
+                                        }
+                                        trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
+                                        
+                                        // 分割結果を即座に再描画（視覚的フィードバック）
+                                        const rectsToRender = trimState.currentRectsPx.map(r => ({
+                                            X: r.x / (canvas.clientWidth || 1),
+                                            Y: r.y / (canvas.clientHeight || 1),
+                                            Width: r.w / (canvas.clientWidth || 1),
+                                            Height: r.h / (canvas.clientHeight || 1)
+                                        }));
+                                        if (window.drawTrimOverlayAsSvg) {
+                                            window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                                        }
+                                    } else { 
+                                        // 1×1矩形
+                                        trimState.currentRectsPx.push(raw);
+                                        trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
+                                    }
+
                                 } else if (trimState.mode === 'move' || trimState.mode === 'resize') {
                                     // 移動/リサイズ → 該当インデックスを更新
                                     if (trimState.selectedRectIndex >= 0 && trimState.selectedRectIndex < trimState.currentRectsPx.length) {
@@ -1270,4 +1351,33 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
             resolve(false);
         }
     });
+};
+
+// ========================================
+// 矩形オプション: アスペクト比固定
+// ========================================
+window.setTrimRectAspectRatio = function(ratio) {
+    try {
+        window._trimAspectRatio = (typeof ratio === 'number' && ratio > 0) ? ratio : null;
+        return true;
+    } catch (e) {
+        console.error('setTrimRectAspectRatio error', e);
+        return false;
+    }
+};
+
+// ========================================
+// 矩形オプション: グリッド分割（cols × rows）
+// ========================================
+window.setTrimRectGridDivision = function(cols, rows) {
+    try {
+        window._trimGridDivision = {
+            cols: Math.max(1, Math.min(5, Math.round(cols) || 1)),
+            rows: Math.max(1, Math.min(5, Math.round(rows) || 1))
+        };
+        return true;
+    } catch (e) {
+        console.error('setTrimRectGridDivision error', e);
+        return false;
+    }
 };
