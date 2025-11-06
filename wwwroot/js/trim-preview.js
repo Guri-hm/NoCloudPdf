@@ -1410,3 +1410,64 @@ window.registerPreviewCacheCleanup = function(containerId, dotNetRef) {
         observer.observe(canvas);
     });
 };
+
+// ========================================
+// TrimPreviewItem 可視監視（IntersectionObserver）
+// ========================================
+(function () {
+    const observerMap = new Map(); // elementId -> { observer, dotNetRef }
+
+    window.observeTrimPreviewVisibility = function (elementId, dotNetRef, rootMargin = '400px') {
+        try {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.warn(`observeTrimPreviewVisibility: element not found: ${elementId}`);
+                return false;
+            }
+
+            // 既存のobserverがあれば解除
+            if (observerMap.has(elementId)) {
+                const existing = observerMap.get(elementId);
+                existing.observer.disconnect();
+                observerMap.delete(elementId);
+            }
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    try {
+                        dotNetRef.invokeMethodAsync('OnVisibilityChanged', entry.isIntersecting)
+                            .catch(e => console.debug(`OnVisibilityChanged failed for ${elementId}`, e));
+                    } catch (e) {
+                        console.error(`IntersectionObserver callback error for ${elementId}`, e);
+                    }
+                });
+            }, {
+                root: null, // viewport基準
+                rootMargin: rootMargin,
+                threshold: 0.01 // 1%でも見えたら通知
+            });
+
+            observer.observe(element);
+            observerMap.set(elementId, { observer, dotNetRef });
+
+            return true;
+        } catch (e) {
+            console.error('observeTrimPreviewVisibility error', e);
+            return false;
+        }
+    };
+
+    window.unobserveTrimPreviewVisibility = function (elementId) {
+        try {
+            const entry = observerMap.get(elementId);
+            if (entry && entry.observer) {
+                entry.observer.disconnect();
+                observerMap.delete(elementId);
+            }
+            return true;
+        } catch (e) {
+            console.error('unobserveTrimPreviewVisibility error', e);
+            return false;
+        }
+    };
+})();

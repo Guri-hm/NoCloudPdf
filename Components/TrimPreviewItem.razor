@@ -36,16 +36,93 @@
     private ElementReference canvasRef;
     private bool isLoading = true;
     private bool isCanvasDrawn = false;
-    private bool isTrimmingInitialized = false; 
+    private bool isTrimmingActive = false; 
+    private bool _observerRegistered = false;
     private string CanvasId => $"trim-preview-canvas-{Index}";
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!isCanvasDrawn)
+        // ▼ Observer登録（初回のみ）
+        if (!_observerRegistered)
         {
-            await InitializeCanvasAsync();
+            try
+            {
+                _dotNetRef ??= DotNetObjectReference.Create(this);
+                var success = await JSRuntime.InvokeAsync<bool>(
+                    "observeTrimPreviewVisibility",
+                    $"preview-container-{Index}",
+                    _dotNetRef,
+                    "400px" // 表示領域の上下400pxを事前読み込み
+                );
+
+                if (success)
+                {
+                    _observerRegistered = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Observer registration error idx={Index}: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// JS側のIntersectionObserverから呼ばれる（可視状態変化時）
+    /// </summary>
+    [JSInvokable]
+    public async Task OnVisibilityChanged(bool isVisible)
+    {
+        try
+        {
+            // ▼ 可視になった
+            if (isVisible)
+            {
+                // まだ描画していない → 初期化（重い処理）
+                if (!isCanvasDrawn)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await InitializeCanvasAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"InitializeCanvasAsync failed idx={Index}: {ex.Message}");
+                        }
+                    });
+                }
+                else if (!isTrimmingActive)
+                {
+                    // 既に描画済みだが listener が無効 → listener だけ再登録（軽い処理）
+                    await InitializeTrimmingAsync();
+                    isTrimmingActive = true;
+                }
+            }
+            else
+            {
+                // ▼ 非可視になった
+                if (isTrimmingActive)
+                {
+                    // トリミング listener だけ解除（canvas は保持）
+                    try
+                    {
+                        await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId);
+                        isTrimmingActive = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Deactivate error idx={Index}: {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnVisibilityChanged error idx={Index}: {ex.Message}");
         }
     }
 
@@ -72,18 +149,14 @@
             if (isLoading)
             {
                 isLoading = false;
-                StateHasChanged();
+                await InvokeAsync(StateHasChanged);
             }
 
             // Canvas描画完了フラグを立てる
             isCanvasDrawn = true;
 
-            // トリミング初期化が未完了なら実行
-            if (!isTrimmingInitialized)
-            {
-                await InitializeTrimmingAsync();
-                isTrimmingInitialized = true;
-            }
+            await InitializeTrimmingAsync();
+            isTrimmingActive = true;
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -92,7 +165,7 @@
             if (isLoading)
             {
                 isLoading = false;
-                StateHasChanged();
+                await InvokeAsync(StateHasChanged);
             }
         }
     }
@@ -223,6 +296,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", $"preview-container-{Index}"); } catch { }
         try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
