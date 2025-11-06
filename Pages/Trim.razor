@@ -1076,8 +1076,6 @@
 
         try
         {
-            await MessageService.ShowLoadingAsync("トリミング中...");
-            await Task.Yield();
 
             // スナップショット（UI 再レンダリングで変わらないように）
             var displayList = DisplayItems.ToList();
@@ -1105,6 +1103,8 @@
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
                 return;
             }
+            await MessageService.ShowLoadingAsync("トリミング中...");
+            await Task.Yield();
 
             // マージ用データを作成（トリムは JS 側で処理）
             var mergeData = new List<object>(pageCount);
