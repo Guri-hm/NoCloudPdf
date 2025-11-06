@@ -577,6 +577,7 @@
     private bool useSnapToGrid = false;
 
     public static Ocr? _currentInstance;
+    private bool _previewCacheCleanupRegistered = false;
 
     // ========================================
     // OCR関連
@@ -647,6 +648,7 @@
         try
         {
             await MessageService.ShowLoadingAsync("画像を準備中...");
+            await Task.Yield();
             
             ocrPreviewItems.Clear();
             int imageCounter = 1;
@@ -722,8 +724,6 @@
                 return;
             }
             
-            await MessageService.ShowLoadingAsync("OCR処理中...");
-            
             // 選択された言語でOCRエンジンを初期化
             var initialized = await JSRuntime.InvokeAsync<bool>("ocrHelper.initialize", ocrLanguage);
             if (!initialized)
@@ -739,6 +739,7 @@
             {
                 processedCount++;
                 await MessageService.ShowLoadingAsync($"OCR処理中... ({processedCount}/{selectedItems.Count})");
+                await Task.Yield();
                 
                 try
                 {
@@ -1218,17 +1219,22 @@
         StateHasChanged();
     }
 
-    private void RotateAllLeft() => RotateAll(-90);
-    private void RotateAllRight() => RotateAll(90);
+    private async Task RotateAllLeft() => await RotateAll(-90);
+    private async Task RotateAllRight() => await RotateAll(90);
 
-    private void RotateAll(int angle)
+    private async Task RotateAll(int angle)
     {
         try{
+            await MessageService.ShowLoadingAsync("回転中...");
+            await Task.Yield();
+
             PdfDataService.RotateAll(CurrentDisplayMode, DisplayItems, angle);
             _rotationCounter++;
             _ = MessageService.ShowAsync($"回転が完了しました", MessageType.Success);
         }catch(Exception ex){
             _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }finally{
+            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -1251,7 +1257,6 @@
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
         try{
-            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
             await PdfDataService.HandleFileInputAsync(
                 e,
                 insertPosition >= 0 ? insertPosition : null
@@ -1261,7 +1266,6 @@
             Console.WriteLine($"An error occurred: {ex.Message}");
             _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
         }finally{
-            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -1410,6 +1414,8 @@
         try
         {
             await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await Task.Yield();
+
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
@@ -1459,6 +1465,20 @@
 
         if (IsFilesLoaded && DisplayItems.Any())
         {
+            // プレビューキャッシュの自動クリーンアップを登録（初回のみ）
+            if (!_previewCacheCleanupRegistered)
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("registerPreviewCacheCleanup", "trim-preview-container", _dotNetRef);
+                    _previewCacheCleanupRegistered = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Trim] registerPreviewCacheCleanup failed: {ex.Message}");
+                }
+            }
+
             if (!previewZoomInitialized)
             {
                 await ApplyPreviewZoomAsync();
@@ -1564,6 +1584,7 @@
         try
         {
             await MessageService.ShowLoadingAsync("適用中...");
+            await Task.Yield();
 
             int w = settings.ImageNaturalWidth;
             int h = settings.ImageNaturalHeight;
@@ -1661,5 +1682,11 @@
             item.IsSelected = false;
         }
         StateHasChanged();
+    }
+        [JSInvokable("OnPreviewOutOfView")]
+    public Task OnPreviewOutOfView(string pageId)
+    {
+        PdfDataService.ClearPreviewCache(pageId);
+        return Task.CompletedTask;
     }
 }

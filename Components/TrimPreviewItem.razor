@@ -15,7 +15,7 @@
     </div>
 
     <div class="w-full">
-        <canvas id="@CanvasId" @ref="canvasRef" class="block mx-auto"></canvas>
+        <canvas id="@CanvasId" data-item-id="@(Item.RawData is PageItem page ? page.Id : "")"@ref="canvasRef" class="block mx-auto"></canvas>
     </div>
 
     <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-30" hidden="@(!isLoading)">
@@ -35,16 +35,18 @@
 
     private ElementReference canvasRef;
     private bool isLoading = true;
-    private bool isInitialized = false;
+    private bool isCanvasDrawn = false;
+    private bool isTrimmingInitialized = false; 
     private string CanvasId => $"trim-preview-canvas-{Index}";
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Console.WriteLine($"OnAfterRenderAsync called idx={Index}");
-        if (isInitialized) return;
-        await InitializeCanvasAsync();
+        if (!isCanvasDrawn)
+        {
+            await InitializeCanvasAsync();
+        }
     }
 
     private async Task InitializeCanvasAsync()
@@ -56,6 +58,7 @@
             string? src = null;
             if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
             {
+                // GetPreviewImageAsync が内部で LRU キャッシュを管理
                 src = await PdfDataService.GetPreviewImageAsync(page.Id);
             }
 
@@ -72,10 +75,14 @@
                 StateHasChanged();
             }
 
-            if (!isInitialized)
+            // Canvas描画完了フラグを立てる
+            isCanvasDrawn = true;
+
+            // トリミング初期化が未完了なら実行
+            if (!isTrimmingInitialized)
             {
                 await InitializeTrimmingAsync();
-                isInitialized = true;
+                isTrimmingInitialized = true;
             }
         }
         catch (OperationCanceledException) { }
@@ -104,6 +111,14 @@
         {
             Console.WriteLine($"TrimPreviewItem.InitializeTrimmingAsync error idx={Index}: {ex.Message}");
         }
+    }
+
+    // キャッシュクリア後の再描画用メソッド（外部から呼び出し可能）
+    public async Task RefreshCanvasAsync()
+    {
+        isCanvasDrawn = false;  // Canvas描画フラグだけリセット（トリミング初期化は維持）
+        StateHasChanged();  // OnAfterRenderAsync を再実行
+        await Task.CompletedTask;
     }
 
     // 矩形描画だけを再実行する public メソッド（外部から呼べる）

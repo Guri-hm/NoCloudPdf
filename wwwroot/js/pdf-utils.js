@@ -57,7 +57,8 @@ async function loadPdfDocument(uint8Array, options = {}) {
         cMapPacked: pdfjsLib.GlobalWorkerOptions.cMapPacked,
         standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
         wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
-        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
+        openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl,
+        verbosity: 0,
     };
 
     const loadingTask = pdfjsLib.getDocument({ ...defaultOptions, ...options });

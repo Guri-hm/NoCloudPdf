@@ -1381,3 +1381,32 @@ window.setTrimRectGridDivision = function(cols, rows) {
         return false;
     }
 };
+
+// スクロール監視で表示領域外のキャッシュを破棄
+window.registerPreviewCacheCleanup = function(containerId, dotNetRef) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn(`registerPreviewCacheCleanup: container not found: ${containerId}`);
+        return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const canvas = entry.target;
+            const itemId = canvas.dataset.itemId;
+
+            if (!entry.isIntersecting && itemId) {
+                // 表示領域外になったらキャッシュを破棄
+                try {
+                    dotNetRef.invokeMethodAsync('OnPreviewOutOfView', itemId);
+                } catch (e) {
+                    console.error('OnPreviewOutOfView error', e);
+                }
+            }
+        });
+    }, { rootMargin: '400px' }); // 400px余裕を持って監視
+
+    container.querySelectorAll('canvas[data-item-id]').forEach(canvas => {
+        observer.observe(canvas);
+    });
+};

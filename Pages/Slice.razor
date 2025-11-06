@@ -479,19 +479,23 @@
         mergedPageCount = 0;
     }
 
-    private void RotateAllLeft() => RotateAll(-90);
-    private void RotateAllRight() => RotateAll(90);
+    private async Task RotateAllLeft() => await RotateAll(-90);
+    private async Task RotateAllRight() => await RotateAll(90);
     private int _rotationCounter = 0;
 
-    private void RotateAll(int angle)
+    private async Task RotateAll(int angle)
     {
         try{
+            await MessageService.ShowLoadingAsync("回転中...");
+            await Task.Yield();
+
             PdfDataService.RotateAll(CurrentDisplayMode, DisplayItems, angle);
             _rotationCounter++;
             _ = MessageService.ShowAsync($"回転が完了しました", MessageType.Success);
         }catch(Exception ex){
             _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
         }finally{
+            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -524,7 +528,6 @@
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
         try{
-            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
             await PdfDataService.HandleFileInputAsync(
                 e,
                 insertPosition >= 0 ? insertPosition : null
@@ -536,7 +539,6 @@
             _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
 
         }finally{
-            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -798,6 +800,8 @@ private List<ActionButtonItem> showOptionsModal => new()
         try
         {
             await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await Task.Yield();
+
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
@@ -837,6 +841,7 @@ private List<ActionButtonItem> showOptionsModal => new()
     private int displayedPageNumber = 1;
     private int _visibleObserverLastCount = -1;
     private bool _windowResizeRegistered = false;
+    private bool _previewCacheCleanupRegistered = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -857,6 +862,20 @@ private List<ActionButtonItem> showOptionsModal => new()
 
         if (IsFilesLoaded && DisplayItems.Any())
         {
+            // プレビューキャッシュの自動クリーンアップを登録（初回のみ）
+            if (!_previewCacheCleanupRegistered)
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("registerPreviewCacheCleanup", "trim-preview-container", _dotNetRef);
+                    _previewCacheCleanupRegistered = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Trim] registerPreviewCacheCleanup failed: {ex.Message}");
+                }
+            }
+
             // プレビュー画像を倍率1で初期表示
             if (!previewZoomInitialized)
             {
@@ -1116,6 +1135,7 @@ private List<ActionButtonItem> showOptionsModal => new()
         try
         {
             await MessageService.ShowLoadingAsync("書き出し中...");
+            await Task.Yield();
 
             slicedImages.Clear();
             var displayList = DisplayItems.ToList();
@@ -1273,6 +1293,7 @@ private List<ActionButtonItem> showOptionsModal => new()
         try
         {
             await MessageService.ShowLoadingAsync("適用中...");
+            await Task.Yield();
 
             int w = settings.ImageNaturalWidth;
             int h = settings.ImageNaturalHeight;
@@ -1353,5 +1374,12 @@ private List<ActionButtonItem> showOptionsModal => new()
         {
             Console.WriteLine($"OnSnapToGridChanged error: {ex.Message}");
         }
+    }
+    
+    [JSInvokable("OnPreviewOutOfView")]
+    public Task OnPreviewOutOfView(string pageId)
+    {
+        PdfDataService.ClearPreviewCache(pageId);
+        return Task.CompletedTask;
     }
 }

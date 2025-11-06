@@ -420,7 +420,13 @@ public class PdfDataService
             // 超大量（500ページ以上）：最小限の更新
             return 100;
         }
-    } 
+    }
+
+    // プレビュー画像の LRU キャッシュ（最大保持数を制限）
+    private readonly LinkedList<string> _previewCacheOrder = new();
+    private readonly Dictionary<string, string> _previewCache = new();
+    private const int MaxPreviewCacheSize = 5; // 最大5枚まで保持
+
 
     /// <summary>
     /// 特定ファイルの全ページをバックグラウンド読み込み（ページ単位表示，ファイル単位表示で処理切り分け）
@@ -447,7 +453,6 @@ public class PdfDataService
         }
 
         int batchSize = GetDynamicBatchSize(fileMetadata.PageCount);
-        Console.WriteLine($"LoadAllPagesForFileAsync: {fileMetadata.FileName} ({fileMetadata.PageCount} pages) - batchSize={batchSize}");
 
         // ファイルのサムネイルがそろっていない
         if (!loadThumbnails)
@@ -1316,7 +1321,9 @@ public class PdfDataService
             var pageItem = _model.Pages[index];
             // ここでデータ自体は変更せず、回転角度だけを更新
             pageItem.RotateAngle = (pageItem.RotateAngle + angle + 360) % 360;
-            pageItem.PreviewImage = null;
+            
+            // プレビューキャッシュを破棄（回転後は再生成が必要）
+            ClearPreviewCache(pageItem.Id);
 
             return true;
         }
@@ -1354,6 +1361,9 @@ public class PdfDataService
         SplitInfo = new SplitInfo();
         // 表示単位はクリアしない
         // _model.CurrentMode = DisplayMode.File;
+        
+        // プレビューキャッシュクリア
+        ClearAllPreviewCache();
 
         // JS側の pdf-lib キャッシュを非同期でクリア
         try
@@ -1362,10 +1372,8 @@ public class PdfDataService
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibCacheClear");
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibFileRestrictedClear");
         }
-        catch
-        {
-            // 何もしない（Clear は同期APIなので例外は抑える）
-        }
+        catch{}
+
         CancelBufferedNotify();
     }
 
@@ -1415,26 +1423,68 @@ public class PdfDataService
         if (pageItem == null || string.IsNullOrEmpty(pageItem.PageData))
             return null;
 
-        // キャッシュがあればそのまま返す（回転時はキャッシュをクリア）
-        if (!string.IsNullOrEmpty(pageItem.PreviewImage))
+        var cacheKey = pageItem.Id;
+
+        // キャッシュに存在すればアクセス順を更新して返す
+        if (_previewCache.TryGetValue(cacheKey, out var cachedImage))
         {
-            return pageItem.PreviewImage;
+            // LRU: 最近使用したものを末尾に移動
+            _previewCacheOrder.Remove(cacheKey);
+            _previewCacheOrder.AddLast(cacheKey);
+            return cachedImage;
         }
 
+        // キャッシュになければ生成
         try
         {
             var previewImage = await _jsRuntime.InvokeAsync<string>(
             "generatePreviewImage", pageItem.PageData, pageItem.RotateAngle);
-            if (!string.IsNullOrEmpty(previewImage))
+
+            if (string.IsNullOrEmpty(previewImage))
+                return null;
+
+            // キャッシュに追加（容量オーバーなら古いものを削除）
+            if (_previewCacheOrder.Count >= MaxPreviewCacheSize)
             {
-                pageItem.PreviewImage = previewImage;
+                var oldestKey = _previewCacheOrder.First?.Value;
+                if (oldestKey != null)
+                {
+                    _previewCacheOrder.RemoveFirst();
+                    _previewCache.Remove(oldestKey);
+                }
             }
+
+            _previewCache[cacheKey] = previewImage;
+            _previewCacheOrder.AddLast(cacheKey);
+
             return previewImage;
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"GetPreviewImageAsync error: {ex.Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// 特定ページのプレビューキャッシュを破棄（回転時などに使用）
+    /// </summary>
+    public void ClearPreviewCache(string pageId)
+    {
+        if (_previewCache.Remove(pageId))
+        {
+            _previewCacheOrder.Remove(pageId);
+        }
+    }
+
+        /// <summary>
+    /// 全プレビューキャッシュをクリア（ページ削除・クリア時に使用）
+    /// </summary>
+    public void ClearAllPreviewCache()
+    {
+        _previewCache.Clear();
+        _previewCacheOrder.Clear();
+
     }
 
     // ファイルIDから安定したパステルカラー（HSL）を生成
