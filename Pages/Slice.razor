@@ -68,7 +68,7 @@
                         var index = i;
                         var item = DisplayItems[i];
                         <TrimThumbnailCard Item="@item"
-                                        IsSelected="@(selectedPageIndex == index)"
+                                        IsSelected="@(displayedPageNumber - 1 == index)"
                                         HasTrimRect="@(trimRects.ContainsKey(index))"
                                         OnClick="@(() => SelectPage(index))" />
                     }
@@ -977,8 +977,6 @@ private List<ActionButtonItem> showOptionsModal => new()
     }
 
     private bool isDrawingMode = true;
-    private int selectedPageIndex = -1;
-
 
     // リサイズ関連
     private int thumbnailAreaWidth = 300;
@@ -992,7 +990,7 @@ private List<ActionButtonItem> showOptionsModal => new()
         _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", index);
 
         // 選択状態は後で反映（再描画は必要なら）
-        selectedPageIndex = index;
+        displayedPageNumber = index + 1;
         StateHasChanged();
         return Task.CompletedTask;
     }

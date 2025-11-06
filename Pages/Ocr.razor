@@ -84,7 +84,7 @@
                         var index = i;
                         var item = DisplayItems[i];
                         <TrimThumbnailCard Item="@item"
-                                        IsSelected="@(selectedPageIndex == index)"
+                                        IsSelected="@(displayedPageNumber -1 == index)"
                                         HasTrimRect="@(PdfDataService.GetTrimRects(index)?.Any() ?? false)"
                                         OnClick="@(() => SelectPage(index))" />
                     }
@@ -551,7 +551,6 @@
     private string mergedFileSize = "";
     private int mergedPageCount = 0;
     private bool isDrawingMode = true;
-    private int selectedPageIndex = -1;
     private int thumbnailAreaWidth = 300;
     private bool isResizingPanel = false;
     private double resizeStartX = 0;
@@ -1270,7 +1269,7 @@
     private Task SelectPage(int index)
     {
         _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", index);
-        selectedPageIndex = index;
+        displayedPageNumber = index + 1;
         StateHasChanged();
         return Task.CompletedTask;
     }
