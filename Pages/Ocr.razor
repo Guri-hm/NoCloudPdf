@@ -546,7 +546,6 @@
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
     private bool IsFilesLoaded => DisplayItems.Any();
 
-    private int previewIndex = -1;
     private DotNetObjectReference<Ocr>? _dotNetRef;
     private string mergedFileName = "";
     private string mergedFileSize = "";
@@ -1149,7 +1148,6 @@
         {
             if (pageIndex < 0) pageIndex = 0;
             if (pageIndex >= DisplayItems.Count) pageIndex = Math.Max(0, DisplayItems.Count - 1);
-            previewIndex = pageIndex;
             displayedPageNumber = pageIndex + 1;
         }
         catch { }

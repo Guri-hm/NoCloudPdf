@@ -297,7 +297,6 @@
         {
             if (pageIndex < 0) pageIndex = 0;
             if (pageIndex >= DisplayItems.Count) pageIndex = Math.Max(0, DisplayItems.Count - 1);
-            previewIndex = pageIndex;
             displayedPageNumber = pageIndex + 1;
         }
         catch { }
@@ -363,11 +362,7 @@
     private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
     private bool IsFilesLoaded => DisplayItems.Any();
 
-    private int previewIndex = -1;
 
-    // ファイル単位表示時のファイル内ページ番号（0始まり）
-    // プレビュー中のファイル内で、何ページ目を表示しているか
-    private int filePageIndex = 0;
     private DotNetObjectReference<Slice>? _dotNetRef;
     private bool isMenuOpen = false;
     private string mergedFileName = "";
@@ -376,19 +371,6 @@
     private int mergedPageCount = 0;
     private int exportDpi = 72;
     private bool isOptionsModalOpen = false;
-
-    private int GetCurrentFilePageIndex()
-    {
-        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
-            return 0;
-        return filePageIndex;
-    }
-    private int GetCurrentFilePageCount()
-    {
-        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
-            return 1;
-        return DisplayItems[previewIndex].PageCount;
-    }
 
     private List<ToggleButtonItem<bool>> toggleItems = new()
     {
