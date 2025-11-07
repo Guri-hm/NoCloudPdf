@@ -4,8 +4,8 @@
 @inject NoCloudPdf.Services.PdfDataService PdfDataService
 @implements IAsyncDisposable
 
-<div id="preview-container-@Index" class="relative mb-4 w-full flex justify-center">
-    <div class="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-2 py-1 rounded text-sm" data-no-scale>
+<div id="preview-container-@Index" class="relative p-4 mb-4 w-full flex justify-center">
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-2 py-1 rounded text-sm" data-no-scale>
         <div class="flex items-center gap-2 text-xs font-semibold px-2 py-0.5 rounded max-w-[80vw]"
              title="@Item?.FullFileName"
              style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "rgba(0,0,0,0.7)" : Item.ColorHsl)">
@@ -18,7 +18,7 @@
         <canvas id="@CanvasId" data-item-id="@(Item.RawData is PageItem page ? page.Id : "")"@ref="canvasRef" class="block mx-auto"></canvas>
     </div>
 
-    <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-30" hidden="@(!isLoading)">
+    <div class="absolute mx-auto w-full md:w-1/2 inset-0 flex items-center justify-center bg-white/60 z-20" hidden="@(!isLoading)">
         <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
             <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
             <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
