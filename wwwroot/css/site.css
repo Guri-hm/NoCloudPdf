@@ -130,7 +130,6 @@ code {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 128px;
   animation: pulse 2s infinite;
 }
 .page-loading::before {
@@ -636,9 +635,6 @@ input[type=number] {
   }
   .top-2 {
     top: calc(var(--spacing) * 2);
-  }
-  .top-3 {
-    top: calc(var(--spacing) * 3);
   }
   .top-4 {
     top: calc(var(--spacing) * 4);

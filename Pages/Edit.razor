@@ -1271,13 +1271,9 @@ private List<object> CreateStampsForCoordinateTransform(List<StampPosition> orig
         if (item.RawData is PageItem pageItem)
         {
             pageItem.IsLoading = true;
-            StateHasChanged();
-            await Task.Yield();
             
             var errorMsg = await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
 
-            StateHasChanged();
-            
             if (!string.IsNullOrEmpty(errorMsg))
             {
                 _ = MessageService.ShowAsync(errorMsg, MessageType.Error);

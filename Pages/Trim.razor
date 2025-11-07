@@ -77,7 +77,9 @@
                                         Index="@index"
                                         IsSelected="@(displayedPageNumber -1 == index)"
                                         HasTrimRect="@(trimRects.ContainsKey(index))"
-                                        OnClick="@(() => SelectPage(index))" />
+                                        OnClick="@(() => SelectPage(index))"
+                                        OnReloadPageItem="ReloadPageItem" 
+                                        />
                     }
                     <FileAddArea
                     Position="@DisplayItems.Count"
@@ -246,6 +248,22 @@
     private void OnServiceChanged()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ReloadPageItem(DisplayItem item)
+    {
+        // ページ単位の場合のみ対応
+        if (item.RawData is PageItem pageItem)
+        {
+            pageItem.IsLoading = true;
+            
+            var errorMsg = await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
+            
+            if (!string.IsNullOrEmpty(errorMsg))
+            {
+                _ = MessageService.ShowAsync(errorMsg, MessageType.Error);
+            }
+        }
     }
 
     private async Task OnDialogError(string message)

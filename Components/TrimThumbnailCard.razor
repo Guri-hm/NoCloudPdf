@@ -25,14 +25,19 @@
 
                 @if (Item.IsLoading)
                 {
-                    <div class="w-full h-full flex items-center justify-center bg-gray-100">
-                        <i class="fa-solid fa-spinner fa-spin text-2xl text-gray-400"></i>
-                    </div>
+                    <div class="page-loading w-full h-full"></div>
                 }
                 else if (Item.HasError)
                 {
-                    <div class="w-full h-full flex items-center justify-center bg-red-50">
-                        <i class="fa-solid fa-triangle-exclamation text-2xl text-red-400"></i>
+                    <div class="page-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-red-700" title="クリックで再読み込み" 
+                        @onclick="() => OnReloadPageItem.InvokeAsync(Item)"
+                        @onclick:stopPropagation>
+                            <ErrorPdfIcon class="mb-1 w-8 h-8 text-red-600" />
+                            <div class="font-bold text-xs">データなし</div>
+                            <div class="flex items-center gap-1 text-blue-600 text-xs mt-1 underline">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            再読み込み
+                            </div>
                     </div>
                 }
                 else if (!string.IsNullOrEmpty(Item.Thumbnail))
@@ -76,4 +81,5 @@
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public bool HasTrimRect { get; set; }
     [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public EventCallback<DisplayItem> OnReloadPageItem { get; set; }
 }
