@@ -11,7 +11,6 @@ window._visiblePageObserver.isPaused = false;
 window.pauseVisiblePageObserver = function() {
     try {
         window._visiblePageObserver.isPaused = true;
-        console.log('[pauseVisiblePageObserver] Observer paused');
     } catch (e) {
         console.error('pauseVisiblePageObserver error', e);
     }
@@ -23,7 +22,6 @@ window.pauseVisiblePageObserver = function() {
 window.resumeVisiblePageObserver = function() {
     try {
         window._visiblePageObserver.isPaused = false;
-        console.log('[resumeVisiblePageObserver] Observer resumed');
     } catch (e) {
         console.error('resumeVisiblePageObserver error', e);
     }
