@@ -15,7 +15,7 @@
     </div>
 
     <div class="w-full">
-        <canvas id="@CanvasId" data-item-id="@(Item.RawData is PageItem page ? page.Id : "")"@ref="canvasRef" class="block mx-auto"></canvas>
+        <canvas id="@CanvasId" data-item-id="@(Item?.RawData is PageItem page ? page.Id : "")"@ref="canvasRef" class="block mx-auto"></canvas>
     </div>
 
     <div class="absolute mx-auto w-full md:w-1/2 inset-0 flex items-center justify-center bg-white/60 z-20" hidden="@(!isLoading)">

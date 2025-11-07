@@ -76,7 +76,7 @@
                         <TrimThumbnailCard Item="@item"
                                         Index="@index"
                                         IsSelected="@(displayedPageNumber -1 == index)"
-                                        HasTrimRect="@(trimRects.ContainsKey(index))"
+                                        HasTrimRect="@(PdfDataService.GetTrimRect(index) != null)"
                                         OnClick="@(() => SelectPage(index))"
                                         OnReloadPageItem="ReloadPageItem" 
                                         />
@@ -730,18 +730,7 @@
                 try { PdfDataService.ClearTrimRect(i); } catch { }
             }
 
-            try { trimRects.Clear(); } catch { }
-            try
-            {
-                if (previewItems != null)
-                {
-                    for (int i = 0; i < previewItems.Count; i++)
-                    {
-                        previewItems[i].TrimRect = null;
-                    }
-                }
-            }
-            catch { }
+
 
             for (int i = 0; i < count; i++)
             {
@@ -1015,26 +1004,6 @@
     {
         // 既定値フォールバック
         return 1200;
-    }
-
-    private Dictionary<int, TrimRect> trimRects = new();
-    private List<PreviewItem> previewItems = new();
-
-    // 矩形データ）
-    public class TrimRect
-    {
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double Width { get; set; }
-        public double Height { get; set; }
-    }
-
-    // プレビュー項目の最小情報（UI側で使っているプロパティのみ）
-    public class PreviewItem
-    {
-        public int ContainerWidth { get; set; }
-        public int ContainerHeight { get; set; }
-        public TrimRect? TrimRect { get; set; }
     }
 
     private double previewZoom = 1.0;
