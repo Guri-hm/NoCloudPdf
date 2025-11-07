@@ -1,4 +1,24 @@
 // ========================================
+// グローバル状態管理: Observer と DotNetRef の保持
+// ========================================
+window._trimPreview = window._trimPreview || {
+    previewCacheObservers: new Map(), // containerId -> { observer, dotNetRef }
+    visibilityObservers: new Map()    // elementId -> { observer, dotNetRef }
+};
+
+// ========================================
+// 安全な DotNet 呼び出しヘルパー
+// ========================================
+window._trimPreview.safeInvoke = function (dotNetRef, methodName, ...args) {
+    if (!dotNetRef || typeof dotNetRef.invokeMethodAsync !== 'function') return;
+    try {
+        dotNetRef.invokeMethodAsync(methodName, ...args).catch(() => {});
+    } catch (e) {
+        // swallow
+    }
+};
+
+// ========================================
 // Canvas描画完了待機
 // ========================================
 window.waitForCanvasReady = async function (canvasId, timeoutMs = 120) {
@@ -1379,5 +1399,334 @@ window.setTrimRectGridDivision = function(cols, rows) {
     } catch (e) {
         console.error('setTrimRectGridDivision error', e);
         return false;
+    }
+};
+
+// ========================================
+// スクロール監視: プレビューキャッシュの自動クリーンアップ
+// ========================================
+window.registerPreviewCacheCleanup = function(containerId, dotNetRef) {
+    try {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.warn(`registerPreviewCacheCleanup: container not found: ${containerId}`);
+            return false;
+        }
+
+        // 既存の Observer があれば解除して置換
+        const existing = window._trimPreview.previewCacheObservers.get(containerId);
+        if (existing && existing.observer) {
+            try { existing.observer.disconnect(); } catch (e) {}
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const canvas = entry.target;
+                const itemId = canvas?.dataset?.itemId;
+
+                if (!entry.isIntersecting && itemId) {
+                    // 表示領域外になったらキャッシュを破棄（安全呼び出し）
+                    const store = window._trimPreview.previewCacheObservers.get(containerId);
+                    if (store && store.dotNetRef) {
+                        window._trimPreview.safeInvoke(store.dotNetRef, 'OnPreviewOutOfView', itemId);
+                    }
+                }
+            });
+        }, { rootMargin: '400px' });
+
+        container.querySelectorAll('canvas[data-item-id]').forEach(canvas => observer.observe(canvas));
+
+        // Observer と DotNetRef を保存
+        window._trimPreview.previewCacheObservers.set(containerId, { observer, dotNetRef });
+
+        console.log(`[registerPreviewCacheCleanup] Registered for ${containerId}`);
+        return true;
+    } catch (e) {
+        console.error('registerPreviewCacheCleanup error', e);
+        return false;
+    }
+};
+
+// ========================================
+// プレビューキャッシュクリーンアップの解除
+// ========================================
+window.unregisterPreviewCacheCleanup = function(containerId) {
+    try {
+        const entry = window._trimPreview.previewCacheObservers.get(containerId);
+        if (entry) {
+            try { if (entry.observer) entry.observer.disconnect(); } catch (e) {}
+            entry.dotNetRef = null;
+            window._trimPreview.previewCacheObservers.delete(containerId);
+            console.log(`[unregisterPreviewCacheCleanup] Unregistered ${containerId}`);
+        }
+        return true;
+    } catch (e) {
+        console.error('unregisterPreviewCacheCleanup error', e);
+        return false;
+    }
+};
+
+// ========================================
+// TrimPreviewItem 可視監視（IntersectionObserver）
+// ========================================
+(function () {
+    // 既存の observerMap を window._trimPreview.visibilityObservers に統合
+    const observerMap = window._trimPreview.visibilityObservers;
+
+    window.observeTrimPreviewVisibility = function (elementId, dotNetRef, rootMargin = '400px') {
+        try {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.warn(`observeTrimPreviewVisibility: element not found: ${elementId}`);
+                return false;
+            }
+
+            // 既存の Observer があれば解除
+            if (observerMap.has(elementId)) {
+                const existing = observerMap.get(elementId);
+                try { existing.observer.disconnect(); } catch (e) {}
+                observerMap.delete(elementId);
+            }
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    try {
+                        const store = observerMap.get(elementId);
+                        if (store && store.dotNetRef) {
+                            window._trimPreview.safeInvoke(store.dotNetRef, 'OnVisibilityChanged', entry.isIntersecting);
+                        }
+                    } catch (e) {
+                        console.error(`IntersectionObserver callback error for ${elementId}`, e);
+                    }
+                });
+            }, {
+                root: null,
+                rootMargin: rootMargin,
+                threshold: 0.01
+            });
+
+            observer.observe(element);
+            observerMap.set(elementId, { observer, dotNetRef });
+
+            return true;
+        } catch (e) {
+            console.error('observeTrimPreviewVisibility error', e);
+            return false;
+        }
+    };
+
+    window.unobserveTrimPreviewVisibility = function (elementId) {
+        try {
+            const entry = observerMap.get(elementId);
+            if (entry && entry.observer) {
+                try { entry.observer.disconnect(); } catch (e) {}
+                if (entry) entry.dotNetRef = null;
+                observerMap.delete(elementId);
+            }
+            return true;
+        } catch (e) {
+            console.error('unobserveTrimPreviewVisibility error', e);
+            return false;
+        }
+    };
+})();
+
+// ========================================
+// 一括解除: すべての Observer と DotNetRef をクリア
+// ========================================
+window.unregisterAllTrimPreview = function() {
+    try {
+        let count = 0;
+
+        // プレビューキャッシュ Observer
+        window._trimPreview.previewCacheObservers.forEach((v, k) => {
+            try { if (v.observer) v.observer.disconnect(); } catch (e) {}
+            if (v) v.dotNetRef = null;
+            count++;
+        });
+        window._trimPreview.previewCacheObservers.clear();
+
+        // 可視監視 Observer
+        window._trimPreview.visibilityObservers.forEach((v, k) => {
+            try { if (v.observer) v.observer.disconnect(); } catch (e) {}
+            if (v) v.dotNetRef = null;
+            count++;
+        });
+        window._trimPreview.visibilityObservers.clear();
+
+        console.log(`[unregisterAllTrimPreview] Cleared ${count} observers`);
+        return true;
+    } catch (e) {
+        console.error('unregisterAllTrimPreview error', e);
+        return false;
+    }
+};
+
+// ========================================
+// trimPreviewArea: スクロール・ページ移動関連
+// ========================================
+window.trimPreviewArea = window.trimPreviewArea || {
+    dotNetRef: null,
+    handlers: null,
+
+    /**
+     * 初期化: マウスイベントリスナーを登録
+     */
+    initialize: function (dotNetRef) {
+        try {
+            this.unregister && this.unregister();
+
+            this.dotNetRef = dotNetRef;
+
+            const onMouseMove = (e) => {
+                try {
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX).catch(() => {});
+                } catch (ex) { /* ignore */ }
+            };
+            const onMouseUp = (e) => {
+                try {
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseUp').catch(() => {});
+                } catch (ex) { /* ignore */ }
+            };
+
+            this.handlers = { onMouseMove, onMouseUp };
+
+            document.addEventListener('mousemove', onMouseMove, { passive: true });
+            document.addEventListener('mouseup', onMouseUp, { passive: true });
+
+        } catch (e) {
+            console.error('trimPreviewArea.initialize error', e);
+        }
+    },
+
+    /**
+     * 解除: イベントリスナーを削除
+     */
+    unregister: function () {
+        try {
+            if (this.handlers) {
+                document.removeEventListener('mousemove', this.handlers.onMouseMove);
+                document.removeEventListener('mouseup', this.handlers.onMouseUp);
+                this.handlers = null;
+            }
+            this.dotNetRef = null;
+            console.log('[trimPreviewArea.unregister] Cleaned up');
+        } catch (e) { 
+            console.error('trimPreviewArea.unregister error', e); 
+        }
+    },
+
+    /**
+     * 画像の寸法を取得
+     */
+    getImageDimensions: function (imgId) {
+        try {
+            const img = document.getElementById(imgId);
+            if (img) {
+                return [img.offsetWidth, img.offsetHeight];
+            }
+            return [0, 0];
+        } catch (e) {
+            console.error('getImageDimensions error', e);
+            return [0, 0];
+        }
+    },
+
+    /**
+     * 指定ページまでスムーズスクロール（Observer 一時停止機能付き）
+     */
+    scrollToPage: function (pageIndex) {
+        try {
+            // コンテナを取得（preview-zoom-viewport を優先）
+            const container = document.querySelector('.preview-zoom-viewport') 
+                           || document.getElementById('trim-preview-container');
+            
+            if (!container) {
+                console.warn('scrollToPage: container not found');
+                return false;
+            }
+
+            // ターゲット要素を取得
+            const targetElement = document.getElementById(`preview-container-${pageIndex}`);
+            if (!targetElement) {
+                console.warn(`scrollToPage: element not found for index ${pageIndex}`);
+                return false;
+            }
+
+            // ★ スクロール開始前に Observer を一時停止
+            if (typeof window.pauseVisiblePageObserver === 'function') {
+                window.pauseVisiblePageObserver();
+            }
+
+            // ★ スクロール完了後に Observer を再開 + 青枠を更新
+            const onScrollEnd = () => {
+                // Observer を再開
+                if (typeof window.resumeVisiblePageObserver === 'function') {
+                    window.resumeVisiblePageObserver();
+                }
+
+                // スクロール完了後に青枠を更新
+                if (typeof window.selectThumbnailByIndex === 'function') {
+                    window.selectThumbnailByIndex(pageIndex);
+                }
+
+                // イベントリスナーを削除
+                container.removeEventListener('scrollend', onScrollEnd);
+            };
+
+            // scrollend イベントをリッスン（スクロール完了を検知）
+            container.addEventListener('scrollend', onScrollEnd, { once: true });
+
+            // フォールバック：scrollend が発火しない場合（古いブラウザ対応）
+            setTimeout(() => {
+                container.removeEventListener('scrollend', onScrollEnd);
+                onScrollEnd();
+            }, 1000);
+
+            // スムーズスクロール実行
+            targetElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start',
+                inline: 'nearest'
+            });
+
+            return true;
+        } catch (e) {
+            console.error('scrollToPage error', e);
+            // エラー時も Observer を再開
+            if (typeof window.resumeVisiblePageObserver === 'function') {
+                window.resumeVisiblePageObserver();
+            }
+            return false;
+        }
+    }
+};
+
+window.selectThumbnailByIndex = function(selectedIndex) {
+    try {
+        const container = document.getElementById('thumbnail-container');
+        if (!container) {
+            console.warn('selectThumbnailByIndex: thumbnail-container not found');
+            return;
+        }
+
+        // ★ すべてのサムネイルから selected クラスを削除（排他制御）
+        container.querySelectorAll('.trim-thumbnail-card').forEach(card => {
+            const innerDiv = card.querySelector('.flex.flex-col');
+            if (innerDiv) {
+                innerDiv.classList.remove('selected', 'ring-2', 'ring-blue-500', 'bg-blue-50/40');
+            }
+        });
+
+        // ★ 指定されたインデックスのサムネイルにのみ selected クラスを追加
+        const targetCard = container.querySelector(`[data-thumb-index="${selectedIndex}"]`);
+        if (targetCard) {
+            const innerDiv = targetCard.querySelector('.flex.flex-col');
+            if (innerDiv) {
+                innerDiv.classList.add('selected', 'ring-2', 'ring-blue-500', 'bg-blue-50/40');
+            }
+        }
+    } catch (e) {
+        console.error('selectThumbnailByIndex error', e);
     }
 };

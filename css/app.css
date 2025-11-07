@@ -150,7 +150,6 @@ code {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 128px;
     animation: pulse 2s infinite;
 }
 
