@@ -494,48 +494,64 @@
 
     public async ValueTask DisposeAsync()
     {
-        PdfDataService.OnChange -= OnServiceChanged;
-        CompletionState.Reset();
+        // 1) サービスのイベント購読解除
+        try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
+        try { CompletionState.Reset(); } catch { }
 
-        try
-        {
-            if (_windowResizeRegistered)
-            {
-                try { await JSRuntime.InvokeVoidAsync("unregisterWindowResize"); } catch { }
-                _windowResizeRegistered = false;
-            }
-        }
-        catch { }
+        // 2) JS 側の登録解除を確実に await（逆順推奨）
+
+        // 2-1) trim-preview.js の一括解除
+        try { await JSRuntime.InvokeVoidAsync("unregisterAllTrimPreview"); } catch { }
+
+        // 2-2) 個別の unregister（念のため重複呼び出し）
+        try { await JSRuntime.InvokeVoidAsync("unregisterPreviewCacheCleanup", "trim-preview-container"); } catch { }
+        _previewCacheCleanupRegistered = false;
 
         try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
         _visibleObserverLastCount = -1;
 
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("ocrHelper.terminate");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"OCR cleanup error: {ex.Message}");
-        }
-        
-        try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
+        try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", "trim-preview-container"); } catch { }
 
         try
         {
             if (_dropAreaRegistered)
             {
-                try { await JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area"); } catch { }
-                _dropAreaRegistered = false;
+                await JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
             }
         }
         catch { }
+        _dropAreaRegistered = false;
 
+        try { await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea"); } catch { }
+
+        try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
+
+        try
+        {
+            if (_windowResizeRegistered)
+            {
+                await JSRuntime.InvokeVoidAsync("unregisterWindowResize");
+            }
+        }
+        catch { }
+        _windowResizeRegistered = false;
+
+        // 2-3) OCR エンジンのクリーンアップ
+        try { await JSRuntime.InvokeVoidAsync("ocrHelper.terminate"); } catch (Exception ex) { Console.WriteLine($"OCR cleanup error: {ex.Message}"); }
+
+        // 3) 非同期タスクのキャンセル
         try { passwordTcs?.TrySetCanceled(); } catch { }
         passwordTcs = null;
 
+        // 4) JS が参照をクリアする時間を少し与える（オプション：安全策）
+        try { await Task.Delay(30); } catch { }
+
+        // 5) 最後に DotNetObjectReference を破棄
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
+
+        // 6) 静的参照をクリア
+        if (_currentInstance == this) _currentInstance = null;
     }
 
     // ========================================
