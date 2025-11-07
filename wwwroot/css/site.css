@@ -1656,9 +1656,6 @@ input[type=number] {
   .bg-purple-100 {
     background-color: var(--color-purple-100);
   }
-  .bg-red-50 {
-    background-color: var(--color-red-50);
-  }
   .bg-red-100 {
     background-color: var(--color-red-100);
   }
@@ -2049,9 +2046,6 @@ input[type=number] {
   }
   .text-purple-800 {
     color: var(--color-purple-800);
-  }
-  .text-red-400 {
-    color: var(--color-red-400);
   }
   .text-red-500 {
     color: var(--color-red-500);
