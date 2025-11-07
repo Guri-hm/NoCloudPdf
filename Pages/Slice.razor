@@ -68,6 +68,7 @@
                         var index = i;
                         var item = DisplayItems[i];
                         <TrimThumbnailCard Item="@item"
+                                        Index="@index"
                                         IsSelected="@(displayedPageNumber - 1 == index)"
                                         HasTrimRect="@(trimRects.ContainsKey(index))"
                                         OnClick="@(() => SelectPage(index))" />

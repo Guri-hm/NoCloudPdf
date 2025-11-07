@@ -1563,20 +1563,170 @@ window.unregisterAllTrimPreview = function() {
 };
 
 // ========================================
-// trimPreviewArea の解除（スクロール関連）
+// trimPreviewArea: スクロール・ページ移動関連
 // ========================================
-window.trimPreviewArea = window.trimPreviewArea || {};
-window.trimPreviewArea.unregister = function() {
-    try {
-        // 既存のイベントリスナーやタイマーをクリア
-        if (window.trimPreviewArea.cleanup) {
-            window.trimPreviewArea.cleanup();
+window.trimPreviewArea = window.trimPreviewArea || {
+    dotNetRef: null,
+    handlers: null,
+
+    /**
+     * 初期化: マウスイベントリスナーを登録
+     */
+    initialize: function (dotNetRef) {
+        try {
+            this.unregister && this.unregister();
+
+            this.dotNetRef = dotNetRef;
+
+            const onMouseMove = (e) => {
+                try {
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX).catch(() => {});
+                } catch (ex) { /* ignore */ }
+            };
+            const onMouseUp = (e) => {
+                try {
+                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseUp').catch(() => {});
+                } catch (ex) { /* ignore */ }
+            };
+
+            this.handlers = { onMouseMove, onMouseUp };
+
+            document.addEventListener('mousemove', onMouseMove, { passive: true });
+            document.addEventListener('mouseup', onMouseUp, { passive: true });
+
+        } catch (e) {
+            console.error('trimPreviewArea.initialize error', e);
         }
-        window.trimPreviewArea.cleanup = null;
-        console.log('[trimPreviewArea.unregister] Cleaned up');
-        return true;
+    },
+
+    /**
+     * 解除: イベントリスナーを削除
+     */
+    unregister: function () {
+        try {
+            if (this.handlers) {
+                document.removeEventListener('mousemove', this.handlers.onMouseMove);
+                document.removeEventListener('mouseup', this.handlers.onMouseUp);
+                this.handlers = null;
+            }
+            this.dotNetRef = null;
+            console.log('[trimPreviewArea.unregister] Cleaned up');
+        } catch (e) { 
+            console.error('trimPreviewArea.unregister error', e); 
+        }
+    },
+
+    /**
+     * 画像の寸法を取得
+     */
+    getImageDimensions: function (imgId) {
+        try {
+            const img = document.getElementById(imgId);
+            if (img) {
+                return [img.offsetWidth, img.offsetHeight];
+            }
+            return [0, 0];
+        } catch (e) {
+            console.error('getImageDimensions error', e);
+            return [0, 0];
+        }
+    },
+
+    /**
+     * 指定ページまでスムーズスクロール（Observer 一時停止機能付き）
+     */
+    scrollToPage: function (pageIndex) {
+        try {
+            // コンテナを取得（preview-zoom-viewport を優先）
+            const container = document.querySelector('.preview-zoom-viewport') 
+                           || document.getElementById('trim-preview-container');
+            
+            if (!container) {
+                console.warn('scrollToPage: container not found');
+                return false;
+            }
+
+            // ターゲット要素を取得
+            const targetElement = document.getElementById(`preview-container-${pageIndex}`);
+            if (!targetElement) {
+                console.warn(`scrollToPage: element not found for index ${pageIndex}`);
+                return false;
+            }
+
+            // ★ スクロール開始前に Observer を一時停止
+            if (typeof window.pauseVisiblePageObserver === 'function') {
+                window.pauseVisiblePageObserver();
+            }
+
+            // ★ スクロール完了後に Observer を再開 + 青枠を更新
+            const onScrollEnd = () => {
+                // Observer を再開
+                if (typeof window.resumeVisiblePageObserver === 'function') {
+                    window.resumeVisiblePageObserver();
+                }
+
+                // スクロール完了後に青枠を更新
+                if (typeof window.selectThumbnailByIndex === 'function') {
+                    window.selectThumbnailByIndex(pageIndex);
+                }
+
+                // イベントリスナーを削除
+                container.removeEventListener('scrollend', onScrollEnd);
+            };
+
+            // scrollend イベントをリッスン（スクロール完了を検知）
+            container.addEventListener('scrollend', onScrollEnd, { once: true });
+
+            // フォールバック：scrollend が発火しない場合（古いブラウザ対応）
+            setTimeout(() => {
+                container.removeEventListener('scrollend', onScrollEnd);
+                onScrollEnd();
+            }, 1000);
+
+            // スムーズスクロール実行
+            targetElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start',
+                inline: 'nearest'
+            });
+
+            return true;
+        } catch (e) {
+            console.error('scrollToPage error', e);
+            // エラー時も Observer を再開
+            if (typeof window.resumeVisiblePageObserver === 'function') {
+                window.resumeVisiblePageObserver();
+            }
+            return false;
+        }
+    }
+};
+
+window.selectThumbnailByIndex = function(selectedIndex) {
+    try {
+        const container = document.getElementById('thumbnail-container');
+        if (!container) {
+            console.warn('selectThumbnailByIndex: thumbnail-container not found');
+            return;
+        }
+
+        // ★ すべてのサムネイルから selected クラスを削除（排他制御）
+        container.querySelectorAll('.trim-thumbnail-card').forEach(card => {
+            const innerDiv = card.querySelector('.flex.flex-col');
+            if (innerDiv) {
+                innerDiv.classList.remove('selected', 'ring-2', 'ring-blue-500', 'bg-blue-50/40');
+            }
+        });
+
+        // ★ 指定されたインデックスのサムネイルにのみ selected クラスを追加
+        const targetCard = container.querySelector(`[data-thumb-index="${selectedIndex}"]`);
+        if (targetCard) {
+            const innerDiv = targetCard.querySelector('.flex.flex-col');
+            if (innerDiv) {
+                innerDiv.classList.add('selected', 'ring-2', 'ring-blue-500', 'bg-blue-50/40');
+            }
+        }
     } catch (e) {
-        console.error('trimPreviewArea.unregister error', e);
-        return false;
+        console.error('selectThumbnailByIndex error', e);
     }
 };

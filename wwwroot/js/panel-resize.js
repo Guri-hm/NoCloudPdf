@@ -258,64 +258,6 @@ window._trimResize = window._trimResize || {
     suspendFitZoom: false
 };
 
-window.trimPreviewArea = {
-    dotNetRef: null,
-    handlers: null,
-
-    initialize: function (dotNetRef) {
-        try {
-
-            this.unregister && this.unregister();
-
-            this.dotNetRef = dotNetRef;
-
-            const onMouseMove = (e) => {
-                try {
-                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseMove', e.clientX).catch(() => { });
-                } catch (ex) { /* ignore */ }
-            };
-            const onMouseUp = (e) => {
-                try {
-                    if (this.dotNetRef) this.dotNetRef.invokeMethodAsync('OnPanelMouseUp').catch(() => { });
-                } catch (ex) { /* ignore */ }
-            };
-
-            this.handlers = { onMouseMove, onMouseUp };
-
-            document.addEventListener('mousemove', onMouseMove, { passive: true });
-            document.addEventListener('mouseup', onMouseUp, { passive: true });
-
-        } catch (e) {
-            console.error('trimPreviewArea.initialize error', e);
-        }
-    },
-
-    unregister: function () {
-        try {
-            if (this.handlers) {
-                document.removeEventListener('mousemove', this.handlers.onMouseMove);
-                document.removeEventListener('mouseup', this.handlers.onMouseUp);
-                this.handlers = null;
-            }
-            this.dotNetRef = null;
-        } catch (e) { console.error('trimPreviewArea.unregister error', e); }
-    },
-    getImageDimensions: function (imgId) {
-        const img = document.getElementById(imgId);
-        if (img) {
-            return [img.offsetWidth, img.offsetHeight];
-        }
-        return [0, 0];
-    },
-
-    scrollToPage: function (pageIndex) {
-        const container = document.getElementById(`preview-container-${pageIndex}`);
-        if (container) {
-            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }
-};
-
 function ensureSharedTrimResizeHandler() {
     try {
         if (window._trimShared && window._trimShared.resizeHandler) return;

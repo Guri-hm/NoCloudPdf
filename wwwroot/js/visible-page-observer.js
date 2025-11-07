@@ -1,5 +1,37 @@
 window._visiblePageObserver = window._visiblePageObserver || {};
 
+// ========================================
+// ★ 追加：Observer の一時停止/再開機能
+// ========================================
+window._visiblePageObserver.isPaused = false;
+
+/**
+ * 可視ページ監視の一時停止
+ */
+window.pauseVisiblePageObserver = function() {
+    try {
+        window._visiblePageObserver.isPaused = true;
+        console.log('[pauseVisiblePageObserver] Observer paused');
+    } catch (e) {
+        console.error('pauseVisiblePageObserver error', e);
+    }
+};
+
+/**
+ * 可視ページ監視の再開
+ */
+window.resumeVisiblePageObserver = function() {
+    try {
+        window._visiblePageObserver.isPaused = false;
+        console.log('[resumeVisiblePageObserver] Observer resumed');
+    } catch (e) {
+        console.error('resumeVisiblePageObserver error', e);
+    }
+};
+
+// ========================================
+// 既存のコード（変更なし）
+// ========================================
 window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceMs = 200, options = {}) {
     try {
         try { window.unregisterVisiblePageObserver(containerId); } catch (e) { }
@@ -57,6 +89,13 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
                 if (topInput) topInput.value = String(idx + 1);
             } catch (e) { /* ignore */ }
 
+            // ★ 追加：selectThumbnailByIndex を呼び出し（青枠を更新）
+            try {
+                if (typeof window.selectThumbnailByIndex === 'function') {
+                    window.selectThumbnailByIndex(idx);
+                }
+            } catch (e) { /* ignore */ }
+
             const callDotNet = () => {
                 try {
                     if (dotNetRef && typeof dotNetRef.invokeMethodAsync === 'function') {
@@ -78,6 +117,11 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
         }
 
         const cb = function (entries) {
+            // ★ 追加：一時停止中は処理をスキップ
+            if (window._visiblePageObserver.isPaused) {
+                return;
+            }
+
             try {
                 const now = performance.now();
                 const containerRect = container.getBoundingClientRect();
