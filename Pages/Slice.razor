@@ -70,7 +70,7 @@
                         <TrimThumbnailCard Item="@item"
                                         Index="@index"
                                         IsSelected="@(displayedPageNumber - 1 == index)"
-                                        HasTrimRect="@(trimRects.ContainsKey(index))"
+                                        HasTrimRect="@(PdfDataService.GetTrimRect(index) != null)"
                                         OnClick="@(() => SelectPage(index))"
                                         OnReloadPageItem="ReloadPageItem" 
                                         />
