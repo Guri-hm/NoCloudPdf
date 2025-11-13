@@ -701,42 +701,34 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             const targetRatio = window._trimAspectRatio;
                             const currentRatio = rawW / Math.max(1, rawH);
                             
-                            // 描画方向を判定（開始点から見てどちら方向にドラッグしているか）
-                            const isRightBottom = (loc.x >= trimState.startClientLocal.x) && (loc.y >= trimState.startClientLocal.y);
-                            const isLeftTop = (loc.x < trimState.startClientLocal.x) && (loc.y < trimState.startClientLocal.y);
+                            // ドラッグ方向を4方向で判定
+                            const dragRight = loc.x >= trimState.startClientLocal.x;
+                            const dragDown = loc.y >= trimState.startClientLocal.y;
                             
                             if (currentRatio > targetRatio) {
                                 // 幅が広すぎる → 高さを基準に幅を調整
                                 const newW = rawH * targetRatio;
                                 
-                                if (isRightBottom) {
-                                    // 右下方向：左上固定（既存動作）
-                                    rawW = newW;
-                                } else if (isLeftTop) {
-                                    // 左上方向：右下（開始点）を固定して左上を移動
-                                    rawX = trimState.startClientLocal.x - newW;
+                                if (dragRight) {
+                                    // 右方向ドラッグ：左側（X座標）を固定
+                                    rawX = trimState.startClientLocal.x;
                                     rawW = newW;
                                 } else {
-                                    // 斜め方向：中央を基準に調整
-                                    const centerX = (rawX + rawX + rawW) / 2;
-                                    rawX = centerX - newW / 2;
+                                    // 左方向ドラッグ：右側を固定
+                                    rawX = trimState.startClientLocal.x - newW;
                                     rawW = newW;
                                 }
                             } else {
                                 // 高さが高すぎる → 幅を基準に高さを調整
                                 const newH = rawW / targetRatio;
                                 
-                                if (isRightBottom) {
-                                    // 右下方向：左上固定（既存動作）
-                                    rawH = newH;
-                                } else if (isLeftTop) {
-                                    // 左上方向：右下（開始点）を固定して左上を移動
-                                    rawY = trimState.startClientLocal.y - newH;
+                                if (dragDown) {
+                                    // 下方向ドラッグ：上側（Y座標）を固定
+                                    rawY = trimState.startClientLocal.y;
                                     rawH = newH;
                                 } else {
-                                    // 斜め方向：中央を基準に調整
-                                    const centerY = (rawY + rawY + rawH) / 2;
-                                    rawY = centerY - newH / 2;
+                                    // 上方向ドラッグ：下側を固定
+                                    rawY = trimState.startClientLocal.y - newH;
                                     rawH = newH;
                                 }
                             }
@@ -758,9 +750,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         rawY = snappedTop.snapped;
                         rawW = snappedRight.snapped - snappedLeft.snapped;
                         rawH = snappedBottom.snapped - snappedTop.snapped;
-
-                        // 状態だけ更新（描画は下の changed 判定で一度だけ行う）
-                        // trimState.currentRectPx = { x: rawX, y: rawY, w: rawW, h: rawH };
 
                         // 画面外へのはみ出しをこの時点で切り詰める（disp を currentRectPx に保存）
                         let dispX = rawX < 0 ? 0 : rawX;
