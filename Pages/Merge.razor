@@ -756,15 +756,24 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        await MessageService.ShowLoadingAsync("ファイル選択中...");
+        try
+        {
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await PdfDataService.HandleFileInputAsync(
+                e,
+                insertPosition >= 0 ? insertPosition : null
+            );
+            insertPosition = -1;
 
-        await PdfDataService.HandleFileInputAsync(
-            e,
-            insertPosition >= 0 ? insertPosition : null
-        );
-        insertPosition = -1;
-
-        await MessageService.HideLoadingAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error handling file selection: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込みに失敗しました: {ex.Message}", MessageType.Error);
+        }finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     private List<DropdownMenuItem> addMenuItems => new()
@@ -925,10 +934,10 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
     [JSInvokable]
     public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
     {
-
         try
         {
             await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await Task.Yield();
 
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,

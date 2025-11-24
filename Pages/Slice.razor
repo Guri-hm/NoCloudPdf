@@ -552,6 +552,7 @@
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
         try{
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
             await PdfDataService.HandleFileInputAsync(
                 e,
                 insertPosition >= 0 ? insertPosition : null
@@ -560,9 +561,10 @@
 
         }catch (Exception ex){
             Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"ファイルの読み込みに失敗しました: {ex.Message}", MessageType.Error);
 
         }finally{
+            await MessageService.HideLoadingAsync();
         }
     }
 
@@ -825,7 +827,7 @@ private List<ActionButtonItem> showOptionsModal => new()
         {
             await MessageService.ShowLoadingAsync("ファイル読み込み中...");
             await Task.Yield();
-
+            
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,

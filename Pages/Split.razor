@@ -1186,6 +1186,8 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         try
         {
             await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await Task.Yield();
+            
             await PdfDataService.HandleDroppedFileAsync(
                 fileName,
                 base64Data,
