@@ -148,6 +148,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             svg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
             svg.setAttribute('preserveAspectRatio', 'none');
             svg.style.pointerEvents = 'none';
+            svg.style.touchAction = 'none';
             container.appendChild(svg);
         }
 
