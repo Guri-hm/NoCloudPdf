@@ -17,13 +17,13 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-          dotnet-quality: 'ga'  # General Availability（正式リリース版のみ）
+          dotnet-quality: 'ga'
 
       - name: Show dotnet info (debug)
         run: dotnet --info
 
-      - name: Install WebAssembly Tools
-        run: dotnet workload install wasm-tools
+      - name: Install WebAssembly Tools (compatible with SDK 10)
+        run: dotnet workload install wasm-tools-net9
 
       - name: Install native dependencies
         run: |
