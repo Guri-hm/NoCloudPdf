@@ -22,8 +22,8 @@ jobs:
       - name: Show dotnet info (debug)
         run: dotnet --info
 
-      - name: Install WebAssembly Tools (compatible with SDK 10)
-        run: dotnet workload install wasm-tools-net9
+      - name: Install WebAssembly Tools
+        run: dotnet workload install wasm-tools
 
       - name: Install native dependencies
         run: |
