@@ -3,9 +3,9 @@
     <div class="flex flex-col gap-2">
         <label class="text-sm font-semibold text-gray-700">書き出し解像度</label>
         <select @bind="ExportDpi" @bind:after="NotifyExportDpiChanged" class="px-3 py-2 border border-gray-300 rounded bg-white text-gray-900">
-            <option value="72">実寸（72dpi）</option>
-            <option value="150">高品質（150dpi）</option>
-            <option value="300">印刷用（300dpi）</option>
+            <option value="72">低品質（72dpi）</option>
+            <option value="150">中品質（150dpi）</option>
+            <option value="300">高品質（300dpi）</option>
         </select>
     </div>
 
