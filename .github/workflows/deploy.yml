@@ -17,7 +17,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-      
+          dotnet-quality: 'ga'  # General Availability（正式リリース版のみ）
+
+      - name: Show dotnet info (debug)
+        run: dotnet --info
+
       - name: Install WebAssembly Tools
         run: dotnet workload install wasm-tools
 
@@ -30,15 +34,7 @@ jobs:
         run: dotnet restore
 
       - name: Build and publish with AOT
-        # 通常のビルド
-        # run: dotnet publish NoCloudPdf.csproj -c Release -o publish
-        #AOT
-        # run: dotnet publish NoCloudPdf.csproj -c Release -o publish -p:RunAOTCompilation=true
-        # AOT+不要コードの除去
         run: dotnet publish NoCloudPdf.csproj -c Release -o publish -p:RunAOTCompilation=true -p:PublishTrimmed=true
-
-        #name: Rewrite base href for GitHub Pages
-        #run: sed -i 's|<base href="%(BaseHref)">|<base href="/NoCloudPdf/">|g' publish/wwwroot/index.html
 
       - name: Create CNAME file
         run: echo 'ncp.solopg.com' > publish/wwwroot/CNAME
@@ -51,12 +47,10 @@ jobs:
           dt=$(date +"%Y%m%d_%H%M%S")
           echo "Setting cache-busting version: $dt"
           
-          # 複数のパターンに対応
           sed -i "s|js/bundle/bundle\.min\.js|js/bundle/bundle.min.js?v=$dt|g" publish/wwwroot/index.html
           sed -i "s|\"js/bundle/bundle\.min\.js\"|\"js/bundle/bundle.min.js?v=$dt\"|g" publish/wwwroot/index.html
           sed -i "s|'js/bundle/bundle\.min\.js'|'js/bundle/bundle.min.js?v=$dt'|g" publish/wwwroot/index.html
           
-          # 確認
           echo "Modified file content:"
           grep "bundle" publish/wwwroot/index.html
 
@@ -65,5 +59,3 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./publish/wwwroot
-          # 下記は必要に応じて追加
-          # force_orphan: true
