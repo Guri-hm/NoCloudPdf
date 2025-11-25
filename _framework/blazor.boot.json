@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-urVA+n7wHiu9W2XKk34TJ83AJRhxLGKkV7JCgObsiio=",
+    "hash": "sha256-RG+J7F1v7G2AN8LyeyYbjtMLIN5BrDy/1kZFJtSCdZ8=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.j7253kck3j.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.86vin5kfym.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -41,10 +41,10 @@
       "System.Text.RegularExpressions.niifcto0qh.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.1qjekjcyqa.wasm": "System.Threading.wasm",
       "System.t4d4s3f398.wasm": "System.wasm",
-      "System.Private.CoreLib.842lwb1sml.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.7ec0tysjeo.wasm": "NoCloudPdf.wasm",
+      "System.Private.CoreLib.eljkkm1xtw.wasm": "System.Private.CoreLib.wasm",
+      "NoCloudPdf.htta0tr5cp.wasm": "NoCloudPdf.wasm",
       "dotnet.native.o8u23jnqma.js": "dotnet.native.js",
-      "dotnet.native.0uy4k2dyn5.wasm": "dotnet.native.wasm",
+      "dotnet.native.wcgk6z5573.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.9o45ky8ejm.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -58,7 +58,7 @@
       "dotnet.runtime.9o45ky8ejm.js": "sha256-6QIZYgG+ftoT9N1H1EEJeXIhD/qbKqEcnmawDskiwdI="
     },
     "wasmNative": {
-      "dotnet.native.0uy4k2dyn5.wasm": "sha256-WLV8cP2gXbRglKaYRk8lpFWlLNwTXqopGtwNHVk8AbQ="
+      "dotnet.native.wcgk6z5573.wasm": "sha256-MK6NchDmsej9VKtUT3egu9mj+yKL1qpAF3nY2xDtvr4="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -104,8 +104,8 @@
       "System.Text.RegularExpressions.niifcto0qh.wasm": "sha256-f6tqCG13Wr5X2K5OPUkCXkPPbWBi9JgU0lBnR+DkXNo=",
       "System.Threading.1qjekjcyqa.wasm": "sha256-WVswpNrurTFiYyATVXqWgRmC2eF3YP+S0kXAWDoTwqo=",
       "System.t4d4s3f398.wasm": "sha256-fVP2BxRRKpBA0PmBbKxmO45bXDrAXVn1GthlDclLbeU=",
-      "System.Private.CoreLib.842lwb1sml.wasm": "sha256-CMZPIa960cuvLY0sCVG9MR0OJuagu5rcIIm72H6WWGA=",
-      "NoCloudPdf.7ec0tysjeo.wasm": "sha256-v8PDxZCAFIFrYo0Fr/k2aprVaNRWIqu3cS6oG9/xkWw="
+      "System.Private.CoreLib.eljkkm1xtw.wasm": "sha256-zmP0cFeCYYHIJ8XY61oM3iWxa+cCKpDjMkfU3idg25s=",
+      "NoCloudPdf.htta0tr5cp.wasm": "sha256-dTnqkQuXaJwIalEecf1bpxydHu6chcIzPqx+sT4PS90="
     },
     "assembly": {}
   },
