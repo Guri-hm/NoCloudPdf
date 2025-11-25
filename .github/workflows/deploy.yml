@@ -17,7 +17,13 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-      
+
+      - name: Show dotnet info (debug)
+        run: dotnet --info
+
+      - name: Restore workloads (ensure wasm workload available)
+        run: dotnet workload restore
+        
       - name: Install WebAssembly Tools
         run: dotnet workload install wasm-tools
 
