@@ -74,45 +74,76 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         const canvas = document.getElementById(canvasId);
         if (!canvas) return false;
         const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
-                    
-                    function removeRectAt(index) {
-                        try {
-                            if (trimState.allowMultipleRects) {
-                                if (index >= 0 && index < trimState.currentRectsPx.length) {
-                                    trimState.currentRectsPx.splice(index, 1);
-                                }
-                                trimState.selectedRectIndex = -1;
+        
+        window._simpleTrim = window._simpleTrim || {};
+        if (!window._simpleTrim[canvasId]) window._simpleTrim[canvasId] = {};
+        const trimState = window._simpleTrim[canvasId];
 
-                                const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
-                                const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
-                                const rectsToRender = (trimState.currentRectsPx || []).map(r => ({
-                                    X: r.x / cssW, Y: r.y / cssH,
-                                    Width: r.w / cssW, Height: r.h / cssH
-                                }));
+        // ★ デバッグログ1：関数呼び出し時の状態
+        const callId = Math.random().toString(36).substr(2, 9);
+        console.log(`[drawTrimOverlayAsSvg:${callId}] START`, {
+            canvasId,
+            rectsLength: rects?.length,
+            active: trimState.active,
+            mode: trimState.mode,
+            currentRectsPxLength: trimState.currentRectsPx?.length,
+            preservedRectsSnapshot: trimState.currentRectsPx ? [...trimState.currentRectsPx] : null
+        });
 
-                                if (window.drawTrimOverlayAsSvg) {
-                                    window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
-                                }
-                                if (trimState.dotNetRef?.invokeMethodAsync) {
-                                    trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToRender).catch(() => {});
-                                }
-                            } else {
-                                // 単一矩形時: 全削除
-                                trimState.selected = false;
-                                trimState.currentRectPx = null;
-                                trimState.currentRectsPx = [];
-                                if (trimState.dotNetRef?.invokeMethodAsync) {
-                                    trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
-                                }
-                                if (window.drawTrimOverlayAsSvg) {
-                                    window.drawTrimOverlayAsSvg(canvasId, []);
-                                }
-                            }
-                        } catch (e) { console.error('removeRectAt error', e); }
+        const isDrawing = trimState.active && (trimState.mode === 'draw' || trimState.mode === 'move' || trimState.mode === 'resize');
+        const preservedRects = (isDrawing && Array.isArray(trimState.currentRectsPx)) ? [...trimState.currentRectsPx] : [];
+
+        // ★ デバッグログ2：isDrawing と preservedRects の状態
+        console.log(`[drawTrimOverlayAsSvg:${callId}] AFTER_SNAPSHOT`, {
+            isDrawing,
+            preservedRectsLength: preservedRects.length,
+            trimStateActiveNow: trimState.active,
+            trimStateModeNow: trimState.mode
+        });
+
+        function removeRectAt(index) {
+            try {
+                console.log(`[removeRectAt:${callId}] CALLED`, { index, currentRectsPxLength: trimState.currentRectsPx?.length });
+
+                if (trimState.allowMultipleRects) {
+                    if (index >= 0 && index < trimState.currentRectsPx.length) {
+                        trimState.currentRectsPx.splice(index, 1);
                     }
-                    
-                    // SVGコンテナを準備（既存または新規作成）
-                    const overlayId = canvasId + '-overlay-svg';
+                    trimState.selectedRectIndex = -1;
+
+                    const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+                    const rectsToRender = (trimState.currentRectsPx || []).map(r => ({
+                        X: r.x / cssW, Y: r.y / cssH,
+                        Width: r.w / cssW, Height: r.h / cssH
+                    }));
+
+                    console.log(`[removeRectAt:${callId}] RECURSIVE_CALL`, { rectsToRenderLength: rectsToRender.length });
+
+                    if (window.drawTrimOverlayAsSvg) {
+                        window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                    }
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('CommitMultipleRectsFromJs', rectsToRender).catch(() => {});
+                    }
+                } else {
+                    trimState.selected = false;
+                    trimState.currentRectPx = null;
+                    trimState.currentRectsPx = [];
+
+                    console.log(`[removeRectAt:${callId}] SINGLE_MODE_CLEAR`);
+
+                    if (trimState.dotNetRef?.invokeMethodAsync) {
+                        trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
+                    }
+                    if (window.drawTrimOverlayAsSvg) {
+                        window.drawTrimOverlayAsSvg(canvasId, []);
+                    }
+                }
+            } catch (e) { console.error('removeRectAt error', e); }
+        }
+        
+        const overlayId = canvasId + '-overlay-svg';
         let container = document.getElementById(overlayId);
         if (!container) {
             container = document.createElement('div');
@@ -133,13 +164,11 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         const cssW = Math.max(1, Math.round(canvas.clientWidth || canvasRect.width || 0));
         const cssH = Math.max(1, Math.round(canvas.clientHeight || canvasRect.height || 0));
         
-        // コンテナを Canvas と同じ位置・サイズに配置
         container.style.left = relLeft + 'px';
         container.style.top = relTop + 'px';
         container.style.width = cssW + 'px';
         container.style.height = cssH + 'px';
         
-        // SVG 要素を準備（初回のみ作成）
         let svg = container.querySelector('svg');
         if (!svg) {
             svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -151,46 +180,62 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             svg.style.touchAction = 'none';
             container.appendChild(svg);
         }
-        
-        // 既存の子要素をクリア
+
+        // ★ デバッグログ3：SVG 子要素削除直前
+        console.log(`[drawTrimOverlayAsSvg:${callId}] BEFORE_SVG_CLEAR`, {
+            svgChildCount: svg.childElementCount,
+            currentRectsPxLength: trimState.currentRectsPx?.length
+        });
+
         while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-        // グローバルトリム状態の初期化
-        window._simpleTrim = window._simpleTrim || {};
-        if (!window._simpleTrim[canvasId]) window._simpleTrim[canvasId] = {};
-        const trimState = window._simpleTrim[canvasId];
+        // ★ デバッグログ4：SVG 子要素削除直後
+        console.log(`[drawTrimOverlayAsSvg:${callId}] AFTER_SVG_CLEAR`, {
+            currentRectsPxLength: trimState.currentRectsPx?.length
+        });
 
-        // 矩形なし → 空のオーバーレイのみ配置して終了
         if (!Array.isArray(rects) || rects.length === 0) {
             trimState.overlayDom = container;
-                            trimState.currentRectPx = null;
+            
+            console.log(`[drawTrimOverlayAsSvg:${callId}] EMPTY_RECTS_BRANCH`, {
+                isDrawing,
+                preservedRectsLength: preservedRects.length,
+                willClear: !isDrawing
+            });
+
+            if (!isDrawing) {
+                trimState.currentRectPx = null;
                 trimState.currentRectsPx = [];
+                console.log(`[drawTrimOverlayAsSvg:${callId}] CLEARED_STATE`);
+            } else {
+                if (preservedRects.length > 0) {
+                    trimState.currentRectsPx = preservedRects;
+                    console.log(`[drawTrimOverlayAsSvg:${callId}] RESTORED_FROM_PRESERVED`, { length: preservedRects.length });
+                }
+            }
+            
             container.style.pointerEvents = 'none';
             svg.style.pointerEvents = 'none';
             return true;
         }
 
-        // 矩形あり → 描画処理
         container.style.pointerEvents = 'auto';
         svg.style.pointerEvents = 'auto';
         
-        // 複数矩形を順次描画
         rects.forEach((rect, rectIndex) => {
             const normX = Number(rect.X ?? rect.x ?? 0);
             const normY = Number(rect.Y ?? rect.y ?? 0);
             const normW = Number(rect.Width ?? rect.width ?? 0);
             const normH = Number(rect.Height ?? rect.height ?? 0);
 
-            // 正規化座標 → ピクセル座標
             const rectX = Math.round(normX * cssW);
             const rectY = Math.round(normY * cssH);
             const rectW = Math.round(normW * cssW);
             const rectH = Math.round(normH * cssH);
 
             const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.setAttribute('data-rect-index', String(rectIndex)); // 矩形識別用
+            g.setAttribute('data-rect-index', String(rectIndex));
 
-            // 背景（透明、イベント無視）
             const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             bg.setAttribute('x', '0');
             bg.setAttribute('y', '0');
@@ -200,7 +245,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             bg.style.pointerEvents = 'none';
             g.appendChild(bg);
 
-            // メイン矩形（塗り + 枠）
             const mainRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             mainRect.setAttribute('x', String(rectX));
             mainRect.setAttribute('y', String(rectY));
@@ -208,7 +252,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             mainRect.setAttribute('height', String(Math.max(0, rectH)));
             mainRect.setAttribute('fill', 'rgba(59,130,246,0.12)');
 
-            // 選択判定（複数時は selectedRectIndex、単一時は selected フラグ）
             const isSelected = trimState.allowMultipleRects 
                 ? (trimState.selectedRectIndex === rectIndex)
                 : Boolean(trimState.selected);
@@ -221,7 +264,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
             g.appendChild(mainRect);
 
-            // リサイズハンドル（選択中の矩形のみ表示）
             if (isSelected) {
                 const HANDLE_SIZE = 12;
                 const handleHalf = Math.round(HANDLE_SIZE / 2);
@@ -252,7 +294,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     g.appendChild(handle);
                 });
 
-                // 削除ボタン（選択中のみ）
                 let deleteX = rectX + rectW + 10;
                 let deleteY = rectY - 10;
                 deleteX = Math.min(cssW - 12, Math.max(12, deleteX));
@@ -286,6 +327,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 deleteBtn.addEventListener('pointerdown', function (ev) {
                     try {
                         ev.stopPropagation();
+                        console.log(`[deleteBtn:${callId}] CLICKED`, { rectIndex });
                         removeRectAt(rectIndex);
                     } catch (e) { console.error(e); }
                 }, { passive: false });
@@ -296,8 +338,13 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             svg.appendChild(g);
         });
 
-        // ピクセル座標を状態に保存
-        if (!trimState.active) {
+        console.log(`[drawTrimOverlayAsSvg:${callId}] BEFORE_STATE_UPDATE`, {
+            isDrawing,
+            currentRectsPxLength: trimState.currentRectsPx?.length,
+            preservedRectsLength: preservedRects.length
+        });
+
+        if (!isDrawing) {
             trimState.overlayDom = container;
             trimState.currentRectsPx = rects.map(r => ({
                 x: Number(r.X ?? r.x ?? 0) * cssW,
@@ -305,13 +352,27 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 w: Number(r.Width ?? r.width ?? 0) * cssW,
                 h: Number(r.Height ?? r.height ?? 0) * cssH
             }));
-            // 単一矩形互換用（最後の矩形）
             trimState.currentRectPx = trimState.currentRectsPx.length > 0 
                 ? { ...trimState.currentRectsPx[trimState.currentRectsPx.length - 1] }
                 : null;
+
+            console.log(`[drawTrimOverlayAsSvg:${callId}] STATE_UPDATED`, { newLength: trimState.currentRectsPx.length });
+        } else {
+            if (preservedRects.length > 0 && (!trimState.currentRectsPx || trimState.currentRectsPx.length === 0)) {
+                trimState.currentRectsPx = preservedRects;
+                console.log(`[drawTrimOverlayAsSvg:${callId}] RESTORED_PRESERVED_IN_ELSE`, { length: preservedRects.length });
+            } else {
+                console.log(`[drawTrimOverlayAsSvg:${callId}] NO_RESTORE_NEEDED`, {
+                    preservedRectsLength: preservedRects.length,
+                    currentRectsPxLength: trimState.currentRectsPx?.length
+                });
+            }
         }
 
-        // キーボードイベント登録（Delete で削除）
+        console.log(`[drawTrimOverlayAsSvg:${callId}] END`, {
+            finalCurrentRectsPxLength: trimState.currentRectsPx?.length
+        });
+
         if (!trimState.internal) trimState.internal = {};
         if (!trimState.internal.keydown) {
             trimState.internal.keydown = function (ev) {
@@ -326,7 +387,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             document.addEventListener('keydown', trimState.internal.keydown);
         }
 
-        // オーバーレイイベント登録（初回のみ）
         if (trimState.handlers && !container.__trimHooked) {
             const safeInvoke = (fn, ev) => { try { fn(ev); } catch (e) {} };
             trimState.internal.overlayPointerDown = (ev) => safeInvoke(trimState.handlers.pointerDown, ev);
