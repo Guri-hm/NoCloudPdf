@@ -490,6 +490,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             if (!trimState) return;
 
             safe.removeListener(trimState.base, 'pointerdown', trimState.handlers?.pointerDown, { passive: false });
+            safe.removeListener(trimState.base, 'touchstart', trimState.handlers?.touchStart, { passive: false });
             safe.removeWindowListener('pointermove', trimState.handlers?.move, { passive: false });
             safe.removeWindowListener('pointerup', trimState.handlers?.up, { passive: false });
 
@@ -967,6 +968,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         return;
                     }
 
+                    console.log("aaaa")
                     if (ev.button !== undefined && ev.button !== 0) return;
 
                     trimState.active = true;
@@ -1209,57 +1211,30 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 }
             };
 
-            // const onTouchStart = function (tEv) {
-            //     try {
-            //         if (!tEv.touches || tEv.touches.length === 0) return;
-            //         const t = tEv.touches[0];
-            //         onPointerDown({
-            //             clientX: t.clientX,
-            //             clientY: t.clientY,
-            //             pointerId: 'touch',
-            //             button: 0,
-            //             target: t.target,
-            //             preventDefault: () => tEv.preventDefault()
-            //         });
-            //         tEv.preventDefault();
-            //     } catch (e) {
-            //         console.error('onTouchStart error', e);
-            //     }
-            // };
+            const onTouchStart = function (tEv) {
+                try {
+                    if (!tEv.touches || tEv.touches.length === 0) return;
+                    const t = tEv.touches[0];
+                    onPointerDown({
+                        clientX: t.clientX,
+                        clientY: t.clientY,
+                        pointerId: 'touch',
+                        button: 0,
+                        target: t.target,
+                        preventDefault: () => tEv.preventDefault()
+                    });
+                    tEv.preventDefault();
+                } catch (e) {
+                    console.error('onTouchStart error', e);
+                }
+            };
             
             trimState.handlers.pointerDown = onPointerDown;
-            // trimState.handlers.touchStart = onTouchStart;
+            trimState.handlers.touchStart = onTouchStart;
 
             canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
-            // canvas.addEventListener('touchstart', onTouchStart, { passive: false });
-
-            // if (overlayDom?.style) {
-            //     overlayDom.style.cursor = 'crosshair';
-            // } 
-
-            // if (overlayDom) {
-            //     overlayDom.style.pointerEvents = 'auto';
-            //     overlayDom.addEventListener('pointerdown', onPointerDown, { passive: false, capture: true });
-            //     overlayDom.addEventListener('touchstart', onTouchStart, { passive: false, capture: true });
-
-            //     const onOverlayPointerMove = function (ev) {
-            //         const t = ev.target;
-            //         const handleAttr = t?.getAttribute?.('data-handle');
-            //         const rectAttr = t?.getAttribute?.('data-rect');
-
-            //         if (handleAttr !== null) {
-            //             const idx = Number(handleAttr);
-            //             const key = (Number.isFinite(idx) && idx >= 0 && idx < HANDLE_KEY_MAP.length) ? HANDLE_KEY_MAP[idx] : null;
-            //             overlayDom.style.cursor = key ? (HANDLE_CURSOR_MAP[key] || '') : '';
-            //         } else if (rectAttr !== null) {
-            //             overlayDom.style.cursor = 'move';
-            //         } else {
-            //             overlayDom.style.cursor = '';
-            //         }
-            //     };
-            //     trimState.handlers.overlayMove = onOverlayPointerMove;
-            //     overlayDom.addEventListener('pointermove', onOverlayPointerMove, { passive: true, capture: true });
-            // }
+            //pointerdownよりもtouchstartが動くのでタッチ操作時の画面揺れ防止のために個別にonTouchStartという形で実行
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false });
 
             let scrollPending = false;
             function onAnyScrollOrResize() {
