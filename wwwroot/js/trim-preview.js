@@ -962,7 +962,9 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             // PointerDown: モード判定 & キャプチャ開始
             const onPointerDown = function (ev) {
                 try {
-
+                    if (ev.preventDefault) {
+                        ev.preventDefault();
+                    }
                     // パンモードならトリム処理を完全に無視
                     if (window._previewPan.enabled) {
                         return;
@@ -1205,7 +1207,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     window.addEventListener('pointermove', trimState.handlers.move, { passive: false });
                     window.addEventListener('pointerup', trimState.handlers.up, { passive: false });
 
-                    ev.preventDefault?.();
                 } catch (e) {
                     console.error('onPointerDown error', e);
                 }
@@ -1214,16 +1215,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             const onTouchStart = function (tEv) {
                 try {
                     if (!tEv.touches || tEv.touches.length === 0) return;
+                    
+                    tEv.preventDefault();
+                    
+                    // パンモードならトリム処理を完全に無視
+                    if (window._previewPan.enabled) {
+                        return;
+                    }
+
                     const t = tEv.touches[0];
+
                     onPointerDown({
                         clientX: t.clientX,
                         clientY: t.clientY,
                         pointerId: 'touch',
                         button: 0,
                         target: t.target,
-                        preventDefault: () => tEv.preventDefault()
+                        preventDefault: () => {}
                     });
-                    tEv.preventDefault();
                 } catch (e) {
                     console.error('onTouchStart error', e);
                 }
