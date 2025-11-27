@@ -526,8 +526,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
     // ========================================
     window.attachTrimListeners = function (canvasId, dotNetRef, selectionMode = 'single', allowMultipleRects = false) {
         try {
-            //登録時はパンモード解除
-            window._previewPan.enabled = false;
             if (!canvasId) return false;
             const canvas = document.getElementById(canvasId);
             if (!canvas) {
