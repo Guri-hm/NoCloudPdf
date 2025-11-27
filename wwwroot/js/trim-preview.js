@@ -84,7 +84,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
         function removeRectAt(index) {
             try {
-
                 if (trimState.allowMultipleRects) {
                     if (index >= 0 && index < trimState.currentRectsPx.length) {
                         trimState.currentRectsPx.splice(index, 1);
@@ -108,7 +107,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     trimState.selected = false;
                     trimState.currentRectPx = null;
                     trimState.currentRectsPx = [];
-
                     if (trimState.dotNetRef?.invokeMethodAsync) {
                         trimState.dotNetRef.invokeMethodAsync('ClearTrimRectFromJs').catch(() => {});
                     }
@@ -157,18 +155,27 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             container.appendChild(svg);
         }
 
+        // ★ 修正：viewBox のみ更新
+        svg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
+
+        // ★ 修正：Container 全体を一時的に非表示（visibility: hidden）
+        const originalVisibility = container.style.visibility;
+        container.style.visibility = 'hidden';
+
+        // 子要素のみ削除
         while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+        // ★ 修正：削除完了後、即座に表示を復元
+        container.style.visibility = originalVisibility || 'visible';
 
         if (!Array.isArray(rects) || rects.length === 0) {
             trimState.overlayDom = container;
             
-            if (!isDrawing) {
+            if (!isDrawing && trimState.currentRectsPx && trimState.currentRectsPx.length === 0) {
                 trimState.currentRectPx = null;
                 trimState.currentRectsPx = [];
-            } else {
-                if (preservedRects.length > 0) {
-                    trimState.currentRectsPx = preservedRects;
-                }
+            } else if (isDrawing && preservedRects.length > 0) {
+                trimState.currentRectsPx = preservedRects;
             }
             
             container.style.pointerEvents = 'none';
@@ -305,7 +312,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             trimState.currentRectPx = trimState.currentRectsPx.length > 0 
                 ? { ...trimState.currentRectsPx[trimState.currentRectsPx.length - 1] }
                 : null;
-
         } else {
             if (preservedRects.length > 0 && (!trimState.currentRectsPx || trimState.currentRectsPx.length === 0)) {
                 trimState.currentRectsPx = preservedRects;
@@ -954,7 +960,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         rectsToRender = [rectPxToNormalized(trimState.currentRectPx)];
                     }
                 }
-                if (window.drawTrimOverlayAsSvg) {
+                if (rectsToRender.length > 0 && window.drawTrimOverlayAsSvg) {
                     window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                 }
             }
