@@ -42,6 +42,30 @@
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
 
+    protected override void OnInitialized()
+    {
+        PdfDataService.OnChange += OnServiceChanged;
+    }
+
+    private void OnServiceChanged()
+    {
+        if (!isCanvasDrawn && Item.RawData is PageItem page && 
+            !string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
+        {
+            _ = InvokeAsync(async () =>
+            {
+                try
+                {
+                    await InitializeCanvasAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[OnServiceChanged] InitializeCanvasAsync failed idx={Index}: {ex.Message}");
+                }
+            });
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // ▼ Observer登録（初回のみ）
@@ -72,7 +96,7 @@
     /// <summary>
     /// JS側のIntersectionObserverから呼ばれる（可視状態変化時）
     /// </summary>
-    [JSInvokable]
+        [JSInvokable]
     public async Task OnVisibilityChanged(bool isVisible)
     {
         try
@@ -296,6 +320,8 @@
 
     public async ValueTask DisposeAsync()
     {
+        try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
+        
         try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", $"preview-container-{Index}"); } catch { }
         try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
         try { _dotNetRef?.Dispose(); } catch { }
