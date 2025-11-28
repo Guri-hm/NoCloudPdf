@@ -967,6 +967,10 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 // スタンプ追加
 // ========================================
 window.addStampsToPdf = async function (pdfBytes, stamps) {
+    console.log("=== addStampsToPdf called ===");
+    console.log("Input pdfBytes length:", pdfBytes?.length);
+    console.log("Stamps:", JSON.stringify(stamps, null, 2));
+
     const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
     if (!PDFLib._fontkitRegistered) {
@@ -979,12 +983,16 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     }
 
     const uint8Array = toUint8Array(pdfBytes);
+    console.log("Converted to Uint8Array, length:", uint8Array.length);
+    
     const rotateAngle = stamps.length > 0 ? (stamps[0].rotateAngle || 0) : 0;
     const normalizedAngle = ((rotateAngle % 360) + 360) % 360;
 
     const pdfDoc = await PDFDocument.load(uint8Array);
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
+    
+    console.log("PDF loaded, page size:", width, "x", height);
 
     let notoFontRegular = null;
 
@@ -1121,7 +1129,10 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     }
 
     for (const stamp of stamps) {
+        console.log("Processing stamp:", stamp);
+        
         let text = stamp.text || "";
+        
         if (stamp.isSerial) {
             const serialNumber = generateSerialNumber(
                 stamp.currentPageIndex || 0,
@@ -1130,6 +1141,8 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
             );
             text = text ? `${text}${serialNumber}` : serialNumber;
         }
+        
+        console.log("Final text to draw:", text);
 
         let font;
         if (containsJapanese(text)) {
@@ -1175,13 +1188,16 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
                 color: color,
                 rotate: degrees(transformed.textRotation),
             });
+            console.log("Text drawn successfully at:", transformed.x, transformed.y);
         } catch (drawError) {
             console.error("スタンプ描画エラー:", drawError);
             throw drawError;
         }
     }
 
-    return await pdfDoc.save();
+    const savedBytes = await pdfDoc.save();
+    console.log("PDF saved, output length:", savedBytes.length);
+    return savedBytes;
 };
 
 // ========================================

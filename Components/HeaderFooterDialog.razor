@@ -1,12 +1,14 @@
 @using NoCloudPdf.Models
+@using NoCloudPdf.Services
 @inject IJSRuntime JSRuntime
+@inject PdfDataService PdfDataService
 
 @if (IsOpen)
 {
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[250] p-4 animate-in fade-in duration-300">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden border border-gray-200 animate-in slide-in-from-bottom-4 duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden border border-gray-200 animate-in slide-in-from-bottom-4 duration-300 flex flex-col">
             <!-- ヘッダー -->
-            <div class="text-white px-8 py-6 flex justify-between items-center" style="background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);">
+            <div class="text-white px-8 py-6 flex justify-between items-center flex-shrink-0" style="background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);">
                 <div class="flex items-center gap-3">
                     <div>
                         <h2 class="text-2xl font-bold">ヘッダー・フッター設定</h2>
@@ -18,9 +20,9 @@
                 </button>
             </div>
 
-            <div class="flex h-[calc(100vh-200px)] max-h-[600px]">
+            <div class="flex flex-1 min-h-0">
                 <!-- サイドバー（タブ） -->
-                <div class="w-16 bg-gray-100 flex flex-col">
+                <div class="w-16 bg-gray-100 flex flex-col flex-shrink-0">
                     <button class="w-16 h-16 flex items-center justify-center @(activeTab == "settings" ? "text-white" : "text-gray-600 hover:bg-gray-200") transition-colors duration-200"
                             style="@(activeTab == "settings" ? "background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);" : "")"
                             @onclick="@(() => SetActiveTab("settings"))">
@@ -37,232 +39,239 @@
                 <div class="flex-1 overflow-auto">
                     @if (activeTab == "settings")
                     {
-                        <!-- 設定タブ -->
-                        <div class="p-8">
-                            <div class="mb-8">
-                                <button class="px-6 py-3 bg-white border border-gray-300 rounded-xl hover:bg-blue-50 transition-all duration-200 shadow-lg font-semibold text-gray-800"
-                                        @onclick="AddStamp">
-                                    <i class="fa-solid fa-plus mr-2 text-green-600"></i>
-                                    新しいスタンプを追加
-                                </button>
+                        <div class="p-8 space-y-6">
+                            <!-- 適用ページ範囲 -->
+                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
+                                <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <i class="fa-solid fa-file-lines text-blue-600"></i>
+                                    適用ページ範囲
+                                </h3>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">開始ページ</label>
+                                        <input type="number" 
+                                               min="1" 
+                                               max="@TotalPages" 
+                                               value="@currentSetting.StartPage"
+                                               @onchange="@(e => { currentSetting.StartPage = int.Parse(e.Value?.ToString() ?? "1"); UpdatePreview(); })"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">終了ページ</label>
+                                        <input type="number" 
+                                               min="@currentSetting.StartPage" 
+                                               max="@TotalPages" 
+                                               value="@(currentSetting.EndPage == -1 ? TotalPages : currentSetting.EndPage)"
+                                               @onchange="@(e => { currentSetting.EndPage = int.Parse(e.Value?.ToString() ?? TotalPages.ToString()); UpdatePreview(); })"
+                                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" />
+                                    </div>
+                                </div>
+                                <p class="text-sm text-blue-700 mt-3 flex items-center gap-2">
+                                    <i class="fa-solid fa-info-circle"></i>
+                                    @GetPageRangeDescription()
+                                </p>
                             </div>
 
-                            @if (currentSetting.Stamps.Any())
-                            {
-                                <div class="space-y-6">
-                                    @for (int i = 0; i < currentSetting.Stamps.Count; i++)
-                                    {
-                                        var stamp = currentSetting.Stamps[i];
-                                        var index = i;
-                                        
-                                        <div class="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-200">
-                                            <div class="flex justify-between items-center mb-6">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm" style="background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);">
-                                                        @(index + 1)
-                                                    </div>
-                                                    <h3 class="text-lg font-semibold text-gray-800">スタンプ設定</h3>
-                                                </div>
-                                                <button class="w-10 h-10 bg-red-100 hover:bg-red-200 text-red-600 rounded-full flex items-center justify-center transition-colors duration-200"
-                                                        @onclick="@(() => RemoveStamp(index))">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
+                            <!-- スタンプ一覧 -->
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                        <i class="fa-solid fa-stamp text-purple-600"></i>
+                                        スタンプ設定
+                                    </h3>
+                                    <button class="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-md font-semibold text-sm flex items-center gap-2" @onclick="AddStamp">
+                                        <i class="fa-solid fa-plus"></i>
+                                        スタンプを追加
+                                    </button>
+                                </div>
+
+                                @foreach (var (stamp, index) in currentSetting.Stamps.Select((s, i) => (s, i)))
+                                {
+                                    <div class="bg-white border border-gray-200 rounded-xl p-6 mb-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+                                        <div class="flex justify-between items-start mb-4">
+                                            <h4 class="font-bold text-gray-800 text-base">スタンプ @(index + 1)</h4>
+                                            <button class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-2 transition-all duration-200" @onclick="() => RemoveStamp(index)">
+                                                <i class="fa-solid fa-trash text-sm"></i>
+                                            </button>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <!-- テキスト -->
+                                            <div class="col-span-2">
+                                                <label class="block text-sm font-semibold text-gray-700 mb-2">表示テキスト</label>
+                                                <input type="text" 
+                                                       value="@stamp.Text"
+                                                       @oninput="@(e => { stamp.Text = e.Value?.ToString() ?? ""; UpdatePreview(); })"
+                                                       placeholder="例: ページ"
+                                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" />
                                             </div>
 
-                                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                                <!-- 位置選択 -->
-                                                <div class="space-y-2">
-                                                    <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                        <i class="fa-solid fa-map-marker-alt" style="color: rgb(5, 39, 103);"></i>
-                                                        位置
-                                                    </label>
-                                                    <select class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200 bg-white" 
-                                                            style="focus:ring-color: rgb(5, 39, 103);"
-                                                            @bind="stamp.Corner" @bind:after="UpdatePreview">
-                                                        <option value="TopLeft">左上</option>
-                                                        <option value="Top">上</option>
-                                                        <option value="TopRight">右上</option>
-                                                        <option value="BottomLeft">左下</option>
-                                                        <option value="Bottom">下</option>
-                                                        <option value="BottomRight">右下</option>
-                                                    </select>
-                                                </div>
-
-                                                <!-- テキスト入力 -->
-                                                <div class="space-y-2">
-                                                    <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                        <i class="fa-solid fa-font" style="color: rgb(5, 39, 103);"></i>
-                                                        テキスト
-                                                    </label>
-                                                    <input type="text" 
-                                                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200" 
-                                                           style="focus:ring-color: rgb(5, 39, 103);"
-                                                           @bind="stamp.Text" @bind:after="UpdatePreview"
-                                                           placeholder="表示するテキスト" />
-                                                </div>
-
-                                                <!-- 連番チェック -->
-                                                <div class="space-y-2 flex flex-col justify-end">
-                                                    <label class="flex items-center gap-3 cursor-pointer p-3 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors duration-200">
+                                            <!-- 連番 -->
+                                            <div class="col-span-2 flex items-center gap-4">
+                                                <label class="flex items-center gap-2 cursor-pointer">
+                                                    <input type="checkbox" 
+                                                           checked="@stamp.IsSerial"
+                                                           @onchange="@(e => { stamp.IsSerial = (bool)(e.Value ?? false); UpdatePreview(); })"
+                                                           class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
+                                                    <span class="text-sm font-semibold text-gray-700">連番を追加</span>
+                                                </label>
+                                                @if (stamp.IsSerial)
+                                                {
+                                                    <label class="flex items-center gap-2 cursor-pointer">
                                                         <input type="checkbox" 
-                                                            class="w-5 h-5 border-2 border-gray-300 rounded focus:ring-blue-500" 
-                                                            style="color: rgb(5, 39, 103);"
-                                                            @bind="stamp.IsSerial" @bind:after="UpdatePreview" />
-                                                        <span class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                            <i class="fa-solid fa-list-ol" style="color: rgb(5, 39, 103);"></i>
-                                                            連番表示
-                                                        </span>
+                                                               checked="@stamp.IsZeroPadded"
+                                                               @onchange="@(e => { stamp.IsZeroPadded = (bool)(e.Value ?? false); UpdatePreview(); })"
+                                                               class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500" />
+                                                        <span class="text-sm font-semibold text-gray-700">ゼロ埋め</span>
                                                     </label>
-                                                    
-                                                    @if (stamp.IsSerial)
-                                                    {
-                                                        <label class="flex items-center gap-3 cursor-pointer p-2 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200 ml-4">
-                                                            <input type="checkbox" 
-                                                                class="w-4 h-4 border-2 border-gray-300 rounded focus:ring-green-500" 
-                                                                style="color: rgb(34, 197, 94);"
-                                                                @bind="stamp.IsZeroPadded" @bind:after="UpdatePreview" />
-                                                            <span class="text-xs font-medium text-gray-600 flex items-center gap-1">
-                                                                <i class="fa-solid fa-align-left" style="color: rgb(34, 197, 94);"></i>
-                                                                左0埋め (01, 02, 03...)
-                                                            </span>
-                                                        </label>
-                                                    }
-                                                </div>
-                                                <!-- 距離設定 -->
-                                                <div class="space-y-2">
-                                                    <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                        <i class="fa-solid fa-arrows-alt-h" style="color: rgb(5, 39, 103);"></i>
-                                                        X距離 (px)
-                                                    </label>
-                                                    <input type="number" 
-                                                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200" 
-                                                           style="focus:ring-color: rgb(5, 39, 103);"
-                                                           @bind="stamp.OffsetX" @bind:after="UpdatePreview"
-                                                           min="0" max="1000" />
-                                                </div>
-
-                                                <div class="space-y-2">
-                                                    <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                        <i class="fa-solid fa-arrows-alt-v" style="color: rgb(5, 39, 103);"></i>
-                                                        Y距離 (px)
-                                                    </label>
-                                                    <input type="number" 
-                                                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200" 
-                                                           style="focus:ring-color: rgb(5, 39, 103);"
-                                                           @bind="stamp.OffsetY" @bind:after="UpdatePreview"
-                                                           min="0" max="1000" />
-                                                </div>
-
-                                                <!-- フォントサイズ -->
-                                                <div class="space-y-2">
-                                                    <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                        <i class="fa-solid fa-text-height" style="color: rgb(5, 39, 103);"></i>
-                                                        フォントサイズ
-                                                    </label>
-                                                    <input type="number" 
-                                                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent transition-all duration-200" 
-                                                           style="focus:ring-color: rgb(5, 39, 103);"
-                                                           @bind="stamp.FontSize" @bind:after="UpdatePreview"
-                                                           min="8" max="72" />
-                                                </div>
-
-                                                <!-- 色選択 -->
-                                                <div class="md:col-span-2 xl:col-span-3 space-y-3">
-                                                    <label class="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                        <i class="fa-solid fa-palette" style="color: rgb(5, 39, 103);"></i>
-                                                        色
-                                                    </label>
-                                                    <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                                                        <input type="color" 
-                                                               value="@GetColorHex(stamp.Color)"
-                                                               @onchange="@(e => SetColor(stamp, e.Value?.ToString()))"
-                                                               class="w-16 h-12 border border-gray-300 rounded-lg cursor-pointer" />
-                                                        <div class="flex gap-2">
-                                                            <input type="number" @bind="stamp.Color.R" @bind:after="UpdatePreview" min="0" max="255" 
-                                                                   class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-mono" placeholder="R" />
-                                                            <input type="number" @bind="stamp.Color.G" @bind:after="UpdatePreview" min="0" max="255" 
-                                                                   class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-mono" placeholder="G" />
-                                                            <input type="number" @bind="stamp.Color.B" @bind:after="UpdatePreview" min="0" max="255" 
-                                                                   class="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center font-mono" placeholder="B" />
-                                                        </div>
-                                                        <div class="text-sm text-gray-600 font-mono">@GetColorHex(stamp.Color)</div>
+                                                    <div class="flex items-center gap-2">
+                                                        <label class="text-sm font-semibold text-gray-700">開始番号:</label>
+                                                        <input type="number" 
+                                                               min="1"
+                                                               value="@stamp.SerialStart"
+                                                               @onchange="@(e => { stamp.SerialStart = int.Parse(e.Value?.ToString() ?? "1"); UpdatePreview(); })"
+                                                               class="w-20 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm" />
                                                     </div>
-                                                </div>
+                                                }
+                                            </div>
+
+                                            <!-- 配置位置 -->
+                                            <div>
+                                                <label class="block text-sm font-semibold text-gray-700 mb-2">配置位置</label>
+                                                <select value="@stamp.Corner.ToString()"
+                                                        @onchange="@(e => { stamp.Corner = Enum.Parse<StampCorner>(e.Value?.ToString() ?? "TopLeft"); UpdatePreview(); })"
+                                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                                    <option value="TopLeft">左上</option>
+                                                    <option value="Top">上</option>
+                                                    <option value="TopRight">右上</option>
+                                                    <option value="BottomLeft">左下</option>
+                                                    <option value="Bottom">下</option>
+                                                    <option value="BottomRight">右下</option>
+                                                </select>
+                                            </div>
+
+                                            <!-- フォントサイズ -->
+                                            <div>
+                                                <label class="block text-sm font-semibold text-gray-700 mb-2">フォントサイズ</label>
+                                                <input type="number" 
+                                                       min="8" 
+                                                       max="72"
+                                                       value="@stamp.FontSize"
+                                                       @oninput="@(e => { stamp.FontSize = int.Parse(e.Value?.ToString() ?? "12"); UpdatePreview(); })"
+                                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" />
+                                            </div>
+
+                                            <!-- X オフセット -->
+                                            <div>
+                                                <label class="block text-sm font-semibold text-gray-700 mb-2">X オフセット</label>
+                                                <input type="number"
+                                                       value="@stamp.OffsetX"
+                                                       @oninput="@(e => { stamp.OffsetX = int.Parse(e.Value?.ToString() ?? "10"); UpdatePreview(); })"
+                                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" />
+                                            </div>
+
+                                            <!-- Y オフセット -->
+                                            <div>
+                                                <label class="block text-sm font-semibold text-gray-700 mb-2">Y オフセット</label>
+                                                <input type="number"
+                                                       value="@stamp.OffsetY"
+                                                       @oninput="@(e => { stamp.OffsetY = int.Parse(e.Value?.ToString() ?? "10"); UpdatePreview(); })"
+                                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" />
+                                            </div>
+
+                                            <!-- 色選択 -->
+                                            <div>
+                                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                                    テキスト色
+                                                    <span class="text-xs text-gray-500 ml-2">(@GetColorHex(stamp.Color))</span>
+                                                </label>
+                                                <input type="color"
+                                                       value="@GetColorHex(stamp.Color)"
+                                                       @onchange="@(e => SetColor(stamp, e.Value?.ToString()))"
+                                                       class="w-full h-10 border border-gray-300 rounded-lg cursor-pointer" />
                                             </div>
                                         </div>
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="text-center py-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-dashed border-blue-200">
-                                    <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);">
-                                        <i class="fa-solid fa-plus-circle text-3xl text-white"></i>
                                     </div>
-                                    <p class="text-gray-600 text-lg font-semibold">スタンプを追加してください</p>
-                                    <p class="text-gray-500 text-sm mt-2">ヘッダーやフッターに表示する要素を自由に配置できます</p>
-                                </div>
-                            }
+                                }
+                            </div>
                         </div>
                     }
                     else if (activeTab == "preview")
                     {
-                        <!-- プレビュータブ -->
                         <div class="p-8">
                             <div class="mb-6">
-                                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                    <i class="fa-solid fa-eye" style="color: rgb(5, 39, 103);"></i>
-                                    リアルタイムプレビュー
-                                </h3>
-                                <p class="text-gray-600 text-sm mt-1">設定したスタンプがどのように表示されるかをプレビューできます</p>
-                            </div>
-
-                            <div class="bg-white rounded-2xl border-2 border-gray-200 p-8 shadow-lg">
-                                <!-- A4サイズのサンプル画面 -->
-                                <div class="relative mx-auto bg-white border border-gray-300 shadow-xl" style="width: 400px; height: 566px; border-radius: 8px;">
-                                    <!-- サンプルコンテンツ -->
-                                    <div class="p-6 h-full flex flex-col">
-                                        <div class="text-center mb-6">
-                                            <h4 class="text-xl font-bold text-gray-800">サンプルドキュメント</h4>
-                                            <p class="text-gray-600 text-sm mt-2">Lorem ipsum dolor sit amet</p>
-                                        </div>
-                                        <div class="flex-1 space-y-4">
-                                            @for (int i = 0; i < 8; i++)
-                                            {
-                                                <div class="h-4 bg-gray-200 rounded animate-pulse"></div>
-                                            }
-                                        </div>
-                                    </div>
-
-                                    <!-- プレビュースタンプ -->
-                                    @foreach (var stamp in currentSetting.Stamps)
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                        <i class="fa-solid fa-eye text-indigo-600"></i>
+                                        プレビュー
+                                    </h3>
+                                    @if (TotalPages > 1)
                                     {
-                                        <div class="absolute pointer-events-none" style="@GetPreviewStampStyle(stamp)">
-                                            <span class="font-bold shadow-sm" style="color: @GetColorHex(stamp.Color); font-size: @(Math.Max(8, stamp.FontSize * 0.6))px;">
-                                                @GetPreviewText(stamp)
-                                            </span>
+                                        <div class="flex items-center gap-3">
+                                            <button class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    @onclick="PrevPreviewPage"
+                                                    disabled="@(previewPageNumber <= 1)">
+                                                <i class="fa-solid fa-chevron-left"></i>
+                                            </button>
+                                            <div class="flex items-center gap-2">
+                                                <input type="number" 
+                                                       min="1" 
+                                                       max="@TotalPages"
+                                                       value="@previewPageNumber"
+                                                       @onchange="OnPreviewPageChanged"
+                                                       class="w-16 px-2 py-1 border border-gray-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                                <span class="text-sm text-gray-600">/ @TotalPages</span>
+                                            </div>
+                                            <button class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    @onclick="NextPreviewPage"
+                                                    disabled="@(previewPageNumber >= TotalPages)">
+                                                <i class="fa-solid fa-chevron-right"></i>
+                                            </button>
                                         </div>
                                     }
-
-                                    <!-- 位置ガイドライン -->
-                                    <div class="absolute inset-0 pointer-events-none opacity-20">
-                                        <!-- 格子線 -->
-                                        <div class="absolute inset-4 border border-dashed" style="border-color: rgb(5, 39, 103);"></div>
-                                        <div class="absolute top-4 left-1/2 w-px h-4" style="background-color: rgb(5, 39, 103);"></div>
-                                        <div class="absolute bottom-4 left-1/2 w-px h-4" style="background-color: rgb(5, 39, 103);"></div>
-                                        <div class="absolute left-4 top-1/2 w-4 h-px" style="background-color: rgb(5, 39, 103);"></div>
-                                        <div class="absolute right-4 top-1/2 w-4 h-px" style="background-color: rgb(5, 39, 103);"></div>
-                                    </div>
                                 </div>
 
-                                <div class="mt-6 text-center">
-                                    <p class="text-gray-500 text-sm">A4サイズ（400×566px）で表示中</p>
-                                    <div class="flex justify-center gap-4 mt-3">
-                                        <span class="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 rounded-full text-xs" style="color: rgb(5, 39, 103);">
-                                            <i class="fa-solid fa-info-circle"></i>
-                                            実際のPDFではより高解像度で表示されます
-                                        </span>
+                                @if (!IsPageInRange(previewPageNumber))
+                                {
+                                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                        <p class="text-sm text-yellow-800 flex items-center gap-2">
+                                            <i class="fa-solid fa-exclamation-triangle"></i>
+                                            このページは適用範囲外です（適用範囲: @GetPageRangeDescription()）
+                                        </p>
                                     </div>
+                                }
+
+                                <div class="bg-gray-100 rounded-xl p-4 flex items-center justify-center" style="min-height: 400px; max-height: 500px;">
+                                    @if (isLoadingPreview)
+                                    {
+                                        <div class="text-center">
+                                            <i class="fa-solid fa-spinner fa-spin text-4xl text-blue-600 mb-4"></i>
+                                            <p class="text-gray-600">プレビューを読み込み中...</p>
+                                        </div>
+                                    }
+                                    else if (!string.IsNullOrEmpty(previewImageUrl))
+                                    {
+                                        <div class="relative inline-block">
+                                            <img src="@previewImageUrl" alt="Preview" class="max-w-full h-auto rounded-lg shadow-lg" style="max-height: 470px;" />
+                                            @if (IsPageInRange(previewPageNumber))
+                                            {
+                                                @foreach (var stamp in currentSetting.Stamps)
+                                                {
+                                                    <div class="absolute text-black font-sans whitespace-nowrap pointer-events-none"
+                                                         style="@GetPreviewStampStyle(stamp); font-size: @(stamp.FontSize * 0.75)px; color: @GetColorHex(stamp.Color);">
+                                                        @GetPreviewText(stamp, previewPageNumber)
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-center">
+                                            <i class="fa-solid fa-file-pdf text-6xl text-gray-400 mb-4"></i>
+                                            <p class="text-gray-600">プレビューを表示できません</p>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -271,18 +280,20 @@
             </div>
 
             <!-- フッター -->
-            <div class="bg-gray-50 px-8 py-6 flex justify-between items-center border-t border-gray-200">
+            <div class="bg-gray-50 px-8 py-6 flex justify-between items-center border-t border-gray-200 flex-shrink-0">
                 <div class="text-sm text-gray-600">
                     <span class="inline-flex items-center gap-1">
-                        <i class="fa-solid fa-info-circle" style="color: rgb(5, 39, 103);"></i>
-                        @currentSetting.Stamps.Count スタンプが設定されています
+                        <i class="fa-solid fa-info-circle text-blue-500"></i>
+                        スタンプは @currentSetting.Stamps.Count 個設定されています
                     </span>
                 </div>
                 <div class="flex gap-3">
                     <button class="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold" @onclick="Close">
+                        <i class="fa-solid fa-times mr-1"></i>
                         キャンセル
                     </button>
                     <button class="px-8 py-3 bg-blue-600 hover:bg-blue-700 border border-gray-300 text-white rounded-xl transition-all duration-200 shadow-lg font-semibold" @onclick="Apply">
+                        <i class="fa-solid fa-check mr-1"></i>
                         適用
                     </button>
                 </div>
@@ -295,15 +306,87 @@
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<HeaderFooterSetting> OnApply { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public int TotalPages { get; set; } = 1;
 
     private HeaderFooterSetting currentSetting = new();
     private string activeTab = "settings";
+    private int previewPageNumber = 1;
+    private string? previewImageUrl = null;
+    private bool isLoadingPreview = false;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        if (IsOpen && !currentSetting.Stamps.Any())
+        if (IsOpen)
         {
-            AddStamp();
+            if (!currentSetting.Stamps.Any())
+            {
+                AddStamp();
+            }
+
+            if (currentSetting.EndPage == 0 || currentSetting.EndPage > TotalPages)
+            {
+                currentSetting.EndPage = TotalPages;
+            }
+
+            previewPageNumber = Math.Max(1, Math.Min(previewPageNumber, TotalPages));
+            
+            // プレビューを読み込み
+            await LoadPreviewAsync();
+        }
+    }
+
+    private async Task LoadPreviewAsync()
+    {
+        isLoadingPreview = true;
+        StateHasChanged();
+
+        try
+        {
+            var displayItems = PdfDataService.GetDisplayItems();
+            if (displayItems.Any() && previewPageNumber > 0 && previewPageNumber <= displayItems.Count)
+            {
+                var item = displayItems[previewPageNumber - 1];
+                if (item.RawData is PageItem page)
+                {
+                    previewImageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Preview load error: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingPreview = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnPreviewPageChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var pageNum))
+        {
+            previewPageNumber = Math.Max(1, Math.Min(pageNum, TotalPages));
+            await LoadPreviewAsync();
+        }
+    }
+
+    private async Task PrevPreviewPage()
+    {
+        if (previewPageNumber > 1)
+        {
+            previewPageNumber--;
+            await LoadPreviewAsync();
+        }
+    }
+
+    private async Task NextPreviewPage()
+    {
+        if (previewPageNumber < TotalPages)
+        {
+            previewPageNumber++;
+            await LoadPreviewAsync();
         }
     }
 
@@ -319,6 +402,7 @@
         {
             Text = "ページ",
             IsSerial = true,
+            SerialStart = 1,
             Corner = StampCorner.BottomRight,
             OffsetX = 30,
             OffsetY = 30,
@@ -358,10 +442,7 @@
                 UpdatePreview();
             }
         }
-        catch
-        {
-            // 色の変換エラーは無視
-        }
+        catch { }
     }
 
     private void UpdatePreview()
@@ -376,58 +457,76 @@
         switch (stamp.Corner)
         {
             case StampCorner.TopLeft:
-                styles.Add($"left: {Math.Max(0, stamp.OffsetX * 0.6)}px");
-                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.6)}px");
+                styles.Add($"left: {Math.Max(0, stamp.OffsetX * 0.75)}px");
+                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.75)}px");
                 break;
             case StampCorner.Top:
                 styles.Add("left: 50%; transform: translateX(-50%)");
-                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.6)}px");
+                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.75)}px");
                 break;
             case StampCorner.TopRight:
-                styles.Add($"right: {Math.Max(0, stamp.OffsetX * 0.6)}px");
-                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.6)}px");
+                styles.Add($"right: {Math.Max(0, stamp.OffsetX * 0.75)}px");
+                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.75)}px");
                 break;
             case StampCorner.BottomLeft:
-                styles.Add($"left: {Math.Max(0, stamp.OffsetX * 0.6)}px");
-                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.6)}px");
+                styles.Add($"left: {Math.Max(0, stamp.OffsetX * 0.75)}px");
+                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.75)}px");
                 break;
             case StampCorner.Bottom:
                 styles.Add("left: 50%; transform: translateX(-50%)");
-                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.6)}px");
+                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.75)}px");
                 break;
             case StampCorner.BottomRight:
-                styles.Add($"right: {Math.Max(0, stamp.OffsetX * 0.6)}px");
-                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.6)}px");
+                styles.Add($"right: {Math.Max(0, stamp.OffsetX * 0.75)}px");
+                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.75)}px");
                 break;
         }
 
         return string.Join("; ", styles);
     }
 
-private string GetPreviewText(StampPosition stamp)
-{
-    var text = stamp.Text;
-    if (stamp.IsSerial)
+    private string GetPreviewText(StampPosition stamp, int pageNumber)
     {
-        // プレビューでは仮で10ページとして表示
-        const int sampleTotalPages = 10;
-        const int samplePageNumber = 1;
-        
-        string serialNumber;
-        if (stamp.IsZeroPadded)
+        var text = stamp.Text;
+        if (stamp.IsSerial)
         {
-            var digits = sampleTotalPages.ToString().Length;
-            serialNumber = samplePageNumber.ToString().PadLeft(digits, '0');
+            // 連番開始番号を考慮
+            var serialNumber = stamp.SerialStart + (pageNumber - currentSetting.StartPage);
+            
+            string serialStr;
+            if (stamp.IsZeroPadded)
+            {
+                var maxNumber = stamp.SerialStart + (TotalPages - currentSetting.StartPage);
+                var digits = maxNumber.ToString().Length;
+                serialStr = serialNumber.ToString().PadLeft(digits, '0');
+            }
+            else
+            {
+                serialStr = serialNumber.ToString();
+            }
+            
+            text = string.IsNullOrEmpty(text) ? serialStr : $"{text}{serialStr}";
         }
-        else
-        {
-            serialNumber = samplePageNumber.ToString();
-        }
-        
-        text = string.IsNullOrEmpty(text) ? serialNumber : $"{text}{serialNumber}";
+        return string.IsNullOrEmpty(text) ? "サンプル" : text;
     }
-    return string.IsNullOrEmpty(text) ? "サンプル" : text;
-}
+
+    private string GetPageRangeDescription()
+    {
+        var start = Math.Max(1, currentSetting.StartPage);
+        var end = currentSetting.EndPage == -1 ? TotalPages : Math.Min(TotalPages, currentSetting.EndPage);
+        
+        if (start == 1 && end == TotalPages)
+            return "すべてのページに適用されます";
+        
+        return $"ページ {start} ～ {end} に適用されます";
+    }
+
+    private bool IsPageInRange(int pageNum)
+    {
+        var start = Math.Max(1, currentSetting.StartPage);
+        var end = currentSetting.EndPage == -1 ? TotalPages : Math.Min(TotalPages, currentSetting.EndPage);
+        return pageNum >= start && pageNum <= end;
+    }
 
     private async Task Apply()
     {
@@ -439,6 +538,8 @@ private string GetPreviewText(StampPosition stamp)
     {
         currentSetting = new();
         activeTab = "settings";
+        previewPageNumber = 1;
+        previewImageUrl = null;
         await OnClose.InvokeAsync();
     }
 }

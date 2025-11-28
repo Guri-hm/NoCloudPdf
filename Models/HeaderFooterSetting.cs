@@ -3,16 +3,19 @@ namespace NoCloudPdf.Models
     public class HeaderFooterSetting
     {
         public List<StampPosition> Stamps { get; set; } = new();
+        public int StartPage { get; set; } = 1; // 開始ページ（1始まり）
+        public int EndPage { get; set; } = -1; // 終了ページ（-1は最終ページまで）
 
-        public object ToJsObject(int totalPages) // ← totalPagesパラメータ追加
+        public object ToJsObject(int totalPages)
         {
             return Stamps.Select(s => new
             {
                 corner = s.Corner.ToString(),
                 text = s.Text,
                 isSerial = s.IsSerial,
-                isZeroPadded = s.IsZeroPadded, // ← 追加
-                totalPages = totalPages, // ← 追加
+                isZeroPadded = s.IsZeroPadded,
+                serialStart = s.SerialStart, // 連番開始番号
+                totalPages = totalPages,
                 offsetX = s.OffsetX,
                 offsetY = s.OffsetY,
                 fontSize = s.FontSize,
@@ -25,7 +28,8 @@ namespace NoCloudPdf.Models
     {
         public string Text { get; set; } = "";
         public bool IsSerial { get; set; } = false;
-        public bool IsZeroPadded { get; set; } = false; // ← 追加
+        public bool IsZeroPadded { get; set; } = false;
+        public int SerialStart { get; set; } = 1; // 連番開始番号（デフォルト1）
         public int OffsetX { get; set; } = 10;
         public int OffsetY { get; set; } = 10;
         public StampCorner Corner { get; set; } = StampCorner.TopLeft;
