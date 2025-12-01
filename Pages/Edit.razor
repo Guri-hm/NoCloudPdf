@@ -1027,15 +1027,10 @@ private bool showHeaderFooterDialog = false;
         StateHasChanged();
     }
 
-// ...existing code...
-
 private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 {
-    Console.WriteLine("=== ApplyHeaderFooter called ===");
-    
     if (!setting.Stamps.Any())
     {
-        Console.WriteLine("No stamps configured");
         _ = MessageService.ShowAsync("スタンプが設定されていません", MessageType.Warn);
         return;
     }
@@ -1044,79 +1039,65 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
     {
         await MessageService.ShowLoadingAsync("スタンプ適用中...");
 
-        var startPage = Math.Max(1, setting.StartPage);
-        var endPage = setting.EndPage == -1 ? DisplayItems.Count : Math.Min(DisplayItems.Count, setting.EndPage);
+        var model = PdfDataService.GetModel();
+        var pages = model.Pages;
 
-        Console.WriteLine($"StartPage: {startPage}, EndPage: {endPage}");
-        Console.WriteLine($"Total DisplayItems: {DisplayItems.Count}");
+        if (!pages.Any())
+        {
+            _ = MessageService.ShowAsync("処理対象のページがありません。", MessageType.Warn);
+            return;
+        }
+
+        var startPage = Math.Max(1, setting.StartPage);
+        var endPage = setting.EndPage == -1 ? pages.Count : Math.Min(pages.Count, setting.EndPage);
+        var totalPagesInRange = endPage - startPage + 1;
 
         for (int i = startPage - 1; i < endPage; i++)
         {
-            var item = DisplayItems[i];
-            Console.WriteLine($"Processing page {i + 1}");
+            var page = pages[i];
             
-            if (item.RawData is not PageItem page)
-            {
-                Console.WriteLine($"Page {i + 1} is not PageItem, skipping");
+            if (string.IsNullOrEmpty(page.PageData) || page.HasError)
                 continue;
-            }
 
-            Console.WriteLine($"Page {i + 1} PageData length: {page.PageData?.Length ?? 0}");
-
+            // 範囲内のページインデックス（0始まり）
+            var pageIndexInRange = i - (startPage - 1);
+            
             var stampData = CreateStampsForCoordinateTransform(
                 setting.Stamps, 
-                0,
-                endPage - startPage + 1, 
-                i + 1,
+                page.RotateAngle,  // ページの回転角度を使用
+                totalPagesInRange, 
+                pageIndexInRange,
                 startPage
             );
 
-            // 既存の addStampsToPdf 関数を使用
             var stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
                 "addStampsToPdf", 
                 page.PageData, 
                 stampData
             );
-            
-            Console.WriteLine($"Received {stampedPdfBytes?.Length ?? 0} bytes from JavaScript");
-            
-            if (stampedPdfBytes == null || stampedPdfBytes.Length == 0)
-            {
-                Console.WriteLine($"Warning: Page {i + 1} returned empty PDF data");
-                continue;
-            }
-            
-            var stampedBase64 = Convert.ToBase64String(stampedPdfBytes);
-            Console.WriteLine($"Converted to Base64, length: {stampedBase64.Length}");
-            
-            page.PageData = stampedBase64;
-            Console.WriteLine($"Updated page.PageData for page {i + 1}");
 
-            // サムネイル再生成
-            var newThumbnail = await JSRuntime.InvokeAsync<string>(
-                "generatePdfThumbnailFromPageData",
-                stampedBase64
-            );
-                            
-            if (!string.IsNullOrEmpty(newThumbnail))
+            if (stampedPdfBytes != null && stampedPdfBytes.Length > 0)
             {
-                Console.WriteLine($"Thumbnail regenerated for page {i + 1}");
-                page.Thumbnail = newThumbnail;
-            }
-            else
-            {
-                Console.WriteLine($"Warning: Thumbnail generation failed for page {i + 1}");
+                page.PageData = Convert.ToBase64String(stampedPdfBytes);
+
+                var newThumbnail = await JSRuntime.InvokeAsync<string>(
+                    "generatePdfThumbnailFromPageData", 
+                    page.PageData
+                );
+                
+                if (!string.IsNullOrEmpty(newThumbnail))
+                {
+                    page.Thumbnail = newThumbnail;
+                }
             }
         }
 
-        await ForceReloadAllThumbnailsAsync();
-        Console.WriteLine("ForceReloadAllThumbnailsAsync completed");
         _ = MessageService.ShowAsync($"ページ {startPage}～{endPage} にスタンプを適用しました", MessageType.Success);
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"ApplyHeaderFooter error: {ex}");
-        _ = MessageService.ShowAsync($"スタンプ適用エラー: {ex.Message}", MessageType.Error);
+        Console.WriteLine($"ヘッダー・フッター適用エラー: {ex.Message}");
+        _ = MessageService.ShowAsync("ヘッダー・フッターの適用中にエラーが発生しました。", MessageType.Error);
     }
     finally
     {
@@ -1125,55 +1106,50 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
     }
 }
 
-// ...existing code...
-
-
 private List<object> CreateStampsForCoordinateTransform(
-        List<StampPosition> originalStamps, 
-        int rotateAngle, 
-        int totalPages, 
-        int currentPageIndex,
-        int startPage)
+    List<StampPosition> originalStamps, 
+    int rotateAngle, 
+    int totalPagesInRange, 
+    int pageIndexInRange,  // 範囲内の0始まりインデックス
+    int serialStart)
+{
+    var stampData = new List<object>();
+
+    foreach (var stamp in originalStamps)
     {
-        var stampData = new List<object>();
-
-        foreach (var stamp in originalStamps)
+        var serialNumber = serialStart + pageIndexInRange;
+        
+        string serialStr;
+        if (stamp.IsZeroPadded)
         {
-            // 連番計算（開始ページからの相対位置）
-            var serialNumber = stamp.SerialStart + (currentPageIndex - startPage);
-            
-            string serialStr;
-            if (stamp.IsZeroPadded)
-            {
-                var maxNumber = stamp.SerialStart + (totalPages - startPage);
-                var digits = maxNumber.ToString().Length;
-                serialStr = serialNumber.ToString().PadLeft(digits, '0');
-            }
-            else
-            {
-                serialStr = serialNumber.ToString();
-            }
-            
-            var displayText = stamp.IsSerial 
-                ? (string.IsNullOrEmpty(stamp.Text) ? serialStr : $"{stamp.Text}{serialStr}")
-                : stamp.Text;
-
-            stampData.Add(new
-            {
-                text = displayText,
-                isSerial = false, // C#側で既に連番を含めているのでfalse
-                corner = stamp.Corner.ToString(),
-                offsetX = stamp.OffsetX,
-                offsetY = stamp.OffsetY,
-                fontSize = stamp.FontSize,
-                color = new { r = stamp.Color.R / 255.0, g = stamp.Color.G / 255.0, b = stamp.Color.B / 255.0 },
-                rotateAngle = rotateAngle
-            });
+            var maxSerialNumber = serialStart + (totalPagesInRange - 1);
+            var digits = maxSerialNumber.ToString().Length;
+            serialStr = serialNumber.ToString().PadLeft(digits, '0');
         }
+        else
+        {
+            serialStr = serialNumber.ToString();
+        }
+        
+        var displayText = stamp.IsSerial 
+            ? (string.IsNullOrEmpty(stamp.Text) ? serialStr : $"{stamp.Text}{serialStr}")
+            : stamp.Text;
 
-        return stampData;
+        stampData.Add(new
+        {
+            text = displayText,
+            isSerial = false,
+            corner = stamp.Corner.ToString(),
+            offsetX = stamp.OffsetX,
+            offsetY = stamp.OffsetY,
+            fontSize = stamp.FontSize,
+            color = new { r = stamp.Color.R / 255.0, g = stamp.Color.G / 255.0, b = stamp.Color.B / 255.0 },
+            rotateAngle = rotateAngle  // ページの回転角度を渡す
+        });
     }
 
+    return stampData;
+}
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
 
