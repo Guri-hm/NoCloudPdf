@@ -258,7 +258,7 @@
                                                 @foreach (var stamp in currentSetting.Stamps)
                                                 {
                                                     <div class="absolute text-black font-sans whitespace-nowrap pointer-events-none"
-                                                         style="@GetPreviewStampStyle(stamp); font-size: @(stamp.FontSize * 0.75)px; color: @GetColorHex(stamp.Color);">
+                                                        style="@GetPreviewStampStyle(stamp); font-size: @(stamp.FontSize * previewScale)px; color: @GetColorHex(stamp.Color);">
                                                         @GetPreviewText(stamp, previewPageNumber)
                                                     </div>
                                                 }
@@ -335,6 +335,8 @@
         }
     }
 
+    private double previewScale = 0.558; // デフォルト値
+
     private async Task LoadPreviewAsync()
     {
         isLoadingPreview = true;
@@ -349,6 +351,13 @@
                 if (item.RawData is PageItem page)
                 {
                     previewImageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
+                    
+                    // PDFの実際のサイズを取得してスケールを計算
+                    // ここでは簡易的にA4サイズを仮定
+                    // 実際には JSInterop でPDFページサイズを取得すべき
+                    const double pdfHeight = 842.0;
+                    const double previewMaxHeight = 470.0;
+                    previewScale = previewMaxHeight / pdfHeight;
                 }
             }
         }
@@ -457,28 +466,28 @@
         switch (stamp.Corner)
         {
             case StampCorner.TopLeft:
-                styles.Add($"left: {Math.Max(0, stamp.OffsetX * 0.75)}px");
-                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.75)}px");
+                styles.Add($"left: {Math.Max(0, stamp.OffsetX * previewScale)}px");
+                styles.Add($"top: {Math.Max(0, stamp.OffsetY * previewScale)}px");
                 break;
             case StampCorner.Top:
                 styles.Add("left: 50%; transform: translateX(-50%)");
-                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.75)}px");
+                styles.Add($"top: {Math.Max(0, stamp.OffsetY * previewScale)}px");
                 break;
             case StampCorner.TopRight:
-                styles.Add($"right: {Math.Max(0, stamp.OffsetX * 0.75)}px");
-                styles.Add($"top: {Math.Max(0, stamp.OffsetY * 0.75)}px");
+                styles.Add($"right: {Math.Max(0, stamp.OffsetX * previewScale)}px");
+                styles.Add($"top: {Math.Max(0, stamp.OffsetY * previewScale)}px");
                 break;
             case StampCorner.BottomLeft:
-                styles.Add($"left: {Math.Max(0, stamp.OffsetX * 0.75)}px");
-                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.75)}px");
+                styles.Add($"left: {Math.Max(0, stamp.OffsetX * previewScale)}px");
+                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * previewScale)}px");
                 break;
             case StampCorner.Bottom:
                 styles.Add("left: 50%; transform: translateX(-50%)");
-                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.75)}px");
+                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * previewScale)}px");
                 break;
             case StampCorner.BottomRight:
-                styles.Add($"right: {Math.Max(0, stamp.OffsetX * 0.75)}px");
-                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * 0.75)}px");
+                styles.Add($"right: {Math.Max(0, stamp.OffsetX * previewScale)}px");
+                styles.Add($"bottom: {Math.Max(0, stamp.OffsetY * previewScale)}px");
                 break;
         }
 
