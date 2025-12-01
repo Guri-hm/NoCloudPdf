@@ -964,6 +964,23 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 };
 
 // ========================================
+// PDFページサイズ取得
+// ========================================
+window.getPdfPageSize = async function (pdfBase64) {
+    try {
+        const uint8Array = base64ToUint8Array(pdfBase64);
+        const pdfDoc = await PDFLib.PDFDocument.load(uint8Array);
+        const page = pdfDoc.getPage(0);
+        const { width, height } = page.getSize();
+        return { width, height };
+    } catch (error) {
+        console.error('Error getting PDF page size:', error);
+        // デフォルトでA4サイズを返す
+        return { width: 595, height: 842 };
+    }
+};
+
+// ========================================
 // スタンプ追加
 // ========================================
 window.addStampsToPdf = async function (pdfBytes, stamps) {
@@ -982,13 +999,10 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         }
     }
 
-    const uint8Array = toUint8Array(pdfBytes);
-    console.log("Converted to Uint8Array, length:", uint8Array.length);
-    
     const rotateAngle = stamps.length > 0 ? (stamps[0].rotateAngle || 0) : 0;
     const normalizedAngle = ((rotateAngle % 360) + 360) % 360;
 
-    const pdfDoc = await PDFDocument.load(uint8Array);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
     

@@ -313,6 +313,8 @@
     private int previewPageNumber = 1;
     private string? previewImageUrl = null;
     private bool isLoadingPreview = false;
+    private double previewScale = 0.558; // デフォルト値
+    private const double PreviewMaxHeight = 470.0; // CSSで指定された最大高さ
 
     protected override async Task OnParametersSetAsync()
     {
@@ -335,8 +337,6 @@
         }
     }
 
-    private double previewScale = 0.558; // デフォルト値
-
     private async Task LoadPreviewAsync()
     {
         isLoadingPreview = true;
@@ -353,11 +353,28 @@
                     previewImageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
                     
                     // PDFの実際のサイズを取得してスケールを計算
-                    // ここでは簡易的にA4サイズを仮定
-                    // 実際には JSInterop でPDFページサイズを取得すべき
-                    const double pdfHeight = 842.0;
-                    const double previewMaxHeight = 470.0;
-                    previewScale = previewMaxHeight / pdfHeight;
+                    if (!string.IsNullOrEmpty(page.PageData))
+                    {
+                        try
+                        {
+                            var pageSize = await JSRuntime.InvokeAsync<PdfPageSize>(
+                                "getPdfPageSize", 
+                                page.PageData
+                            );
+                            
+                            // プレビュー画像の表示サイズに基づいてスケールを計算
+                            // 高さ基準でスケールを決定（横向きPDFでも対応）
+                            previewScale = PreviewMaxHeight / pageSize.Height;
+                            
+                            Console.WriteLine($"PDF Size: {pageSize.Width}x{pageSize.Height}pt, Scale: {previewScale:F3}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Failed to get PDF page size: {ex.Message}");
+                            // デフォルト値を使用（A4縦）
+                            previewScale = PreviewMaxHeight / 842.0;
+                        }
+                    }
                 }
             }
         }
@@ -370,6 +387,13 @@
             isLoadingPreview = false;
             StateHasChanged();
         }
+    }
+
+    // PDFページサイズを受け取るためのクラス
+    private class PdfPageSize
+    {
+        public double Width { get; set; }
+        public double Height { get; set; }
     }
 
     private async Task OnPreviewPageChanged(ChangeEventArgs e)

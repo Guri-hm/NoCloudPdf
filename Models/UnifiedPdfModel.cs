@@ -32,7 +32,7 @@ public class PageItem
     public int OriginalPageIndex { get; set; } = 0; // 元ファイル内でのページ番号（0始まり）
     public int OriginalPageNumber => OriginalPageIndex + 1; // 元ファイル内でのページ番号（1始まり）
     public string Thumbnail { get; set; } = ""; // サムネイル画像データ
-    public string PageData { get; set; } = ""; // PDFページデータ
+    public string PageData { get; set; } = ""; // PDFページデータ（Base64）
     public bool IsLoading { get; set; } = true; // ローディング中フラグ
     public bool HasThumbnailError { get; set; }
     public bool HasPageDataError { get; set; }
