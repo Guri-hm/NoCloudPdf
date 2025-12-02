@@ -1037,8 +1037,6 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
     try
     {
-        await MessageService.ShowLoadingAsync("スタンプ適用中...");
-
         var model = PdfDataService.GetModel();
         var pages = model.Pages;
 
@@ -1052,12 +1050,21 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
         var endPage = setting.EndPage == -1 ? pages.Count : Math.Min(pages.Count, setting.EndPage);
         var totalPagesInRange = endPage - startPage + 1;
 
+        var processedCount = 0;
+
         for (int i = startPage - 1; i < endPage; i++)
         {
             var page = pages[i];
-            
+            processedCount++;
+
+            await MessageService.ShowLoadingAsync($"スタンプ適用中... ({processedCount}/{totalPagesInRange})");
+
             if (string.IsNullOrEmpty(page.PageData) || page.HasError)
                 continue;
+
+            // 処理前のサイズを記録
+            var beforeSize = page.PageData.Length;
+            Console.WriteLine($"Page {i + 1} PageData length: {beforeSize}");
 
             // 範囲内のページインデックス（0始まり）
             var pageIndexInRange = i - (startPage - 1);
@@ -1080,6 +1087,9 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
             {
                 page.PageData = Convert.ToBase64String(stampedPdfBytes);
 
+                var afterSize = page.PageData.Length;
+                Console.WriteLine($"Converted to Base64, length: {afterSize}");
+
                 var newThumbnail = await JSRuntime.InvokeAsync<string>(
                     "generatePdfThumbnailFromPageData", 
                     page.PageData
@@ -1092,7 +1102,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
             }
         }
 
-        _ = MessageService.ShowAsync($"ページ {startPage}～{endPage} にスタンプを適用しました", MessageType.Success);
+        _ = MessageService.ShowAsync($"スタンプを適用しました", MessageType.Success);
     }
     catch (Exception ex)
     {
