@@ -1120,46 +1120,52 @@ private List<object> CreateStampsForCoordinateTransform(
     List<StampPosition> originalStamps, 
     int rotateAngle, 
     int totalPagesInRange, 
-    int pageIndexInRange,  // 範囲内の0始まりインデックス
+    int pageIndexInRange,
     int serialStart)
 {
     var stampData = new List<object>();
-
+    
     foreach (var stamp in originalStamps)
     {
-        var serialNumber = serialStart + pageIndexInRange;
-        
-        string serialStr;
-        if (stamp.IsZeroPadded)
+        var text = stamp.Text;
+        if (stamp.IsSerial)
         {
-            var maxSerialNumber = serialStart + (totalPagesInRange - 1);
-            var digits = maxSerialNumber.ToString().Length;
-            serialStr = serialNumber.ToString().PadLeft(digits, '0');
+            var serialNumber = serialStart + pageIndexInRange;
+            string serialStr;
+            if (stamp.IsZeroPadded)
+            {
+                int maxSerial = serialStart + totalPagesInRange - 1;
+                int digits = maxSerial.ToString().Length;
+                serialStr = serialNumber.ToString().PadLeft(digits, '0');
+            }
+            else
+            {
+                serialStr = serialNumber.ToString();
+            }
+            text = string.IsNullOrEmpty(text) ? serialStr : $"{text}{serialStr}";
         }
-        else
-        {
-            serialStr = serialNumber.ToString();
-        }
-        
-        var displayText = stamp.IsSerial 
-            ? (string.IsNullOrEmpty(stamp.Text) ? serialStr : $"{stamp.Text}{serialStr}")
-            : stamp.Text;
 
-        stampData.Add(new
+        stampData.Add(new Dictionary<string, object>
         {
-            text = displayText,
-            isSerial = false,
-            corner = stamp.Corner.ToString(),
-            offsetX = stamp.OffsetX,
-            offsetY = stamp.OffsetY,
-            fontSize = stamp.FontSize,
-            color = new { r = stamp.Color.R / 255.0, g = stamp.Color.G / 255.0, b = stamp.Color.B / 255.0 },
-            rotateAngle = rotateAngle  // ページの回転角度を渡す
+            ["corner"] = stamp.Corner.ToString(),
+            ["text"] = text,
+            ["offsetX"] = stamp.OffsetX,
+            ["offsetY"] = stamp.OffsetY,
+            ["fontSize"] = stamp.FontSize,
+            ["fontFamily"] = stamp.FontFamily,
+            ["isBold"] = stamp.IsBold,
+            ["color"] = new Dictionary<string, double>
+            {
+                ["r"] = stamp.Color.R / 255.0,
+                ["g"] = stamp.Color.G / 255.0,
+                ["b"] = stamp.Color.B / 255.0
+            }
         });
     }
-
+    
     return stampData;
 }
+
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
 

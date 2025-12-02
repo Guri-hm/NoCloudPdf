@@ -150,6 +150,36 @@
                                                 </select>
                                             </div>
 
+                                            <!-- フォント選択 -->
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">フォント</label>
+                                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                        @bind="stamp.FontFamily" @onchange="UpdatePreview">
+                                                    <optgroup label="日本語対応">
+                                                        <option value="NotoSansJP">Noto Sans JP（ゴシック）</option>
+                                                        <option value="NotoSerifJP">Noto Serif JP（明朝）</option>
+                                                    </optgroup>
+                                                    <optgroup label="システムフォント">
+                                                        <option value="sans-serif">システム ゴシック</option>
+                                                        <option value="serif">システム 明朝</option>
+                                                        <option value="monospace">等幅（Monospace）</option>
+                                                    </optgroup>
+                                                    <optgroup label="欧文フォント">
+                                                        <option value="Helvetica">Helvetica</option>
+                                                        <option value="TimesRoman">Times Roman</option>
+                                                    </optgroup>
+                                                </select>
+                                            </div>
+
+                                            <!-- 太字 -->
+                                            <div class="flex items-center">
+                                                <label class="flex items-center cursor-pointer">
+                                                    <input type="checkbox" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                           @bind="stamp.IsBold" @onchange="UpdatePreview" />
+                                                    <span class="ml-2 text-sm font-medium text-gray-700">太字</span>
+                                                </label>
+                                            </div>
+
                                             <!-- フォントサイズ -->
                                             <div>
                                                 <label class="block text-sm font-semibold text-gray-700 mb-2">フォントサイズ</label>
@@ -429,6 +459,7 @@
         StateHasChanged();
     }
 
+
     private void AddStamp()
     {
         currentSetting.Stamps.Add(new StampPosition
@@ -440,10 +471,14 @@
             OffsetX = 30,
             OffsetY = 30,
             FontSize = 12,
+            FontFamily = "NotoSansJP",  // デフォルト
+            IsBold = false,
             Color = new StampColor { R = 0, G = 0, B = 0 }
         });
         StateHasChanged();
     }
+
+
 
     private void RemoveStamp(int index)
     {
@@ -523,7 +558,6 @@
         var text = stamp.Text;
         if (stamp.IsSerial)
         {
-            // 連番開始番号を考慮
             var serialNumber = stamp.SerialStart + (pageNumber - currentSetting.StartPage);
             
             string serialStr;

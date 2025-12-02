@@ -1131,19 +1131,41 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         return { x, y, textRotation };
     }
 
-    const allTexts = stamps.map(stamp => stamp.text || "").join("");
-    const needsJapaneseFont = containsJapanese(allTexts);
+    // 全スタンプから必要なフォントを収集
+    const fontsToLoad = new Set();
+    for (const stamp of stamps) {
+        const text = stamp.text || "";
+        const fontFamily = stamp.fontFamily || "NotoSansJP";
+        const isBold = stamp.isBold || false;
+        
+        if (containsJapanese(text)) {
+            // 日本語を含む場合は強制的にNotoフォント
+            if (fontFamily.includes("Serif")) {
+                fontsToLoad.add(isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular");
+            } else {
+                fontsToLoad.add(isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular");
+            }
+        } else {
+            // 英数字のみの場合、フォント選択を尊重
+            if (fontFamily === "NotoSansJP") {
+                fontsToLoad.add(isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular");
+            } else if (fontFamily === "NotoSerifJP") {
+                fontsToLoad.add(isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular");
+            }
+            // システムフォント、Helvetica、TimesRomanは標準フォントを使用するので読み込み不要
+        }
+    }
 
-    let notoFontRegular = null;
-    if (needsJapaneseFont) {
+    // フォントを読み込んでキャッシュ
+    const fontCache = {};
+    for (const fontKey of fontsToLoad) {
         try {
-            const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
+            const fontUrl = `/fonts/${fontKey}.ttf`;
             const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-            // サブセット化を無効化してフルフォント埋め込み
-            notoFontRegular = await pdfDoc.embedFont(fontBytes, { subset: false });
-            console.log("Japanese font loaded (full font embedded)");
+            fontCache[fontKey] = await pdfDoc.embedFont(fontBytes, { subset: false });
+            console.log(`Font loaded: ${fontKey}`);
         } catch (fontError) {
-            console.warn("日本語フォント読み込み失敗:", fontError);
+            console.warn(`フォント読み込み失敗: ${fontKey}`, fontError);
         }
     }
 
@@ -1158,17 +1180,45 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         
         console.log("Final text to draw:", text);
 
+        const fontFamily = stamp.fontFamily || "NotoSansJP";
+        const isBold = stamp.isBold || false;
         let font;
         if (containsJapanese(text)) {
-            if (!notoFontRegular) {
-                console.error("日本語テキストですが、フォントが読み込まれていません");
+            // 日本語を含む場合、NotoフォントのSans/Serifを使い分け
+            let fontKey;
+            if (fontFamily.includes("Serif")) {
+                fontKey = isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular";
+            } else {
+                fontKey = isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular";
+            }
+            
+            font = fontCache[fontKey];
+            if (!font) {
+                console.error("日本語フォントが読み込まれていません");
                 font = await pdfDoc.embedFont(StandardFonts.Helvetica);
             } else {
-                font = notoFontRegular;
-                console.log("Using Japanese font for:", text);
+                console.log(`Using font: ${fontKey} for text: ${text}`);
             }
         } else {
-            font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            // 英数字のみの場合
+            if (fontFamily === "NotoSansJP") {
+                const fontKey = isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular";
+                font = fontCache[fontKey] || await pdfDoc.embedFont(isBold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica);
+            } else if (fontFamily === "NotoSerifJP") {
+                const fontKey = isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular";
+                font = fontCache[fontKey] || await pdfDoc.embedFont(isBold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman);
+            } else if (fontFamily === "Helvetica") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica);
+            } else if (fontFamily === "TimesRoman") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman);
+            } else if (fontFamily === "monospace") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.CourierBold : StandardFonts.Courier);
+            } else if (fontFamily === "serif") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman);
+            } else {
+                // sans-serif or その他
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica);
+            }
         }
 
         const fontSize = stamp.fontSize || 12;
