@@ -1008,17 +1008,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     
     console.log("PDF loaded, page size:", width, "x", height);
 
-    let notoFontRegular = null;
-
-    function generateSerialNumber(currentPageIndex, totalPages, isZeroPadded) {
-        const pageNumber = currentPageIndex + 1;
-        if (!isZeroPadded) {
-            return pageNumber.toString();
-        }
-        const digits = totalPages.toString().length;
-        return pageNumber.toString().padStart(digits, '0');
-    }
-
     function transformCoordinates(corner, offsetX, offsetY, rotateAngle, pageWidth, pageHeight, textWidth, fontSize) {
         let x = 0, y = 0;
         let textRotation = 0;
@@ -1142,18 +1131,29 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         return { x, y, textRotation };
     }
 
+    const allTexts = stamps.map(stamp => stamp.text || "").join("");
+    const needsJapaneseFont = containsJapanese(allTexts);
+
+    let notoFontRegular = null;
+    if (needsJapaneseFont) {
+        try {
+            const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
+            const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+            // サブセット化を無効化してフルフォント埋め込み
+            notoFontRegular = await pdfDoc.embedFont(fontBytes, { subset: false });
+            console.log("Japanese font loaded (full font embedded)");
+        } catch (fontError) {
+            console.warn("日本語フォント読み込み失敗:", fontError);
+        }
+    }
+
     for (const stamp of stamps) {
         console.log("Processing stamp:", stamp);
         
         let text = stamp.text || "";
-        
-        if (stamp.isSerial) {
-            const serialNumber = generateSerialNumber(
-                stamp.currentPageIndex || 0,
-                stamp.totalPages || 1,
-                stamp.isZeroPadded || false
-            );
-            text = text ? `${text}${serialNumber}` : serialNumber;
+        if (!text) {
+            console.warn("Empty text, skipping stamp");
+            continue;
         }
         
         console.log("Final text to draw:", text);
@@ -1161,16 +1161,12 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         let font;
         if (containsJapanese(text)) {
             if (!notoFontRegular) {
-                try {
-                    const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
-                    const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-                    notoFontRegular = await pdfDoc.embedFont(fontBytes);
-                } catch (fontError) {
-                    console.warn("日本語フォント読み込み失敗:", fontError);
-                    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-                }
+                console.error("日本語テキストですが、フォントが読み込まれていません");
+                font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            } else {
+                font = notoFontRegular;
+                console.log("Using Japanese font for:", text);
             }
-            font = notoFontRegular || await pdfDoc.embedFont(StandardFonts.Helvetica);
         } else {
             font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         }
@@ -1209,7 +1205,10 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         }
     }
 
-    const savedBytes = await pdfDoc.save();
+    // 最適化オプションでPDFを保存
+    const savedBytes = await pdfDoc.save({
+        useObjectStreams: true,  // オブジェクトストリームを使用して圧縮
+    });
     console.log("PDF saved, output length:", savedBytes.length);
     return savedBytes;
 };
