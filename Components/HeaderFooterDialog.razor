@@ -1,5 +1,6 @@
 @using NoCloudPdf.Models
 @using NoCloudPdf.Services
+@using System.Text.RegularExpressions
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
 
@@ -94,10 +95,15 @@
                                         
                                         <!-- 表示テキスト -->
                                         <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">表示テキスト</label>
-                                            <input type="text" 
+                                            <label for="@($"stampText-{index}")" class="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                                                <span id="@($"stampTextLabel-{index}")">表示テキスト</span>
+                                                <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントが選択されます。">
+                                                    <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+                                                </Tooltip>
+                                            </label>
+                                            <input id="@($"stampText-{index}")" aria-labelledby="@($"stampTextLabel-{index}")" type="text" 
                                                    value="@stamp.Text"
-                                                   @oninput="@(e => { stamp.Text = e.Value?.ToString() ?? ""; UpdatePreview(); })"
+                                                   @oninput="@(e => OnStampTextInput(stamp, e))"
                                                    placeholder="例: ページ"
                                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all" />
                                         </div>
@@ -147,19 +153,29 @@
                                                 <label class="block text-sm font-medium text-gray-700 mb-2">フォント</label>
                                                 <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                         @bind="stamp.FontFamily" @bind:after="UpdatePreview">
-                                                    <optgroup label="日本語対応">
-                                                        <option value="NotoSansJP">Noto Sans JP（ゴシック）</option>
-                                                        <option value="NotoSerifJP">Noto Serif JP（明朝）</option>
-                                                    </optgroup>
-                                                    <optgroup label="システムフォント">
-                                                        <option value="sans-serif">システム ゴシック</option>
-                                                        <option value="serif">システム 明朝</option>
-                                                        <option value="monospace">等幅（Monospace）</option>
-                                                    </optgroup>
-                                                    <optgroup label="欧文フォント">
-                                                        <option value="Helvetica">Helvetica</option>
-                                                        <option value="TimesRoman">Times Roman</option>
-                                                    </optgroup>
+                                                    @if (ContainsJapanese(stamp.Text))
+                                                    {
+                                                        <optgroup label="日本語対応">
+                                                            <option value="NotoSansJP">Noto Sans JP（ゴシック）</option>
+                                                            <option value="NotoSerifJP">Noto Serif JP（明朝）</option>
+                                                        </optgroup>
+                                                    }
+                                                    else
+                                                    {
+                                                        <optgroup label="日本語対応">
+                                                            <option value="NotoSansJP">Noto Sans JP（ゴシック）</option>
+                                                            <option value="NotoSerifJP">Noto Serif JP（明朝）</option>
+                                                        </optgroup>
+                                                        <optgroup label="システムフォント">
+                                                            <option value="sans-serif">システム ゴシック</option>
+                                                            <option value="serif">システム 明朝</option>
+                                                            <option value="monospace">等幅（Monospace）</option>
+                                                        </optgroup>
+                                                        <optgroup label="欧文フォント">
+                                                            <option value="Helvetica">Helvetica</option>
+                                                            <option value="TimesRoman">Times Roman</option>
+                                                        </optgroup>
+                                                    }
                                                 </select>
                                             </div>
                                             <!-- フォントサイズ -->
@@ -299,8 +315,15 @@
                             {
                                 @foreach (var stamp in currentSetting.Stamps)
                                 {
+                                    
+                                    var previewText = GetPreviewText(stamp, previewPageNumber);
+                                    // 日本語が含まれていれば強制的に Noto Sans JP（ゴシック）を使う
+                                    var fontFamily = ContainsJapanese(previewText)
+                                        ? "'Noto Sans JP', sans-serif"
+                                        : (stamp.FontFamily == "NotoSerifJP" ? "'Noto Serif JP', serif" : "'Noto Sans JP', sans-serif");
+                                    
                                     <div class="absolute text-sm pointer-events-none"
-                                         style="@GetPreviewStampStyle(stamp); color: @GetColorHex(stamp.Color); font-size: @(stamp.FontSize * previewScale)px; font-weight: @(stamp.IsBold ? "bold" : "normal"); font-family: @(stamp.FontFamily == "NotoSerifJP" ? "'Noto Serif JP', serif" : "'Noto Sans JP', sans-serif"); white-space: nowrap;">
+                                         style="@GetPreviewStampStyle(stamp); color: @GetColorHex(stamp.Color); font-size: @(stamp.FontSize * previewScale)px; font-weight: @(stamp.IsBold ? "bold" : "normal"); font-family: @(fontFamily); white-space: nowrap;">
                                         @GetPreviewText(stamp, previewPageNumber)
                                     </div>
                                 }
@@ -346,6 +369,19 @@
     private bool isLoadingPreview = false;
     private double previewScale = 0.558;
 
+    private void OnStampTextInput(StampPosition stamp, ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString() ?? "";
+        stamp.Text = text;
+
+        // 日本語が含まれているなら強制的にゴシック（Noto Sans JP）に切り替える
+        if (ContainsJapanese(text))
+        {
+            stamp.FontFamily = "NotoSansJP";
+        }
+
+        UpdatePreview();
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (IsOpen)
@@ -365,6 +401,12 @@
         }
     }
 
+    private bool ContainsJapanese(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+        return Regex.IsMatch(text, @"[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF60]");
+    }
+
     private async Task LoadPreviewAsync()
     {
         isLoadingPreview = true;
@@ -380,8 +422,8 @@
                 {
                      previewImageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
 
-                    var pdfSize = await JSRuntime.InvokeAsync<dynamic>("getPdfPageSize", page.PageData);
-                    double pdfWidth = (double)pdfSize.width;
+                    PdfPageSize pdfSize = await JSRuntime.InvokeAsync<PdfPageSize>("getPdfPageSize", page.PageData);
+                    double pdfWidth = (double)pdfSize.Width;
                     double containerWidth = 600.0;
                     previewScale = containerWidth / pdfWidth;
                 }
@@ -438,7 +480,7 @@
             Text = "ページ",
             IsSerial = true,
             SerialStart = 1,
-            Corner = StampCorner.BottomRight,
+            Corner = StampCorner.Bottom,
             OffsetX = 30,
             OffsetY = 30,
             FontSize = 12,
