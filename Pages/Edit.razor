@@ -240,7 +240,7 @@
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
 <HeaderFooterDialog IsOpen="@showHeaderFooterDialog" 
-TotalPages="@DisplayItems.Count"
+TotalPages="@(DisplayItems?.Count ?? 0)"
                     OnApply="ApplyHeaderFooter" 
                     OnClose="() => showHeaderFooterDialog = false" />
 
