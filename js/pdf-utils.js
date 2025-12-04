@@ -964,9 +964,30 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 };
 
 // ========================================
+// PDFページサイズ取得
+// ========================================
+window.getPdfPageSize = async function (pdfBase64) {
+    try {
+        const uint8Array = base64ToUint8Array(pdfBase64);
+        const pdfDoc = await PDFLib.PDFDocument.load(uint8Array);
+        const page = pdfDoc.getPage(0);
+        const { width, height } = page.getSize();
+        return { width, height };
+    } catch (error) {
+        console.error('Error getting PDF page size:', error);
+        // デフォルトでA4サイズを返す
+        return { width: 595, height: 842 };
+    }
+};
+
+// ========================================
 // スタンプ追加
 // ========================================
 window.addStampsToPdf = async function (pdfBytes, stamps) {
+    console.log("=== addStampsToPdf called ===");
+    console.log("Input pdfBytes length:", pdfBytes?.length);
+    console.log("Stamps:", JSON.stringify(stamps, null, 2));
+
     const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
     if (!PDFLib._fontkitRegistered) {
@@ -978,24 +999,14 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         }
     }
 
-    const uint8Array = toUint8Array(pdfBytes);
     const rotateAngle = stamps.length > 0 ? (stamps[0].rotateAngle || 0) : 0;
     const normalizedAngle = ((rotateAngle % 360) + 360) % 360;
 
-    const pdfDoc = await PDFDocument.load(uint8Array);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
-
-    let notoFontRegular = null;
-
-    function generateSerialNumber(currentPageIndex, totalPages, isZeroPadded) {
-        const pageNumber = currentPageIndex + 1;
-        if (!isZeroPadded) {
-            return pageNumber.toString();
-        }
-        const digits = totalPages.toString().length;
-        return pageNumber.toString().padStart(digits, '0');
-    }
+    
+    console.log("PDF loaded, page size:", width, "x", height);
 
     function transformCoordinates(corner, offsetX, offsetY, rotateAngle, pageWidth, pageHeight, textWidth, fontSize) {
         let x = 0, y = 0;
@@ -1120,32 +1131,94 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         return { x, y, textRotation };
     }
 
+    // 全スタンプから必要なフォントを収集
+    const fontsToLoad = new Set();
     for (const stamp of stamps) {
-        let text = stamp.text || "";
-        if (stamp.isSerial) {
-            const serialNumber = generateSerialNumber(
-                stamp.currentPageIndex || 0,
-                stamp.totalPages || 1,
-                stamp.isZeroPadded || false
-            );
-            text = text ? `${text}${serialNumber}` : serialNumber;
+        const text = stamp.text || "";
+        const fontFamily = stamp.fontFamily || "NotoSansJP";
+        const isBold = stamp.isBold || false;
+        
+        if (containsJapanese(text)) {
+            // 日本語を含む場合は強制的にNotoフォント
+            if (fontFamily.includes("Serif")) {
+                fontsToLoad.add(isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular");
+            } else {
+                fontsToLoad.add(isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular");
+            }
+        } else {
+            // 英数字のみの場合、フォント選択を尊重
+            if (fontFamily === "NotoSansJP") {
+                fontsToLoad.add(isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular");
+            } else if (fontFamily === "NotoSerifJP") {
+                fontsToLoad.add(isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular");
+            }
+            // システムフォント、Helvetica、TimesRomanは標準フォントを使用するので読み込み不要
         }
+    }
 
+    // フォントを読み込んでキャッシュ
+    const fontCache = {};
+    for (const fontKey of fontsToLoad) {
+        try {
+            const fontUrl = `/fonts/${fontKey}.ttf`;
+            const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
+            fontCache[fontKey] = await pdfDoc.embedFont(fontBytes, { subset: false });
+            console.log(`Font loaded: ${fontKey}`);
+        } catch (fontError) {
+            console.warn(`フォント読み込み失敗: ${fontKey}`, fontError);
+        }
+    }
+
+    for (const stamp of stamps) {
+        console.log("Processing stamp:", stamp);
+        
+        let text = stamp.text || "";
+        if (!text) {
+            console.warn("Empty text, skipping stamp");
+            continue;
+        }
+        
+        console.log("Final text to draw:", text);
+
+        const fontFamily = stamp.fontFamily || "NotoSansJP";
+        const isBold = stamp.isBold || false;
         let font;
         if (containsJapanese(text)) {
-            if (!notoFontRegular) {
-                try {
-                    const fontUrl = "/fonts/NotoSansJP-Regular.ttf";
-                    const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
-                    notoFontRegular = await pdfDoc.embedFont(fontBytes);
-                } catch (fontError) {
-                    console.warn("日本語フォント読み込み失敗:", fontError);
-                    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-                }
+            // 日本語を含む場合、NotoフォントのSans/Serifを使い分け
+            let fontKey;
+            if (fontFamily.includes("Serif")) {
+                fontKey = isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular";
+            } else {
+                fontKey = isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular";
             }
-            font = notoFontRegular || await pdfDoc.embedFont(StandardFonts.Helvetica);
+            
+            font = fontCache[fontKey];
+            if (!font) {
+                console.error("日本語フォントが読み込まれていません");
+                font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            } else {
+                console.log(`Using font: ${fontKey} for text: ${text}`);
+            }
         } else {
-            font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            // 英数字のみの場合
+            if (fontFamily === "NotoSansJP") {
+                const fontKey = isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular";
+                font = fontCache[fontKey] || await pdfDoc.embedFont(isBold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica);
+            } else if (fontFamily === "NotoSerifJP") {
+                const fontKey = isBold ? "NotoSerifJP-Bold" : "NotoSerifJP-Regular";
+                font = fontCache[fontKey] || await pdfDoc.embedFont(isBold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman);
+            } else if (fontFamily === "Helvetica") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica);
+            } else if (fontFamily === "TimesRoman") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman);
+            } else if (fontFamily === "monospace") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.CourierBold : StandardFonts.Courier);
+            } else if (fontFamily === "serif") {
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.TimesRomanBold : StandardFonts.TimesRoman);
+            } else {
+                // sans-serif or その他
+                font = await pdfDoc.embedFont(isBold ? StandardFonts.HelveticaBold : StandardFonts.Helvetica);
+            }
         }
 
         const fontSize = stamp.fontSize || 12;
@@ -1175,13 +1248,19 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
                 color: color,
                 rotate: degrees(transformed.textRotation),
             });
+            console.log("Text drawn successfully at:", transformed.x, transformed.y);
         } catch (drawError) {
             console.error("スタンプ描画エラー:", drawError);
             throw drawError;
         }
     }
 
-    return await pdfDoc.save();
+    // 最適化オプションでPDFを保存
+    const savedBytes = await pdfDoc.save({
+        useObjectStreams: true,  // オブジェクトストリームを使用して圧縮
+    });
+    console.log("PDF saved, output length:", savedBytes.length);
+    return savedBytes;
 };
 
 // ========================================
