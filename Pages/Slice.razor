@@ -774,6 +774,8 @@ private List<ActionButtonItem> showOptionsModal => new()
                 try
                 {
                     _ = JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", Array.Empty<object>());
+                    // JavaScript側の内部状態をクリア
+                    _ = JSRuntime.InvokeVoidAsync("clearTrimState", $"trim-preview-canvas-{i}");
                 }
                 catch { }
             }

@@ -739,6 +739,7 @@
                 try
                 {
                     _ = JSRuntime.InvokeVoidAsync("drawTrimOverlayAsSvg", $"trim-preview-canvas-{i}", Array.Empty<object>());
+                    _ = JSRuntime.InvokeVoidAsync("clearTrimState", $"trim-preview-canvas-{i}");
                 }
                 catch { }
             }

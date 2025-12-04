@@ -1707,3 +1707,26 @@ window.selectThumbnailByIndex = function(selectedIndex) {
         console.error('selectThumbnailByIndex error', e);
     }
 };
+
+// ========================================
+// 特定キャンバスのtrimState内部状態をクリア
+// ========================================
+window.clearTrimState = function(canvasId) {
+    try {
+        if (!canvasId || !window._simpleTrim || !window._simpleTrim[canvasId]) {
+            return false;
+        }
+        
+        const state = window._simpleTrim[canvasId];
+        state.currentRectsPx = [];
+        state.currentRectPx = null;
+        state.active = false;
+        state.selected = false;
+        state.selectedRectIndex = -1;
+        
+        return true;
+    } catch (e) {
+        console.error('clearTrimState error', e);
+        return false;
+    }
+};
