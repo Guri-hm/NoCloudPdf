@@ -696,13 +696,11 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         }
     }
 
-    // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
-    public static Edit? _currentInstance;
-
     // 並び替え時に@keyとして使い、Blazorの仮想DOMキャッシュをリセットしてサムネイルリストを強制的に再生成するためのバージョン番号
     private int sortVersion = 0;
     // 実際の並び替え処理
-    public async Task UpdateOrderInternal(string pageType, int oldIndex, int newIndex)
+    [JSInvokable]
+    public async Task UpdateOrder(int oldIndex, int newIndex)
     {
         try
         {
@@ -712,8 +710,6 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
             {
                 // 統一データサービスを使用して並び替え
                 PdfDataService.MoveItem(oldIndex, newIndex);
-                sortVersion++; 
-                await InvokeAsync(StateHasChanged);
             }
             else
             {
@@ -722,18 +718,11 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in UpdateOrderInternal: {ex.Message}");
+            Console.WriteLine($"Error in UpdateOrder: {ex.Message}");
             _ = MessageService.ShowAsync($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
-        }
-    }
-
-    // JavaScript から呼び出されるPDF挿入メソッド
-    [JSInvokable("Edit_InsertPdfAtPositionFromJS")]
-    public static async Task InsertPdfAtPositionFromJS(int position)
-    {
-        if (_currentInstance != null)
-        {
-            await _currentInstance.InsertPdfAtPosition(position);
+        }finally{
+            sortVersion++; 
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -1029,6 +1018,8 @@ private bool showHeaderFooterDialog = false;
 
 private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 {
+    showHeaderFooterDialog = false;
+    
     if (!setting.Stamps.Any())
     {
         _ = MessageService.ShowAsync("スタンプが設定されていません", MessageType.Warn);
@@ -1037,6 +1028,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
     try
     {
+
         var model = PdfDataService.GetModel();
         var pages = model.Pages;
 
@@ -1064,7 +1056,6 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
             // 処理前のサイズを記録
             var beforeSize = page.PageData.Length;
-            Console.WriteLine($"Page {i + 1} PageData length: {beforeSize}");
 
             // 範囲内のページインデックス（0始まり）
             var pageIndexInRange = i - (startPage - 1);
@@ -1083,21 +1074,18 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
                 stampData
             );
 
+            // プレビューキャッシュをクリア
+            // 変更直後にダイアログを再表示すると前回のキャッシュデータが利用されてしまうため
+            PdfDataService.ClearPreviewCache(page.Id);
+
             if (stampedPdfBytes != null && stampedPdfBytes.Length > 0)
             {
                 page.PageData = Convert.ToBase64String(stampedPdfBytes);
 
-                var afterSize = page.PageData.Length;
-                Console.WriteLine($"Converted to Base64, length: {afterSize}");
-
-                var newThumbnail = await JSRuntime.InvokeAsync<string>(
-                    "generatePdfThumbnailFromPageData", 
-                    page.PageData
-                );
-                
-                if (!string.IsNullOrEmpty(newThumbnail))
+                var reloadError = await PdfDataService.ReloadThumbnailAsync(page.Id);
+                if (!string.IsNullOrEmpty(reloadError))
                 {
-                    page.Thumbnail = newThumbnail;
+                    Console.WriteLine($"サムネイル再生成警告: {reloadError}");
                 }
             }
         }
@@ -1111,8 +1099,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
     }
     finally
     {
-        showHeaderFooterDialog = false;
-        await MessageService.HideLoadingAsync();
+        _ = MessageService.HideLoadingAsync();
     }
 }
 
@@ -1173,7 +1160,6 @@ private List<object> CreateStampsForCoordinateTransform(
     {
         if (firstRender)
         {
-            _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
         }
         // 初期画面のときのみ登録
@@ -1206,7 +1192,7 @@ private List<object> CreateStampsForCoordinateTransform(
                 try
                 {
                     await Task.Delay(50); // DOM更新完了を待つ
-                    await JSRuntime.InvokeVoidAsync("initializeSortable");
+                    await JSRuntime.InvokeVoidAsync("initializeSortable", _dotNetRef);
                 }
                 catch (Exception ex)
                 {

@@ -45,6 +45,7 @@ public class PageItem
 
     public bool IsOperationRestricted { get; set; } // 操作制限フラグ
     public List<TrimRectInfo> TrimRects { get; set; } = new(); // トリミング矩形情報リスト
+    public bool IsBlankPage { get; set; } = false; // 白紙ページフラグ
 }
 
 /// <summary>

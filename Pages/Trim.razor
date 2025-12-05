@@ -366,9 +366,6 @@
         // 5) 最後に DotNetObjectReference を破棄
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
-
-        // 6) 静的参照をクリア
-        if (_currentInstance == this) _currentInstance = null;
     }
 
     private string? mergedPdfUrl;
@@ -507,9 +504,6 @@
             await MessageService.HideLoadingAsync();
         }
     }
-
-    // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
-    public static Trim? _currentInstance;
 
     // 空白ページを挿入
     public async Task InsertBlankPage(int position)
@@ -808,7 +802,6 @@
     {
         if (firstRender)
         {
-            _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
             try
             {

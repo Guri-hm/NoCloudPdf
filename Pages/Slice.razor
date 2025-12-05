@@ -395,8 +395,6 @@
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
 
-        // 6) 静的参照をクリア
-        if (_currentInstance == this) _currentInstance = null;
     }
 
     // 統一アーキテクチャ対応プロパティ
@@ -522,9 +520,6 @@
             await MessageService.HideLoadingAsync();
         }
     }
-
-    // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
-    public static Slice? _currentInstance;
 
     // 空白ページを挿入
     public async Task InsertBlankPage(int position)
@@ -875,7 +870,6 @@ private List<ActionButtonItem> showOptionsModal => new()
     {
         if (firstRender)
         {
-            _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
             try
             {

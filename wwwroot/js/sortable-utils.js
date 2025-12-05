@@ -1,7 +1,9 @@
 let sortableInstance = null;
 window.isSorting = false;
+let dotNetHelper = null;
 
-window.initializeSortable = function () {
+window.initializeSortable = function (dotNetRef) {
+    dotNetHelper = dotNetRef;
     function isPcSize() {
         return window.matchMedia('(min-width: 768px)').matches;
     }
@@ -97,13 +99,9 @@ window.initializeSortable = function () {
                     adjustedNewIndex = sortableCount - 1;
                 }
 
-                DotNet.invokeMethodAsync(
-                    'NoCloudPdf',
-                    'UpdateOrder',
-                    getPageType(),
-                    evt.oldIndex,
-                    adjustedNewIndex
-                );
+                if (dotNetHelper) {
+                    dotNetHelper.invokeMethodAsync('UpdateOrder', evt.oldIndex, adjustedNewIndex);
+                }
             }
         });
     } else if (sortableInstance && sortableInstance.el) {
