@@ -1082,17 +1082,19 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
                 stampData
             );
 
+            // プレビューキャッシュをクリア
+            // 変更直後にダイアログを再表示すると前回のキャッシュデータが利用されてしまうため
+            PdfDataService.ClearPreviewCache(page.Id);
+
             if (stampedPdfBytes != null && stampedPdfBytes.Length > 0)
             {
                 page.PageData = Convert.ToBase64String(stampedPdfBytes);
-
-                var afterSize = page.PageData.Length;
 
                 var newThumbnail = await JSRuntime.InvokeAsync<string>(
                     "generatePdfThumbnailFromPageData", 
                     page.PageData
                 );
-                
+
                 if (!string.IsNullOrEmpty(newThumbnail))
                 {
                     page.Thumbnail = newThumbnail;
