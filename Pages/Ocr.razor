@@ -552,9 +552,6 @@
         // 5) 最後に DotNetObjectReference を破棄
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
-
-        // 6) 静的参照をクリア
-        if (_currentInstance == this) _currentInstance = null;
     }
 
     // ========================================
@@ -592,8 +589,6 @@
     private string currentPreviewImage = "";
     private TrimRectInfo? InitialTrimRectNormalized;
     private bool useSnapToGrid = false;
-
-    public static Ocr? _currentInstance;
     private bool _previewCacheCleanupRegistered = false;
 
     // ========================================
@@ -1489,7 +1484,6 @@
     {
         if (firstRender)
         {
-            _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
             try
             {

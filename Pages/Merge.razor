@@ -691,13 +691,11 @@
         }
     }
 
-    // 静的インスタンスで現在のコンポーネントを参照（JavaScript連携用）
-    public static Merge? _currentInstance;
-
     // 並び替え時に@keyとして使い、Blazorの仮想DOMキャッシュをリセットしてサムネイルリストを強制的に再生成するためのバージョン番号
     private int sortVersion = 0;
     // 実際の並び替え処理
-    public async Task UpdateOrderInternal(string pageType, int oldIndex, int newIndex)
+    [JSInvokable]
+    public async Task UpdateOrder(int oldIndex, int newIndex)
     {
         try
         {
@@ -707,8 +705,6 @@
             {
                 // 統一データサービスを使用して並び替え
                 PdfDataService.MoveItem(oldIndex, newIndex);
-                sortVersion++; 
-                await InvokeAsync(StateHasChanged);
             }
             else
             {
@@ -717,18 +713,11 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in UpdateOrderInternal: {ex.Message}");
+            Console.WriteLine($"Error in UpdateOrder: {ex.Message}");
             _ = MessageService.ShowAsync($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
-        }
-    }
-
-    // JavaScript から呼び出されるPDF挿入メソッド
-    [JSInvokable("Merge_InsertPdfAtPositionFromJS")]
-    public static async Task InsertPdfAtPositionFromJS(int position)
-    {
-        if (_currentInstance != null)
-        {
-            await _currentInstance.InsertPdfAtPosition(position);
+        }finally{
+            sortVersion++; 
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -1011,7 +1000,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
     {
         if (firstRender)
         {
-            _currentInstance = this;
             _dotNetRef = DotNetObjectReference.Create(this);
         }
         // 初期画面のときのみ登録
@@ -1044,7 +1032,7 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
                 try
                 {
                     await Task.Delay(50); // DOM更新完了を待つ
-                    await JSRuntime.InvokeVoidAsync("initializeSortable");
+                    await JSRuntime.InvokeVoidAsync("initializeSortable", _dotNetRef);
                 }
                 catch (Exception ex)
                 {
