@@ -985,8 +985,6 @@ window.getPdfPageSize = async function (pdfBase64) {
 // ========================================
 window.addStampsToPdf = async function (pdfBytes, stamps) {
     console.log("=== addStampsToPdf called ===");
-    console.log("Input pdfBytes length:", pdfBytes?.length);
-    console.log("Stamps:", JSON.stringify(stamps, null, 2));
 
     const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
@@ -1163,7 +1161,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
             const fontUrl = `/fonts/${fontKey}.ttf`;
             const fontBytes = await fetch(fontUrl).then(res => res.arrayBuffer());
             fontCache[fontKey] = await pdfDoc.embedFont(fontBytes, { subset: false });
-            console.log(`Font loaded: ${fontKey}`);
         } catch (fontError) {
             console.warn(`フォント読み込み失敗: ${fontKey}`, fontError);
         }
@@ -1178,7 +1175,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
             continue;
         }
         
-        console.log("Final text to draw:", text);
 
         const fontFamily = stamp.fontFamily || "NotoSansJP";
         const isBold = stamp.isBold || false;
@@ -1196,8 +1192,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
             if (!font) {
                 console.error("日本語フォントが読み込まれていません");
                 font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-            } else {
-                console.log(`Using font: ${fontKey} for text: ${text}`);
             }
         } else {
             // 英数字のみの場合
@@ -1223,11 +1217,15 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
 
         const fontSize = stamp.fontSize || 12;
         const textWidth = font.widthOfTextAtSize(text, fontSize);
+        // フォントの descender を考慮した補正
+        // NotoSansJP の場合、フォントサイズの約 20% が descender
+        const descenderRatio = 0.2;
+        const offsetYAdjustment = fontSize * descenderRatio;
 
         const transformed = transformCoordinates(
             stamp.corner,
             stamp.offsetX,
-            stamp.offsetY,
+            stamp.offsetY + offsetYAdjustment,
             normalizedAngle,
             width,
             height,
@@ -1248,7 +1246,7 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
                 color: color,
                 rotate: degrees(transformed.textRotation),
             });
-            console.log("Text drawn successfully at:", transformed.x, transformed.y);
+            console.log("x and y:", transformed.x, transformed.y);
         } catch (drawError) {
             console.error("スタンプ描画エラー:", drawError);
             throw drawError;
@@ -1259,7 +1257,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     const savedBytes = await pdfDoc.save({
         useObjectStreams: true,  // オブジェクトストリームを使用して圧縮
     });
-    console.log("PDF saved, output length:", savedBytes.length);
     return savedBytes;
 };
 

@@ -1064,7 +1064,6 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
             // 処理前のサイズを記録
             var beforeSize = page.PageData.Length;
-            Console.WriteLine($"Page {i + 1} PageData length: {beforeSize}");
 
             // 範囲内のページインデックス（0始まり）
             var pageIndexInRange = i - (startPage - 1);
@@ -1088,7 +1087,6 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
                 page.PageData = Convert.ToBase64String(stampedPdfBytes);
 
                 var afterSize = page.PageData.Length;
-                Console.WriteLine($"Converted to Base64, length: {afterSize}");
 
                 var newThumbnail = await JSRuntime.InvokeAsync<string>(
                     "generatePdfThumbnailFromPageData", 
