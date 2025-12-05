@@ -807,9 +807,6 @@ public class PdfDataService
 
     public async Task<string?> ReloadPageAsync(string fileId, int pageIndex)
     {
-        if (!_model.Files.TryGetValue(fileId, out var fileMetadata))
-            return "ファイル情報が見つかりませんでした。";
-
         var pageId = $"{fileId}_p{pageIndex}";
         var pageItem = _model.Pages.FirstOrDefault(p => p.Id == pageId);
         if (pageItem == null)
@@ -829,58 +826,38 @@ public class PdfDataService
             bool thumbError = false;
             bool dataError = false;
 
-            var ext = Path.GetExtension(fileMetadata.FileName).ToLowerInvariant();
-
-            if (SupportedImageExtensions.Contains(ext))
+            // 白紙ページの場合は再生成
+            if (pageItem.IsBlankPage)
             {
-                // 画像ファイルの場合はPDF化
-                string base64 = Convert.ToBase64String(fileMetadata.FileData);
-                thumbnail = fileMetadata.CoverThumbnail;
-                pageData = await _jsRuntime.InvokeAsync<string>("embedImageAsPdf", base64, ext);
+                pageData = await _jsRuntime.InvokeAsync<string>("createBlankPage");
+                thumbnail = await _jsRuntime.InvokeAsync<string>("generatePdfThumbnailFromPageData", pageData);
                 thumbError = string.IsNullOrEmpty(thumbnail);
                 dataError = string.IsNullOrEmpty(pageData);
             }
-            else if (SupportedPdfExtensions.Contains(ext))
+            else if (!_model.Files.TryGetValue(fileId, out var fileMetadata))
             {
-                if (pageIndex == 0)
+                return "ファイル情報が見つかりませんでした。";
+            }
+            else
+            {
+                var ext = Path.GetExtension(fileMetadata.FileName).ToLowerInvariant();
+
+                if (SupportedImageExtensions.Contains(ext))
                 {
+                    // 画像ファイルの場合はPDF化
+                    string base64 = Convert.ToBase64String(fileMetadata.FileData);
                     thumbnail = fileMetadata.CoverThumbnail;
-                    pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                    pageData = await _jsRuntime.InvokeAsync<string>("embedImageAsPdf", base64, ext);
                     thumbError = string.IsNullOrEmpty(thumbnail);
                     dataError = string.IsNullOrEmpty(pageData);
-
-                    if (!fileMetadata.IsOperationRestricted)
-                    {
-                        try
-                        {
-                            var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
-                            if (isRestricted)
-                            {
-                                fileMetadata.IsOperationRestricted = true;
-                                pageItem.IsOperationRestricted = true;
-                            }
-                        }
-                        catch
-                        {
-                            // 無視
-                        }
-                    }
-                    else
-                    {
-                        // 既に制限フラグが立っているなら pageItem にも反映しておく
-                        pageItem.IsOperationRestricted = true;
-                    }
                 }
-                else
+                else if (SupportedPdfExtensions.Contains(ext))
                 {
-                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                    try
+                    if (pageIndex == 0)
                     {
-                        var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("generatePdfThumbnailFromFileMetaData", cts.Token, fileMetadata.FileData, pageIndex);
-                        thumbnail = renderResult.thumbnail;
-                        thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
-
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                        thumbnail = fileMetadata.CoverThumbnail;
+                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                        thumbError = string.IsNullOrEmpty(thumbnail);
                         dataError = string.IsNullOrEmpty(pageData);
 
                         if (!fileMetadata.IsOperationRestricted)
@@ -905,18 +882,53 @@ public class PdfDataService
                             pageItem.IsOperationRestricted = true;
                         }
                     }
-                    catch (OperationCanceledException)
+                    else
                     {
-                        Console.WriteLine($"Timeout reloading page {pageIndex + 1} of {fileMetadata.FileName}");
-                        thumbnail = "";
-                        thumbError = true;
-                        dataError = false;
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                        try
+                        {
+                            var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("generatePdfThumbnailFromFileMetaData", cts.Token, fileMetadata.FileData, pageIndex);
+                            thumbnail = renderResult.thumbnail;
+                            thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
+
+                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                            dataError = string.IsNullOrEmpty(pageData);
+
+                            if (!fileMetadata.IsOperationRestricted)
+                            {
+                                try
+                                {
+                                    var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                                    if (isRestricted)
+                                    {
+                                        fileMetadata.IsOperationRestricted = true;
+                                        pageItem.IsOperationRestricted = true;
+                                    }
+                                }
+                                catch
+                                {
+                                    // 無視
+                                }
+                            }
+                            else
+                            {
+                                // 既に制限フラグが立っているなら pageItem にも反映しておく
+                                pageItem.IsOperationRestricted = true;
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            Console.WriteLine($"Timeout reloading page {pageIndex + 1} of {fileMetadata.FileName}");
+                            thumbnail = "";
+                            thumbError = true;
+                            dataError = false;
+                        }
                     }
                 }
-            }
-            else
-            {
-                return "未対応のファイル形式です。";
+                else
+                {
+                    return "未対応のファイル形式です。";
+                }
             }
 
             pageItem.Thumbnail = thumbnail;
@@ -942,7 +954,7 @@ public class PdfDataService
             pageItem.Thumbnail = "";
             pageItem.PageData = "";
             await InvokeOnChangeAsync();
-            Console.WriteLine($"Error reloading page {pageIndex + 1} of {fileMetadata.FileName}: {ex.Message}");
+            Console.WriteLine($"Error reloading page {pageIndex + 1} of {pageItem.FileName}: {ex.Message}");
             return "ページの再読み込み中にエラーが発生しました。";
         }
     }
@@ -1238,7 +1250,8 @@ public class PdfDataService
             // ページアイテムを作成
             var pageItem = new PageItem
             {
-                FileId = fileId,
+                Id = $"{fileId}_p0",
+                FileId = $"{fileId}",
                 FileName = fileName,
                 OriginalPageIndex = 0,
                 Thumbnail = blankThumbnail,
@@ -1246,6 +1259,8 @@ public class PdfDataService
                 IsLoading = false,
                 HasThumbnailError = false,
                 HasPageDataError = false,
+                IsBlankPage = true,
+                ColorHsl = GenerateColorHsl(fileId)
             };
 
             // 指定位置に挿入
