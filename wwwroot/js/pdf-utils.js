@@ -984,8 +984,6 @@ window.getPdfPageSize = async function (pdfBase64) {
 // スタンプ追加
 // ========================================
 window.addStampsToPdf = async function (pdfBytes, stamps) {
-    console.log("=== addStampsToPdf called ===");
-
     const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
     if (!PDFLib._fontkitRegistered) {
@@ -1004,8 +1002,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
     
-    console.log("PDF loaded, page size:", width, "x", height);
-
     function transformCoordinates(corner, offsetX, offsetY, rotateAngle, pageWidth, pageHeight, textWidth, fontSize) {
         let x = 0, y = 0;
         let textRotation = 0;
@@ -1167,7 +1163,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     }
 
     for (const stamp of stamps) {
-        console.log("Processing stamp:", stamp);
         
         let text = stamp.text || "";
         if (!text) {
@@ -1246,7 +1241,6 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
                 color: color,
                 rotate: degrees(transformed.textRotation),
             });
-            console.log("x and y:", transformed.x, transformed.y);
         } catch (drawError) {
             console.error("スタンプ描画エラー:", drawError);
             throw drawError;
