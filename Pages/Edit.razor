@@ -1029,6 +1029,8 @@ private bool showHeaderFooterDialog = false;
 
 private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 {
+    showHeaderFooterDialog = false;
+    
     if (!setting.Stamps.Any())
     {
         _ = MessageService.ShowAsync("スタンプが設定されていません", MessageType.Warn);
@@ -1037,6 +1039,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
     try
     {
+
         var model = PdfDataService.GetModel();
         var pages = model.Pages;
 
@@ -1090,14 +1093,10 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
             {
                 page.PageData = Convert.ToBase64String(stampedPdfBytes);
 
-                var newThumbnail = await JSRuntime.InvokeAsync<string>(
-                    "generatePdfThumbnailFromPageData", 
-                    page.PageData
-                );
-
-                if (!string.IsNullOrEmpty(newThumbnail))
+                var reloadError = await PdfDataService.ReloadThumbnailAsync(page.Id);
+                if (!string.IsNullOrEmpty(reloadError))
                 {
-                    page.Thumbnail = newThumbnail;
+                    Console.WriteLine($"サムネイル再生成警告: {reloadError}");
                 }
             }
         }
@@ -1111,8 +1110,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
     }
     finally
     {
-        showHeaderFooterDialog = false;
-        await MessageService.HideLoadingAsync();
+        _ = MessageService.HideLoadingAsync();
     }
 }
 

@@ -948,6 +948,69 @@ public class PdfDataService
     }
 
     /// <summary>
+    /// 指定ページのサムネイルを PageData から強制再生成
+    /// </summary>
+    public async Task<string?> ReloadThumbnailAsync(string pageId)
+    {
+        var pageItem = _model.Pages.FirstOrDefault(p => p.Id == pageId);
+        if (pageItem == null)
+            return "ページ情報が見つかりませんでした。";
+    
+        if (string.IsNullOrEmpty(pageItem.PageData))
+            return "PageData が存在しません。";
+    
+        try
+        {
+            // サムネイル再生成中状態に設定
+            pageItem.HasThumbnailError = false;
+            string oldThumbnail = pageItem.Thumbnail;
+
+            // 状態遷移を明示的にし、確実な更新を保証
+            pageItem.Thumbnail = ""; 
+            await InvokeOnChangeAsync();
+    
+            string thumbnail = "";
+            bool thumbError = false;
+    
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try
+            {
+                // ★ PageData から直接サムネイルを生成（スタンプが反映される）
+                thumbnail = await _jsRuntime.InvokeAsync<string>(
+                    "generatePdfThumbnailFromPageData",
+                    cts.Token,
+                    pageItem.PageData
+                );
+                thumbError = string.IsNullOrEmpty(thumbnail);
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine($"Timeout reloading thumbnail for {pageItem.FileName}");
+                thumbnail = oldThumbnail; // 失敗時は元に戻す
+                thumbError = true;
+            }
+    
+            pageItem.Thumbnail = thumbnail;
+            pageItem.HasThumbnailError = thumbError;
+    
+            await InvokeOnChangeAsync();
+    
+            if (thumbError)
+                return "サムネイルの取得に失敗しました。";
+    
+            return null;
+        }
+        catch (Exception ex)
+        {
+            pageItem.HasThumbnailError = true;
+            pageItem.Thumbnail = "";
+            await InvokeOnChangeAsync();
+            Console.WriteLine($"Error reloading thumbnail for {pageItem.FileName}: {ex.Message}");
+            return "サムネイルの再読み込み中にエラーが発生しました。";
+        }
+    }
+
+    /// <summary>
     /// アイテムの順序を変更（ドラッグアンドドロップ対応）
     /// </summary>
     public void MoveItem(int fromIndex, int toIndex)
