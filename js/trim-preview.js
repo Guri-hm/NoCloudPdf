@@ -974,7 +974,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         return;
                     }
 
-                    console.log("aaaa")
                     if (ev.button !== undefined && ev.button !== 0) return;
 
                     trimState.active = true;
