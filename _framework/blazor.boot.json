@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-QNgRGY/owygjTf8Woh+sXvfA2mG5e8y0WYNAGKftPyA=",
+    "hash": "sha256-zQThcpLX0qcOcUpVMH80KiCTpmTSdQuv6TzmdpxtWhA=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.hm64izpjmf.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.86vin5kfym.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -36,9 +36,9 @@
       "System.Text.RegularExpressions.wgr750tbf8.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.1qjekjcyqa.wasm": "System.Threading.wasm",
       "System.Private.CoreLib.7ja72rj5cf.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.324mcp9zel.wasm": "NoCloudPdf.wasm",
+      "NoCloudPdf.8jrzbyf3nr.wasm": "NoCloudPdf.wasm",
       "dotnet.native.akp2hu3pu1.js": "dotnet.native.js",
-      "dotnet.native.tky9n4t3be.wasm": "dotnet.native.wasm",
+      "dotnet.native.v5vj4ouxsh.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.9o45ky8ejm.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -52,7 +52,7 @@
       "dotnet.runtime.9o45ky8ejm.js": "sha256-6QIZYgG+ftoT9N1H1EEJeXIhD/qbKqEcnmawDskiwdI="
     },
     "wasmNative": {
-      "dotnet.native.tky9n4t3be.wasm": "sha256-Ta7x872cqeZ3TYvViiHFuhbR38P5ZMj8VTU8mNQxRIA="
+      "dotnet.native.v5vj4ouxsh.wasm": "sha256-fdfxec/+FDm8LQ1hLLOAiooZnnLvmI2/WYCnITqpVYM="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -93,7 +93,7 @@
       "System.Text.RegularExpressions.wgr750tbf8.wasm": "sha256-MMSZuVepNZXAXEU1H8WSsD9l/Nnicjd91s719JDN31M=",
       "System.Threading.1qjekjcyqa.wasm": "sha256-WVswpNrurTFiYyATVXqWgRmC2eF3YP+S0kXAWDoTwqo=",
       "System.Private.CoreLib.7ja72rj5cf.wasm": "sha256-Ey+1OMpire9U4iOlOjKzMT97ELp+98mTm15upXboyDU=",
-      "NoCloudPdf.324mcp9zel.wasm": "sha256-9WHWlhlPi2fjWskERbjbYg7x/RZPVIeCHZrI6UiQnA8="
+      "NoCloudPdf.8jrzbyf3nr.wasm": "sha256-JNlsdOrolb46QwHgq0NNWXqXk1W4p5726+6mvJQF9C8="
     },
     "assembly": {}
   },
