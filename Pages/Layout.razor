@@ -42,11 +42,13 @@
                                 <option value="16">16</option>
                             </select>
                         </div>
-
+                    }
+                    @if (IsNUpMode)
+                    {
                         <!-- 並び方向 -->
                         <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
                             <label class="text-sm font-semibold">並び方向:</label>
-                            <select @bind="LayoutDirection" class="border rounded px-2 py-1">
+                            <select @bind="NUpDirection" class="border rounded px-2 py-1">
                                 <option value="forward">順方向</option>
                                 <option value="reverse">逆方向</option>
                                 @if (LayoutNumber >= 4)
@@ -63,6 +65,15 @@
                             <select @bind="OutputOrientation" class="border rounded px-2 py-1">
                                 <option value="portrait">縦</option>
                                 <option value="landscape">横</option>
+                            </select>
+                        </div>
+                    }else{
+                        <!-- 分割方向（タイル専用） -->
+                        <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
+                            <label class="text-sm font-semibold">最初の分割:</label>
+                            <select @bind="TileDirection" class="border rounded px-2 py-1">
+                                 <option value="horizontal">横（上→下）</option>
+                                <option value="vertical">縦（左→右）</option>
                             </select>
                         </div>
                     }
@@ -415,16 +426,16 @@
     private bool IsNUpMode => CurrentOperationMode == OperationMode.NUp;
     private bool IsTileMode => CurrentOperationMode == OperationMode.Tile;
     private int LayoutNumber { get; set; } = 2;
+    private string NUpDirection { get; set; } = "forward";
     private string TileDirection { get; set; } = "horizontal";
-    private string LayoutDirection { get; set; } = "forward";
     private string OutputOrientation { get; set; } = "portrait"; // "portrait" or "landscape"
 
     /// <summary>
-    /// 並び方向の説明
+    /// 並び方向の説明（Nアップ用）
     /// </summary>
     private string GetDirectionDescription()
     {
-        return LayoutDirection switch
+        return NUpDirection switch
         {
             "forward" => "左→右、上→下",
             "reverse" => "右→左、下→上",
@@ -448,7 +459,6 @@
         
         foreach (var (group, index) in groups.Select((g, i) => (g, i)))
         {
-            // ★ MergePageDto 配列を作成
             var mergeData = group.Select(item => new MergePageDto
             {
                 FileId = ((PageItem)item.RawData).FileId,
@@ -458,13 +468,12 @@
                 RotateAngle = ((PageItem)item.RawData).RotateAngle % 360
             }).ToList();
             
-            // ★ createNUpPdf を呼び出し（4つのパラメータを渡す）
             var url = await JSRuntime.InvokeAsync<string>(
                 "createNUpPdf", 
-                mergeData,           // pages
-                LayoutNumber,        // nup
-                LayoutDirection,     // direction
-                OutputOrientation    // orientation
+                mergeData,
+                LayoutNumber,
+                NUpDirection,
+                OutputOrientation 
             );
             
             if (!string.IsNullOrEmpty(url))
@@ -538,62 +547,55 @@
         };
     }
 
-/// <summary>
-/// 並び方向に応じた視覚的な順序を計算
-/// </summary>
-private int GetVisualOrder(int index, int groupSize)
-{
-    var (rows, cols) = LayoutNumber switch
+    /// <summary>
+    /// 並び方向に応じた視覚的な順序を計算（Nアップ用）
+    /// </summary>
+    private int GetVisualOrder(int index, int groupSize)
     {
-        2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
-        4 => (2, 2),
-        8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
-        16 => (4, 4),
-        _ => (2, 1)
-    };
-    
-    int row = index / cols;
-    int col = index % cols;
-    
-    return LayoutDirection switch
-    {
-        "forward" => index,  // 左→右、上→下
+        var (rows, cols) = LayoutNumber switch
+        {
+            2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
+            4 => (2, 2),
+            8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
+            16 => (4, 4),
+            _ => (2, 1)
+        };
         
-        "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),  // 右→左、下→上
+        int row = index / cols;
+        int col = index % cols;
         
-        "reverse-horizontal" => row * cols + (cols - 1 - col),  // 右→左、上→下
-        
-        "reverse-vertical" => (rows - 1 - row) * cols + col,  // 左→右、下→上
-        
-        _ => index
-    };
-}
+        return NUpDirection switch  // ★ NUpDirection を使用
+        {
+            "forward" => index,
+            "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
+            "reverse-horizontal" => row * cols + (cols - 1 - col),
+            "reverse-vertical" => (rows - 1 - row) * cols + col,
+            _ => index
+        };
+    }
 
     /// <summary>
-    /// タイルの格子状分割線を生成
+    /// タイルの格子状分割線を生成（タイル用）
     /// </summary>
     private List<string> GetTileDivisionLines()
     {
         var lines = new List<string>();
-        var isHorizontal = LayoutDirection == "horizontal";
+        var isHorizontal = TileDirection == "horizontal";  // ★ TileDirection を使用
         
-        // 格子の行数・列数を計算
-        // horizontal（横方向分割）= 横線を入れる → 上下に分割
-        // vertical（縦方向分割）= 縦線を入れる → 左右に分割
         int rows, cols;
         switch (LayoutNumber)
         {
             case 2:
-                rows = isHorizontal ? 2 : 1;  // 横方向なら2行、縦方向なら1行
-                cols = isHorizontal ? 1 : 2;  // 横方向なら1列、縦方向なら2列
+                rows = isHorizontal ? 2 : 1;
+                cols = isHorizontal ? 1 : 2;
                 break;
             case 4:
                 rows = 2;
                 cols = 2;
                 break;
             case 8:
-                rows = isHorizontal ? 4 : 2;  // 横方向なら4行、縦方向なら2行
-                cols = isHorizontal ? 2 : 4;  // 横方向なら2列、縦方向なら4列
+                rows = isHorizontal ? 4 : 2;
+                cols = isHorizontal ? 2 : 4;
                 break;
             case 16:
                 rows = 4;
