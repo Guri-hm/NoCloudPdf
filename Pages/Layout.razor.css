@@ -1,31 +1,8 @@
-    #sortable-container {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-    
-    @media (min-width: 768px) {
-        #sortable-container {
-            flex-direction: row;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-        }
-    }
-    
-    /* Nアップグループラッパー */
+    /* Nアップグループラッパー（可変幅） */
     .n-up-group-wrapper {
         position: relative;
-        border: 2px solid #60a5fa;
-        border-radius: 0.5rem;
         padding: 0.5rem;
-        background-color: #eff6ff;
-        width: 100%;
-    }
-    
-    @media (min-width: 768px) {
-        .n-up-group-wrapper {
-            width: auto;
-        }
+        padding-top: 2rem; /* ヘッダー分のスペース */
     }
     
     /* Nアップグループヘッダー */
@@ -42,38 +19,27 @@
         z-index: 10;
     }
     
-    /* Nアップグループコンテンツ */
+    /* ★ Nアップコンテンツ（固定幅・用紙イメージ） */
     .n-up-group-content {
+        background-color: white;
+        border: 2px solid #d1d5db; /* グレーの枠線 */
+        border-radius: 0.25rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 0.5rem;
+        box-sizing: border-box;
+    }
+    
+    /*  Nアップグリッド */
+    .n-up-grid {
         display: grid;
-        gap: 0.25rem;
-        padding-top: 1.5rem;
-    }
-    
-    /* Nアップ内の個別ページアイテム */
-    .n-up-page-item {
-        position: relative;
-    }
-    
-    /* タイルアイテム */
-    .tile-item {
-        position: relative;
-    }
-    
-    /* タイルオーバーレイコンテナ */
-    .tile-overlay-container {
-        position: absolute;
-        top: 0;
-        left: 0;
         width: 100%;
         height: 100%;
-        pointer-events: none;
-        z-index: 5;
     }
     
-    /* タイル分割線 */
-    .tile-division-line {
-        position: absolute;
-        background: red;
-        opacity: 0.7;
-        pointer-events: none;
+    /* グリッドセル（各サムネイルが入る枠） */
+    .n-up-cell {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
     }

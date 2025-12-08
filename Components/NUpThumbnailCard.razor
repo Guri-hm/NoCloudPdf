@@ -1,0 +1,117 @@
+@using NoCloudPdf.Models
+
+@{
+    PageItem? pageItem = Item.RawData as PageItem;
+}
+
+<div class="n-up-thumbnail-card" data-index="@Index">
+    <div class="group rounded w-full h-full relative">
+        <!-- サムネイル部分（縦横比を維持） -->
+        <div class="relative w-full h-full flex items-center justify-center"
+             @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
+            @if (Item.IsLoading)
+            {
+                <div class="page-loading w-full h-full"></div>
+            }
+            else if (Item.HasError)
+            {
+                @if (pageItem != null && pageItem.HasPageDataError)
+                {
+                    <div class="page-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-red-700 cursor-pointer"
+                         title="クリックで再読み込み" 
+                         @onclick="() => OnReloadPageItem.InvokeAsync(Item)"
+                         @onclick:stopPropagation>
+                        <ErrorPdfIcon Class="mb-1 w-8 h-8 text-red-600" />
+                        <div class="font-bold text-xs">データなし</div>
+                        <div class="flex items-center text-blue-600 text-xs mt-1 underline">
+                            <RotateLeftIcon Class="w-4 h-4" />
+                            再読み込み
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="page-error w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-red-100 transition"
+                         title="クリックで再読み込み"
+                         @onclick="() => OnReloadPageItem.InvokeAsync(Item)"
+                         @onclick:stopPropagation>
+                        <ErrorThumbnailIcon Class="mb-1 w-8 h-8 text-red-600" />
+                        <div class="text-red-700 font-bold text-xs mb-1">表示失敗</div>
+                        <div class="flex items-center text-blue-600 text-xs mt-1 underline">
+                            <RotateLeftIcon Class="w-4 h-4" />
+                            再読み込み
+                        </div>
+                    </div>
+                }
+            }
+            else if (!string.IsNullOrEmpty(Item.Thumbnail))
+            {
+                int angle = Item.RotateAngle % 360;
+                string rotateClass = angle switch
+                {
+                    0 => "rotate-0",
+                    90 => "rotate-90",
+                    180 => "rotate-180",
+                    270 => "rotate-270",
+                    _ => "rotate-0"
+                };
+                
+                <canvas id="thumb-@Item.Id"
+                        data-thumbnail="@Item.Thumbnail"
+                        data-item-id="@Item.Id"
+                        class="max-w-full max-h-full object-contain border border-gray-200 border-dashed @rotateClass thumbnail-loaded cursor-pointer"
+                        draggable="false"
+                        tabindex="-1" />
+            }
+
+            @if (pageItem != null && (pageItem.IsPasswordProtected || pageItem.IsOperationRestricted))
+            {
+                <UnlockIcon Class="absolute top-1 left-1 w-4 h-4 text-yellow-500" />
+            }
+
+            <!-- ホバー時の操作ボタン -->
+            <div class="absolute top-1 right-1 bg-white shadow rounded p-0.5 flex flex-col gap-0.5 opacity-0 pointer-events-none transition-opacity duration-300 group-hover:opacity-100 group-hover:pointer-events-auto z-10"
+                 @onclick:stopPropagation>
+                <button type="button" 
+                        class="text-purple-500 hover:text-purple-700 p-0.5" 
+                        title="拡大プレビュー"
+                        @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
+                    <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+                </button>
+                <button type="button" 
+                        class="text-green-500 hover:text-green-700 p-0.5" 
+                        title="複製"
+                        @onclick="() => OnDuplicate.InvokeAsync(Index)">
+                    <i class="fa-solid fa-copy text-xs"></i>
+                </button>
+                <button type="button" 
+                        class="text-blue-500 hover:text-blue-700 p-0.5" 
+                        title="回転"
+                        @onclick="() => OnRotate.InvokeAsync(Index)">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                </button>
+                <button type="button" 
+                        class="text-red-500 hover:text-red-700 p-0.5" 
+                        title="削除"
+                        @onclick="() => OnRemove.InvokeAsync(Index)">
+                    <i class="fa-solid fa-trash text-xs"></i>
+                </button>
+            </div>
+
+            <!-- ページ番号表示 -->
+            <div class="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[8px] px-1 py-0.5 rounded">
+                @(Index + 1)
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public DisplayItem Item { get; set; } = default!;
+    [Parameter] public int Index { get; set; }
+    [Parameter] public EventCallback<(int fileIndex, int pageIndex)> OnShowPreview { get; set; }
+    [Parameter] public EventCallback<int> OnDuplicate { get; set; }
+    [Parameter] public EventCallback<int> OnRotate { get; set; }
+    [Parameter] public EventCallback<int> OnRemove { get; set; }
+    [Parameter] public EventCallback<DisplayItem> OnReloadPageItem { get; set; }
+}

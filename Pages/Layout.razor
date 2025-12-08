@@ -26,7 +26,7 @@
                     <ActionButtonGroup T="string" Actions="resetActions" />
 
                     <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
-                    <h1 class="hidden md:inline text-lg font-bold">分割</h1>
+                    <h1 class="hidden md:inline text-lg font-bold">レイアウト</h1>
 
                     <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="CurrentModeString"
                         OnClick="OnToggleMode" />
@@ -43,11 +43,26 @@
                             </select>
                         </div>
 
+                        <!-- 並び方向 -->
                         <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
-                            <label class="text-sm font-semibold">@(IsNUpMode ? "並び" : "最初の分割")方向:</label>
+                            <label class="text-sm font-semibold">並び方向:</label>
                             <select @bind="LayoutDirection" class="border rounded px-2 py-1">
-                                <option value="horizontal">横</option>
-                                <option value="vertical">縦</option>
+                                <option value="forward">順方向</option>
+                                <option value="reverse">逆方向</option>
+                                @if (LayoutNumber >= 4)
+                                {
+                                    <option value="reverse-horizontal">逆横方向</option>
+                                    <option value="reverse-vertical">逆縦方向</option>
+                                }
+                            </select>
+                        </div>
+
+                        <!-- 出力ページの向き -->
+                        <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
+                            <label class="text-sm font-semibold">出力ページの向き:</label>
+                            <select @bind="OutputOrientation" class="border rounded px-2 py-1">
+                                <option value="portrait">縦</option>
+                                <option value="landscape">横</option>
                             </select>
                         </div>
                     }
@@ -119,26 +134,56 @@
             }
             @if (DisplayItems != null && DisplayItems.Any())
             {
-<div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-x-3 md:gap-y-[30px] md:p-6" id="sortable-container" @key="sortVersion">
-    @if (IsNUpMode)
-    {
-            var groups = GetNUpGroups();
-            int pageIndexCounter = 0;
-        @foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
-        {
-            <div class="n-up-group-wrapper">
-                <div class="n-up-group-header">
-                    @(LayoutNumber)アップ - グループ@(groupIndex + 1)
-                </div>
-                <div class="n-up-group-content" style="@GetNUpGridStyle()">
-                    @foreach (var item in group)
+            <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-x-3 md:gap-y-[30px] md:p-6" id="sortable-container" @key="sortVersion">
+                @if (IsNUpMode)
+                {
+                    var groups = GetNUpGroups();
+                    int pageIndexCounter = 0;
+                    
+                    @foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
                     {
-                        var actualIndex = pageIndexCounter++;
-                        <div class="sortable-item-container n-up-page-item" data-index="@actualIndex">
+                        <!-- ★ グループラッパーは可変幅 -->
+                        <div class="n-up-group-wrapper">
+                            <div class="n-up-group-header">
+                                グループ@(groupIndex + 1)
+                            </div>
+                            <!-- ★ 固定幅コンテナ（用紙イメージ） -->
+                            <div class="n-up-group-content" style="@GetNUpContainerStyle()">
+                                <div class="n-up-grid" style="@GetNUpGridStyle()">
+                                    @foreach (var (item, localIndex) in group.Select((it, idx) => (it, idx)))
+                                    {
+                                        var actualIndex = pageIndexCounter++;
+                                        var visualOrder = GetVisualOrder(localIndex, group.Count);
+                                        
+                                        <div style="order: @visualOrder;" class="n-up-cell">
+                                            <NUpThumbnailCard 
+                                                @key="item.Id"
+                                                Item="@item" 
+                                                Index="@actualIndex" 
+                                                OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
+                                                OnDuplicate="DuplicateItem"
+                                                OnRotate="idx => RotatePage(idx)"
+                                                OnRemove="RemovePage"
+                                                OnReloadPageItem="ReloadPageItem" />
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else if (IsTileMode)
+                {
+                    @* タイルモード: 通常通り1ページずつ並び替え *@
+                    @for (int i = 0; i < DisplayItems.Count; i++)
+                    {
+                        var item = DisplayItems[i];
+                        
+                        <div class="sortable-item-container tile-item" data-index="@i">
                             <ThumbnailCard 
                                 @key="item.Id"
                                 Item="@item" 
-                                Index="@actualIndex" 
+                                Index="@i" 
                                 DisplayItemsCount="DisplayItems.Count"
                                 Mode="CurrentDisplayMode"
                                 SplitPositions="Array.Empty<int>()" 
@@ -148,84 +193,56 @@
                                 OnReloadPageItem="ReloadPageItem" 
                                 OnRemove="RemovePage"
                                 OnRotate="idx => RotatePage(idx)"
-                                OnDuplicate="DuplicateItem" />
+                                OnDuplicate="DuplicateItem">
+                                @* 子コンテンツとして分割線オーバーレイを渡す *@
+                                <div class="tile-overlay-container">
+                                    @{
+                                        var lines = GetTileDivisionLines();
+                                        @foreach (var line in lines)
+                                        {
+                                            <div class="tile-division-line" style="@line"></div>
+                                        }
+                                    }
+                                </div>
+                            </ThumbnailCard>
+                            
+                            <div class="absolute top-1 right-1 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold z-10">
+                                @LayoutNumber
+                            </div>
                         </div>
                     }
-                </div>
-            </div>
-        }
-    }
-    else if (IsTileMode)
-    {
-        @* タイルモード: 通常通り1ページずつ並び替え *@
-        @for (int i = 0; i < DisplayItems.Count; i++)
-        {
-            var item = DisplayItems[i];
-            
-            <div class="sortable-item-container tile-item" data-index="@i">
-                <ThumbnailCard 
-                    @key="item.Id"
-                    Item="@item" 
-                    Index="@i" 
-                    DisplayItemsCount="DisplayItems.Count"
-                    Mode="CurrentDisplayMode"
-                    SplitPositions="Array.Empty<int>()" 
-                    OperationMode="OperationMode.Normal"
-                    OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
-                    OnSwapWithNext="OnSwapWithNext" 
-                    OnReloadPageItem="ReloadPageItem" 
-                    OnRemove="RemovePage"
-                    OnRotate="idx => RotatePage(idx)"
-                    OnDuplicate="DuplicateItem">
-                    @* 子コンテンツとして分割線オーバーレイを渡す *@
-                    <div class="tile-overlay-container">
-                        @{
-                            var lines = GetTileDivisionLines();
-                            @foreach (var line in lines)
-                            {
-                                <div class="tile-division-line" style="@line"></div>
-                            }
-                        }
-                    </div>
-                </ThumbnailCard>
-                
-                <div class="absolute top-1 right-1 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold z-10">
-                    @LayoutNumber
-                </div>
-            </div>
-        }
-    }
-    else
-    {
-        @* 通常モード *@
-        @for (int i = 0; i < DisplayItems.Count; i++)
-        {
-            var item = DisplayItems[i];
-            
-            <ThumbnailCard 
-                @key="item.Id"
-                Item="@item" 
-                Index="@i" 
-                DisplayItemsCount="DisplayItems.Count"
-                Mode="CurrentDisplayMode"
-                SplitPositions="Array.Empty<int>()" 
-                OperationMode="OperationMode.Normal"
-                OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
-                OnSwapWithNext="OnSwapWithNext" 
-                OnReloadPageItem="ReloadPageItem" 
-                OnRemove="RemovePage"
-                OnRotate="idx => RotatePage(idx)"
-                OnDuplicate="DuplicateItem" />
-        }
-    }
+                }
+                else
+                {
+                    @* 通常モード *@
+                    @for (int i = 0; i < DisplayItems.Count; i++)
+                    {
+                        var item = DisplayItems[i];
+                        
+                        <ThumbnailCard 
+                            @key="item.Id"
+                            Item="@item" 
+                            Index="@i" 
+                            DisplayItemsCount="DisplayItems.Count"
+                            Mode="CurrentDisplayMode"
+                            SplitPositions="Array.Empty<int>()" 
+                            OperationMode="OperationMode.Normal"
+                            OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
+                            OnSwapWithNext="OnSwapWithNext" 
+                            OnReloadPageItem="ReloadPageItem" 
+                            OnRemove="RemovePage"
+                            OnRotate="idx => RotatePage(idx)"
+                            OnDuplicate="DuplicateItem" />
+                    }
+                }
 
-    <!-- 追加エリア -->
-    <FileAddArea
-        Position="@DisplayItems.Count"
-        OnInsertBlankPage="InsertBlankPage"
-        OnInsertPdfAtPosition="InsertPdfAtPosition"
-        OnAddFileClick="OpenFileDialog" />
-</div>
+                <!-- 追加エリア -->
+                <FileAddArea
+                    Position="@DisplayItems.Count"
+                    OnInsertBlankPage="InsertBlankPage"
+                    OnInsertPdfAtPosition="InsertPdfAtPosition"
+                    OnAddFileClick="OpenFileDialog" />
+            </div>
             }
         </div>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
@@ -428,28 +445,158 @@
     private bool IsTileMode => CurrentOperationMode == OperationMode.Tile;
     private int LayoutNumber { get; set; } = 2;
     private string TileDirection { get; set; } = "horizontal";
-    private string LayoutDirection { get; set; } = "horizontal";
-    
+    private string LayoutDirection { get; set; } = "forward";
+    private string OutputOrientation { get; set; } = "portrait"; // "portrait" or "landscape"
+
+    /// <summary>
+    /// 並び方向の説明
+    /// </summary>
+    private string GetDirectionDescription()
+    {
+        return LayoutDirection switch
+        {
+            "forward" => "左→右、上→下",
+            "reverse" => "右→左、下→上",
+            "reverse-horizontal" => "右→左、上→下",
+            "reverse-vertical" => "左→右、下→上",
+            _ => ""
+        };
+    }
+
+    /// <summary>
+    /// NアップでJSに渡すパラメータ
+    /// </summary>
+    private async Task ProcessNUp()
+{
+    try
+    {
+        await MessageService.ShowLoadingAsync($"{LayoutNumber}アップ処理中...");
+        
+        var groups = GetNUpGroups();
+        resultPdfInfos.Clear();
+        
+        foreach (var (group, index) in groups.Select((g, i) => (g, i)))
+        {
+            // ★ MergePageDto 配列を作成
+            var mergeData = group.Select(item => new MergePageDto
+            {
+                FileId = ((PageItem)item.RawData).FileId,
+                FileName = ((PageItem)item.RawData).FileName,
+                PageData = ((PageItem)item.RawData).PageData,
+                IsPdf = true,
+                RotateAngle = ((PageItem)item.RawData).RotateAngle % 360
+            }).ToList();
+            
+            // ★ createNUpPdf を呼び出し（4つのパラメータを渡す）
+            var url = await JSRuntime.InvokeAsync<string>(
+                "createNUpPdf", 
+                mergeData,           // pages
+                LayoutNumber,        // nup
+                LayoutDirection,     // direction
+                OutputOrientation    // orientation
+            );
+            
+            if (!string.IsNullOrEmpty(url))
+            {
+                var name = $"nup_{LayoutNumber}_{index + 1}_{DateTime.Now:yyyyMMddHHmm}.pdf";
+                var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                resultPdfInfos.Add(new ResultPdfInfo
+                {
+                    Url = url,
+                    Name = name,
+                    Size = size,
+                    PageCount = 1
+                });
+            }
+        }
+        
+        await FinalizeResult($"nup_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmm}.zip");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"NUp processing error: {ex.Message}");
+        _ = MessageService.ShowAsync($"{LayoutNumber}アップ処理中にエラーが発生しました。", MessageType.Error);
+    }
+    finally
+    {
+        await MessageService.HideLoadingAsync();
+    }
+}
+        
+    /// <summary>
+    /// Nアップコンテナのスタイル（A4比率で固定幅、用紙イメージ）
+    /// </summary>
+    private string GetNUpContainerStyle()
+    {
+        // 出力ページの向きに応じてA4比率を設定
+        if (OutputOrientation == "landscape")
+        {
+            // 横向き: 297:210 = 1.414:1
+            return "width: 400px; aspect-ratio: 297 / 210;";
+        }
+        else
+        {
+            // 縦向き: 210:297 = 1:1.414
+            return "width: 280px; aspect-ratio: 210 / 297;";
+        }
+    }
+
     /// <summary>
     /// Nアップのグリッドスタイルを生成（方向に応じて変更）
     /// </summary>
     private string GetNUpGridStyle()
     {
-        var isHorizontal = LayoutDirection == "horizontal";
+        // 出力ページの向きで行列の基準を決定
+        bool isLandscape = OutputOrientation == "landscape";
         
         return LayoutNumber switch
         {
-            2 => isHorizontal 
-                ? "grid-template-columns: repeat(2, 1fr);" 
-                : "grid-template-rows: repeat(2, 1fr);",
+            2 => isLandscape
+                ? "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr;"  // 横向き: 横2列
+                : "grid-template-columns: 1fr; grid-template-rows: repeat(2, 1fr);",    // 縦向き: 縦2行
+                
             4 => "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr);",
-            8 => isHorizontal
-                ? "grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr);"
-                : "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr);",
+            
+            8 => isLandscape
+                ? "grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr);"  // 横向き: 4列2行
+                : "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr);", // 縦向き: 2列4行
+                
             16 => "grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr);",
+            
             _ => "grid-template-columns: repeat(2, 1fr);"
         };
     }
+
+/// <summary>
+/// 並び方向に応じた視覚的な順序を計算
+/// </summary>
+private int GetVisualOrder(int index, int groupSize)
+{
+    var (rows, cols) = LayoutNumber switch
+    {
+        2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
+        4 => (2, 2),
+        8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
+        16 => (4, 4),
+        _ => (2, 1)
+    };
+    
+    int row = index / cols;
+    int col = index % cols;
+    
+    return LayoutDirection switch
+    {
+        "forward" => index,  // 左→右、上→下
+        
+        "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),  // 右→左、下→上
+        
+        "reverse-horizontal" => row * cols + (cols - 1 - col),  // 右→左、上→下
+        
+        "reverse-vertical" => (rows - 1 - row) * cols + col,  // 左→右、下→上
+        
+        _ => index
+    };
+}
 
     /// <summary>
     /// タイルの格子状分割線を生成
@@ -599,59 +746,6 @@
         }
     }
 
-    private async Task ProcessNUp()
-    {
-        try
-        {
-            await MessageService.ShowLoadingAsync($"{LayoutNumber}アップ処理中...");
-            
-            var allPages = PdfDataService.GetModel().Pages;
-            var groups = GetNUpGroups();
-            
-            resultPdfInfos.Clear();
-            
-            foreach (var (group, index) in groups.Select((g, i) => (g, i)))
-            {
-                // グループ内のページをNアップで1ページに結合
-                var mergeData = group.Select(item => new MergePageDto
-                {
-                    FileId = ((PageItem)item.RawData).FileId,
-                    FileName = ((PageItem)item.RawData).FileName,
-                    PageData = ((PageItem)item.RawData).PageData,
-                    IsPdf = true,
-                    RotateAngle = ((PageItem)item.RawData).RotateAngle % 360
-                }).ToList();
-                
-                // JSでNアップPDF生成（新しいJS関数が必要）
-                var url = await JSRuntime.InvokeAsync<string>("createNUpPdf", mergeData, LayoutNumber);
-                
-                if (!string.IsNullOrEmpty(url))
-                {
-                    var name = $"nup_{LayoutNumber}_{index + 1}_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                    var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                    resultPdfInfos.Add(new ResultPdfInfo
-                    {
-                        Url = url,
-                        Name = name,
-                        Size = size,
-                        PageCount = 1
-                    });
-                }
-            }
-            
-            // 結果表示処理
-            await FinalizeResult($"nup_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmm}.zip");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"NUp processing error: {ex.Message}");
-            _ = MessageService.ShowAsync($"{LayoutNumber}アップ処理中にエラーが発生しました。", MessageType.Error);
-        }
-        finally
-        {
-            await MessageService.HideLoadingAsync();
-        }
-    }
 
     private async Task ProcessTile()
     {
