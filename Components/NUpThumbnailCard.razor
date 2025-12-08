@@ -2,11 +2,12 @@
 
 @{
     PageItem? pageItem = Item.RawData as PageItem;
+    int angle = Item.RotateAngle % 360;
+    bool isRotated = (angle == 90 || angle == 270);
 }
 
-<div class="n-up-thumbnail-card" data-index="@Index">
-    <div class="group rounded w-full h-full relative">
-        <!-- サムネイル部分（縦横比を維持） -->
+<div class="n-up-thumbnail-card" data-index="@Index" @key="@($"{Item.Id}-{angle}")">
+    <div class="group rounded relative" style="@GetContainerStyle(angle)">
         <div class="relative w-full h-full flex items-center justify-center"
              @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
             @if (Item.IsLoading)
@@ -46,20 +47,12 @@
             }
             else if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
-                int angle = Item.RotateAngle % 360;
-                string rotateClass = angle switch
-                {
-                    0 => "rotate-0",
-                    90 => "rotate-90",
-                    180 => "rotate-180",
-                    270 => "rotate-270",
-                    _ => "rotate-0"
-                };
-                
+                <!-- ★ thumbnail-loaded クラスを削除（JS側で追加される） -->
                 <canvas id="thumb-@Item.Id"
                         data-thumbnail="@Item.Thumbnail"
                         data-item-id="@Item.Id"
-                        class="max-w-full max-h-full object-contain border border-gray-200 border-dashed @rotateClass thumbnail-loaded cursor-pointer"
+                        data-rotate-angle="@angle"
+                        class="w-full h-full object-contain border-dashed border border-gray-200 cursor-pointer"
                         draggable="false"
                         tabindex="-1" />
             }
@@ -69,7 +62,6 @@
                 <UnlockIcon Class="absolute top-1 left-1 w-4 h-4 text-yellow-500" />
             }
 
-            <!-- ホバー時の操作ボタン -->
             <div class="absolute top-1 right-1 bg-white shadow rounded p-0.5 flex flex-col gap-0.5 opacity-0 pointer-events-none transition-opacity duration-300 group-hover:opacity-100 group-hover:pointer-events-auto z-10"
                  @onclick:stopPropagation>
                 <button type="button" 
@@ -98,7 +90,6 @@
                 </button>
             </div>
 
-            <!-- ページ番号表示 -->
             <div class="absolute bottom-0.5 right-0.5 bg-black/60 text-white text-[8px] px-1 py-0.5 rounded">
                 @(Index + 1)
             </div>
@@ -114,4 +105,16 @@
     [Parameter] public EventCallback<int> OnRotate { get; set; }
     [Parameter] public EventCallback<int> OnRemove { get; set; }
     [Parameter] public EventCallback<DisplayItem> OnReloadPageItem { get; set; }
+
+    private string GetContainerStyle(int angle)
+    {
+        switch (angle)
+        {
+            case 90:
+            case 270:
+                return "width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;";
+            default:
+                return "width: 100%; height: 100%;";
+        }
+    }
 }

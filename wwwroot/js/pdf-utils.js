@@ -1723,3 +1723,96 @@ window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction) {
     // ...分割処理...
     return results;
 };
+
+/**
+ * ★ Nアップ用：回転対応の canvas 描画
+ */
+window.drawNUpCanvases = async function (containerId) {
+    console.log('[drawNUpCanvases] Start:', containerId);
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn('[drawNUpCanvases] Container not found:', containerId);
+        return;
+    }
+
+    // ★ セレクタを修正：thumbnail-loaded がついていても再描画する
+    const canvases = container.querySelectorAll('canvas[data-thumbnail]');
+    console.log('[drawNUpCanvases] Found canvases:', canvases.length);
+
+    for (const canvas of canvases) {
+        const base64 = canvas.getAttribute('data-thumbnail');
+        const rotateAngle = parseInt(canvas.getAttribute('data-rotate-angle') || '0', 10);
+        
+        console.log('[drawNUpCanvases] Processing canvas:', {
+            id: canvas.id,
+            hasBase64: !!base64,
+            rotateAngle
+        });
+        
+        if (base64) {
+            try {
+                // ★ thumbnail-loaded クラスを削除してから再描画
+                canvas.classList.remove('thumbnail-loaded');
+                await drawThumbnailToCanvasWithRotation(canvas, base64, rotateAngle);
+                canvas.classList.add('thumbnail-loaded');
+                console.log('[drawNUpCanvases] Successfully drawn:', canvas.id);
+            } catch (error) {
+                console.error('[drawNUpCanvases] Failed to draw thumbnail:', error, canvas.id);
+            }
+        }
+    }
+};
+
+/**
+ * Canvas に回転を適用して画像を描画
+ */
+async function drawThumbnailToCanvasWithRotation(canvas, base64Data, rotateAngle = 0) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = function () {
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error('Canvas context not available'));
+                return;
+            }
+
+            console.log('[drawThumbnailToCanvasWithRotation] Image loaded:', {
+                width: img.width,
+                height: img.height,
+                rotateAngle
+            });
+
+            // ★ 回転角度に応じて canvas サイズを調整
+            const isRotated = (rotateAngle === 90 || rotateAngle === 270);
+            const canvasWidth = isRotated ? img.height : img.width;
+            const canvasHeight = isRotated ? img.width : img.height;
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            ctx.save();
+
+            // ★ 回転の中心を設定
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.rotate((rotateAngle * Math.PI) / 180);
+            ctx.translate(-img.width / 2, -img.height / 2);
+
+            // 画像を描画
+            ctx.drawImage(img, 0, 0, img.width, img.height);
+            ctx.restore();
+
+            console.log('[drawThumbnailToCanvasWithRotation] Draw complete:', {
+                canvasWidth,
+                canvasHeight
+            });
+
+            resolve();
+        };
+        img.onerror = function (err) {
+            console.error('[drawThumbnailToCanvasWithRotation] Image load error:', err);
+            reject(new Error('Failed to load image'));
+        };
+        img.src = base64Data.startsWith('data:') ? base64Data : `data:image/png;base64,${base64Data}`;
+    });
+}

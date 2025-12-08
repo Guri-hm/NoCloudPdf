@@ -1304,23 +1304,31 @@ private int GetVisualOrder(int index, int groupSize)
         }
     }
 
-    // 回転処理
-    private Task RotatePage(int index, int angle = 90)
+    private async Task RotatePage(int index, int angle = 90)
+{
+    if (index >= 0 && index < DisplayItems.Count)
     {
-        if (index >= 0 && index < DisplayItems.Count)
+        try
         {
-            try
+            PdfDataService.RotateItem(index, angle);
+            
+            // ★ 再レンダリングをトリガー
+            StateHasChanged();
+            
+            // ★ Nアップモード時は OnAfterRenderAsync で canvas を再描画
+            if (IsNUpMode)
             {
-                PdfDataService.RotateItem(index, angle);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error rotating item {index}: {ex.Message}");
-                _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+                await Task.Delay(100); // DOM更新を待つ
+                await JSRuntime.InvokeVoidAsync("drawNUpCanvases", "sortable-container");
             }
         }
-        return Task.CompletedTask;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rotating item {index}: {ex.Message}");
+            _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+        }
     }
+}
 
     private Task RotateFile(string fileId)
     {
@@ -1704,7 +1712,15 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
 
         if (IsFilesLoaded && DisplayItems.Any())
         {
-            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
+            if (IsNUpMode)
+            {
+                await JSRuntime.InvokeVoidAsync("drawNUpCanvases", "sortable-container");
+            }
+            else
+            {
+                // 通常モード・タイルモード時は既存の drawVisibleCanvases を使用
+                await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
+            }
         }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
