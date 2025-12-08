@@ -47,7 +47,6 @@
             }
             else if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
-                <!-- ★ thumbnail-loaded クラスを削除（JS側で追加される） -->
                 <canvas id="thumb-@Item.Id"
                         data-thumbnail="@Item.Thumbnail"
                         data-item-id="@Item.Id"
@@ -62,31 +61,31 @@
                 <UnlockIcon Class="absolute top-1 left-1 w-4 h-4 text-yellow-500" />
             }
 
-            <div class="absolute top-1 right-1 bg-white shadow rounded p-0.5 flex flex-col gap-0.5 opacity-0 pointer-events-none transition-opacity duration-300 group-hover:opacity-100 group-hover:pointer-events-auto z-10"
+            <div class="absolute top-1 right-1 bg-white shadow rounded p-1 flex flex-col gap-1 opacity-0 pointer-events-none transition-opacity duration-300 group-hover:opacity-100 group-hover:pointer-events-auto z-10"
                  @onclick:stopPropagation>
                 <button type="button" 
-                        class="text-purple-500 hover:text-purple-700 p-0.5" 
+                        class="text-purple-500 hover:text-purple-700 p-1" 
                         title="拡大プレビュー"
                         @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
-                    <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+                    <i class="fa-solid fa-magnifying-glass-plus text-base"></i>
                 </button>
                 <button type="button" 
-                        class="text-green-500 hover:text-green-700 p-0.5" 
+                        class="text-green-500 hover:text-green-700 p-1" 
                         title="複製"
                         @onclick="() => OnDuplicate.InvokeAsync(Index)">
-                    <i class="fa-solid fa-copy text-xs"></i>
+                    <i class="fa-solid fa-copy text-base"></i>
                 </button>
                 <button type="button" 
-                        class="text-blue-500 hover:text-blue-700 p-0.5" 
+                        class="text-blue-500 hover:text-blue-700 p-1" 
                         title="回転"
                         @onclick="() => OnRotate.InvokeAsync(Index)">
-                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                    <i class="fa-solid fa-rotate-right text-base"></i>
                 </button>
                 <button type="button" 
-                        class="text-red-500 hover:text-red-700 p-0.5" 
+                        class="text-red-500 hover:text-red-700 p-1" 
                         title="削除"
                         @onclick="() => OnRemove.InvokeAsync(Index)">
-                    <i class="fa-solid fa-trash text-xs"></i>
+                    <i class="fa-solid fa-trash text-base"></i>
                 </button>
             </div>
 

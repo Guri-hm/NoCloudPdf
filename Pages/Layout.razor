@@ -134,7 +134,7 @@
             }
             @if (DisplayItems != null && DisplayItems.Any())
             {
-            <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-x-3 md:gap-y-[30px] md:p-6" id="sortable-container" @key="sortVersion">
+                <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-x-3 md:gap-y-[30px] md:p-6" id="sortable-container" @key="sortVersion">
                 @if (IsNUpMode)
                 {
                     var groups = GetNUpGroups();
@@ -142,12 +142,12 @@
                     
                     @foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
                     {
-                        <!-- ★ グループラッパーは可変幅 -->
+                        <!-- グループラッパー -->
                         <div class="n-up-group-wrapper">
                             <div class="n-up-group-header">
                                 グループ@(groupIndex + 1)
                             </div>
-                            <!-- ★ 固定幅コンテナ（用紙イメージ） -->
+                            <!-- 固定幅コンテナ（用紙イメージ） -->
                             <div class="n-up-group-content" style="@GetNUpContainerStyle()">
                                 <div class="n-up-grid" style="@GetNUpGridStyle()">
                                     @foreach (var (item, localIndex) in group.Select((it, idx) => (it, idx)))
@@ -172,53 +172,12 @@
                         </div>
                     }
                 }
-                else if (IsTileMode)
-                {
-                    @* タイルモード: 通常通り1ページずつ並び替え *@
-                    @for (int i = 0; i < DisplayItems.Count; i++)
-                    {
-                        var item = DisplayItems[i];
-                        
-                        <div class="sortable-item-container tile-item" data-index="@i">
-                            <ThumbnailCard 
-                                @key="item.Id"
-                                Item="@item" 
-                                Index="@i" 
-                                DisplayItemsCount="DisplayItems.Count"
-                                Mode="CurrentDisplayMode"
-                                SplitPositions="Array.Empty<int>()" 
-                                OperationMode="OperationMode.Normal"
-                                OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
-                                OnSwapWithNext="OnSwapWithNext" 
-                                OnReloadPageItem="ReloadPageItem" 
-                                OnRemove="RemovePage"
-                                OnRotate="idx => RotatePage(idx)"
-                                OnDuplicate="DuplicateItem">
-                                @* 子コンテンツとして分割線オーバーレイを渡す *@
-                                <div class="tile-overlay-container">
-                                    @{
-                                        var lines = GetTileDivisionLines();
-                                        @foreach (var line in lines)
-                                        {
-                                            <div class="tile-division-line" style="@line"></div>
-                                        }
-                                    }
-                                </div>
-                            </ThumbnailCard>
-                            
-                            <div class="absolute top-1 right-1 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold z-10">
-                                @LayoutNumber
-                            </div>
-                        </div>
-                    }
-                }
                 else
                 {
-                    @* 通常モード *@
+                    @* タイルモード *@
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var item = DisplayItems[i];
-                        
                         <ThumbnailCard 
                             @key="item.Id"
                             Item="@item" 
@@ -232,7 +191,19 @@
                             OnReloadPageItem="ReloadPageItem" 
                             OnRemove="RemovePage"
                             OnRotate="idx => RotatePage(idx)"
-                            OnDuplicate="DuplicateItem" />
+                            OnDuplicate="DuplicateItem">
+                            @* 子コンテンツとして分割線オーバーレイを渡す *@
+                            <div class="tile-overlay-container">
+                                @{
+                                    var lines = GetTileDivisionLines();
+                                    @foreach (var line in lines)
+                                    {
+                                        <div class="tile-division-line" style="@line"></div>
+                                    }
+                                }
+                            </div>
+                        </ThumbnailCard>
+
                     }
                 }
 
@@ -670,7 +641,7 @@ private int GetVisualOrder(int index, int groupSize)
             Label = "タイル",
             IconFragment = builder =>
             {
-                builder.OpenComponent(0, typeof(SplitIcon));
+                builder.OpenComponent(0, typeof(TileIcon));
                 builder.AddAttribute(1, "Class", "w-5 h-5");
                 builder.CloseComponent();
             }

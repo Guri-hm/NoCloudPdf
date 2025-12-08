@@ -42,3 +42,21 @@
         height: 100%;
         overflow: hidden;
     }
+
+    
+/* タイル分割線 */
+.tile-division-line {
+    position: absolute;
+    background-color: #ff6b6b;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* タイルオーバーレイコンテナ */
+.tile-overlay-container {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}
