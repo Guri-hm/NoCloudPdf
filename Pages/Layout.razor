@@ -157,7 +157,7 @@
                     @foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
                     {
                         <!-- グループラッパー -->
-                        <div class="n-up-group-wrapper" @key="@($"group-{groupIndex}-{NUpDirection}")">
+                        <div class="n-up-group-wrapper">
                             <div class="n-up-group-header">
                                 グループ@(groupIndex + 1)
                             </div>
@@ -168,8 +168,10 @@
                                     {
                                         var actualIndex = pageIndexCounter++;
                                         var visualOrder = GetVisualOrder(localIndex, group.Count);
-                                        <div style="order: @visualOrder;" class="n-up-cell" data-a="@($"{item.Id}-{visualOrder}")" @key="@($"{item.Id}-{visualOrder}-{NUpDirection}")">
-                                        
+                                        <div style="order: @visualOrder;" class="n-up-cell">
+                                        <div>
+                                            @visualOrder
+                                            </div>
                                             <NUpThumbnailCard 
                                                 @key="item.Id"
                                                 Item="@item" 
