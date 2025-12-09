@@ -6,7 +6,7 @@
     bool isRotated = (angle == 90 || angle == 270);
 }
 
-<div class="n-up-thumbnail-card" data-index="@Index" @key="@($"{Item.Id}-{angle}")">
+<div class="n-up-thumbnail-card" data-index="@Index">
     <div class="group rounded relative" style="@GetContainerStyle(angle)">
         <div class="relative w-full h-full flex items-center justify-center"
              @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
@@ -47,6 +47,7 @@
             }
             else if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
+                
                 <canvas id="thumb-@Item.Id"
                         data-thumbnail="@Item.Thumbnail"
                         data-item-id="@Item.Id"
@@ -60,6 +61,12 @@
             {
                 <UnlockIcon Class="absolute top-1 left-1 w-4 h-4 text-yellow-500" />
             }
+
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div class="text-blue-400/40 font-bold text-[80px] leading-none select-none">
+                    @(VisualOrder + 1)
+                </div>
+            </div>
 
             <div class="absolute top-1 right-1 bg-white shadow rounded p-1 flex flex-col gap-1 opacity-0 pointer-events-none transition-opacity duration-300 group-hover:opacity-100 group-hover:pointer-events-auto z-10"
                  @onclick:stopPropagation>
@@ -99,6 +106,7 @@
 @code {
     [Parameter] public DisplayItem Item { get; set; } = default!;
     [Parameter] public int Index { get; set; }
+    [Parameter] public int VisualOrder { get; set; }
     [Parameter] public EventCallback<(int fileIndex, int pageIndex)> OnShowPreview { get; set; }
     [Parameter] public EventCallback<int> OnDuplicate { get; set; }
     [Parameter] public EventCallback<int> OnRotate { get; set; }

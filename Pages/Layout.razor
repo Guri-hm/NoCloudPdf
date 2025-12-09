@@ -49,12 +49,15 @@
                         <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
                             <label class="text-sm font-semibold">並び方向:</label>
                             <select @bind="NUpDirection" class="border rounded px-2 py-1">
-                                <option value="forward">順方向</option>
-                                <option value="reverse">逆方向</option>
                                 @if (LayoutNumber >= 4)
                                 {
+                                    <option value="forward">順横方向</option>
+                                    <option value="forward-vertical">順縦方向</option>
                                     <option value="reverse-horizontal">逆横方向</option>
                                     <option value="reverse-vertical">逆縦方向</option>
+                                }else{
+                                    <option value="forward">順方向</option>
+                                    <option value="reverse">逆方向</option>
                                 }
                             </select>
                         </div>
@@ -154,7 +157,7 @@
                     @foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
                     {
                         <!-- グループラッパー -->
-                        <div class="n-up-group-wrapper">
+                        <div class="n-up-group-wrapper" @key="@($"group-{groupIndex}-{NUpDirection}")">
                             <div class="n-up-group-header">
                                 グループ@(groupIndex + 1)
                             </div>
@@ -165,12 +168,13 @@
                                     {
                                         var actualIndex = pageIndexCounter++;
                                         var visualOrder = GetVisualOrder(localIndex, group.Count);
+                                        <div style="order: @visualOrder;" class="n-up-cell" data-a="@($"{item.Id}-{visualOrder}")" @key="@($"{item.Id}-{visualOrder}-{NUpDirection}")">
                                         
-                                        <div style="order: @visualOrder;" class="n-up-cell">
                                             <NUpThumbnailCard 
                                                 @key="item.Id"
                                                 Item="@item" 
-                                                Index="@actualIndex" 
+                                                Index="@actualIndex"
+                                                VisualOrder="@visualOrder" 
                                                 OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                                                 OnDuplicate="DuplicateItem"
                                                 OnRotate="idx => RotatePage(idx)"
@@ -552,24 +556,40 @@
     /// </summary>
     private int GetVisualOrder(int index, int groupSize)
     {
+        // 2アップの場合
+        if (LayoutNumber == 2)
+        {
+            return NUpDirection switch
+            {
+                "forward" => index,      // [1][2]
+                "reverse" => 1 - index,  // [2][1]
+                _ => index
+            };
+        }
+
+        // 4アップ以上の場合
         var (rows, cols) = LayoutNumber switch
         {
-            2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
             4 => (2, 2),
             8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
             16 => (4, 4),
-            _ => (2, 1)
+            _ => (2, 2)
         };
         
         int row = index / cols;
         int col = index % cols;
         
-        return NUpDirection switch  // ★ NUpDirection を使用
+        return NUpDirection switch
         {
-            "forward" => index,
-            "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
-            "reverse-horizontal" => row * cols + (cols - 1 - col),
-            "reverse-vertical" => (rows - 1 - row) * cols + col,
+            "forward" => index,  // 順横方向: [1][2] / [3][4]
+            
+            "forward-vertical" => col * rows + row,  // 順縦方向: [1][3] / [2][4]
+            
+            "reverse-horizontal" => row * cols + (cols - 1 - col),  // 逆横方向: [2][1] / [4][3]
+            
+            // 逆縦方向: [3][1] / [4][2]
+            "reverse-vertical" => col * rows + (rows - 1 - row),
+            
             _ => index
         };
     }
@@ -1660,6 +1680,7 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        Console.WriteLine($"OnAfterRenderAsync called. FirstRender: {firstRender}");
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);

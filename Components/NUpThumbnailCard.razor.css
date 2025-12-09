@@ -10,7 +10,3 @@
     transition: transform 0.2s;
 }
 
-/* ホバー時に軽く拡大 */
-.n-up-thumbnail-card .group:hover {
-    z-index: 1;
-}

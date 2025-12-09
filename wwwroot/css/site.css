@@ -1888,6 +1888,9 @@ input[type=number] {
   .text-\[30px\] {
     font-size: 30px;
   }
+  .text-\[80px\] {
+    font-size: 80px;
+  }
   .leading-6 {
     --tw-leading: calc(var(--spacing) * 6);
     line-height: calc(var(--spacing) * 6);
@@ -1952,6 +1955,12 @@ input[type=number] {
   }
   .text-blue-400 {
     color: var(--color-blue-400);
+  }
+  .text-blue-400\/40 {
+    color: color-mix(in srgb, oklch(70.7% 0.165 254.624) 40%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-blue-400) 40%, transparent);
+    }
   }
   .text-blue-500 {
     color: var(--color-blue-500);

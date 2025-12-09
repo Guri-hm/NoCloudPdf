@@ -1728,34 +1728,25 @@ window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction) {
  * ★ Nアップ用：回転対応の canvas 描画
  */
 window.drawNUpCanvases = async function (containerId) {
-    console.log('[drawNUpCanvases] Start:', containerId);
     const container = document.getElementById(containerId);
     if (!container) {
         console.warn('[drawNUpCanvases] Container not found:', containerId);
         return;
     }
 
-    // ★ セレクタを修正：thumbnail-loaded がついていても再描画する
+    // セレクタを修正：thumbnail-loaded がついていても再描画する
     const canvases = container.querySelectorAll('canvas[data-thumbnail]');
-    console.log('[drawNUpCanvases] Found canvases:', canvases.length);
 
     for (const canvas of canvases) {
         const base64 = canvas.getAttribute('data-thumbnail');
         const rotateAngle = parseInt(canvas.getAttribute('data-rotate-angle') || '0', 10);
         
-        console.log('[drawNUpCanvases] Processing canvas:', {
-            id: canvas.id,
-            hasBase64: !!base64,
-            rotateAngle
-        });
-        
         if (base64) {
             try {
-                // ★ thumbnail-loaded クラスを削除してから再描画
+                // thumbnail-loaded クラスを削除してから再描画
                 canvas.classList.remove('thumbnail-loaded');
                 await drawThumbnailToCanvasWithRotation(canvas, base64, rotateAngle);
                 canvas.classList.add('thumbnail-loaded');
-                console.log('[drawNUpCanvases] Successfully drawn:', canvas.id);
             } catch (error) {
                 console.error('[drawNUpCanvases] Failed to draw thumbnail:', error, canvas.id);
             }
