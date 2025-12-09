@@ -168,15 +168,15 @@
                                     {
                                         var actualIndex = pageIndexCounter++;
                                         var visualOrder = GetVisualOrder(localIndex, group.Count);
+                                        
+                                        var displayNumber = GetDisplayNumber(localIndex, group.Count);
+                                        
                                         <div style="order: @visualOrder;" class="n-up-cell">
-                                        <div>
-                                            @visualOrder
-                                            </div>
                                             <NUpThumbnailCard 
                                                 @key="item.Id"
                                                 Item="@item" 
-                                                Index="@actualIndex"
-                                                VisualOrder="@visualOrder" 
+                                                Index="@actualIndex" 
+                                                VisualOrder="@displayNumber" 
                                                 OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
                                                 OnDuplicate="DuplicateItem"
                                                 OnRotate="idx => RotatePage(idx)"
@@ -451,6 +451,49 @@
         };
     }
 
+        /// <summary>
+    /// localIndex（グループ内のインデックス）から、セルの visual position を求め、
+    /// NUpDirection に応じた「表示番号（1始まり）」を返す。
+    /// </summary>
+    private int GetDisplayNumber(int localIndex, int groupSize)
+    {
+        // 行数・列数は GetVisualOrder と同じルールに合わせる
+        var (rows, cols) = LayoutNumber switch
+        {
+            2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
+            4 => (2, 2),
+            8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
+            16 => (4, 4),
+            _ => (2, 1)
+        };
+
+        // このアイテムが視覚的に配置される位置（0始まり）
+        int pos = GetVisualOrder(localIndex, groupSize);
+
+        int row = pos / cols;
+        int col = pos % cols;
+
+        // セル位置 (row, col) に対して、NUpDirection ごとの「連番（0始まり）」を計算
+        int seq = NUpDirection switch
+        {
+            // 左→右、上→下（行優先）
+            "forward" => row * cols + col,
+
+            // 右→左、下→上（行優先で反転）
+            "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
+
+            // 右→左、上→下（列は行を保ちつつ列反転）
+            "reverse-horizontal" => row * cols + (cols - 1 - col),
+
+            // 左→右、下→上（行反転）
+            "reverse-vertical" => (rows - 1 - row) * cols + col,
+
+            _ => row * cols + col
+        };
+
+        return seq + 1; // 1始まりで返す
+    }
+
     /// <summary>
     /// NアップでJSに渡すパラメータ
     /// </summary>
@@ -558,40 +601,24 @@
     /// </summary>
     private int GetVisualOrder(int index, int groupSize)
     {
-        // 2アップの場合
-        if (LayoutNumber == 2)
-        {
-            return NUpDirection switch
-            {
-                "forward" => index,      // [1][2]
-                "reverse" => 1 - index,  // [2][1]
-                _ => index
-            };
-        }
-
-        // 4アップ以上の場合
         var (rows, cols) = LayoutNumber switch
         {
+            2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
             4 => (2, 2),
             8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
             16 => (4, 4),
-            _ => (2, 2)
+            _ => (2, 1)
         };
         
         int row = index / cols;
         int col = index % cols;
         
-        return NUpDirection switch
+        return NUpDirection switch  // ★ NUpDirection を使用
         {
-            "forward" => index,  // 順横方向: [1][2] / [3][4]
-            
-            "forward-vertical" => col * rows + row,  // 順縦方向: [1][3] / [2][4]
-            
-            "reverse-horizontal" => row * cols + (cols - 1 - col),  // 逆横方向: [2][1] / [4][3]
-            
-            // 逆縦方向: [3][1] / [4][2]
-            "reverse-vertical" => col * rows + (rows - 1 - row),
-            
+            "forward" => index,
+            "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
+            "reverse-horizontal" => row * cols + (cols - 1 - col),
+            "reverse-vertical" => (rows - 1 - row) * cols + col,
             _ => index
         };
     }
@@ -1682,7 +1709,6 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Console.WriteLine($"OnAfterRenderAsync called. FirstRender: {firstRender}");
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
