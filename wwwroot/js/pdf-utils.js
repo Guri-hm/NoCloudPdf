@@ -1767,13 +1767,7 @@ async function drawThumbnailToCanvasWithRotation(canvas, base64Data, rotateAngle
                 return;
             }
 
-            console.log('[drawThumbnailToCanvasWithRotation] Image loaded:', {
-                width: img.width,
-                height: img.height,
-                rotateAngle
-            });
-
-            // ★ 回転角度に応じて canvas サイズを調整
+            // 回転角度に応じて canvas サイズを調整
             const isRotated = (rotateAngle === 90 || rotateAngle === 270);
             const canvasWidth = isRotated ? img.height : img.width;
             const canvasHeight = isRotated ? img.width : img.height;
@@ -1784,7 +1778,7 @@ async function drawThumbnailToCanvasWithRotation(canvas, base64Data, rotateAngle
             ctx.clearRect(0, 0, canvasWidth, canvasHeight);
             ctx.save();
 
-            // ★ 回転の中心を設定
+            // 回転の中心を設定
             ctx.translate(canvasWidth / 2, canvasHeight / 2);
             ctx.rotate((rotateAngle * Math.PI) / 180);
             ctx.translate(-img.width / 2, -img.height / 2);
@@ -1792,11 +1786,6 @@ async function drawThumbnailToCanvasWithRotation(canvas, base64Data, rotateAngle
             // 画像を描画
             ctx.drawImage(img, 0, 0, img.width, img.height);
             ctx.restore();
-
-            console.log('[drawThumbnailToCanvasWithRotation] Draw complete:', {
-                canvasWidth,
-                canvasHeight
-            });
 
             resolve();
         };
