@@ -1,0 +1,76 @@
+@typeparam TValue
+@using NoCloudPdf.Models
+
+<div class="relative inline-block">
+    <button type="button"
+            class="border rounded-lg px-3 bg-white text-gray-800 h-10 hover:bg-gray-100 flex items-center gap-2 whitespace-nowrap"
+            @onclick="ToggleMenu">
+        @if (!string.IsNullOrEmpty(Label))
+        {
+            <span class="text-sm font-semibold">@Label:</span>
+        }
+        @if (SelectedItem != null)
+        {
+            @if (SelectedItem.Icon != null)
+            {
+                @SelectedItem.Icon
+            }
+            <span>@SelectedItem.Label</span>
+        }
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" class="ml-2">
+            <polygon points="5,8 10,13 15,8" />
+        </svg>
+    </button>
+
+    @if (ShowMenu)
+    {
+        <div class="fixed inset-0 z-40" @onclick="CloseMenu" style="background:transparent;"></div>
+        <div class="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg z-50 border border-gray-300 w-full"
+             @onclick:stopPropagation>
+            @foreach (var item in Items)
+            {
+                <button type="button"
+                        class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 whitespace-nowrap flex items-center gap-2 @(EqualityComparer<TValue>.Default.Equals(item.Value, Value) ? "bg-blue-100 font-semibold" : "") first:rounded-t-lg last:rounded-b-lg"
+                        @onclick="() => OnItemClick(item)">
+                    @if (item.Icon != null)
+                    {
+                        @item.Icon
+                    }
+                    <span>@item.Label</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public TValue Value { get; set; } = default!;
+    [Parameter] public EventCallback<TValue> ValueChanged { get; set; }
+    [Parameter] public List<CustomSelectItem<TValue>> Items { get; set; } = new();
+    [Parameter] public string Label { get; set; } = "";
+
+    private bool ShowMenu { get; set; } = false;
+
+    private CustomSelectItem<TValue>? SelectedItem => 
+        Items.FirstOrDefault(x => EqualityComparer<TValue>.Default.Equals(x.Value, Value));
+
+    private async Task OnItemClick(CustomSelectItem<TValue> item)
+    {
+        ShowMenu = false;
+        if (!EqualityComparer<TValue>.Default.Equals(Value, item.Value))
+        {
+            Value = item.Value;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private void ToggleMenu()
+    {
+        ShowMenu = !ShowMenu;
+    }
+
+    private void CloseMenu()
+    {
+        ShowMenu = false;
+    }
+}

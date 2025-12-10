@@ -33,52 +33,46 @@
 
                     @if (IsNUpMode || IsTileMode)
                     {
-                        <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
-                            <label class="text-sm font-semibold">@(IsNUpMode ? "Nアップ" : "分割数"):</label>
-                            <select @bind="LayoutNumber" class="border rounded px-2 py-1">
-                                <option value="2">2</option>
-                                <option value="4">4</option>
-                                <option value="8">8</option>
-                                <option value="16">16</option>
-                            </select>
-                        </div>
+                        <CustomSelect TValue="int" 
+                            Value="@LayoutNumber" 
+                            ValueChanged="@((value) => LayoutNumber = value)"
+                            Items="@layoutNumberItems"
+                            Label="@(IsNUpMode ? "Nアップ" : "分割数")" />
                     }
                     @if (IsNUpMode)
                     {
-                        <!-- 並び方向 -->
-                        <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
-                            <label class="text-sm font-semibold">並び方向:</label>
-                            <select @bind="NUpDirection" class="border rounded px-2 py-1">
-                                @if (LayoutNumber >= 4)
-                                {
-                                    <option value="forward">順横方向</option>
-                                    <option value="forward-vertical">順縦方向</option>
-                                    <option value="reverse-horizontal">逆横方向</option>
-                                    <option value="reverse-vertical">逆縦方向</option>
-                                }else{
-                                    <option value="forward">順方向</option>
-                                    <option value="reverse">逆方向</option>
-                                }
-                            </select>
-                        </div>
+                        <!-- 並び方向 -->                           
+                        @if (LayoutNumber >= 4)
+                        {
+                            <CustomSelect TValue="string" 
+                                        Value="@NUpDirection" 
+                                        ValueChanged="@((value) => NUpDirection = value)"
+                                        Items="@nUpDirectionItems4"
+                                        Label="並び方向" />
+                        }
+                        else
+                        {
+                            <CustomSelect TValue="string" 
+                                        Value="@NUpDirection" 
+                                        ValueChanged="@((value) => NUpDirection = value)"
+                                        Items="@nUpDirectionItems2"
+                                        Label="並び方向" />
+                        }
 
                         <!-- 出力ページの向き -->
-                        <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
-                            <label class="text-sm font-semibold">出力ページの向き:</label>
-                            <select @bind="OutputOrientation" class="border rounded px-2 py-1">
-                                <option value="portrait">縦</option>
-                                <option value="landscape">横</option>
-                            </select>
-                        </div>
+                        <CustomSelect TValue="string" 
+                                    Value="@OutputOrientation" 
+                                    ValueChanged="@((value) => OutputOrientation = value)"
+                                    Items="@orientationItems"
+                                    Label="ページの向き" />
+
                     }else{
                         <!-- 分割方向（タイル専用） -->
-                        <div class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded">
-                            <label class="text-sm font-semibold">最初の分割:</label>
-                            <select @bind="TileDirection" class="border rounded px-2 py-1">
-                                 <option value="horizontal">横（上→下）</option>
-                                <option value="vertical">縦（左→右）</option>
-                            </select>
-                        </div>
+                        <CustomSelect TValue="string" 
+                                    Value="@TileDirection" 
+                                    ValueChanged="@((value) => TileDirection = value)"
+                                    Items="@tileDirectionItems"
+                                    Label="最初の分割" />
                     }
 
                     <!-- 回転ボタングループ -->
@@ -170,10 +164,6 @@
                                         var visualOrder = GetVisualOrder(localIndex, group.Count);
                                         
                                         var displayNumber = GetDisplayNumber(localIndex, group.Count);
-
-                                            Console.WriteLine($"NUpDirection:{NUpDirection}");
-
-                                            Console.WriteLine($"visualOrder:{visualOrder}, displayNumber:   {displayNumber}");
 
                                         <div style="order: @visualOrder;" class="n-up-cell">
                                             @if (item == null)
@@ -443,10 +433,148 @@
     private OperationMode CurrentOperationMode = OperationMode.NUp;
     private bool IsNUpMode => CurrentOperationMode == OperationMode.NUp;
     private bool IsTileMode => CurrentOperationMode == OperationMode.Tile;
-    private int LayoutNumber { get; set; } = 2;
+    private int _previousLayoutNumber = 2;
+    
+    private int LayoutNumber 
+    { 
+        get => _layoutNumber;
+        set
+        {
+            if (_layoutNumber != value)
+            {
+                _previousLayoutNumber = _layoutNumber;
+                _layoutNumber = value;
+                OnLayoutNumberChanged();
+            }
+        }
+    }
+    private int _layoutNumber = 2;
+    
+    private void OnLayoutNumberChanged()
+    {
+        // 2アップ→4アップ以上、または 4アップ以上→2アップに変更された場合
+        bool wasSimple = _previousLayoutNumber < 4;
+        bool isSimple = _layoutNumber < 4;
+        
+        if (wasSimple != isSimple)
+        {
+            // 選択肢が変わるため、NUpDirectionをデフォルト値にリセット
+            if (isSimple)
+            {
+                // 4アップ以上→2アップ: "forward-vertical" などは無効なので "forward" にリセット
+                if (NUpDirection != "forward" && NUpDirection != "reverse")
+                {
+                    NUpDirection = "forward";
+                }
+            }
+            else
+            {
+                // 2アップ→4アップ以上: "forward" はそのまま使える
+                if (NUpDirection == "reverse")
+                {
+                    // "reverse" → "reverse-horizontal" または "forward" に変換
+                    NUpDirection = "forward";
+                }
+            }
+        }
+    }
     private string NUpDirection { get; set; } = "forward";
     private string TileDirection { get; set; } = "horizontal";
     private string OutputOrientation { get; set; } = "portrait"; // "portrait" or "landscape"
+
+    private List<CustomSelectItem<string>> nUpDirectionItems4 => new()
+    {
+        new CustomSelectItem<string>
+        {
+            Value = "forward",
+            Label = "順横方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconHorizontalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "forward-vertical",
+            Label = "順縦方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconVerticalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "reverse-horizontal",
+            Label = "逆横方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconReverseHorizontalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "reverse-vertical",
+            Label = "逆縦方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconReverseVerticalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        }
+    };
+
+    private List<CustomSelectItem<string>> nUpDirectionItems2 => new()
+    {
+        new CustomSelectItem<string>
+        {
+            Value = "forward",
+            Label = "順方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconForwardIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "reverse",
+            Label = "逆方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconReverseIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        }
+    };
+
+    private List<CustomSelectItem<string>> orientationItems => new()
+    {
+        new CustomSelectItem<string> { Value = "portrait", Label = "縦" },
+        new CustomSelectItem<string> { Value = "landscape", Label = "横" }
+    };
+
+    private List<CustomSelectItem<string>> tileDirectionItems => new()
+    {
+        new CustomSelectItem<string> { Value = "horizontal", Label = "横（上→下）" },
+        new CustomSelectItem<string> { Value = "vertical", Label = "縦（左→右）" }
+    };
+
+    private List<CustomSelectItem<int>> layoutNumberItems => new()
+    {
+        new CustomSelectItem<int> { Value = 2, Label = "2" },
+        new CustomSelectItem<int> { Value = 4, Label = "4" },
+        new CustomSelectItem<int> { Value = 8, Label = "8" },
+        new CustomSelectItem<int> { Value = 16, Label = "16" }
+    };    
 
     /// <summary>
     /// 並び方向の説明（Nアップ用）
