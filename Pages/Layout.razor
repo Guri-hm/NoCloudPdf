@@ -170,7 +170,11 @@
                                         var visualOrder = GetVisualOrder(localIndex, group.Count);
                                         
                                         var displayNumber = GetDisplayNumber(localIndex, group.Count);
-                                        
+
+                                            Console.WriteLine($"NUpDirection:{NUpDirection}");
+
+                                            Console.WriteLine($"visualOrder:{visualOrder}, displayNumber:   {displayNumber}");
+
                                         <div style="order: @visualOrder;" class="n-up-cell">
                                             <NUpThumbnailCard 
                                                 @key="item.Id"
@@ -450,10 +454,10 @@
             _ => ""
         };
     }
-
-        /// <summary>
-    /// localIndex（グループ内のインデックス）から、セルの visual position を求め、
-    /// NUpDirection に応じた「表示番号（1始まり）」を返す。
+    
+    /// <summary>
+    // localIndex（グループ内のインデックス）から、セルの visual position を求め、
+    // NUpDirection に応じた「表示番号（1始まり）」を返す。
     /// </summary>
     private int GetDisplayNumber(int localIndex, int groupSize)
     {
@@ -466,32 +470,59 @@
             16 => (4, 4),
             _ => (2, 1)
         };
-
-        // このアイテムが視覚的に配置される位置（0始まり）
+        // このアイテムが視覚的に配置される位置（0始まり、行優先スキャンでのセル番号）
         int pos = GetVisualOrder(localIndex, groupSize);
 
-        int row = pos / cols;
-        int col = pos % cols;
+        // 目的の「番号付け順（セルの pos を並べたリスト）」を方向ごとに作る
+        var order = new List<int>(groupSize);
 
-        // セル位置 (row, col) に対して、NUpDirection ごとの「連番（0始まり）」を計算
-        int seq = NUpDirection switch
+        switch (NUpDirection)
         {
             // 左→右、上→下（行優先）
-            "forward" => row * cols + col,
+            case "forward":
+                for (int r = 0; r < rows; r++)
+                    for (int c = 0; c < cols; c++)
+                        order.Add(r * cols + c);
+                break;
 
-            // 右→左、下→上（行優先で反転）
-            "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
+            // 上→下、左→右（列優先）
+            case "forward-vertical":
+                for (int c = 0; c < cols; c++)
+                    for (int r = 0; r < rows; r++)
+                        order.Add(r * cols + c);
+                break;
 
-            // 右→左、上→下（列は行を保ちつつ列反転）
-            "reverse-horizontal" => row * cols + (cols - 1 - col),
+            // 右→左、上→下（行ごとに列を反転）
+            case "reverse-horizontal":
+                for (int r = 0; r < rows; r++)
+                    for (int c = cols - 1; c >= 0; c--)
+                        order.Add(r * cols + c);
+                break;
 
-            // 左→右、下→上（行反転）
-            "reverse-vertical" => (rows - 1 - row) * cols + col,
+            // 左→右、下→上（列ごとに行を反転）
+            case "reverse-vertical":
+                for (int c = cols - 1; c >= 0; c--)
+                    for (int r = 0; r < rows; r++)
+                        order.Add(r * cols + c);
+                break;
 
-            _ => row * cols + col
-        };
+            // 完全逆順 
+            case "reverse":
+                for (int r = rows - 1; r >= 0; r--)
+                    for (int c = cols - 1; c >= 0; c--)
+                        order.Add(r * cols + c);
+                break;
 
-        return seq + 1; // 1始まりで返す
+            default:
+                for (int r = 0; r < rows; r++)
+                    for (int c = 0; c < cols; c++)
+                        order.Add(r * cols + c);
+                break;
+        }
+
+        // pos が order 内のどの位置にあるかを探す（0始まり）して 1始まりで返す
+        int idx = order.IndexOf(pos);
+        return (idx >= 0) ? (idx + 1) : (pos + 1);
     }
 
     /// <summary>
