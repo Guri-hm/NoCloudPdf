@@ -176,16 +176,24 @@
                                             Console.WriteLine($"visualOrder:{visualOrder}, displayNumber:   {displayNumber}");
 
                                         <div style="order: @visualOrder;" class="n-up-cell">
-                                            <NUpThumbnailCard 
-                                                @key="item.Id"
-                                                Item="@item" 
-                                                Index="@actualIndex" 
-                                                VisualOrder="@displayNumber" 
-                                                OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
-                                                OnDuplicate="DuplicateItem"
-                                                OnRotate="idx => RotatePage(idx)"
-                                                OnRemove="RemovePage"
-                                                OnReloadPageItem="ReloadPageItem" />
+                                            @if (item == null)
+                                            {
+                                                <!-- 空セル（何も表示しない） -->
+                                                <div class="w-full h-full bg-gray-50"></div>
+                                            }
+                                            else
+                                            {
+                                                <NUpThumbnailCard 
+                                                    @key="item.Id"
+                                                    Item="@item" 
+                                                    Index="@actualIndex" 
+                                                    VisualOrder="@displayNumber" 
+                                                    OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
+                                                    OnDuplicate="DuplicateItem"
+                                                    OnRotate="idx => RotatePage(idx)"
+                                                    OnRemove="RemovePage"
+                                                    OnReloadPageItem="ReloadPageItem" />
+                                            }
                                         </div>
                                     }
                                 </div>
@@ -499,7 +507,7 @@
                         order.Add(r * cols + c);
                 break;
 
-            // 左→右、下→上（列ごとに行を反転）
+            // 逆縦方向は「右の列から順に、各列は上→下」
             case "reverse-vertical":
                 for (int c = cols - 1; c >= 0; c--)
                     for (int r = 0; r < rows; r++)
@@ -644,12 +652,23 @@
         int row = index / cols;
         int col = index % cols;
         
-        return NUpDirection switch  // ★ NUpDirection を使用
+        return NUpDirection switch
         {
+            // 左→右、上→下
             "forward" => index,
+            
+            // 右→左、下→上
             "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
+            
+            // 右→左、上→下
             "reverse-horizontal" => row * cols + (cols - 1 - col),
-            "reverse-vertical" => (rows - 1 - row) * cols + col,
+            
+            // 上→下、左→右
+            "forward-vertical" => col * rows + row,
+            
+            // 右の列から順に、各列は上→下
+            "reverse-vertical" => (row * cols) + (cols - 1 - col),
+            
             _ => index
         };
     }
@@ -758,6 +777,10 @@
         
         if (currentGroup.Any())
         {
+            while (currentGroup.Count < LayoutNumber)
+            {
+                currentGroup.Add(null);
+            }
             groups.Add(currentGroup);
         }
         
