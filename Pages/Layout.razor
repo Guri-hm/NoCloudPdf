@@ -211,8 +211,24 @@
                             OnRemove="RemovePage"
                             OnRotate="idx => RotatePage(idx)"
                             OnDuplicate="DuplicateItem">
+                            @{
+                                int angle = item.RotateAngle % 360;
+                                string rotateClass = angle switch
+                                {
+                                    0 => "rotate-0",
+                                    90 => "rotate-90",
+                                    180 => "rotate-180",
+                                    270 => "rotate-270",
+                                    _ => "rotate-0"
+                                };
+                                double scale = (angle == 90 || angle == 270)
+                                    ? Math.Min(96.0 / 128.0, 128.0 / 96.0)
+                                    : 1.0;
+                                string transform = $"scale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
+                            }
+
                             @* 子コンテンツとして分割線オーバーレイを渡す *@
-                            <div class="tile-overlay-container">
+                            <div class="tile-overlay-container @rotateClass" style="transform: @transform;">
                                 @{
                                     var lines = GetTileDivisionLines();
                                     @foreach (var line in lines)
@@ -221,6 +237,7 @@
                                     }
                                 }
                             </div>
+
                         </ThumbnailCard>
 
                     }
