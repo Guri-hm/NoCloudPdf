@@ -189,6 +189,7 @@
                                     {
                                         var actualIndex = pageIndexCounter++;
                                         var visualOrder = GetVisualOrder(localIndex, group.Count);
+                                        Console.WriteLine($"localIndex: {localIndex}, group.Count: {group.Count}, visualOrder: {visualOrder}");
                                         
                                         var displayNumber = GetDisplayNumber(localIndex, group.Count);
 
@@ -200,6 +201,7 @@
                                             }
                                             else
                                             {
+                                                Console.WriteLine($"item.PageInfo: {item.PageInfo}");
                                                 <NUpThumbnailCard 
                                                     @key="item.Id"
                                                     Item="@item" 
@@ -876,7 +878,14 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         "reverse-horizontal" => row * cols + (cols - 1 - col),
         
         // 右の列から順に、各列は上→下
-        "reverse-vertical" => (cols - 1 - col) * rows + row,
+        "reverse-vertical" => sourceIndex switch
+        {
+            0 => 1,  // 左上 → 右上の位置（order=1）
+            1 => 3,  // 右上 → 右下の位置（order=3）
+            2 => 0,  // 左下 → 左上の位置（order=0）
+            3 => 2,  // 右下 → 左下の位置（order=2）
+            _ => (col == 0 ? 1 : 0) + row * 2  // 8アップ以上用の汎用式
+        },
         
         // 右→左、下→上
         "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
