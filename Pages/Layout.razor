@@ -26,7 +26,11 @@
                     <ActionButtonGroup T="string" Actions="resetActions" />
 
                     <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
-                    <h1 class="hidden md:inline text-lg font-bold">レイアウト</h1>
+                    <h1 class="hidden md:inline text-lg font-bold">レイアウト
+                        <Tooltip Text="@layoutTooltip">
+                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                        </Tooltip>
+                    </h1>
 
                     <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="CurrentModeString"
                         OnClick="OnToggleMode" />
@@ -401,6 +405,7 @@
 <BookmarkSelectionDialog />
 
 @code {
+    private string layoutTooltip = "Nアップ：複数ページを1枚に集約して出力します。順序・向き・N数を指定可。\nタイル：ページを指定数のタイルに分割して出力します。";
 
     protected override void OnInitialized()
     {
