@@ -1536,59 +1536,86 @@ window.drawVisibleCanvases = function(containerId) {
     });
 };
 
-window.createNUpPdf = async function (pages, nup, direction, orientation) {
+/**
+ * Nアップ PDF 生成（元ページサイズに基づく出力サイズ計算）
+ */
+window.createNUpPdf = async function (pages, nup, direction, orientation, showDividers = false) {
     try {
-        const { PDFDocument, degrees } = PDFLib;
+        const { PDFDocument, rgb, degrees } = PDFLib;
         
-        // 出力用PDF作成
         const outputPdf = await PDFDocument.create();
         
-        // 出力ページサイズ（A4）
-        const A4_WIDTH = 595.28;  // pt
-        const A4_HEIGHT = 841.89; // pt
+        // ページをロード（埋め込みページとして保持）
+        const embeddedPages = [];
         
-        const pageWidth = orientation === 'landscape' ? A4_HEIGHT : A4_WIDTH;
-        const pageHeight = orientation === 'landscape' ? A4_WIDTH : A4_HEIGHT;
-        
-        // グリッド計算
-        const { rows, cols } = getNUpGrid(nup);
-        const cellWidth = pageWidth / cols;
-        const cellHeight = pageHeight / rows;
-        
-        // ページをロード
-        const loadedPages = [];
         for (const pageData of pages) {
             try {
-                // ★ PageData (大文字) を使用
-                const pdfBytes = base64ToUint8Array(pageData.PageData);
-                const pdf = await PDFDocument.load(pdfBytes);
-                const [page] = await outputPdf.copyPages(pdf, [0]);
+                const pdfBytes = base64ToUint8Array(pageData.pageData);
+                const tempPdf = await PDFDocument.load(pdfBytes);
                 
-                // ★ 回転角度を適用
-                if (pageData.RotateAngle && pageData.RotateAngle % 360 !== 0) {
-                    const currentRotation = page.getRotation().angle;
-                    page.setRotation(degrees((currentRotation + pageData.RotateAngle) % 360));
-                }
+                // ★ 修正：embedPdf で埋め込みページを取得
+                const [embeddedPage] = await outputPdf.embedPdf(tempPdf, [0]);
                 
-                loadedPages.push(page);
+                embeddedPages.push({
+                    page: embeddedPage,
+                    rotateAngle: pageData.rotateAngle || 0
+                });
             } catch (error) {
-                console.error('Error loading page:', error);
-                throw error;
+                console.error('Error loading page:', error, pageData);
+                embeddedPages.push(null);
             }
         }
         
+        // グリッド計算
+        const { rows, cols } = getNUpGrid(nup, orientation);
+        
+        // 元ページの平均サイズを計算（null以外のページから）
+        const validPages = embeddedPages.filter(p => p !== null);
+        if (validPages.length === 0) {
+            throw new Error('No valid pages to process');
+        }
+        
+        let totalWidth = 0;
+        let totalHeight = 0;
+        validPages.forEach(item => {
+            totalWidth += item.page.width;
+            totalHeight += item.page.height;
+        });
+        
+        const avgWidth = totalWidth / validPages.length;
+        const avgHeight = totalHeight / validPages.length;
+        
+        // Nアップ後の出力ページサイズを計算
+        const pageWidth = avgWidth * cols;
+        const pageHeight = avgHeight * rows;
+        const cellWidth = pageWidth / cols;
+        const cellHeight = pageHeight / rows;
+        
         // 並び順を決定
-        const orderedIndices = getPageOrder(loadedPages.length, rows, cols, direction);
+        const orderedIndices = getPageOrder(embeddedPages.length, rows, cols, direction);
         
         // 新しいページを作成してNアップ配置
         const outputPage = outputPdf.addPage([pageWidth, pageHeight]);
         
+        // 背景を白で塗りつぶし
+        outputPage.drawRectangle({
+            x: 0,
+            y: 0,
+            width: pageWidth,
+            height: pageHeight,
+            color: rgb(1, 1, 1)
+        });
+        
         for (let i = 0; i < orderedIndices.length; i++) {
             const pageIndex = orderedIndices[i];
-            if (pageIndex >= loadedPages.length) continue;
+            if (pageIndex >= embeddedPages.length || embeddedPages[pageIndex] === null) {
+                continue;
+            }
             
-            const page = loadedPages[pageIndex];
-            const { width, height } = page.getSize();
+            const item = embeddedPages[pageIndex];
+            const embeddedPage = item.page;
+            const width = embeddedPage.width;
+            const height = embeddedPage.height;
             
             // 配置位置計算
             const { x, y } = getCellPosition(i, rows, cols, cellWidth, cellHeight, direction);
@@ -1602,12 +1629,40 @@ window.createNUpPdf = async function (pages, nup, direction, orientation) {
             const offsetX = (cellWidth - width * scale) / 2;
             const offsetY = (cellHeight - height * scale) / 2;
             
-            outputPage.drawPage(page, {
+            // ★ embedPdf で取得した埋め込みページを描画
+            outputPage.drawPage(embeddedPage, {
                 x: x + offsetX,
                 y: y + offsetY,
                 width: width * scale,
                 height: height * scale
             });
+        }
+        
+        // 仕切り線を描画
+        if (showDividers) {
+            // 縦線
+            for (let c = 1; c < cols; c++) {
+                const lineX = c * cellWidth;
+                outputPage.drawLine({
+                    start: { x: lineX, y: 0 },
+                    end: { x: lineX, y: pageHeight },
+                    thickness: 1,
+                    color: rgb(0.7, 0.7, 0.7),
+                    opacity: 0.5
+                });
+            }
+            
+            // 横線
+            for (let r = 1; r < rows; r++) {
+                const lineY = r * cellHeight;
+                outputPage.drawLine({
+                    start: { x: 0, y: lineY },
+                    end: { x: pageWidth, y: lineY },
+                    thickness: 1,
+                    color: rgb(0.7, 0.7, 0.7),
+                    opacity: 0.5
+                });
+            }
         }
         
         const pdfBytes = await outputPdf.save();
@@ -1620,15 +1675,22 @@ window.createNUpPdf = async function (pages, nup, direction, orientation) {
 };
 
 /**
- * Nアップのグリッド（行×列）を取得
+ * Nアップのグリッド（行×列）を取得（orientation対応）
  */
-function getNUpGrid(nup) {
+function getNUpGrid(nup, orientation) {
+    const isLandscape = orientation === 'landscape';
+    
     switch (nup) {
-        case 2: return { rows: 2, cols: 1 };
-        case 4: return { rows: 2, cols: 2 };
-        case 8: return { rows: 4, cols: 2 };
-        case 16: return { rows: 4, cols: 4 };
-        default: return { rows: 2, cols: 1 };
+        case 2:
+            return isLandscape ? { rows: 1, cols: 2 } : { rows: 2, cols: 1 };
+        case 4:
+            return { rows: 2, cols: 2 };
+        case 8:
+            return isLandscape ? { rows: 2, cols: 4 } : { rows: 4, cols: 2 };
+        case 16:
+            return { rows: 4, cols: 4 };
+        default:
+            return { rows: 2, cols: 1 };
     }
 }
 
@@ -1648,9 +1710,9 @@ function getPageOrder(pageCount, rows, cols, direction) {
                     index = row * cols + col;
                     break;
                     
-                case 'reverse':
-                    // 右→左、下→上
-                    index = (rows - 1 - row) * cols + (cols - 1 - col);
+                case 'forward-vertical':
+                    // 上→下、左→右（列優先）
+                    index = col * rows + row;
                     break;
                     
                 case 'reverse-horizontal':
@@ -1659,8 +1721,13 @@ function getPageOrder(pageCount, rows, cols, direction) {
                     break;
                     
                 case 'reverse-vertical':
-                    // 左→右、下→上
-                    index = (rows - 1 - row) * cols + col;
+                    // 右の列から上→下
+                    index = (cols - 1 - col) * rows + row;
+                    break;
+                    
+                case 'reverse':
+                    // 右→左、下→上
+                    index = (rows - 1 - row) * cols + (cols - 1 - col);
                     break;
                     
                 default:
@@ -1677,7 +1744,7 @@ function getPageOrder(pageCount, rows, cols, direction) {
 }
 
 /**
- * セルの座標を取得
+ * セルの座標を取得（PDF座標系：左下原点）
  */
 function getCellPosition(index, rows, cols, cellWidth, cellHeight, direction) {
     let row, col;
@@ -1688,9 +1755,9 @@ function getCellPosition(index, rows, cols, cellWidth, cellHeight, direction) {
             col = index % cols;
             break;
             
-        case 'reverse':
-            row = rows - 1 - Math.floor(index / cols);
-            col = cols - 1 - (index % cols);
+        case 'forward-vertical':
+            col = Math.floor(index / rows);
+            row = index % rows;
             break;
             
         case 'reverse-horizontal':
@@ -1699,8 +1766,13 @@ function getCellPosition(index, rows, cols, cellWidth, cellHeight, direction) {
             break;
             
         case 'reverse-vertical':
+            col = cols - 1 - Math.floor(index / rows);
+            row = index % rows;
+            break;
+            
+        case 'reverse':
             row = rows - 1 - Math.floor(index / cols);
-            col = index % cols;
+            col = cols - 1 - (index % cols);
             break;
             
         default:
@@ -1715,17 +1787,156 @@ function getCellPosition(index, rows, cols, cellWidth, cellHeight, direction) {
     return { x, y };
 }
 
-// タイル分割用
-window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction) {
-    // 1ページを複数に分割
-    // 実装は複雑になるため、概要のみ示します
-    const results = [];
-    // ...分割処理...
-    return results;
+/**
+ * PDFページをタイル分割（ラスタ化オプション対応）
+ */
+window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction, rasterize = false) {
+    try {
+        const { PDFDocument } = PDFLib;
+        const uint8Array = base64ToUint8Array(pageData);
+        const srcPdf = await PDFDocument.load(uint8Array);
+        const srcPage = srcPdf.getPage(0);
+        const { width, height } = srcPage.getSize();
+        
+        // グリッド計算
+        const { rows, cols } = getTileGrid(tileCount, direction);
+        const tileWidth = width / cols;
+        const tileHeight = height / rows;
+        
+        const results = [];
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const x = col * tileWidth;
+                const y = height - (row + 1) * tileHeight; // PDF座標系
+                
+                let tileUrl;
+                if (rasterize) {
+                    // ★ ラスタ化：指定領域を画像として抽出してPDF化
+                    tileUrl = await createRasterizedTile(uint8Array, x, y, tileWidth, tileHeight, width, height);
+                } else {
+                    // ★ ベクトル：CropBox でトリミング
+                    tileUrl = await createVectorTile(srcPdf, x, y, tileWidth, tileHeight);
+                }
+                
+                if (tileUrl) {
+                    results.push(tileUrl);
+                }
+            }
+        }
+        
+        return results;
+    } catch (error) {
+        console.error('splitPdfPageIntoTiles error:', error);
+        throw error;
+    }
 };
 
 /**
- * ★ Nアップ用：回転対応の canvas 描画
+ * タイルのグリッド（行×列）を取得
+ */
+function getTileGrid(tileCount, direction) {
+    const isHorizontal = direction === 'horizontal';
+    
+    switch (tileCount) {
+        case 2:
+            return isHorizontal ? { rows: 2, cols: 1 } : { rows: 1, cols: 2 };
+        case 4:
+            return { rows: 2, cols: 2 };
+        case 8:
+            return isHorizontal ? { rows: 4, cols: 2 } : { rows: 2, cols: 4 };
+        case 16:
+            return { rows: 4, cols: 4 };
+        default:
+            return { rows: 2, cols: 2 };
+    }
+}
+
+/**
+ * ベクトルタイル生成（CropBox使用）
+ */
+async function createVectorTile(srcPdf, x, y, w, h) {
+    try {
+        const { PDFDocument, PDFName } = PDFLib;
+        const outputPdf = await PDFDocument.create();
+        const [copiedPage] = await outputPdf.copyPages(srcPdf, [0]);
+        outputPdf.addPage(copiedPage);
+        
+        // CropBox を設定
+        copiedPage.node.set(PDFName.of('CropBox'), outputPdf.context.obj([
+            Math.round(x),
+            Math.round(y),
+            Math.round(x + w),
+            Math.round(y + h)
+        ]));
+        
+        const pdfBytes = await outputPdf.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        return URL.createObjectURL(blob);
+    } catch (error) {
+        console.error('createVectorTile error:', error);
+        return null;
+    }
+}
+
+/**
+ * ラスタ化タイル生成（画像化）
+ */
+async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeight) {
+    try {
+        const pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(1);
+        
+        const scale = 2.0; // 高解像度
+        const viewport = page.getViewport({ scale, rotation: 0 });
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(viewport.width));
+        canvas.height = Math.max(1, Math.round(viewport.height));
+        
+        const ctx = canvas.getContext('2d', { alpha: false });
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        
+        // PDF座標をCanvas座標に変換
+        const scaleX = canvas.width / pageWidth;
+        const scaleY = canvas.height / pageHeight;
+        
+        const sx = Math.round(x * scaleX);
+        const sy = Math.round((pageHeight - y - h) * scaleY); // Y座標反転
+        const sw = Math.max(1, Math.round(w * scaleX));
+        const sh = Math.max(1, Math.round(h * scaleY));
+        
+        // 指定領域を切り出し
+        const tileCanvas = document.createElement('canvas');
+        tileCanvas.width = sw;
+        tileCanvas.height = sh;
+        const tileCtx = tileCanvas.getContext('2d', { alpha: false });
+        tileCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+        
+        // PNG → PDF 化
+        const imgDataUrl = tileCanvas.toDataURL('image/png');
+        const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
+        
+        const { PDFDocument } = PDFLib;
+        const tilePdf = await PDFDocument.create();
+        const pngImage = await tilePdf.embedPng(imgBytes);
+        const tilePage = tilePdf.addPage([sw, sh]);
+        tilePage.drawImage(pngImage, { x: 0, y: 0, width: sw, height: sh });
+        
+        const pdfBytes = await tilePdf.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        return URL.createObjectURL(blob);
+    } catch (error) {
+        console.error('createRasterizedTile error:', error);
+        return null;
+    }
+}
+
+/**
+ * Nアップ用：回転対応の canvas 描画
  */
 window.drawNUpCanvases = async function (containerId) {
     const container = document.getElementById(containerId);

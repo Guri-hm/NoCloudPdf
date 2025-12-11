@@ -37,6 +37,7 @@
 
                     @if (IsNUpMode || IsTileMode)
                     {
+                        <!-- Nアップ数 -->
                         <CustomSelect TValue="int" 
                             Value="@LayoutNumber" 
                             ValueChanged="@((value) => LayoutNumber = value)"
@@ -70,6 +71,17 @@
                                     Items="@orientationItems"
                                     Label="ページの向き" />
 
+                            <!-- 仕切り線オプション -->
+                            <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded h-10 cursor-pointer select-none">
+                                <span class="text-sm font-semibold whitespace-nowrap">仕切り線:</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" @bind="ShowDividerLines" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                </label>
+                                <Tooltip Text="Nアップ時にページ間に仕切り線を表示します。">
+                                    <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+                                </Tooltip>
+                            </label>
                     }else{
                         <!-- 分割方向（タイル専用） -->
                         <CustomSelect TValue="string" 
@@ -77,6 +89,17 @@
                                     ValueChanged="@((value) => TileDirection = value)"
                                     Items="@tileDirectionItems"
                                     Label="最初の分割" />
+                        <!-- 画像化オプション -->
+                        <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded h-10 cursor-pointer select-none">
+                            <span class="text-sm font-semibold whitespace-nowrap">画像化:</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" @bind="RasterizeTiles" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                            <Tooltip Text="タイル分割時にPDFを画像として再描画します。テキスト選択や検索ができなくなります。">
+                                <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+                            </Tooltip>
+                        </label>
                     }
 
                     <!-- 回転ボタングループ -->
@@ -598,6 +621,10 @@
         new CustomSelectItem<int> { Value = 16, Label = "16" }
     };    
 
+    private bool ShowDividerLines { get; set; } = false;
+    private bool RasterizeTiles { get; set; } = false;
+
+
     /// <summary>
     /// 並び方向の説明（Nアップ用）
     /// </summary>
@@ -684,9 +711,13 @@
     }
 
     /// <summary>
-    /// NアップでJSに渡すパラメータ
+    /// Nアップ処理
     /// </summary>
-    private async Task ProcessNUp()
+
+/// <summary>
+/// Nアップ処理の実装
+/// </summary>
+private async Task ProcessNUp()
 {
     try
     {
@@ -695,40 +726,85 @@
         var groups = GetNUpGroups();
         resultPdfInfos.Clear();
         
-        foreach (var (group, index) in groups.Select((g, i) => (g, i)))
+        foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
         {
-            var mergeData = group.Select(item => new MergePageDto
-            {
-                FileId = ((PageItem)item.RawData).FileId,
-                FileName = ((PageItem)item.RawData).FileName,
-                PageData = ((PageItem)item.RawData).PageData,
-                IsPdf = true,
-                RotateAngle = ((PageItem)item.RawData).RotateAngle % 360
-            }).ToList();
+            // null を除外した実ページのみ抽出し、PageItem を取得
+            var actualPageItems = group
+                .Where(item => item != null && item.RawData is PageItem)
+                .Select(item => (PageItem)item.RawData)
+                .ToList();
             
-            var url = await JSRuntime.InvokeAsync<string>(
-                "createNUpPdf", 
-                mergeData,
-                LayoutNumber,
-                NUpDirection,
-                OutputOrientation 
-            );
-            
-            if (!string.IsNullOrEmpty(url))
+            if (actualPageItems.Count == 0)
             {
-                var name = $"nup_{LayoutNumber}_{index + 1}_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                resultPdfInfos.Add(new ResultPdfInfo
+                Console.WriteLine($"Group {groupIndex + 1} has no valid pages, skipping");
+                continue;
+            }
+            
+            // 並び方向に応じてページを並び替え
+            var orderedPageItems = ReorderPagesForNUp(actualPageItems);
+            
+            // PageData が空のページを除外
+            var mergeData = orderedPageItems
+                .Where(pageItem => !string.IsNullOrEmpty(pageItem.PageData))
+                .Select(pageItem => new MergePageDto
                 {
-                    Url = url,
-                    Name = name,
-                    Size = size,
-                    PageCount = 1
-                });
+                    FileId = pageItem.FileId,
+                    FileName = pageItem.FileName,
+                    PageData = pageItem.PageData,
+                    IsPdf = true,
+                    RotateAngle = pageItem.RotateAngle % 360
+                })
+                .ToList();
+            
+            if (mergeData.Count == 0)
+            {
+                Console.WriteLine($"Group {groupIndex + 1}: No valid PageData, skipping");
+                continue;
+            }
+            
+            try
+            {
+                var url = await JSRuntime.InvokeAsync<string>(
+                    "createNUpPdf", 
+                    mergeData,
+                    LayoutNumber,
+                    NUpDirection,
+                    OutputOrientation,
+                    ShowDividerLines
+                );
+                
+                if (!string.IsNullOrEmpty(url))
+                {
+                    var name = $"nup_{LayoutNumber}_{groupIndex + 1}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                    var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                    resultPdfInfos.Add(new ResultPdfInfo
+                    {
+                        Url = url,
+                        Name = name,
+                        Size = size,
+                        PageCount = 1
+                    });
+                }
+                else
+                {
+                    Console.WriteLine($"Group {groupIndex + 1}: PDF generation returned empty URL");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing group {groupIndex + 1}: {ex.Message}");
+                _ = MessageService.ShowAsync($"グループ {groupIndex + 1} の処理中にエラーが発生しました。", MessageType.Error);
             }
         }
         
-        await FinalizeResult($"nup_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmm}.zip");
+        if (resultPdfInfos.Count > 0)
+        {
+            await FinalizeResult($"nup_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmmss}.zip");
+        }
+        else
+        {
+            _ = MessageService.ShowAsync("PDF の生成に失敗しました。", MessageType.Error);
+        }
     }
     catch (Exception ex)
     {
@@ -740,7 +816,75 @@
         await MessageService.HideLoadingAsync();
     }
 }
+
+
+/// <summary>
+/// 並び方向に応じてページを並び替える（PDF生成用）
+/// </summary>
+private List<PageItem> ReorderPagesForNUp(List<PageItem> pages)
+{
+    if (pages.Count == 0) return pages;
+    
+    var (rows, cols) = LayoutNumber switch
+    {
+        2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
+        4 => (2, 2),
+        8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
+        16 => (4, 4),
+        _ => (2, 1)
+    };
+    
+    var result = new List<PageItem>(pages.Count);
+    
+    // 並び方向に応じたインデックスマッピングを作成
+    var indexMap = new int[pages.Count];
+    for (int i = 0; i < pages.Count; i++)
+    {
+        indexMap[i] = GetTargetIndexForDirection(i, rows, cols);
+    }
+    
+    // マッピングに従って並び替え
+    for (int targetIndex = 0; targetIndex < pages.Count; targetIndex++)
+    {
+        int sourceIndex = Array.IndexOf(indexMap, targetIndex);
+        if (sourceIndex >= 0 && sourceIndex < pages.Count)
+        {
+            result.Add(pages[sourceIndex]);
+        }
+    }
+    
+    return result;
+}
+
+/// <summary>
+/// 並び方向に応じた目的インデックスを計算
+/// </summary>
+private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
+{
+    int row = sourceIndex / cols;
+    int col = sourceIndex % cols;
+    
+    return NUpDirection switch
+    {
+        // 左→右、上→下（デフォルト、変換不要）
+        "forward" => sourceIndex,
         
+        // 上→下、左→右（列優先）
+        "forward-vertical" => col * rows + row,
+        
+        // 右→左、上→下
+        "reverse-horizontal" => row * cols + (cols - 1 - col),
+        
+        // 右の列から順に、各列は上→下
+        "reverse-vertical" => (cols - 1 - col) * rows + row,
+        
+        // 右→左、下→上
+        "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
+        
+        _ => sourceIndex
+    };
+}
+
     /// <summary>
     /// Nアップコンテナのスタイル（A4比率で固定幅、用紙イメージ）
     /// </summary>
@@ -799,28 +943,7 @@
             _ => (2, 1)
         };
         
-        int row = index / cols;
-        int col = index % cols;
-        
-        return NUpDirection switch
-        {
-            // 左→右、上→下
-            "forward" => index,
-            
-            // 右→左、下→上
-            "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
-            
-            // 右→左、上→下
-            "reverse-horizontal" => row * cols + (cols - 1 - col),
-            
-            // 上→下、左→右
-            "forward-vertical" => col * rows + row,
-            
-            // 右の列から順に、各列は上→下
-            "reverse-vertical" => (row * cols) + (cols - 1 - col),
-            
-            _ => index
-        };
+        return GetTargetIndexForDirection(index, rows, cols);
     }
 
     /// <summary>
@@ -973,6 +1096,9 @@
     }
 
 
+    /// <summary>
+    /// タイル分割処理
+    /// </summary>
     private async Task ProcessTile()
     {
         try
@@ -980,36 +1106,60 @@
             await MessageService.ShowLoadingAsync($"{LayoutNumber}分割処理中...");
             
             var allPages = PdfDataService.GetModel().Pages;
-            
             resultPdfInfos.Clear();
             
-            foreach (var (page, index) in allPages.Select((p, i) => (p, i)))
+            int totalTileCount = 0;
+            foreach (var (page, pageIndex) in allPages.Select((p, i) => (p, i)))
             {
-                // 各ページを指定された数に分割
-                var urls = await JSRuntime.InvokeAsync<string[]>(
-                    "splitPdfPageIntoTiles", 
-                    page.PageData, 
-                    LayoutNumber, 
-                    TileDirection);
-                
-                foreach (var (url, tileIndex) in urls.Select((u, i) => (u, i)))
+                try
                 {
-                    if (!string.IsNullOrEmpty(url))
+                    // 各ページを指定された数に分割
+                    var urls = await JSRuntime.InvokeAsync<string[]>(
+                        "splitPdfPageIntoTiles", 
+                        page.PageData, 
+                        LayoutNumber, 
+                        TileDirection,
+                        RasterizeTiles  // ★ 画像化オプションを渡す
+                    );
+                    
+                    if (urls == null || urls.Length == 0)
                     {
-                        var name = $"tile_{index + 1}_{tileIndex + 1}_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                        var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                        resultPdfInfos.Add(new ResultPdfInfo
-                        {
-                            Url = url,
-                            Name = name,
-                            Size = size,
-                            PageCount = 1
-                        });
+                        Console.WriteLine($"Page {pageIndex + 1}: No tiles generated");
+                        continue;
                     }
+                    
+                    foreach (var (url, tileIndex) in urls.Select((u, i) => (u, i)))
+                    {
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            totalTileCount++;
+                            var name = $"tile_p{pageIndex + 1}_t{tileIndex + 1}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                            var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                            resultPdfInfos.Add(new ResultPdfInfo
+                            {
+                                Url = url,
+                                Name = name,
+                                Size = size,
+                                PageCount = 1
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing page {pageIndex + 1}: {ex.Message}");
+                    _ = MessageService.ShowAsync($"ページ {pageIndex + 1} の分割中にエラーが発生しました。", MessageType.Error);
                 }
             }
             
-            await FinalizeResult($"tile_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmm}.zip");
+            if (resultPdfInfos.Count > 0)
+            {
+                await FinalizeResult($"tile_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmmss}.zip");
+            }
+            else
+            {
+                _ = MessageService.ShowAsync("タイルの生成に失敗しました。", MessageType.Error);
+            }
         }
         catch (Exception ex)
         {
@@ -1078,7 +1228,7 @@
             Label = GetPrimaryActionLabel(),
             IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
             Title = GetPrimaryActionLabel(),
-            OnClick = EventCallback.Factory.Create(this, ProcessPdfs),
+            OnClick = EventCallback.Factory.Create(this, ProcessLayout),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
             IconPosition = "right",
             TextColor = "text-white"
@@ -1229,230 +1379,6 @@
         public bool ThumbnailLoading { get; set; } = true;
     }
     private List<ResultPdfInfo> resultPdfInfos = new();
-
-    private async Task ProcessPdfs()
-    {
-        if (CurrentOperationMode == OperationMode.Split)
-        {
-            await ProcessSplit();
-        }
-        else if (CurrentOperationMode == OperationMode.Extract)
-        {
-            await ProcessExtract();
-        }
-    }
-    private async Task ProcessSplit()
-    {
-        try
-        {
-            await MessageService.ShowLoadingAsync("分割中...");
-
-            var allPages = PdfDataService.GetModel().Pages;
-
-            // 準備できていないページがある場合は中断
-            var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
-            if (notReadyCount > 0)
-            {
-                _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
-                return;
-            }
-            if (allPages.Count == 0)
-            {
-                _ = MessageService.ShowAsync("分割対象がありません。", MessageType.Error);
-                return;
-            }
-
-            _ = MessageService.HideAsync();
-
-            var splitGroups = new List<List<PageItem>>();
-            var currentGroup = new List<PageItem>();
-            for (int i = 0; i < allPages.Count; i++)
-            {
-                if (i > 0 && PdfDataService.SplitInfo.SplitPositions.Contains(i))
-                {
-                    splitGroups.Add(currentGroup);
-                    currentGroup = new List<PageItem>();
-                }
-                currentGroup.Add(allPages[i]);
-            }
-
-            if (currentGroup.Count > 0)
-                splitGroups.Add(currentGroup);
-
-            resultPdfInfos.Clear();
-            resultPdfInfos.Clear();
-            int groupIndex = 1;
-            foreach (var group in splitGroups)
-            {
-                var mergeData = group.Select(item => new MergePageDto
-                {
-                    FileId = item.FileId,
-                    FileName = item.FileName,
-                    PageData = item.PageData,
-                    IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
-                    RotateAngle = item.RotateAngle % 360
-                }).ToList();
-
-                var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-                if (!string.IsNullOrEmpty(url))
-                {
-                    var name = $"split_{groupIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                    var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                    resultPdfInfos.Add(new ResultPdfInfo
-                    {
-                        Url = url,
-                        Name = name,
-                        Size = size,
-                        PageCount = group.Count
-                    });
-                }
-                else
-                {
-                    _ = MessageService.ShowAsync($"PDFの分割に失敗しました。グループ {groupIndex} のページ数: {group.Count}", MessageType.Error);
-                    return;
-                }
-                groupIndex++;
-            }
-
-            // zip作成
-            if (resultPdfInfos.Count > 0)
-            {
-                resultZipName = $"split_{DateTime.Now:yyyyMMddHHmm}.zip";
-                var pdfUrls = resultPdfInfos.Select(x => x.Url).ToList();
-                var pdfNames = resultPdfInfos.Select(x => x.Name).ToList();
-                resultZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames,  resultZipName);
-                resultZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", resultZipUrl);
-                resultTotalPageCount = resultPdfInfos.Sum(x => x.PageCount);
-                CompletionState.SetShowResult(true);
-
-            }
-            else
-            {
-                _ = MessageService.ShowAsync("分割PDFの生成に失敗しました。", MessageType.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync("PDFの分割中にエラーが発生しました。", MessageType.Error);
-        }
-        finally
-        {
-            await MessageService.HideLoadingAsync();
-        }
-    }
-
-    private async Task ProcessExtract()
-    {
-        try
-        {
-            await MessageService.ShowLoadingAsync("抽出中...");
-
-            var selectedPages = PdfDataService.GetModel().Pages
-                .Where(p => p.IsSelectedForExtract)
-                .ToList();
-
-            if (selectedPages.Count == 0)
-            {
-                _ = MessageService.ShowAsync("抽出対象が選択されていません。", MessageType.Warn);
-                return;
-            }
-
-            var notReadyCount = selectedPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
-            if (notReadyCount > 0)
-            {
-                _ = MessageService.ShowAsync($"抽出対象に読み込み未完了またはエラーのページが {notReadyCount} ページあります。", MessageType.Warn);
-                return;
-            }
-
-            resultPdfInfos.Clear();
-
-            if (IsExtractSplit)
-            {
-                int pageIndex = 1;
-                foreach (var page in selectedPages)
-                {
-                    var mergeData = new List<MergePageDto>
-                    {
-                        new MergePageDto
-                        {
-                            FileId = page.FileId,
-                            FileName = page.FileName,
-                            PageData = page.PageData,
-                            IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
-                            RotateAngle = page.RotateAngle % 360
-                        }
-                    };
-
-                    var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-                    if (!string.IsNullOrEmpty(url))
-                    {
-                        var name = $"extract_{pageIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                        var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                        resultPdfInfos.Add(new ResultPdfInfo
-                        {
-                            Url = url,
-                            Name = name,
-                            Size = size,
-                            PageCount = 1
-                        });
-                    }
-                    pageIndex++;
-                }
-            }
-            else
-            {
-                // 結合して1つのPDFとして出力
-                var mergeData = selectedPages.Select(page => new MergePageDto
-                {
-                    FileId = page.FileId,
-                    FileName = page.FileName,
-                    PageData = page.PageData,
-                    IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
-                    RotateAngle = page.RotateAngle % 360
-                }).ToList();
-
-                var url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-                if (!string.IsNullOrEmpty(url))
-                {
-                    var name = $"extract_merged_{DateTime.Now:yyyyMMddHHmm}.pdf";
-                    var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
-                    resultPdfInfos.Add(new ResultPdfInfo
-                    {
-                        Url = url,
-                        Name = name,
-                        Size = size,
-                        PageCount = selectedPages.Count
-                    });
-                }
-            }
-
-            // ZIP作成などSplitと同様の後処理
-            if (resultPdfInfos.Count > 0)
-            {
-                resultZipName = $"extract_{DateTime.Now:yyyyMMddHHmm}.zip";
-                var pdfUrls = resultPdfInfos.Select(x => x.Url).ToList();
-                var pdfNames = resultPdfInfos.Select(x => x.Name).ToList();
-                resultZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, resultZipName);
-                resultZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", resultZipUrl);
-                resultTotalPageCount = resultPdfInfos.Sum(x => x.PageCount);
-                CompletionState.SetShowResult(true);
-            }
-            else
-            {
-                _ = MessageService.ShowAsync("抽出PDFの生成に失敗しました。", MessageType.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync("PDFの抽出中にエラーが発生しました。", MessageType.Error);
-        }
-        finally
-        {
-            await MessageService.HideLoadingAsync();
-        }
-    }
 
     // アイテム削除
     private void RemovePage(int index)
