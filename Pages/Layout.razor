@@ -838,21 +838,67 @@ private List<PageItem> ReorderPagesForNUp(List<PageItem> pages)
     
     var result = new List<PageItem>(pages.Count);
     
-    // 並び方向に応じたインデックスマッピングを作成
-    var indexMap = new int[pages.Count];
-    for (int i = 0; i < pages.Count; i++)
+    switch (NUpDirection)
     {
-        indexMap[i] = GetTargetIndexForDirection(i, rows, cols);
-    }
-    
-    // マッピングに従って並び替え
-    for (int targetIndex = 0; targetIndex < pages.Count; targetIndex++)
-    {
-        int sourceIndex = Array.IndexOf(indexMap, targetIndex);
-        if (sourceIndex >= 0 && sourceIndex < pages.Count)
-        {
-            result.Add(pages[sourceIndex]);
-        }
+        case "forward":
+            // 左→右、上→下（そのまま）
+            return pages;
+            
+        case "forward-vertical":
+            // 上→下、左→右（列優先）
+            for (int c = 0; c < cols; c++)
+            {
+                for (int r = 0; r < rows; r++)
+                {
+                    int index = r * cols + c;
+                    if (index < pages.Count)
+                        result.Add(pages[index]);
+                }
+            }
+            break;
+            
+        case "reverse-horizontal":
+            // 右→左、上→下（行ごとに列を反転）
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = cols - 1; c >= 0; c--)
+                {
+                    int index = r * cols + c;
+                    if (index < pages.Count)
+                        result.Add(pages[index]);
+                }
+            }
+            break;
+            
+        case "reverse-vertical":
+            // ★ 修正：右の列から上→下
+            // データ順 [0,1,2,3] → JavaScript に渡す順 [1,3,0,2]
+            for (int c = cols - 1; c >= 0; c--)
+            {
+                for (int r = 0; r < rows; r++)
+                {
+                    int index = r * cols + c;
+                    if (index < pages.Count)
+                        result.Add(pages[index]);
+                }
+            }
+            break;
+            
+        case "reverse":
+            // 右→左、下→上（完全逆順）
+            for (int r = rows - 1; r >= 0; r--)
+            {
+                for (int c = cols - 1; c >= 0; c--)
+                {
+                    int index = r * cols + c;
+                    if (index < pages.Count)
+                        result.Add(pages[index]);
+                }
+            }
+            break;
+            
+        default:
+            return pages;
     }
     
     return result;
