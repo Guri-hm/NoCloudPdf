@@ -100,6 +100,8 @@ public enum OperationMode
     Extract, // 抽出モード
     Edit, // 編集モード
     Trim, // トリミングモード
+    NUp,    // Nアップモード
+    Tile // タイルモード
 }
 
 /// <summary>

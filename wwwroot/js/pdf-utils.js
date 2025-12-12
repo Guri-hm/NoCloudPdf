@@ -421,7 +421,13 @@ window.renderFirstPDFPage = async function (fileData, password) {
                                 try { pageIndex = await pdf.getPageIndex(dest[0]); } catch (e) { pageIndex = null; }
                             }
                         } catch (e) { /* ignore */ }
-                        const node = { title: it.title || '', pageIndex: pageIndex, items: [] };
+
+                        const node = { 
+                            title: it.title || '', 
+                            pageIndex: pageIndex !== null ? pageIndex : -1, 
+                            items: [] 
+                        };
+                        // const node = { title: it.title || '', pageIndex: pageIndex, items: [] };
                         if (it.items && it.items.length) {
                             node.items = await mapOutlineItems(it.items);
                         }
@@ -1535,3 +1541,475 @@ window.drawVisibleCanvases = function(containerId) {
         observer.observe(canvas);
     });
 };
+
+/**
+ * Nアップ PDF 生成（元ページサイズに基づく出力サイズ計算）
+ */
+window.createNUpPdf = async function (pages, nup, direction, orientation, showDividers = false) {
+    try {
+        const { PDFDocument, rgb, degrees } = PDFLib;
+        
+        const outputPdf = await PDFDocument.create();
+        
+        // ページをロード（埋め込みページとして保持）
+        const embeddedPages = [];
+        
+        for (const pageData of pages) {
+            try {
+                const pdfBytes = base64ToUint8Array(pageData.pageData);
+                const tempPdf = await PDFDocument.load(pdfBytes);
+                
+                // ★ 修正：embedPdf で埋め込みページを取得
+                const [embeddedPage] = await outputPdf.embedPdf(tempPdf, [0]);
+                
+                embeddedPages.push({
+                    page: embeddedPage,
+                    rotateAngle: pageData.rotateAngle || 0
+                });
+            } catch (error) {
+                console.error('Error loading page:', error, pageData);
+                embeddedPages.push(null);
+            }
+        }
+        
+        // グリッド計算
+        const { rows, cols } = getNUpGrid(nup, orientation);
+        
+        // 元ページの平均サイズを計算（null以外のページから）
+        const validPages = embeddedPages.filter(p => p !== null);
+        if (validPages.length === 0) {
+            throw new Error('No valid pages to process');
+        }
+        
+        let totalWidth = 0;
+        let totalHeight = 0;
+        validPages.forEach(item => {
+            totalWidth += item.page.width;
+            totalHeight += item.page.height;
+        });
+        
+        const avgWidth = totalWidth / validPages.length;
+        const avgHeight = totalHeight / validPages.length;
+        
+        // Nアップ後の出力ページサイズを計算
+        const pageWidth = avgWidth * cols;
+        const pageHeight = avgHeight * rows;
+        const cellWidth = pageWidth / cols;
+        const cellHeight = pageHeight / rows;
+        
+        // 並び順を決定
+        const orderedIndices = getPageOrder(embeddedPages.length, rows, cols, direction);
+        
+        // 新しいページを作成してNアップ配置
+        const outputPage = outputPdf.addPage([pageWidth, pageHeight]);
+        
+        // 背景を白で塗りつぶし
+        outputPage.drawRectangle({
+            x: 0,
+            y: 0,
+            width: pageWidth,
+            height: pageHeight,
+            color: rgb(1, 1, 1)
+        });
+        
+        for (let i = 0; i < orderedIndices.length; i++) {
+            const pageIndex = orderedIndices[i];
+            if (pageIndex >= embeddedPages.length || embeddedPages[pageIndex] === null) {
+                continue;
+            }
+            
+            const item = embeddedPages[pageIndex];
+            const embeddedPage = item.page;
+            const width = embeddedPage.width;
+            const height = embeddedPage.height;
+            
+            // 配置位置計算
+            const { x, y } = getCellPosition(i, rows, cols, cellWidth, cellHeight, direction);
+            
+            // スケール計算（セルに収まるように）
+            const scaleX = cellWidth / width;
+            const scaleY = cellHeight / height;
+            const scale = Math.min(scaleX, scaleY);
+            
+            // 中央寄せ
+            const offsetX = (cellWidth - width * scale) / 2;
+            const offsetY = (cellHeight - height * scale) / 2;
+            
+            // ★ embedPdf で取得した埋め込みページを描画
+            outputPage.drawPage(embeddedPage, {
+                x: x + offsetX,
+                y: y + offsetY,
+                width: width * scale,
+                height: height * scale
+            });
+        }
+        
+        // 仕切り線を描画
+        if (showDividers) {
+            // 縦線
+            for (let c = 1; c < cols; c++) {
+                const lineX = c * cellWidth;
+                outputPage.drawLine({
+                    start: { x: lineX, y: 0 },
+                    end: { x: lineX, y: pageHeight },
+                    thickness: 1,
+                    color: rgb(0.7, 0.7, 0.7),
+                    opacity: 0.5
+                });
+            }
+            
+            // 横線
+            for (let r = 1; r < rows; r++) {
+                const lineY = r * cellHeight;
+                outputPage.drawLine({
+                    start: { x: 0, y: lineY },
+                    end: { x: pageWidth, y: lineY },
+                    thickness: 1,
+                    color: rgb(0.7, 0.7, 0.7),
+                    opacity: 0.5
+                });
+            }
+        }
+        
+        const pdfBytes = await outputPdf.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        return URL.createObjectURL(blob);
+    } catch (error) {
+        console.error('createNUpPdf error:', error);
+        throw error;
+    }
+};
+
+/**
+ * Nアップのグリッド（行×列）を取得（orientation対応）
+ */
+function getNUpGrid(nup, orientation) {
+    const isLandscape = orientation === 'landscape';
+    
+    switch (nup) {
+        case 2:
+            return isLandscape ? { rows: 1, cols: 2 } : { rows: 2, cols: 1 };
+        case 4:
+            return { rows: 2, cols: 2 };
+        case 8:
+            return isLandscape ? { rows: 2, cols: 4 } : { rows: 4, cols: 2 };
+        case 16:
+            return { rows: 4, cols: 4 };
+        default:
+            return { rows: 2, cols: 1 };
+    }
+}
+
+/**
+ * 並び方向に応じたページ順序を取得
+ */
+function getPageOrder(pageCount, rows, cols, direction) {
+    const indices = [];
+    
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            let index;
+            
+            switch (direction) {
+                case 'forward':
+                    // 左→右、上→下
+                    index = row * cols + col;
+                    break;
+                    
+                case 'forward-vertical':
+                    // 上→下、左→右（列優先）
+                    index = col * rows + row;
+                    break;
+                    
+                case 'reverse-horizontal':
+                    // 右→左、上→下
+                    index = row * cols + (cols - 1 - col);
+                    break;
+                    
+                case 'reverse-vertical':
+                    // 右の列から上→下
+                    index = (cols - 1 - col) * rows + row;
+                    break;
+                    
+                case 'reverse':
+                    // 右→左、下→上
+                    index = (rows - 1 - row) * cols + (cols - 1 - col);
+                    break;
+                    
+                default:
+                    index = row * cols + col;
+            }
+            
+            if (index < pageCount) {
+                indices.push(index);
+            }
+        }
+    }
+    
+    return indices;
+}
+
+/**
+ * セルの座標を取得（PDF座標系：左下原点）
+ */
+function getCellPosition(index, rows, cols, cellWidth, cellHeight, direction) {
+    let row, col;
+    
+    switch (direction) {
+        case 'forward':
+            row = Math.floor(index / cols);
+            col = index % cols;
+            break;
+            
+        case 'forward-vertical':
+            col = Math.floor(index / rows);
+            row = index % rows;
+            break;
+            
+        case 'reverse-horizontal':
+            row = Math.floor(index / cols);
+            col = cols - 1 - (index % cols);
+            break;
+            
+        case 'reverse-vertical':
+            col = cols - 1 - Math.floor(index / rows);
+            row = index % rows;
+            break;
+            
+        case 'reverse':
+            row = rows - 1 - Math.floor(index / cols);
+            col = cols - 1 - (index % cols);
+            break;
+            
+        default:
+            row = Math.floor(index / cols);
+            col = index % cols;
+    }
+    
+    // PDF座標系（左下原点）での位置
+    const x = col * cellWidth;
+    const y = (rows - 1 - row) * cellHeight;
+    
+    return { x, y };
+}
+
+/**
+ * PDFページをタイル分割（ラスタ化オプション対応）
+ */
+window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction, rasterize = false) {
+    try {
+        const { PDFDocument } = PDFLib;
+        const uint8Array = base64ToUint8Array(pageData);
+        const srcPdf = await PDFDocument.load(uint8Array);
+        const srcPage = srcPdf.getPage(0);
+        const { width, height } = srcPage.getSize();
+        
+        // グリッド計算
+        const { rows, cols } = getTileGrid(tileCount, direction);
+        const tileWidth = width / cols;
+        const tileHeight = height / rows;
+        
+        const results = [];
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const x = col * tileWidth;
+                const y = height - (row + 1) * tileHeight; // PDF座標系
+                
+                let tileUrl;
+                if (rasterize) {
+                    // ★ ラスタ化：指定領域を画像として抽出してPDF化
+                    tileUrl = await createRasterizedTile(uint8Array, x, y, tileWidth, tileHeight, width, height);
+                } else {
+                    // ★ ベクトル：CropBox でトリミング
+                    tileUrl = await createVectorTile(srcPdf, x, y, tileWidth, tileHeight);
+                }
+                
+                if (tileUrl) {
+                    results.push(tileUrl);
+                }
+            }
+        }
+        
+        return results;
+    } catch (error) {
+        console.error('splitPdfPageIntoTiles error:', error);
+        throw error;
+    }
+};
+
+/**
+ * タイルのグリッド（行×列）を取得
+ */
+function getTileGrid(tileCount, direction) {
+    const isHorizontal = direction === 'horizontal';
+    
+    switch (tileCount) {
+        case 2:
+            return isHorizontal ? { rows: 2, cols: 1 } : { rows: 1, cols: 2 };
+        case 4:
+            return { rows: 2, cols: 2 };
+        case 8:
+            return isHorizontal ? { rows: 4, cols: 2 } : { rows: 2, cols: 4 };
+        case 16:
+            return { rows: 4, cols: 4 };
+        default:
+            return { rows: 2, cols: 2 };
+    }
+}
+
+/**
+ * ベクトルタイル生成（CropBox使用）
+ */
+async function createVectorTile(srcPdf, x, y, w, h) {
+    try {
+        const { PDFDocument, PDFName } = PDFLib;
+        const outputPdf = await PDFDocument.create();
+        const [copiedPage] = await outputPdf.copyPages(srcPdf, [0]);
+        outputPdf.addPage(copiedPage);
+        
+        // CropBox を設定
+        copiedPage.node.set(PDFName.of('CropBox'), outputPdf.context.obj([
+            Math.round(x),
+            Math.round(y),
+            Math.round(x + w),
+            Math.round(y + h)
+        ]));
+        
+        const pdfBytes = await outputPdf.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        return URL.createObjectURL(blob);
+    } catch (error) {
+        console.error('createVectorTile error:', error);
+        return null;
+    }
+}
+
+/**
+ * ラスタ化タイル生成（画像化）
+ */
+async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeight) {
+    try {
+        const pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(1);
+        
+        const scale = 2.0; // 高解像度
+        const viewport = page.getViewport({ scale, rotation: 0 });
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(viewport.width));
+        canvas.height = Math.max(1, Math.round(viewport.height));
+        
+        const ctx = canvas.getContext('2d', { alpha: false });
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        
+        // PDF座標をCanvas座標に変換
+        const scaleX = canvas.width / pageWidth;
+        const scaleY = canvas.height / pageHeight;
+        
+        const sx = Math.round(x * scaleX);
+        const sy = Math.round((pageHeight - y - h) * scaleY); // Y座標反転
+        const sw = Math.max(1, Math.round(w * scaleX));
+        const sh = Math.max(1, Math.round(h * scaleY));
+        
+        // 指定領域を切り出し
+        const tileCanvas = document.createElement('canvas');
+        tileCanvas.width = sw;
+        tileCanvas.height = sh;
+        const tileCtx = tileCanvas.getContext('2d', { alpha: false });
+        tileCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+        
+        // PNG → PDF 化
+        const imgDataUrl = tileCanvas.toDataURL('image/png');
+        const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
+        
+        const { PDFDocument } = PDFLib;
+        const tilePdf = await PDFDocument.create();
+        const pngImage = await tilePdf.embedPng(imgBytes);
+        const tilePage = tilePdf.addPage([sw, sh]);
+        tilePage.drawImage(pngImage, { x: 0, y: 0, width: sw, height: sh });
+        
+        const pdfBytes = await tilePdf.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        return URL.createObjectURL(blob);
+    } catch (error) {
+        console.error('createRasterizedTile error:', error);
+        return null;
+    }
+}
+
+/**
+ * Nアップ用：回転対応の canvas 描画
+ */
+window.drawNUpCanvases = async function (containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn('[drawNUpCanvases] Container not found:', containerId);
+        return;
+    }
+
+    // セレクタを修正：thumbnail-loaded がついていても再描画する
+    const canvases = container.querySelectorAll('canvas[data-thumbnail]');
+
+    for (const canvas of canvases) {
+        const base64 = canvas.getAttribute('data-thumbnail');
+        const rotateAngle = parseInt(canvas.getAttribute('data-rotate-angle') || '0', 10);
+        
+        if (base64) {
+            try {
+                // thumbnail-loaded クラスを削除してから再描画
+                canvas.classList.remove('thumbnail-loaded');
+                await drawThumbnailToCanvasWithRotation(canvas, base64, rotateAngle);
+                canvas.classList.add('thumbnail-loaded');
+            } catch (error) {
+                console.error('[drawNUpCanvases] Failed to draw thumbnail:', error, canvas.id);
+            }
+        }
+    }
+};
+
+/**
+ * Canvas に回転を適用して画像を描画
+ */
+async function drawThumbnailToCanvasWithRotation(canvas, base64Data, rotateAngle = 0) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = function () {
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error('Canvas context not available'));
+                return;
+            }
+
+            // 回転角度に応じて canvas サイズを調整
+            const isRotated = (rotateAngle === 90 || rotateAngle === 270);
+            const canvasWidth = isRotated ? img.height : img.width;
+            const canvasHeight = isRotated ? img.width : img.height;
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            ctx.save();
+
+            // 回転の中心を設定
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.rotate((rotateAngle * Math.PI) / 180);
+            ctx.translate(-img.width / 2, -img.height / 2);
+
+            // 画像を描画
+            ctx.drawImage(img, 0, 0, img.width, img.height);
+            ctx.restore();
+
+            resolve();
+        };
+        img.onerror = function (err) {
+            console.error('[drawThumbnailToCanvasWithRotation] Image load error:', err);
+            reject(new Error('Failed to load image'));
+        };
+        img.src = base64Data.startsWith('data:') ? base64Data : `data:image/png;base64,${base64Data}`;
+    });
+}

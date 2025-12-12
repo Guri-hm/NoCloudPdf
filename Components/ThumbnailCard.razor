@@ -142,6 +142,9 @@
                 {
                     <div class="bg-gray-200 w-full h-full rounded"></div>
                 }
+
+                @ChildContent
+
                 @if (isMultiPage && Item.PageInfo?.Contains("ページ") == true)
                 {
                     var pageCountMatch = System.Text.RegularExpressions.Regex.Match(Item.PageInfo, @"(\d+)ページ");
@@ -238,7 +241,7 @@
     [Parameter] public IReadOnlyCollection<int> SplitPositions { get; set; } = Array.Empty<int>();
     [Parameter] public EventCallback<int> OnInsertBlankPage { get; set; }
     [Parameter] public EventCallback<int> OnInsertPdfAtPosition { get; set; }
-
+    [Parameter] public RenderFragment? ChildContent { get; set; }
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     private const int MaxVisibleButtons = 4;

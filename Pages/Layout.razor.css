@@ -1,0 +1,62 @@
+    /* Nアップグループラッパー（可変幅） */
+    .n-up-group-wrapper {
+        position: relative;
+        padding: 0.5rem;
+        padding-top: 2rem; /* ヘッダー分のスペース */
+    }
+    
+    /* Nアップグループヘッダー */
+    .n-up-group-header {
+        position: absolute;
+        top: 0.25rem;
+        left: 0.25rem;
+        background-color: #2563eb;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+        z-index: 10;
+    }
+    
+    /* ★ Nアップコンテンツ（固定幅・用紙イメージ） */
+    .n-up-group-content {
+        background-color: white;
+        border: 2px solid #d1d5db; /* グレーの枠線 */
+        border-radius: 0.25rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-sizing: border-box;
+    }
+    
+    /*  Nアップグリッド */
+    .n-up-grid {
+        display: grid;
+        width: 100%;
+        height: 100%;
+    }
+    
+    /* グリッドセル（各サムネイルが入る枠） */
+    .n-up-cell {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    
+/* タイル分割線 */
+.tile-division-line {
+    position: absolute;
+    background-color: #ff6b6b;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* タイルオーバーレイコンテナ */
+.tile-overlay-container {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}

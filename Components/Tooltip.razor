@@ -18,9 +18,8 @@
           class="tooltip-popup fixed z-[9999] bg-gray-800 text-white text-sm leading-relaxed px-3 py-2 rounded-md border border-white/20 break-words max-w-[300px] shadow-[0_4px_16px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-none transition-all duration-150"
           role="tooltip"
           @key="@_tooltipId"
-          style="opacity:0; visibility:hidden;">
-        @Text
-        <span class="tooltip-arrow"></span>
+          style="opacity:0; visibility:hidden; white-space:pre-wrap;">
+        @Text<span class="tooltip-arrow"></span>
     </span>
 }
 

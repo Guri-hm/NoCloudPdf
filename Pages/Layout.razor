@@ -1,0 +1,2092 @@
+﻿@page "/layout"
+@implements IDisposable
+@inject IJSRuntime JSRuntime
+@inject PdfDataService PdfDataService
+@inject MessageService MessageService
+@inject CompletionStateService CompletionState
+@inject ModalService ModalService
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using System.IO
+@using NoCloudPdf.Models
+@using NoCloudPdf.Services
+@using NoCloudPdf.Components
+
+<PageTitle>NoCloudPDF-レイアウト</PageTitle>
+
+@if (IsFilesLoaded && !CompletionState.ShowResult)
+{
+    <div id="drop-area" class="relative min-h-screen">
+        <DropCover Message="ここにファイルをドロップ" />
+        <!-- 上部固定バー -->
+        <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
+            <div
+                class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+                <div class="flex flex-wrap gap-2 items-center">
+                    <ActionButtonGroup T="string" Actions="resetActions" />
+
+                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
+                    <h1 class="hidden md:inline text-lg font-bold">レイアウト
+                        <Tooltip Text="@layoutTooltip">
+                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                        </Tooltip>
+                    </h1>
+
+                    <ToggleButtonGroup T="string" Items="toggleItems" ActiveValue="CurrentModeString"
+                        OnClick="OnToggleMode" />
+
+                    @if (IsNUpMode || IsTileMode)
+                    {
+                        <!-- Nアップ数 -->
+                        <CustomSelect TValue="int" 
+                            Value="@LayoutNumber" 
+                            ValueChanged="@((value) => LayoutNumber = value)"
+                            Items="@layoutNumberItems"
+                            Label="@(IsNUpMode ? "Nアップ" : "分割数")" />
+                    }
+                    @if (IsNUpMode)
+                    {
+                        <!-- 並び方向 -->                           
+                        @if (LayoutNumber >= 4)
+                        {
+                            <CustomSelect TValue="string" 
+                                        Value="@NUpDirection" 
+                                        ValueChanged="@((value) => NUpDirection = value)"
+                                        Items="@nUpDirectionItems4"
+                                        Label="並び方向" />
+                        }
+                        else
+                        {
+                            <CustomSelect TValue="string" 
+                                        Value="@NUpDirection" 
+                                        ValueChanged="@((value) => NUpDirection = value)"
+                                        Items="@nUpDirectionItems2"
+                                        Label="並び方向" />
+                        }
+
+                        <!-- 出力ページの向き -->
+                        <CustomSelect TValue="string" 
+                                    Value="@OutputOrientation" 
+                                    ValueChanged="@((value) => OutputOrientation = value)"
+                                    Items="@orientationItems"
+                                    Label="ページの向き" />
+
+                            <!-- 仕切り線オプション -->
+                            <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded-lg h-10 cursor-pointer select-none">
+                                <input type="checkbox" @bind="ShowDividerLines" class="form-checkbox h-4 w-4 text-blue-600" />
+                                <span class="ml-2 text-sm font-semibold whitespace-nowrap">仕切り線</span>
+                                <Tooltip Text="Nアップ時にページ間に仕切り線を表示します。">
+                                    <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+                                </Tooltip>
+                            </label>
+                    }else{
+                        <!-- 分割方向（タイル専用） -->
+                        <CustomSelect TValue="string" 
+                                    Value="@TileDirection" 
+                                    ValueChanged="@((value) => TileDirection = value)"
+                                    Items="@tileDirectionItems"
+                                    Label="最初の分割" />
+                        <!-- 画像化オプション -->
+                        <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded-lg h-10 cursor-pointer select-none">
+                            <input type="checkbox" @bind="RasterizeTiles" class="form-checkbox h-4 w-4 text-blue-600" />
+                            <span class="ml-2 text-sm font-semibold whitespace-nowrap">画像化</span>
+                            <Tooltip Text="タイル分割時にPDFを画像として再描画します。テキスト選択や検索ができなくなります。">
+                                <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
+                            </Tooltip>
+                        </label>
+                    }
+
+                    <!-- 回転ボタングループ -->
+                    <ActionButtonGroup T="string" Actions="rotateActions" />
+
+                    <!-- 追加ボタングループ -->
+                    <DropdownButton T="string" MenuId="addMenu" MenuItems="addMenuItems">
+                        <Trigger>
+                            <DropdownTriggerButton>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                                </svg>
+                                <span class="hidden xl:inline">追加</span>
+                            </DropdownTriggerButton>
+                        </Trigger>
+                    </DropdownButton>
+
+                    <!-- 逆順ボタン -->
+                    <ActionButtonGroup T="string" Actions="reverseActions" />
+
+                    <!-- 並び替えボタングループ -->
+                    <DropdownButton T="string" MenuId="sortMenu" MenuItems="sortMenuItems">
+                        <Trigger>
+                            <DropdownTriggerButton>
+                                <i class="fa-solid fa-arrow-down-a-z"></i>
+                                <span class="hidden xl:inline">並び替え</span>
+                            </DropdownTriggerButton>
+                        </Trigger>
+                    </DropdownButton>
+                </div>
+
+                <ActionButtonGroup T="string" Actions="primaryActions" />
+
+            </div>
+            
+        </div>
+
+        <!-- サムネイル編集エリア -->
+        <div class="md:p-0 p-3 pb-24 md:pb-0">
+            @if (DisplayItems.Any(item => item.RawData is PageItem pageItem && pageItem.IsLoading))
+            {
+                <div class="w-full flex justify-center my-2">
+                    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded font-bold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        ファイルの読み込み中です。すべてのページの読み込みが完了するまで、タブの切り替えや画面遷移を行わないでください。
+                    </div>
+                </div>
+            }
+            @if (DisplayItems.Any(item => item.RawData is PageItem pi && (pi.IsPasswordProtected || pi.IsOperationRestricted)))
+            {
+                <div class="w-full flex justify-center my-2">
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-900 p-3 rounded font-bold text-sm flex items-center gap-2">
+                        <UnlockIcon Class="w-5 h-5 text-yellow-500" />
+                        制限付きPDFを解除して読み込んだページが含まれています。テキスト選択や検索、しおり等は利用できません（画像PDFとして扱われます）。
+                    </div>
+                </div>
+            }
+            @if (HasAnyPageOrThumbnailError)
+            {
+                <div class="w-full flex justify-center my-2">
+                    <button class="px-4 py-2 border-2 border-yellow-400 text-yellow-700 bg-white rounded hover:bg-yellow-50 transition font-bold"
+                        @onclick="ReloadAllThumbnailsAsync">
+                        <i class="fa-solid fa-rotate-left mr-2"></i>
+                        画像エラーを一括で再読み込み
+                    </button>
+                </div>
+            }
+            @if (DisplayItems != null && DisplayItems.Any())
+            {
+                <div class="flex flex-col gap-1 p-2 md:flex-row md:flex-wrap md:gap-x-3 md:gap-y-[30px] md:p-6" id="sortable-container" @key="sortVersion">
+                @if (IsNUpMode)
+                {
+                    var groups = GetNUpGroups();
+                    int pageIndexCounter = 0;
+                    
+                    @foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
+                    {
+                        <!-- グループラッパー -->
+                        <div class="n-up-group-wrapper">
+                            <div class="n-up-group-header">
+                                グループ@(groupIndex + 1)
+                            </div>
+                            <!-- 固定幅コンテナ（用紙イメージ） -->
+                            <div class="n-up-group-content" style="@GetNUpContainerStyle()">
+                                <div class="n-up-grid" style="@GetNUpGridStyle()">
+                                    @foreach (var (item, localIndex) in group.Select((it, idx) => (it, idx)))
+                                    {
+                                        var actualIndex = pageIndexCounter++;
+                                        var visualOrder = GetVisualOrder(localIndex, group.Count);
+                                        //Console.WriteLine($"localIndex: {localIndex}, group.Count: {group.Count}, visualOrder: {visualOrder}");
+                                        
+                                        var displayNumber = localIndex + 1;
+
+                                        <div style="order: @visualOrder;" class="n-up-cell">
+                                            @if (item == null)
+                                            {
+                                                <!-- 空セル（何も表示しない） -->
+                                                <div class="w-full h-full bg-gray-50"></div>
+                                            }
+                                            else
+                                            {
+                                                Console.WriteLine($"item.PageInfo: {item.PageInfo}");
+                                                <NUpThumbnailCard 
+                                                    @key="item.Id"
+                                                    Item="@item" 
+                                                    Index="@actualIndex" 
+                                                    VisualOrder="@displayNumber" 
+                                                    OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
+                                                    OnDuplicate="DuplicateItem"
+                                                    OnRotate="idx => RotatePage(idx)"
+                                                    OnRemove="RemovePage"
+                                                    OnReloadPageItem="ReloadPageItem" />
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    @* タイルモード *@
+                    @for (int i = 0; i < DisplayItems.Count; i++)
+                    {
+                        var item = DisplayItems[i];
+                        <ThumbnailCard 
+                            @key="item.Id"
+                            Item="@item" 
+                            Index="@i" 
+                            DisplayItemsCount="DisplayItems.Count"
+                            Mode="CurrentDisplayMode"
+                            SplitPositions="Array.Empty<int>()" 
+                            OperationMode="OperationMode.Normal"
+                            OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
+                            OnSwapWithNext="OnSwapWithNext" 
+                            OnReloadPageItem="ReloadPageItem" 
+                            OnRemove="RemovePage"
+                            OnRotate="idx => RotatePage(idx)"
+                            OnDuplicate="DuplicateItem">
+                            @{
+                                int angle = item.RotateAngle % 360;
+                                string rotateClass = angle switch
+                                {
+                                    0 => "rotate-0",
+                                    90 => "rotate-90",
+                                    180 => "rotate-180",
+                                    270 => "rotate-270",
+                                    _ => "rotate-0"
+                                };
+                                double scale = (angle == 90 || angle == 270)
+                                    ? Math.Min(96.0 / 128.0, 128.0 / 96.0)
+                                    : 1.0;
+                                string transform = $"scale({scale.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)})";
+                            }
+
+                            @* 子コンテンツとして分割線オーバーレイを渡す *@
+                            <div class="tile-overlay-container @rotateClass" style="transform: @transform;">
+                                @{
+                                    var lines = GetTileDivisionLines();
+                                    @foreach (var line in lines)
+                                    {
+                                        <div class="tile-division-line" style="@line"></div>
+                                    }
+                                }
+                            </div>
+
+                        </ThumbnailCard>
+
+                    }
+                }
+
+                <!-- 追加エリア -->
+                <FileAddArea
+                    Position="@DisplayItems.Count"
+                    OnInsertBlankPage="InsertBlankPage"
+                    OnInsertPdfAtPosition="InsertPdfAtPosition"
+                    OnAddFileClick="OpenFileDialog" />
+            </div>
+            }
+        </div>
+        <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"
+                @onclick="ProcessLayout">
+                @GetPrimaryActionLabel()
+            </button>
+        </div>
+    </div>
+}
+@if (previewIndex >= 0)
+{
+    <!-- 編集中のPDFプレビュー -->
+    <PreviewModal IsOpen="@(previewIndex >= 0)" OnClose="ClosePreview" IsLoading="isPreviewLoading"
+        ImageUrl="@previewImageUrl" PageIndex="@CurrentFilePageIndex" PageCount="@CurrentFilePageCount"
+        ShowPageInput="@(CurrentDisplayMode == DisplayMode.File && CurrentFilePageCount > 1)" OnPageInputChanged="OnPreviewPageInputChanged"
+        OnMovePreview="MovePreview" IsPrevDisabled="@(CurrentDisplayMode == DisplayMode.File? CurrentFilePageIndex == 0 : previewIndex == 0)"
+        IsNextDisabled="@(CurrentDisplayMode == DisplayMode.File ? CurrentFilePageIndex == CurrentFilePageCount - 1 : (DisplayItems != null && DisplayItems.Any() ? previewIndex == DisplayItems.Count - 1 : true))"
+        OnRotateLeft="RotatePreviewLeft" OnRotateRight="RotatePreviewRight" OnRemove="RemoveItemFromPreview" />
+}
+@if (!IsFilesLoaded && !CompletionState.ShowResult)
+{
+    <!-- 初期画面：ファイル選択 -->
+    <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
+}
+
+@if (CompletionState.ShowResult)
+{
+    <!-- PC: 横並び, タブレット以下: 縦並び -->
+    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
+        <div class="flex items-center px-4 py-2 h-16">
+            <ActionButtonGroup T="string" Actions="backToEditActions" />
+        </div>
+    </div>
+
+    <!-- メインエリア -->
+    <div class="overflow-hidden h-[calc(100vh-4rem)]">
+        <div class="flex flex-col md:flex-row h-full">
+            <!-- PDF結果プレビュー -->
+            <div class="flex flex-col flex-1 gap-1 overflow-y-auto items-center">
+                @foreach (var info in resultPdfInfos)
+                {
+                    <div class="flex flex-row items-center bg-white rounded shadow p-4 my-2 w-full max-w-lg">
+                        <div class="relative w-24 h-auto ml-4 @(info.ThumbnailLoading ? "page-loading" : "")">
+                            <canvas id="thumb_@info.Id"
+                                width="64"
+                                height="80"
+                                class="w-full h-auto object-contain  border border-gray-300 @(info.PageCount > 1 && !info.ThumbnailLoading ? "thumbnail-stack" : "")"></canvas>
+                            @if (info.ThumbnailLoading)
+                            {
+                                <div class="w-full h-auto absolute inset-0 flex items-center justify-center z-10">
+                                    <span class="text-gray-500 text-xs">読み込み中...</span>
+                                </div>
+                            }
+                            else if (info.ThumbnailError)
+                            {
+                                <div class="w-full h-auto absolute inset-0 flex flex-col items-center justify-center z-10 overflow-visible">
+                                    <ErrorThumbnailIcon class="mb-1 w-8 h-8" />
+                                    <div class="text-red-700 font-bold text-xs mb-1">表示に失敗しました</div>
+                                </div>
+                            }
+                        </div>
+                        <div class="flex flex-col flex-1 items-center">
+                            <div class="font-bold text-lg mb-2">@info.Name</div>
+                            <div class="text-gray-600 text-sm mb-1">サイズ: @info.Size</div>
+                            <div class="text-gray-600 text-sm mb-2">ページ数: @info.PageCount</div>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                                    @onclick="() => DownloadResultPdf(info)">
+                                ダウンロード
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+            <!-- 情報パネル（PCのみ表示） -->
+            <div
+                class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
+                <InfoPanel Title="完了" FileName="@resultZipName" FileSize="@resultZipSize" PageCount="@resultTotalPageCount">
+                    <SplitButton
+                        PrimaryLabel="ダウンロード"
+                        OnPrimaryClick="DownloadResultPdfs"
+                        MenuItems="@resultDownloadMenuItems" />
+                   <button
+                        class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4 gap-1"
+                        @onclick="StartNew">
+                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        新規作成
+                    </button>
+                </InfoPanel>
+            </div>
+        </div>
+        <!-- 下部スライドアップメニュー（タブレット以下のサイズのみ） -->
+        <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
+            <div
+                class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <span>完了</span>
+                    </div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@resultZipName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @resultZipSize</div>
+                    <div class="text-gray-600 text-sm">総ページ数: @resultTotalPageCount</div>
+                    <SplitButton
+                        PrimaryLabel="ダウンロード"
+                        OnPrimaryClick="DownloadResultPdfs"
+                        MenuItems="@resultDownloadMenuItems" />
+                    <button
+                        class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-2"
+                        @onclick="StartNew">
+                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        新規作成
+                    </button>
+                </div>
+                <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <!-- 展開ボタン -->
+            @if (!isMenuOpen)
+            {
+                <button
+                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
+                    @onclick="() => isMenuOpen = true">
+                    <i class="fa-solid fa-check-circle text-green-600 text-2xl"></i>
+                    <span>完了</span>
+                    <i class="fa-solid fa-chevron-up ml-2"></i>
+                </button>
+            }
+        </div>
+        <!-- メニュー展開時はPDFのスクロールを禁止 -->
+        @if (isMenuOpen)
+        {
+            <div class="fixed inset-0 bg-black/30 z-[199] touch-none" @onclick="() => isMenuOpen = false"></div>
+        }
+    </div>
+}
+<!-- ローディング中 -->
+<LoadingOverlay />
+
+<!-- メッセージ表示エリア -->
+<MessageBar />
+
+<PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
+
+<!-- ファイル選択用の隠しinput -->
+<InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
+
+<BookmarkSelectionDialog />
+
+@code {
+    private string layoutTooltip = "Nアップ：複数ページを1枚に集約して出力します。順序・向き・N数を指定可。\nタイル：ページを指定数のタイルに分割して出力します。";
+
+    protected override void OnInitialized()
+    {
+        PdfDataService.OnChange += OnServiceChanged;
+        PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
+
+        // ページ単位表示を強制
+        PdfDataService.SwitchDisplayMode(DisplayMode.Page);
+
+        // PdfDataService にダイアログ表示用の関数を登録
+        PdfDataService.BookmarkSelectionDialogFunc = async (items) =>
+        {
+            // ModalService がコンポーネントにイベントを通知し、結果を返す
+            return await ModalService.ShowBookmarkDialogAsync(items);
+        };
+        
+        // 完了状態をリセット
+        CompletionState.Reset();
+    }
+
+    private void OnServiceChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        PdfDataService.OnChange -= OnServiceChanged;
+        CompletionState.Reset();
+        _dotNetRef?.Dispose();
+
+        if (_dropAreaRegistered)
+        {
+            JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
+            _dropAreaRegistered = false;
+        }
+
+        passwordTcs?.TrySetCanceled();
+        passwordTcs = null;
+    }
+
+    // 統一アーキテクチャ対応プロパティ
+    private DisplayMode CurrentDisplayMode => PdfDataService.GetModel().CurrentMode;
+    private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
+    private bool IsFilesLoaded => DisplayItems.Any();
+
+    private OperationMode CurrentOperationMode = OperationMode.NUp;
+    private bool IsNUpMode => CurrentOperationMode == OperationMode.NUp;
+    private bool IsTileMode => CurrentOperationMode == OperationMode.Tile;
+    private int _previousLayoutNumber = 2;
+    
+    private int LayoutNumber 
+    { 
+        get => _layoutNumber;
+        set
+        {
+            if (_layoutNumber != value)
+            {
+                _previousLayoutNumber = _layoutNumber;
+                _layoutNumber = value;
+                OnLayoutNumberChanged();
+            }
+        }
+    }
+    private int _layoutNumber = 2;
+    
+    private void OnLayoutNumberChanged()
+    {
+        // 2アップ→4アップ以上、または 4アップ以上→2アップに変更された場合
+        bool wasSimple = _previousLayoutNumber < 4;
+        bool isSimple = _layoutNumber < 4;
+        
+        if (wasSimple != isSimple)
+        {
+            // 選択肢が変わるため、NUpDirectionをデフォルト値にリセット
+            if (isSimple)
+            {
+                // 4アップ以上→2アップ: "forward-vertical" などは無効なので "forward" にリセット
+                if (NUpDirection != "forward" && NUpDirection != "reverse")
+                {
+                    NUpDirection = "forward";
+                }
+            }
+            else
+            {
+                // 2アップ→4アップ以上: "forward" はそのまま使える
+                if (NUpDirection == "reverse")
+                {
+                    // "reverse" → "reverse-horizontal" または "forward" に変換
+                    NUpDirection = "forward";
+                }
+            }
+        }
+    }
+    private string NUpDirection { get; set; } = "forward";
+    private string TileDirection { get; set; } = "horizontal";
+    private string OutputOrientation { get; set; } = "portrait"; // "portrait" or "landscape"
+
+    private List<CustomSelectItem<string>> nUpDirectionItems4 => new()
+    {
+        new CustomSelectItem<string>
+        {
+            Value = "forward",
+            Label = "順横方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconHorizontalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "forward-vertical",
+            Label = "順縦方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconVerticalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "reverse-horizontal",
+            Label = "逆横方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconReverseHorizontalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "reverse-vertical",
+            Label = "逆縦方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconReverseVerticalIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        }
+    };
+
+    private List<CustomSelectItem<string>> nUpDirectionItems2 => new()
+    {
+        new CustomSelectItem<string>
+        {
+            Value = "forward",
+            Label = "順方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconForwardIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        },
+        new CustomSelectItem<string>
+        {
+            Value = "reverse",
+            Label = "逆方向",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(LayoutIconReverseIcon));
+                builder.AddAttribute(1, "Class", "w-4 h-4");
+                builder.CloseComponent();
+            }
+        }
+    };
+
+    private List<CustomSelectItem<string>> orientationItems => new()
+    {
+        new CustomSelectItem<string> { Value = "portrait", Label = "縦" },
+        new CustomSelectItem<string> { Value = "landscape", Label = "横" }
+    };
+
+    private List<CustomSelectItem<string>> tileDirectionItems => new()
+    {
+        new CustomSelectItem<string> { Value = "horizontal", Label = "横（上→下）" },
+        new CustomSelectItem<string> { Value = "vertical", Label = "縦（左→右）" }
+    };
+
+    private List<CustomSelectItem<int>> layoutNumberItems => new()
+    {
+        new CustomSelectItem<int> { Value = 2, Label = "2" },
+        new CustomSelectItem<int> { Value = 4, Label = "4" },
+        new CustomSelectItem<int> { Value = 8, Label = "8" },
+        new CustomSelectItem<int> { Value = 16, Label = "16" }
+    };    
+
+    private bool ShowDividerLines { get; set; } = false;
+    private bool RasterizeTiles { get; set; } = false;
+
+
+    /// <summary>
+    /// 並び方向の説明（Nアップ用）
+    /// </summary>
+    private string GetDirectionDescription()
+    {
+        return NUpDirection switch
+        {
+            "forward" => "左→右、上→下",
+            "reverse" => "右→左、下→上",
+            "reverse-horizontal" => "右→左、上→下",
+            "reverse-vertical" => "左→右、下→上",
+            _ => ""
+        };
+    }
+    
+    /// <summary>
+    /// Nアップ処理
+    /// </summary>
+
+/// <summary>
+/// Nアップ処理の実装
+/// </summary>
+private async Task ProcessNUp()
+{
+    try
+    {
+        await MessageService.ShowLoadingAsync($"{LayoutNumber}アップ処理中...");
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
+
+        var allPages = PdfDataService.GetModel().Pages;
+        
+        // 準備できていないページがある場合は中断
+        var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+        
+        if (notReadyCount > 0)
+        {
+            _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+            return;
+        }
+        
+        if (allPages.Count == 0)
+        {
+            _ = MessageService.ShowAsync("処理対象がありません。", MessageType.Error);
+            return;
+        }
+
+        var groups = GetNUpGroups();
+        resultPdfInfos.Clear();
+        
+        foreach (var (group, groupIndex) in groups.Select((g, i) => (g, i)))
+        {
+            // null を除外した実ページのみ抽出し、PageItem を取得
+            var actualPageItems = group
+                .Where(item => item?.RawData is PageItem) 
+                .Select(item => (PageItem)item!.RawData) 
+                .ToList();
+            
+            if (actualPageItems.Count == 0)
+            {
+                Console.WriteLine($"Group {groupIndex + 1} has no valid pages, skipping");
+                continue;
+            }
+            
+            // 並び方向に応じてページを並び替え
+            var orderedPageItems = ReorderPagesForNUp(actualPageItems);
+            
+            // PageData が空のページを除外
+            var mergeData = orderedPageItems
+                .Where(pageItem => !string.IsNullOrEmpty(pageItem.PageData))
+                .Select(pageItem => new MergePageDto
+                {
+                    FileId = pageItem.FileId,
+                    FileName = pageItem.FileName,
+                    PageData = pageItem.PageData,
+                    IsPdf = true,
+                    RotateAngle = pageItem.RotateAngle % 360
+                })
+                .ToList();
+            
+            if (mergeData.Count == 0)
+            {
+                Console.WriteLine($"Group {groupIndex + 1}: No valid PageData, skipping");
+                continue;
+            }
+            
+            try
+            {
+                var url = await JSRuntime.InvokeAsync<string>(
+                    "createNUpPdf", 
+                    mergeData,
+                    LayoutNumber,
+                    NUpDirection,
+                    OutputOrientation,
+                    ShowDividerLines
+                );
+                
+                if (!string.IsNullOrEmpty(url))
+                {
+                    var name = $"nup_{LayoutNumber}_{groupIndex + 1}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                    var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                    resultPdfInfos.Add(new ResultPdfInfo
+                    {
+                        Url = url,
+                        Name = name,
+                        Size = size,
+                        PageCount = 1
+                    });
+                }
+                else
+                {
+                    Console.WriteLine($"Group {groupIndex + 1}: PDF generation returned empty URL");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing group {groupIndex + 1}: {ex.Message}");
+                _ = MessageService.ShowAsync($"グループ {groupIndex + 1} の処理中にエラーが発生しました。", MessageType.Error);
+            }
+        }
+        
+        if (resultPdfInfos.Count > 0)
+        {
+            await FinalizeResult($"nup_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmmss}.zip");
+        }
+        else
+        {
+            _ = MessageService.ShowAsync("PDF の生成に失敗しました。", MessageType.Error);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"NUp processing error: {ex.Message}");
+        _ = MessageService.ShowAsync($"{LayoutNumber}アップ処理中にエラーが発生しました。", MessageType.Error);
+    }
+    finally
+    {
+        await MessageService.HideLoadingAsync();
+    }
+}
+
+
+/// <summary>
+/// 並び方向に応じてページを並び替える（PDF生成用）
+/// </summary>
+private List<PageItem> ReorderPagesForNUp(List<PageItem> pages)
+{
+    if (pages.Count == 0) return pages;
+    
+    var (rows, cols) = LayoutNumber switch
+    {
+        2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
+        4 => (2, 2),
+        8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
+        16 => (4, 4),
+        _ => (2, 1)
+    };
+    
+    var result = new List<PageItem>(pages.Count);
+    
+    switch (NUpDirection)
+    {
+        case "forward":
+            // 左→右、上→下（そのまま）
+            return pages;
+            
+        case "forward-vertical":
+            // 上→下、左→右（列優先）
+            for (int c = 0; c < cols; c++)
+            {
+                for (int r = 0; r < rows; r++)
+                {
+                    int index = r * cols + c;
+                    if (index < pages.Count)
+                        result.Add(pages[index]);
+                }
+            }
+            break;
+            
+        case "reverse-horizontal":
+            // 右→左、上→下（行ごとに列を反転）
+            for (int r = 0; r < rows; r++)
+            {
+                for (int c = cols - 1; c >= 0; c--)
+                {
+                    int index = r * cols + c;
+                    if (index < pages.Count)
+                        result.Add(pages[index]);
+                }
+            }
+            break;
+            
+        case "reverse-vertical":
+            // 右の列から上→下
+            for (int c = cols - 1; c >= 0; c--)
+            {
+                for (int r = 0; r < rows; r++)
+                {
+                    int index = r * cols + c;
+                    if (index < pages.Count)
+                        result.Add(pages[index]);
+                }
+            }
+            break;
+            
+        case "reverse":
+            // 右→左、下→上（完全逆順）
+            result.AddRange(pages.AsEnumerable().Reverse());
+            break;
+            
+        default:
+            return pages;
+    }
+    
+    return result;
+}
+
+
+/// <summary>
+/// 並び方向に応じた配置位置を計算（マッピング使用）
+/// </summary>
+private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
+{
+    int n = rows * cols;
+    
+    switch (NUpDirection)
+    {
+        case "forward":
+            // 左→右、上→下（そのまま）
+            return sourceIndex;
+
+        case "forward-vertical":
+            // 上→下、左→右（列優先）
+            if (n == 2)
+            {
+                if (rows == 2 && cols == 1)
+                    return sourceIndex; // 縦向き: そのまま
+                else
+                    return sourceIndex; // 横向き: そのまま
+            }
+            else if (n == 4)
+            {
+                // 4アップ: [0,2,1,3]
+                var map = new int[] { 0, 2, 1, 3 };
+                return map[sourceIndex];
+            }
+            else if (n == 8)
+            {
+                if (rows == 4 && cols == 2)
+                {
+                    // 縦向き(4行2列): 左列上→下(0,1,2,3)、右列上→下(4,5,6,7)
+                    var map = new int[] { 0, 2, 4, 6, 1, 3, 5, 7 };
+                    return map[sourceIndex];
+                }
+                else // rows == 2 && cols == 4
+                {
+                    // 横向き(2行4列): 左列から順に上→下 → [0,4,1,5,2,6,3,7]
+                    var map = new int[] { 0, 4, 1, 5, 2, 6, 3, 7 };
+                    return map[sourceIndex];
+                }
+            }
+            else if (n == 16)
+            {
+                // 16アップ: [0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15]
+                var map = new int[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+                return map[sourceIndex];
+            }
+            // フォールバック: 計算式
+            {
+                int row = sourceIndex / cols;
+                int col = sourceIndex % cols;
+                return col * rows + row;
+            }
+
+        case "reverse-horizontal":
+            // 右→左、上→下
+            {
+                int row = sourceIndex / cols;
+                int col = sourceIndex % cols;
+                return row * cols + (cols - 1 - col);
+            }
+
+        case "reverse-vertical":
+            // 右の列から順に上→下（マッピング）
+            if (n == 2)
+            {
+                var map = new int[] { 1, 0 };
+                return map[sourceIndex];
+            }
+            else if (n == 4)
+            {
+                var map = new int[] { 1, 3, 0, 2 };
+                return map[sourceIndex];
+            }
+            else if (n == 8)
+            {
+                if (rows == 2 && cols == 4)
+                {
+                    // 横向き: 右端列から → [1,5,3,7,0,4,2,6]
+                    var map = new int[] { 3, 7, 2, 6, 1, 5, 0, 4 };
+                    return map[sourceIndex];
+                }
+                else // rows == 4 && cols == 2
+                {
+                    // 縦向き: 右列から → [1,3,5,7,0,2,4,6]
+                    var map = new int[] { 1, 3, 5, 7, 0, 2, 4, 6 };
+                    return map[sourceIndex];
+                }
+            }
+            else if (n == 16)
+            {
+                var map = new int[] { 3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12 };
+                return map[sourceIndex];
+            }
+            return sourceIndex;
+
+        case "reverse":
+            // 右→左、下→上（完全逆順）
+            return n - 1 - sourceIndex;
+
+        default:
+            return sourceIndex;
+    }
+}
+
+    /// <summary>
+    /// Nアップコンテナのスタイル（A4比率で固定幅、用紙イメージ）
+    /// </summary>
+    private string GetNUpContainerStyle()
+    {
+        // 出力ページの向きに応じてA4比率を設定
+        if (OutputOrientation == "landscape")
+        {
+            // 横向き: 297:210 = 1.414:1
+            return "width: 400px; aspect-ratio: 297 / 210;";
+        }
+        else
+        {
+            // 縦向き: 210:297 = 1:1.414
+            return "width: 280px; aspect-ratio: 210 / 297;";
+        }
+    }
+
+    /// <summary>
+    /// Nアップのグリッドスタイルを生成（方向に応じて変更）
+    /// </summary>
+    private string GetNUpGridStyle()
+    {
+        // 出力ページの向きで行列の基準を決定
+        bool isLandscape = OutputOrientation == "landscape";
+        
+        return LayoutNumber switch
+        {
+            2 => isLandscape
+                ? "grid-template-columns: repeat(2, 1fr); grid-template-rows: 1fr;"  // 横向き: 横2列
+                : "grid-template-columns: 1fr; grid-template-rows: repeat(2, 1fr);",    // 縦向き: 縦2行
+                
+            4 => "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr);",
+            
+            8 => isLandscape
+                ? "grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr);"  // 横向き: 4列2行
+                : "grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr);", // 縦向き: 2列4行
+                
+            16 => "grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr);",
+            
+            _ => "grid-template-columns: repeat(2, 1fr);"
+        };
+    }
+
+    /// <summary>
+    /// 並び方向に応じた視覚的な順序を計算（Nアップ用）
+    /// </summary>
+    private int GetVisualOrder(int index, int groupSize)
+    {
+        var (rows, cols) = LayoutNumber switch
+        {
+            2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
+            4 => (2, 2),
+            8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
+            16 => (4, 4),
+            _ => (2, 1)
+        };
+        
+        return GetTargetIndexForDirection(index, rows, cols);
+    }
+
+    /// <summary>
+    /// タイルの格子状分割線を生成（タイル用）
+    /// </summary>
+    private List<string> GetTileDivisionLines()
+    {
+        var lines = new List<string>();
+        var isHorizontal = TileDirection == "horizontal";
+        
+        int rows, cols;
+        switch (LayoutNumber)
+        {
+            case 2:
+                rows = isHorizontal ? 2 : 1;
+                cols = isHorizontal ? 1 : 2;
+                break;
+            case 4:
+                rows = 2;
+                cols = 2;
+                break;
+            case 8:
+                rows = isHorizontal ? 4 : 2;
+                cols = isHorizontal ? 2 : 4;
+                break;
+            case 16:
+                rows = 4;
+                cols = 4;
+                break;
+            default:
+                rows = 2;
+                cols = 2;
+                break;
+        }
+        
+        // 縦線（列の境界）
+        for (int i = 1; i < cols; i++)
+        {
+            var position = (100.0 / cols) * i;
+            lines.Add($"left: {position}%; top: 0; width: 2px; height: 100%;");
+        }
+        
+        // 横線（行の境界）
+        for (int i = 1; i < rows; i++)
+        {
+            var position = (100.0 / rows) * i;
+            lines.Add($"top: {position}%; left: 0; height: 2px; width: 100%;");
+        }
+        
+        return lines;
+    }
+
+    private List<ToggleButtonItem<string>> toggleItems = new()
+    {
+        new ToggleButtonItem<string>
+        {
+            Value = "NUp",
+            Label = "Nアップ",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(NUpIcon));
+                builder.AddAttribute(1, "Class", "text-black w-5 h-5");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<string>
+        {
+            Value = "Tile",
+            Label = "タイル",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(TileIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            }
+        }
+    };
+    private string CurrentModeString => IsNUpMode ? "NUp" : "Tile";
+    private async Task OnToggleMode(string mode)
+    {
+        if (mode == "NUp")
+            CurrentOperationMode = OperationMode.NUp;
+        else if (mode == "Tile")
+            CurrentOperationMode = OperationMode.Tile;
+
+        StateHasChanged();
+        await Task.Delay(100);
+    }
+
+    private List<List<DisplayItem?>> GetNUpGroups()
+    {
+        var groups = new List<List<DisplayItem?>>();
+        var currentGroup = new List<DisplayItem?>();
+        
+        foreach (var item in DisplayItems)
+        {
+            currentGroup.Add(item);
+            if (currentGroup.Count >= LayoutNumber)
+            {
+                groups.Add(currentGroup);
+                currentGroup = new List<DisplayItem?>();
+            }
+        }
+        
+        if (currentGroup.Any())
+        {
+            while (currentGroup.Count < LayoutNumber)
+            {
+                currentGroup.Add(null);
+            }
+            groups.Add(currentGroup);
+        }
+        
+        return groups;
+    }
+
+    private int GetNUpGridColumns()
+    {
+        // 2アップ→1列2行、4アップ→2列2行、8アップ→2列4行、16アップ→4列4行
+        return LayoutNumber switch
+        {
+            2 => 1,
+            4 => 2,
+            8 => 2,
+            16 => 4,
+            _ => 2
+        };
+    }
+
+    private string GetPrimaryActionLabel()
+    {
+        if (IsNUpMode)
+            return $"{LayoutNumber}アップで結合";
+        if (IsTileMode)
+            return $"{LayoutNumber}分割";
+        return "完了";
+    }
+
+
+    private async Task ProcessLayout()
+    {
+        if (IsNUpMode)
+        {
+            await ProcessNUp();
+        }
+        else if (IsTileMode)
+        {
+            await ProcessTile();
+        }
+    }
+
+
+    /// <summary>
+    /// タイル分割処理
+    /// </summary>
+    private async Task ProcessTile()
+    {
+        try
+        {
+            await MessageService.ShowLoadingAsync($"{LayoutNumber}分割処理中...");
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+
+            var allPages = PdfDataService.GetModel().Pages;
+            // 準備できていないページがある場合は中断
+            var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            if (notReadyCount > 0)
+            {
+                _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+                return;
+            }
+            
+            if (allPages.Count == 0)
+            {
+                _ = MessageService.ShowAsync("処理対象がありません。", MessageType.Error);
+                return;
+            }
+
+            resultPdfInfos.Clear();
+            
+            int totalTileCount = 0;
+            foreach (var (page, pageIndex) in allPages.Select((p, i) => (p, i)))
+            {
+                try
+                {
+                    // 各ページを指定された数に分割
+                    var urls = await JSRuntime.InvokeAsync<string[]>(
+                        "splitPdfPageIntoTiles", 
+                        page.PageData, 
+                        LayoutNumber, 
+                        TileDirection,
+                        RasterizeTiles  // 画像化オプションを渡す
+                    );
+                    
+                    if (urls == null || urls.Length == 0)
+                    {
+                        Console.WriteLine($"Page {pageIndex + 1}: No tiles generated");
+                        continue;
+                    }
+                    
+                    foreach (var (url, tileIndex) in urls.Select((u, i) => (u, i)))
+                    {
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            totalTileCount++;
+                            var name = $"tile_p{pageIndex + 1}_t{tileIndex + 1}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+                            var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                            resultPdfInfos.Add(new ResultPdfInfo
+                            {
+                                Url = url,
+                                Name = name,
+                                Size = size,
+                                PageCount = 1
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing page {pageIndex + 1}: {ex.Message}");
+                    _ = MessageService.ShowAsync($"ページ {pageIndex + 1} の分割中にエラーが発生しました。", MessageType.Error);
+                }
+            }
+            
+            if (resultPdfInfos.Count > 0)
+            {
+                await FinalizeResult($"tile_{LayoutNumber}_{DateTime.Now:yyyyMMddHHmmss}.zip");
+            }
+            else
+            {
+                _ = MessageService.ShowAsync("タイルの生成に失敗しました。", MessageType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Tile processing error: {ex.Message}");
+            _ = MessageService.ShowAsync($"{LayoutNumber}分割処理中にエラーが発生しました。", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
+    }
+
+    private async Task FinalizeResult(string zipName)
+    {
+        if (resultPdfInfos.Count > 0)
+        {
+            resultZipName = zipName;
+            var pdfUrls = resultPdfInfos.Select(x => x.Url).ToList();
+            var pdfNames = resultPdfInfos.Select(x => x.Name).ToList();
+            resultZipUrl = await JSRuntime.InvokeAsync<string>("createZipFromUrls", pdfUrls, pdfNames, resultZipName);
+            resultZipSize = await JSRuntime.InvokeAsync<string>("getZipFileSize", resultZipUrl);
+            resultTotalPageCount = resultPdfInfos.Sum(x => x.PageCount);
+            CompletionState.SetShowResult(true);
+        }
+    }
+
+    private int previewIndex = -1;
+
+    private string? previewImageUrl = null;
+    private bool isPreviewLoading = false;
+    // ファイル単位表示時の現在ページ番号（0始まり）
+    private int CurrentFilePageIndex => GetCurrentFilePageIndex();
+    // ファイル単位表示時の総ページ数
+    private int CurrentFilePageCount => GetCurrentFilePageCount();
+
+    // ファイル単位表示時のファイル内ページ番号（0始まり）
+    // プレビュー中のファイル内で、何ページ目を表示しているか
+    private int filePageIndex = 0;
+    private DotNetObjectReference<Layout>? _dotNetRef;
+    private bool isMenuOpen = false;
+    private string resultZipUrl = "";
+    private string resultZipName = "";
+    private string resultZipSize = "";
+    private int resultTotalPageCount = 0;
+
+    private bool IsExtractSplit { get; set; } = false;
+    private int ExtractSelectedCount => DisplayItems.Count(x => x.IsSelectedForExtract);
+    private bool IsAllSelected => DisplayItems.Count > 0 && DisplayItems.All(x => x.IsSelectedForExtract);
+    private int GetCurrentFilePageIndex()
+    {
+        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
+            return 0;
+        return filePageIndex;
+    }
+    private int GetCurrentFilePageCount()
+    {
+        if (CurrentDisplayMode == DisplayMode.Page || previewIndex < 0 || previewIndex >= DisplayItems.Count)
+            return 1;
+        return DisplayItems[previewIndex].PageCount;
+    }
+
+    private List<ActionButtonItem> primaryActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = GetPrimaryActionLabel(),
+            IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
+            Title = GetPrimaryActionLabel(),
+            OnClick = EventCallback.Factory.Create(this, ProcessLayout),
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
+            IconPosition = "right",
+            TextColor = "text-white"
+        }
+    };
+
+    private List<ActionButtonItem> resetActions => new()
+    {
+        new ActionButtonItem
+        {
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ResetIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "最初からやり直す",
+            OnClick = EventCallback.Factory.Create(this, StartNew),
+            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded"
+        }
+    };
+
+    private List<ActionButtonItem> backToEditActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "編集に戻る",
+            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Title = "編集に戻る",
+            OnClick = EventCallback.Factory.Create(this, BackToEdit),
+        }
+    };
+
+    private List<SplitButton.MenuActionItem> resultDownloadMenuItems => new()
+    {
+        new SplitButton.MenuActionItem
+        {
+            Label = "PDFでダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadResultPdfs)
+        },
+        new SplitButton.MenuActionItem
+        {
+            Label = "PNG画像でダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadResultPngs)
+        }
+    };
+
+    private async Task MovePreview(int direction)
+    {
+        if (CurrentDisplayMode == DisplayMode.File)
+        {
+            var pageCount = DisplayItems[previewIndex].PageCount;
+            var nextPage = filePageIndex + direction;
+            if (nextPage >= 0 && nextPage < pageCount)
+            {
+                filePageIndex = nextPage;
+                await ShowPreviewAsync(previewIndex, filePageIndex);
+            }
+        }
+        else
+        {
+            var nextIndex = previewIndex + direction;
+            if (nextIndex >= 0 && nextIndex < DisplayItems.Count)
+            {
+                await ShowPreviewAsync(nextIndex);
+            }
+        }
+    }
+    private async Task OnPreviewPageInputChanged(ChangeEventArgs e)
+    {
+        if (CurrentDisplayMode == DisplayMode.Page) return;
+
+        if (int.TryParse(e.Value?.ToString(), out int inputPage))
+        {
+            // 1以上、最大ページ数以下のみ有効
+            if (inputPage >= 1 && inputPage <= CurrentFilePageCount)
+            {
+                filePageIndex = inputPage - 1;
+                await ShowPreviewAsync(previewIndex, filePageIndex);
+            }
+        }
+    }
+    private async Task RotatePreviewLeft()
+    {
+        if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
+        {
+            PdfDataService.RotateItem(previewIndex, -90);
+            await ShowPreviewAsync(previewIndex);
+        }
+    }
+
+    private async Task RotatePreviewRight()
+    {
+        if (previewIndex >= 0 && previewIndex < DisplayItems.Count)
+        {
+            PdfDataService.RotateItem(previewIndex, 90);
+            await ShowPreviewAsync(previewIndex);
+        }
+    }
+
+
+    private async Task ShowPreviewAsync(int fileIndex, int pageIndex = 0)
+    {
+        previewIndex = fileIndex;
+        filePageIndex = pageIndex;
+        previewImageUrl = null;
+        isPreviewLoading = true;
+
+        try
+        {
+            previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
+        }
+        catch
+        {
+            // 失敗時はサムネイル表示
+            previewImageUrl = DisplayItems[fileIndex].Thumbnail;
+        }
+
+        isPreviewLoading = false;
+    }
+
+
+    private void ClosePreview()
+    {
+        previewIndex = -1;
+        StateHasChanged();
+    }
+
+    public class MergePageDto
+    {
+        public string FileId { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string PageData { get; set; } = "";
+        public bool IsPdf { get; set; }
+        public int RotateAngle { get; set; }
+    }
+
+
+    public class ResultPdfInfo
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Url { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Size { get; set; } = "";
+        public int PageCount { get; set; }
+        public bool ThumbnailLoaded { get; set; } = false;
+        public bool ThumbnailError { get; set; } = false;
+        public bool ThumbnailLoading { get; set; } = true;
+    }
+    private List<ResultPdfInfo> resultPdfInfos = new();
+
+    // アイテム削除
+    private void RemovePage(int index)
+    {
+
+        try
+        {
+            PdfDataService.RemoveItem(index);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error removing item {index}: {ex.Message}");
+            _ = MessageService.ShowAsync($"削除に失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+
+
+    // ファイルダイアログを開く
+    private async Task OpenFileDialog()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening file dialog: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    // その他のメソッド
+    private void BackToEdit()
+    {
+        CompletionState.Reset();
+        StateHasChanged();
+    }
+
+    private void StartNew()
+    {
+        CompletionState.Reset();
+
+        PdfDataService.Clear();
+        
+        resultPdfInfos.Clear();
+        resultZipUrl = "";
+        resultZipName = "";
+        resultZipSize = "";
+        resultTotalPageCount = 0;
+    
+    }
+
+    // 隣接サムネイルとの入れ替え機能
+    private async Task OnSwapWithNext(int index)
+    {
+        try
+        {
+            PdfDataService.SwapWithNext(index);
+
+            // ここで全PageItemsを出力
+            var pages = PdfDataService.GetModel().Pages;
+            //Console.WriteLine("=== After OnSwapWithNext ===");
+            for (int i = 0; i < pages.Count; i++)
+            {
+                var p = pages[i];
+                //Console.WriteLine($"Index: {i}, Id: {p.Id}, FileName: {p.FileName}, OriginalPageIndex: {p.OriginalPageIndex}");
+            }
+            await InvokeAsync(StateHasChanged);
+
+        }
+        catch (Exception ex)
+        {
+            _ = MessageService.ShowAsync($"サムネイルの入れ替えに失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    private async Task RotatePage(int index, int angle = 90)
+{
+    if (index >= 0 && index < DisplayItems.Count)
+    {
+        try
+        {
+            PdfDataService.RotateItem(index, angle);
+            
+            // 再レンダリングをトリガー
+            StateHasChanged();
+            
+            // Nアップモード時は OnAfterRenderAsync で canvas を再描画
+            if (IsNUpMode)
+            {
+                await Task.Delay(100); // DOM更新を待つ
+                await JSRuntime.InvokeVoidAsync("drawNUpCanvases", "sortable-container");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rotating item {index}: {ex.Message}");
+            _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+}
+
+    private Task RotateFile(string fileId)
+    {
+        PdfDataService.RotateFile(fileId, 90);
+        return Task.CompletedTask;
+    }
+
+    private void RotateAllLeft() => RotateAll(-90);
+    private void RotateAllRight() => RotateAll(90);
+    private void RotateAll(int angle)
+    {
+        try{
+            PdfDataService.RotateAll(CurrentDisplayMode, DisplayItems, angle);
+            _ = MessageService.ShowAsync($"回転が完了しました", MessageType.Success);
+
+        }catch(Exception ex){
+            _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }finally{
+        }
+        
+    }
+
+    private async void RemoveItemFromPreview()
+    {
+        if (CurrentDisplayMode == DisplayMode.File)
+        {
+            var fileId = DisplayItems[previewIndex].Id;
+            int removedPageIndex = filePageIndex;
+
+            PdfDataService.RemovePageFromFile(fileId, removedPageIndex);
+
+            var items = DisplayItems;
+            var newIndex = items.FindIndex(x => x.Id == fileId);
+
+            if (newIndex >= 0 && items[newIndex].PageCount > 0)
+            {
+                int pageCount = items[newIndex].PageCount;
+                // インデックス再計算
+                filePageIndex = (removedPageIndex >= pageCount) ? pageCount - 1 : removedPageIndex;
+                if (filePageIndex < 0) filePageIndex = 0;
+                previewIndex = newIndex;
+
+                await ShowPreviewAsync(previewIndex, filePageIndex);
+            }
+            else
+            {
+                // ファイル自体が消えた場合、次のインデックスにプレビューを移動
+                if (items.Count > 0)
+                {
+                    previewIndex = Math.Min(previewIndex, items.Count - 1);
+                    filePageIndex = 0;
+                    await ShowPreviewAsync(previewIndex, filePageIndex);
+                }
+                else
+                {
+                    ClosePreview();
+                }
+            }
+        }
+        else
+        {
+            PdfDataService.RemoveItem(previewIndex);
+            var items = DisplayItems;
+            if (items.Count > 0)
+            {
+                previewIndex = Math.Min(previewIndex, items.Count - 1);
+                await ShowPreviewAsync(previewIndex);
+            }
+            else
+            {
+                ClosePreview();
+            }
+        }
+    }
+    private async Task DuplicateItem(int index)
+    {
+        if (CurrentDisplayMode == DisplayMode.File)
+        {
+            var fileItem = DisplayItems[index];
+            await PdfDataService.DuplicateItemAsync(fileItem.Id, true, index + 1);
+        }
+        else if (CurrentDisplayMode == DisplayMode.Page)
+        {
+            var pageItem = DisplayItems[index];
+            await PdfDataService.DuplicateItemAsync(pageItem.Id, false, index + 1);
+        }
+        StateHasChanged();
+    }
+
+    // 並び替え時に@keyとして使い、Blazorの仮想DOMキャッシュをリセットしてサムネイルリストを強制的に再生成するためのバージョン番号
+    private int sortVersion = 0;
+    // 実際の並び替え処理
+    [JSInvokable]
+    public async Task UpdateOrder(int oldIndex, int newIndex)
+    {
+        try
+        {
+            if (oldIndex >= 0 && oldIndex < DisplayItems.Count &&
+            newIndex >= 0 && newIndex < DisplayItems.Count &&
+            oldIndex != newIndex)
+            {
+                // 統一データサービスを使用して並び替え
+                PdfDataService.MoveItem(oldIndex, newIndex);
+            }
+            else
+            {
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in UpdateOrder: {ex.Message}");
+            _ = MessageService.ShowAsync($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
+        }finally{
+            sortVersion++; 
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // 空白ページを挿入
+    public async Task InsertBlankPage(int position)
+    {
+
+        await PdfDataService.InsertBlankPageWithDisplayModeAsync(
+            CurrentDisplayMode, DisplayItems, position);
+
+    }
+
+    // PDF挿入
+    public async Task InsertPdfAtPosition(int position)
+    {
+        await PdfDataService.OpenInsertPdfDialogAsync(
+            CurrentDisplayMode,
+            DisplayItems,
+            position,
+            pos => insertPosition = pos,
+            msg => _ = MessageService.ShowAsync(msg, MessageType.Error)
+        );
+    }
+
+    private int insertPosition = -1;
+
+    // 挿入用ファイル選択処理
+    private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await PdfDataService.HandleFileInputAsync(
+                e,
+                insertPosition >= 0 ? insertPosition : null
+            );
+            insertPosition = -1;
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error handling file selection: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込みに失敗しました: {ex.Message}", MessageType.Error);
+        }finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
+    }
+
+    private List<DropdownMenuItem> addMenuItems => new()
+{
+new DropdownMenuItem
+{
+Label = "空白ページを追加",
+OnClick = EventCallback.Factory.Create(this, () => InsertBlankPage(DisplayItems.Count))
+},
+new DropdownMenuItem
+{
+Label = "ドキュメントを追加",
+OnClick = EventCallback.Factory.Create(this, () => InsertPdfAtPosition(DisplayItems.Count))
+}
+};
+
+    private List<DropdownMenuItem> sortMenuItems => new()
+{
+new DropdownMenuItem
+{
+Label = "名前（昇順）",
+OnClick = EventCallback.Factory.Create(this, () => SelectSort(true))
+},
+new DropdownMenuItem
+{
+Label = "名前（降順）",
+OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
+}
+};
+
+    private List<ActionButtonItem> reverseActions => new()
+{
+new ActionButtonItem
+{
+Label = "逆順",
+IconHtml = @"<svg width='20' height='20' viewBox='0 0 21 21' fill='none' class='inline-block align-middle'><g
+stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'><path d='M4.5 8.5l-4 4 4 4' /><path d='M12.5
+12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
+Title = "逆順",
+OnClick = EventCallback.Factory.Create(this, ReverseOrder)
+}
+};
+
+    private List<ActionButtonItem> rotateActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "左",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateLeftIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
+            Title = "左回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllLeft),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Label = "右",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateRightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
+                builder.CloseComponent();
+            },
+            Title = "右回転",
+            OnClick = EventCallback.Factory.Create(this, RotateAllRight),
+            IconPosition = "left"
+        }
+    };
+
+    private async Task ReverseOrder()
+    {
+
+        try{
+            await MessageService.ShowLoadingAsync("逆順中...");
+            if (CurrentDisplayMode == DisplayMode.File)
+            {
+                // ファイル単位：ファイルごと逆順
+                var model = PdfDataService.GetModel();
+                var fileIds = DisplayItems.Select(x => x.Id).Reverse().ToList();
+                PdfDataService.ReorderFiles(fileIds);
+            }
+            else if (CurrentDisplayMode == DisplayMode.Page)
+            {
+                // ページ単位：ページごと逆順
+                PdfDataService.ReversePages();
+            }
+        }catch(Exception ex){
+            Console.WriteLine($"Error showing loading message: {ex.Message}");
+            _ = MessageService.ShowAsync($"逆順中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }finally{
+            await MessageService.HideLoadingAsync();
+        }
+    }
+
+    private async Task SelectSort(bool ascending)
+    {
+        await SortByName(ascending);
+    }
+    private async Task SortByName(bool ascending)
+    {
+        try{
+            await MessageService.ShowLoadingAsync("ソート中...");
+            if (CurrentDisplayMode == DisplayMode.File)
+            {
+                var sorted = ascending
+                ? DisplayItems.OrderBy(x => x.DisplayName).Select(x => x.Id).ToList()
+                : DisplayItems.OrderByDescending(x => x.DisplayName).Select(x => x.Id).ToList();
+                PdfDataService.ReorderFiles(sorted);
+            }
+            else if (CurrentDisplayMode == DisplayMode.Page)
+            {
+                PdfDataService.SortPagesByName(ascending);
+            }
+        }catch(Exception ex){
+            Console.WriteLine($"Error during SortByName: {ex.Message}");
+            _ = MessageService.ShowAsync($"並び替え中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            return;
+        }finally{
+            await MessageService.HideLoadingAsync();
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
+    {
+        try
+        {
+            await PdfDataService.HandleDroppedFileAsync(fileName, base64Data);
+        }catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }   
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
+    }
+
+
+
+    private bool _dropAreaRegistered = false;
+
+    private void ToggleAllExtractSelection(ChangeEventArgs e)
+    {
+        bool check = e.Value is bool b && b;
+        foreach (var item in DisplayItems)
+        {
+            if (item.IsSelectedForExtract != check)
+            {
+                PdfDataService.SetExtractSelection(item, check);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void HandleSelectChanged(int index)
+    {
+        if (index >= 0 && index < DisplayItems.Count)
+        {
+            PdfDataService.ToggleExtractSelection(index);
+        }
+    }
+
+    private bool isPasswordDialogOpen = false;
+    private string passwordDialogFileName = "";
+    private TaskCompletionSource<string?>? passwordTcs;
+
+    // サービスから呼ばれる
+    public Task<string?> ShowPasswordInputDialogAsync(string fileName)
+    {
+        isPasswordDialogOpen = true;
+        passwordDialogFileName = fileName;
+        passwordTcs = new TaskCompletionSource<string?>();
+        StateHasChanged();
+        return passwordTcs.Task;
+    }
+
+    private void OnPasswordDialogClose(string? password)
+    {
+        isPasswordDialogOpen = false;
+        passwordTcs?.SetResult(password);
+        passwordTcs = null;
+        StateHasChanged();
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+        }
+        // 初期画面のときのみ登録
+        if (!IsFilesLoaded && !CompletionState.ShowResult)
+        {
+            await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
+        }
+
+        // drop-areaが表示され、まだ登録していない場合のみ
+        if (!_dropAreaRegistered && IsFilesLoaded && DisplayItems.Any())
+        {
+            await JSRuntime.InvokeVoidAsync("registerDropArea", "drop-area", _dotNetRef);
+            _dropAreaRegistered = true;
+        }
+
+        else if (_dropAreaRegistered && (!IsFilesLoaded || !DisplayItems.Any()))
+        {
+            // drop-areaが消えたらフラグを戻す（必要ならJSでunregisterも）
+            _dropAreaRegistered = false;
+        }
+
+        if (IsFilesLoaded && DisplayItems.Any())
+        {
+            if (IsNUpMode)
+            {
+                await JSRuntime.InvokeVoidAsync("drawNUpCanvases", "sortable-container");
+            }
+            else
+            {
+                // 通常モード・タイルモード時は既存の drawVisibleCanvases を使用
+                await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
+            }
+        }
+
+        // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
+        if (IsFilesLoaded && DisplayItems.Any())
+        {
+            await InvokeAsync(async () =>
+            {
+                try
+                {
+                    await Task.Delay(50); // DOM更新完了を待つ
+                    await JSRuntime.InvokeVoidAsync("initializeSortable", _dotNetRef);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error initializing interactions: {ex.Message}");
+                }
+            });
+        }
+
+        if (CompletionState.ShowResult && resultPdfInfos.Any())
+        {
+            foreach (var info in resultPdfInfos)
+            {
+                var canvasId = $"thumb_{info.Id}";
+                if (info.ThumbnailLoading)
+                {
+                    try
+                    {
+                        var success = await RenderThumbnailWithRetry(info.Url, canvasId);
+                        info.ThumbnailLoaded = success;
+                        info.ThumbnailError = !success;
+                    }
+                    catch
+                    {
+                        info.ThumbnailLoaded = false;
+                        info.ThumbnailError = true;
+                    }
+                    finally
+                    {
+                        info.ThumbnailLoading = false;
+                        StateHasChanged();
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task<bool> RenderThumbnailWithRetry(string url, string canvasId, int maxRetry = 5)
+    {
+        for (int i = 0; i < maxRetry; i++)
+        {
+            var exists = await JSRuntime.InvokeAsync<bool>("checkCanvasExists", canvasId);
+            if (exists)
+            {
+                await JSRuntime.InvokeVoidAsync("renderPdfThumbnailToCanvas", url, canvasId);
+                
+                return true;
+            }
+            await Task.Delay(100);
+        }
+        Console.WriteLine($"[WARN] canvas not found after retry: {canvasId}");
+        return false;
+    }
+
+    private async void DownloadResultPdfs()
+    {
+        if (string.IsNullOrEmpty(resultZipUrl) || string.IsNullOrEmpty(resultZipName))
+            return;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync(
+                "downloadFileFromUrl",
+                resultZipUrl,
+                resultZipName,
+                "application/zip"
+            );
+        }
+        catch (Exception ex)
+        {
+            _ = MessageService.ShowAsync($"ZIPのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadResultPdf(ResultPdfInfo info)
+    {
+        await JSRuntime.InvokeVoidAsync("downloadFileFromUrl", info.Url, info.Name, "application/pdf");
+    }
+
+    private async void DownloadResultPngs()
+    {
+        if (resultPdfInfos == null || resultPdfInfos.Count == 0)
+            return;
+
+        try
+        {
+            // 各PDFごとにPNG変換し、まとめてZIPでダウンロード
+            var pdfUrls = resultPdfInfos.Select(x => x.Url).ToList();
+            var pdfNames = resultPdfInfos.Select(x => x.Name).ToList();
+            var zipName = Path.GetFileNameWithoutExtension(resultZipName) + "_png.zip";
+
+            await JSRuntime.InvokeVoidAsync(
+                "downloadAllPdfsAsPngZip",
+                pdfUrls,
+                pdfNames,
+                zipName
+            );
+        }
+        catch (Exception ex)
+        {
+            _ = MessageService.ShowAsync($"PNGダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
+        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+
+    private async Task ReloadAllThumbnailsAsync()
+    {
+        foreach (var item in DisplayItems)
+        {
+            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+            {
+                await ReloadPageItem(item);
+            }
+        }
+    }
+    private async Task ReloadPageItem(DisplayItem item)
+    {
+        // ページ単位の場合のみ対応
+        if (item.RawData is PageItem pageItem)
+        {
+            pageItem.IsLoading = true;
+            
+            var errorMsg = await PdfDataService.ReloadPageAsync(pageItem.FileId, pageItem.OriginalPageIndex);
+
+            if (!string.IsNullOrEmpty(errorMsg))
+            {
+                _ = MessageService.ShowAsync(errorMsg, MessageType.Error);
+            }
+        }
+    }
+}

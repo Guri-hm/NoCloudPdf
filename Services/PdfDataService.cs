@@ -170,6 +170,7 @@ public class PdfDataService
     {
         try
         {
+            Console.WriteLine($"Adding or inserting PDF file: {fileName}, size: {fileData.Length} bytes");
             // ファイルヘッダーの検証
             var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
             if (!header.StartsWith("%PDF-"))
@@ -321,7 +322,11 @@ public class PdfDataService
             {
                 foreach (var b in items)
                 {
-                    flat.Add((b.Title ?? "", b.PageIndex));
+                    // pageIndex が -1（無効）の場合はスキップ
+                    if (b.PageIndex >= 0)
+                    {
+                        flat.Add((b.Title ?? "", b.PageIndex));
+                    }
                     if (b.Items != null && b.Items.Count > 0) Walk(b.Items);
                 }
             }
@@ -1776,10 +1781,8 @@ public class PdfDataService
     }
 
     public async Task<bool> HandleDroppedFileAsync(
-        string fileName,
-        string base64Data,
-        Func<string, byte[], Task<bool>>? onPdf = null,
-        Func<string, byte[], Task<bool>>? onImage = null)
+    string fileName,
+    string base64Data)
     {
         var fileData = Convert.FromBase64String(base64Data);
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
@@ -1787,13 +1790,11 @@ public class PdfDataService
 
         if (SupportedPdfExtensions.Contains(ext))
         {
-            if (onPdf != null)
-                success = await onPdf(fileName, fileData);
+            success = await AddOrInsertPdfFileAsync(fileName, fileData, null);
         }
         else if (SupportedImageExtensions.Contains(ext))
         {
-            if (onImage != null)
-                success = await onImage(fileName, fileData);
+            success = await AddOrInsertImageFileAsync(fileName, fileData, null);
         }
         else
         {
