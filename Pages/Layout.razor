@@ -648,7 +648,26 @@ private async Task ProcessNUp()
     try
     {
         await MessageService.ShowLoadingAsync($"{LayoutNumber}アップ処理中...");
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
+
+        var allPages = PdfDataService.GetModel().Pages;
         
+        // 準備できていないページがある場合は中断
+        var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+        
+        if (notReadyCount > 0)
+        {
+            _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+            return;
+        }
+        
+        if (allPages.Count == 0)
+        {
+            _ = MessageService.ShowAsync("処理対象がありません。", MessageType.Error);
+            return;
+        }
+
         var groups = GetNUpGroups();
         resultPdfInfos.Clear();
         
@@ -1146,8 +1165,24 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         try
         {
             await MessageService.ShowLoadingAsync($"{LayoutNumber}分割処理中...");
-            
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+
             var allPages = PdfDataService.GetModel().Pages;
+            // 準備できていないページがある場合は中断
+            var notReadyCount = allPages.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            if (notReadyCount > 0)
+            {
+                _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
+                return;
+            }
+            
+            if (allPages.Count == 0)
+            {
+                _ = MessageService.ShowAsync("処理対象がありません。", MessageType.Error);
+                return;
+            }
+
             resultPdfInfos.Clear();
             
             int totalTileCount = 0;
