@@ -421,7 +421,13 @@ window.renderFirstPDFPage = async function (fileData, password) {
                                 try { pageIndex = await pdf.getPageIndex(dest[0]); } catch (e) { pageIndex = null; }
                             }
                         } catch (e) { /* ignore */ }
-                        const node = { title: it.title || '', pageIndex: pageIndex, items: [] };
+
+                        const node = { 
+                            title: it.title || '', 
+                            pageIndex: pageIndex !== null ? pageIndex : -1, 
+                            items: [] 
+                        };
+                        // const node = { title: it.title || '', pageIndex: pageIndex, items: [] };
                         if (it.items && it.items.length) {
                             node.items = await mapOutlineItems(it.items);
                         }
