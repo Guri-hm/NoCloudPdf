@@ -1781,10 +1781,8 @@ public class PdfDataService
     }
 
     public async Task<bool> HandleDroppedFileAsync(
-        string fileName,
-        string base64Data,
-        Func<string, byte[], Task<bool>>? onPdf = null,
-        Func<string, byte[], Task<bool>>? onImage = null)
+    string fileName,
+    string base64Data)
     {
         var fileData = Convert.FromBase64String(base64Data);
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
@@ -1792,13 +1790,11 @@ public class PdfDataService
 
         if (SupportedPdfExtensions.Contains(ext))
         {
-            if (onPdf != null)
-                success = await onPdf(fileName, fileData);
+            success = await AddOrInsertPdfFileAsync(fileName, fileData, null);
         }
         else if (SupportedImageExtensions.Contains(ext))
         {
-            if (onImage != null)
-                success = await onImage(fileName, fileData);
+            success = await AddOrInsertImageFileAsync(fileName, fileData, null);
         }
         else
         {

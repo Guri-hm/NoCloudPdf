@@ -125,6 +125,10 @@ window.registerSelectDropArea = function (dotNetRef) {
         );
         child.classList.add('bg-white/60');
         if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+
+            if (window.loadingOverlay) {
+                window.loadingOverlay.show('ファイル読み込み中...');
+            }
             // Blazor InputFileを使わず、JSからbase64で渡す場合
             Array.from(e.dataTransfer.files).forEach(file => {
                 const reader = new FileReader();
@@ -140,6 +144,9 @@ window.registerSelectDropArea = function (dotNetRef) {
     // ペースト
     area.onpaste = e => {
         if (e.clipboardData && e.clipboardData.files.length > 0) {
+            if (window.loadingOverlay) {
+                window.loadingOverlay.show('ファイル読み込み中...');
+            }
             Array.from(e.clipboardData.files).forEach(file => {
                 const reader = new FileReader();
                 reader.onload = function (evt) {
