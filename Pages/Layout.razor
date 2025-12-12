@@ -72,12 +72,9 @@
                                     Label="ページの向き" />
 
                             <!-- 仕切り線オプション -->
-                            <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded h-10 cursor-pointer select-none">
-                                <span class="text-sm font-semibold whitespace-nowrap">仕切り線:</span>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" @bind="ShowDividerLines" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
+                            <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded-lg h-10 cursor-pointer select-none">
+                                <input type="checkbox" @bind="ShowDividerLines" class="form-checkbox h-4 w-4 text-blue-600" />
+                                <span class="ml-2 text-sm font-semibold whitespace-nowrap">仕切り線</span>
                                 <Tooltip Text="Nアップ時にページ間に仕切り線を表示します。">
                                     <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
                                 </Tooltip>
@@ -90,12 +87,9 @@
                                     Items="@tileDirectionItems"
                                     Label="最初の分割" />
                         <!-- 画像化オプション -->
-                        <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded h-10 cursor-pointer select-none">
-                            <span class="text-sm font-semibold whitespace-nowrap">画像化:</span>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" @bind="RasterizeTiles" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
+                        <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded-lg h-10 cursor-pointer select-none">
+                            <input type="checkbox" @bind="RasterizeTiles" class="form-checkbox h-4 w-4 text-blue-600" />
+                            <span class="ml-2 text-sm font-semibold whitespace-nowrap">画像化</span>
                             <Tooltip Text="タイル分割時にPDFを画像として再描画します。テキスト選択や検索ができなくなります。">
                                 <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
                             </Tooltip>
@@ -189,9 +183,9 @@
                                     {
                                         var actualIndex = pageIndexCounter++;
                                         var visualOrder = GetVisualOrder(localIndex, group.Count);
-                                        Console.WriteLine($"localIndex: {localIndex}, group.Count: {group.Count}, visualOrder: {visualOrder}");
+                                        //Console.WriteLine($"localIndex: {localIndex}, group.Count: {group.Count}, visualOrder: {visualOrder}");
                                         
-                                        var displayNumber = GetDisplayNumber(localIndex, group.Count);
+                                        var displayNumber = localIndex + 1;
 
                                         <div style="order: @visualOrder;" class="n-up-cell">
                                             @if (item == null)
@@ -643,76 +637,6 @@
     }
     
     /// <summary>
-    // localIndex（グループ内のインデックス）から、セルの visual position を求め、
-    // NUpDirection に応じた「表示番号（1始まり）」を返す。
-    /// </summary>
-    private int GetDisplayNumber(int localIndex, int groupSize)
-    {
-        // 行数・列数は GetVisualOrder と同じルールに合わせる
-        var (rows, cols) = LayoutNumber switch
-        {
-            2 => OutputOrientation == "landscape" ? (1, 2) : (2, 1),
-            4 => (2, 2),
-            8 => OutputOrientation == "landscape" ? (2, 4) : (4, 2),
-            16 => (4, 4),
-            _ => (2, 1)
-        };
-        // このアイテムが視覚的に配置される位置（0始まり、行優先スキャンでのセル番号）
-        int pos = GetVisualOrder(localIndex, groupSize);
-
-        // 目的の「番号付け順（セルの pos を並べたリスト）」を方向ごとに作る
-        var order = new List<int>(groupSize);
-
-        switch (NUpDirection)
-        {
-            // 左→右、上→下（行優先）
-            case "forward":
-                for (int r = 0; r < rows; r++)
-                    for (int c = 0; c < cols; c++)
-                        order.Add(r * cols + c);
-                break;
-
-            // 上→下、左→右（列優先）
-            case "forward-vertical":
-                for (int c = 0; c < cols; c++)
-                    for (int r = 0; r < rows; r++)
-                        order.Add(r * cols + c);
-                break;
-
-            // 右→左、上→下（行ごとに列を反転）
-            case "reverse-horizontal":
-                for (int r = 0; r < rows; r++)
-                    for (int c = cols - 1; c >= 0; c--)
-                        order.Add(r * cols + c);
-                break;
-
-            // 逆縦方向は「右の列から順に、各列は上→下」
-            case "reverse-vertical":
-                for (int c = cols - 1; c >= 0; c--)
-                    for (int r = 0; r < rows; r++)
-                        order.Add(r * cols + c);
-                break;
-
-            // 完全逆順 
-            case "reverse":
-                for (int r = rows - 1; r >= 0; r--)
-                    for (int c = cols - 1; c >= 0; c--)
-                        order.Add(r * cols + c);
-                break;
-
-            default:
-                for (int r = 0; r < rows; r++)
-                    for (int c = 0; c < cols; c++)
-                        order.Add(r * cols + c);
-                break;
-        }
-
-        // pos が order 内のどの位置にあるかを探す（0始まり）して 1始まりで返す
-        int idx = order.IndexOf(pos);
-        return (idx >= 0) ? (idx + 1) : (pos + 1);
-    }
-
-    /// <summary>
     /// Nアップ処理
     /// </summary>
 
@@ -732,8 +656,8 @@ private async Task ProcessNUp()
         {
             // null を除外した実ページのみ抽出し、PageItem を取得
             var actualPageItems = group
-                .Where(item => item != null && item.RawData is PageItem)
-                .Select(item => (PageItem)item.RawData)
+                .Where(item => item?.RawData is PageItem) 
+                .Select(item => (PageItem)item!.RawData) 
                 .ToList();
             
             if (actualPageItems.Count == 0)
@@ -871,8 +795,7 @@ private List<PageItem> ReorderPagesForNUp(List<PageItem> pages)
             break;
             
         case "reverse-vertical":
-            // ★ 修正：右の列から上→下
-            // データ順 [0,1,2,3] → JavaScript に渡す順 [1,3,0,2]
+            // 右の列から上→下
             for (int c = cols - 1; c >= 0; c--)
             {
                 for (int r = 0; r < rows; r++)
@@ -886,15 +809,7 @@ private List<PageItem> ReorderPagesForNUp(List<PageItem> pages)
             
         case "reverse":
             // 右→左、下→上（完全逆順）
-            for (int r = rows - 1; r >= 0; r--)
-            {
-                for (int c = cols - 1; c >= 0; c--)
-                {
-                    int index = r * cols + c;
-                    if (index < pages.Count)
-                        result.Add(pages[index]);
-                }
-            }
+            result.AddRange(pages.AsEnumerable().Reverse());
             break;
             
         default:
@@ -904,40 +819,112 @@ private List<PageItem> ReorderPagesForNUp(List<PageItem> pages)
     return result;
 }
 
+
 /// <summary>
-/// 並び方向に応じた目的インデックスを計算
+/// 並び方向に応じた配置位置を計算（マッピング使用）
 /// </summary>
 private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
 {
-    int row = sourceIndex / cols;
-    int col = sourceIndex % cols;
+    int n = rows * cols;
     
-    return NUpDirection switch
+    switch (NUpDirection)
     {
-        // 左→右、上→下（デフォルト、変換不要）
-        "forward" => sourceIndex,
-        
-        // 上→下、左→右（列優先）
-        "forward-vertical" => col * rows + row,
-        
-        // 右→左、上→下
-        "reverse-horizontal" => row * cols + (cols - 1 - col),
-        
-        // 右の列から順に、各列は上→下
-        "reverse-vertical" => sourceIndex switch
-        {
-            0 => 1,  // 左上 → 右上の位置（order=1）
-            1 => 3,  // 右上 → 右下の位置（order=3）
-            2 => 0,  // 左下 → 左上の位置（order=0）
-            3 => 2,  // 右下 → 左下の位置（order=2）
-            _ => (col == 0 ? 1 : 0) + row * 2  // 8アップ以上用の汎用式
-        },
-        
-        // 右→左、下→上
-        "reverse" => (rows - 1 - row) * cols + (cols - 1 - col),
-        
-        _ => sourceIndex
-    };
+        case "forward":
+            // 左→右、上→下（そのまま）
+            return sourceIndex;
+
+        case "forward-vertical":
+            // 上→下、左→右（列優先）
+            if (n == 2)
+            {
+                if (rows == 2 && cols == 1)
+                    return sourceIndex; // 縦向き: そのまま
+                else
+                    return sourceIndex; // 横向き: そのまま
+            }
+            else if (n == 4)
+            {
+                // 4アップ: [0,2,1,3]
+                var map = new int[] { 0, 2, 1, 3 };
+                return map[sourceIndex];
+            }
+            else if (n == 8)
+            {
+                if (rows == 4 && cols == 2)
+                {
+                    // 縦向き(4行2列): 左列上→下(0,1,2,3)、右列上→下(4,5,6,7)
+                    var map = new int[] { 0, 2, 4, 6, 1, 3, 5, 7 };
+                    return map[sourceIndex];
+                }
+                else // rows == 2 && cols == 4
+                {
+                    // 横向き(2行4列): 左列から順に上→下 → [0,4,1,5,2,6,3,7]
+                    var map = new int[] { 0, 4, 1, 5, 2, 6, 3, 7 };
+                    return map[sourceIndex];
+                }
+            }
+            else if (n == 16)
+            {
+                // 16アップ: [0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15]
+                var map = new int[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+                return map[sourceIndex];
+            }
+            // フォールバック: 計算式
+            {
+                int row = sourceIndex / cols;
+                int col = sourceIndex % cols;
+                return col * rows + row;
+            }
+
+        case "reverse-horizontal":
+            // 右→左、上→下
+            {
+                int row = sourceIndex / cols;
+                int col = sourceIndex % cols;
+                return row * cols + (cols - 1 - col);
+            }
+
+        case "reverse-vertical":
+            // 右の列から順に上→下（マッピング）
+            if (n == 2)
+            {
+                var map = new int[] { 1, 0 };
+                return map[sourceIndex];
+            }
+            else if (n == 4)
+            {
+                var map = new int[] { 1, 3, 0, 2 };
+                return map[sourceIndex];
+            }
+            else if (n == 8)
+            {
+                if (rows == 2 && cols == 4)
+                {
+                    // 横向き: 右端列から → [1,5,3,7,0,4,2,6]
+                    var map = new int[] { 3, 7, 2, 6, 1, 5, 0, 4 };
+                    return map[sourceIndex];
+                }
+                else // rows == 4 && cols == 2
+                {
+                    // 縦向き: 右列から → [1,3,5,7,0,2,4,6]
+                    var map = new int[] { 1, 3, 5, 7, 0, 2, 4, 6 };
+                    return map[sourceIndex];
+                }
+            }
+            else if (n == 16)
+            {
+                var map = new int[] { 3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12 };
+                return map[sourceIndex];
+            }
+            return sourceIndex;
+
+        case "reverse":
+            // 右→左、下→上（完全逆順）
+            return n - 1 - sourceIndex;
+
+        default:
+            return sourceIndex;
+    }
 }
 
     /// <summary>
@@ -1007,7 +994,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
     private List<string> GetTileDivisionLines()
     {
         var lines = new List<string>();
-        var isHorizontal = TileDirection == "horizontal";  // ★ TileDirection を使用
+        var isHorizontal = TileDirection == "horizontal";
         
         int rows, cols;
         switch (LayoutNumber)
@@ -1088,10 +1075,10 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         await Task.Delay(100);
     }
 
-    private List<List<DisplayItem>> GetNUpGroups()
+    private List<List<DisplayItem?>> GetNUpGroups()
     {
-        var groups = new List<List<DisplayItem>>();
-        var currentGroup = new List<DisplayItem>();
+        var groups = new List<List<DisplayItem?>>();
+        var currentGroup = new List<DisplayItem?>();
         
         foreach (var item in DisplayItems)
         {
@@ -1099,7 +1086,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             if (currentGroup.Count >= LayoutNumber)
             {
                 groups.Add(currentGroup);
-                currentGroup = new List<DisplayItem>();
+                currentGroup = new List<DisplayItem?>();
             }
         }
         
@@ -1174,7 +1161,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
                         page.PageData, 
                         LayoutNumber, 
                         TileDirection,
-                        RasterizeTiles  // ★ 画像化オプションを渡す
+                        RasterizeTiles  // 画像化オプションを渡す
                     );
                     
                     if (urls == null || urls.Length == 0)
@@ -1297,7 +1284,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             Icon = builder =>
             {
                 builder.OpenComponent(0, typeof(ResetIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5"); // 必要に応じてサイズ調整
+                builder.AddAttribute(1, "Class", "w-5 h-5");
                 builder.CloseComponent();
             },
             Title = "最初からやり直す",
@@ -1519,10 +1506,10 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         {
             PdfDataService.RotateItem(index, angle);
             
-            // ★ 再レンダリングをトリガー
+            // 再レンダリングをトリガー
             StateHasChanged();
             
-            // ★ Nアップモード時は OnAfterRenderAsync で canvas を再描画
+            // Nアップモード時は OnAfterRenderAsync で canvas を再描画
             if (IsNUpMode)
             {
                 await Task.Delay(100); // DOM更新を待つ
