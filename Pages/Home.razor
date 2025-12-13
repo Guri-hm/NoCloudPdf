@@ -114,35 +114,98 @@
         </FadeInOnScroll>
     </div>
 </section>
-<section class="max-w-3xl mx-auto py-12">
+<section class="max-w-5xl mx-auto py-12">
     <h2 class="text-3xl md:text-4xl font-bold text-center mb-8 mx-2">
         今すぐPDFを操作してみましょう
     </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <!-- 左：結合 -->
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 結合 -->
         <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
             <MergeIcon Class="w-8 h-8" />
-            <h3 class="text-xl font-bold text-purple-700 mb-2">PDF結合</h3>
-            <p class="text-gray-700 text-center mb-4">
+            <h3 class="text-lg font-bold text-purple-700 mb-2">PDF結合</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
                 複数のPDFや画像ファイルを<br />ひとつのPDFにまとめます。
             </p>
             <a href="@($"{Nav.BaseUri}merge")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
                 結合ページへ
             </a>
         </div>
-        <!-- 右：分割 -->
-        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6  mx-2 md:mx-0">
+        
+        <!-- 分割 -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
             <SplitIcon Class="w-8 h-8" />
-            <h3 class="text-xl font-bold text-purple-700 mb-2">PDF分割</h3>
-            <p class="text-gray-700 text-center mb-4">
+            <h3 class="text-lg font-bold text-purple-700 mb-2">PDF分割</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
                 PDFファイルをページごとに<br />分割して保存できます。
             </p>
             <a href="@($"{Nav.BaseUri}split")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
                 分割ページへ
             </a>
         </div>
+        
+        <!-- レイアウト -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
+            <LayoutIcon Class="w-8 h-8" />
+            <h3 class="text-lg font-bold text-purple-700 mb-2">レイアウト</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
+                複数ページを1枚に集約（Nアップ）<br />またはタイル分割できます。
+            </p>
+            <a href="@($"{Nav.BaseUri}layout")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                レイアウトページへ
+            </a>
+        </div>
+        
+        <!-- トリミング -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
+            <TrimIcon Class="w-8 h-8" />
+            <h3 class="text-lg font-bold text-purple-700 mb-2">トリミング</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
+                PDFページの余白を削除したり<br />必要な部分だけ切り抜きます。
+            </p>
+            <a href="@($"{Nav.BaseUri}trim")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                トリミングページへ
+            </a>
+        </div>
+        
+        <!-- スライス -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
+            <SliceIcon Class="w-8 h-8" />
+            <h3 class="text-lg font-bold text-purple-700 mb-2">スライス</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
+                ページの一部または指定範囲を画像ファイルとして切り出して保存できます。
+            </p>
+            <a href="@($"{Nav.BaseUri}slice")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                スライスページへ
+            </a>
+        </div>
+        
+        <!-- 編集 -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
+            <EditIcon Class="w-8 h-8" />
+            <h3 class="text-lg font-bold text-purple-700 mb-2">編集</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
+                テキストや図形の追加、<br />注釈の挿入などが可能です。
+            </p>
+            <a href="@($"{Nav.BaseUri}edit")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                編集ページへ
+            </a>
+        </div>
+        
+        <!-- 文字認識 -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
+            <OcrIcon Class="w-8 h-8" />
+            <h3 class="text-lg font-bold text-purple-700 mb-2">文字認識</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
+                画像化されたPDFから<br />テキストを抽出します（OCR）。
+            </p>
+            <a href="@($"{Nav.BaseUri}ocr")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                文字認識ページへ
+            </a>
+        </div>
     </div>
 </section>
+
 <!-- ThickSliceセクションの修正 -->
 <section class="max-w-4xl mx-auto py-12">
     <FadeInOnScroll>
