@@ -87,6 +87,9 @@
         if (uri.EndsWith("/split")) return "分割";
         if (uri.EndsWith("/edit")) return "編集";
         if (uri.EndsWith("/trim")) return "トリミング";
+        if (uri.EndsWith("/layout")) return "レイアウト";
+        if (uri.EndsWith("/slice")) return "スライス";
+        if (uri.EndsWith("/ocr")) return "文字認識";
         if (uri.EndsWith("/")) return "NoCloudPDF";
         // 必要に応じて他のページも追加
         return "";
