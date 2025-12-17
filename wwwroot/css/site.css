@@ -14,6 +14,7 @@ h1:focus {
 }
 article {
   background-color: #f8f8f8;
+  height: 100%;
 }
 button:not([disabled]),
 [role="button"]:not([disabled]),
