@@ -70,20 +70,39 @@ async function loadPdfDocument(uint8Array, options = {}) {
  */
 async function renderPageToCanvas(page, scale, rotation = 0, options = {}) {
     const viewport = page.getViewport({ scale, rotation });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(viewport.width));
-    canvas.height = Math.max(1, Math.round(viewport.height));
     
-    const context = canvas.getContext('2d', { alpha: false });
+    const maxDimension = 2048;
+    let width = Math.round(viewport.width);
+    let height = Math.round(viewport.height);
+    
+    if (width > maxDimension || height > maxDimension) {
+        const adjustedScale = Math.min(maxDimension / width, maxDimension / height);
+        width = Math.round(width * adjustedScale);
+        height = Math.round(height * adjustedScale);
+    }
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, width);
+    canvas.height = Math.max(1, height);
+    
+    const context = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
     
     if (options.fillWhite) {
         context.fillStyle = '#FFFFFF';
         context.fillRect(0, 0, canvas.width, canvas.height);
     }
     
-    await page.render({ canvasContext: context, viewport }).promise;
+    const renderContext = {
+        canvasContext: context,
+        viewport: page.getViewport({ scale: scale * (width / viewport.width), rotation }),
+        intent: 'display'
+    };
+    
+    await page.render(renderContext).promise;
+    
     return canvas;
 }
+
 
 /**
  * RGB ヘルパー（Hex → RGB）
@@ -360,9 +379,27 @@ window.renderFirstPDFPage = async function (fileData, password) {
         let lastError = null;
 
         const loadingOptions = [
-            { stopAtErrors: false, maxImageSize: 1024 * 1024 * 5, disableFontFace: true, disableRange: true, disableStream: true, verbosity: 1 },
-            { stopAtErrors: false, maxImageSize: 1024 * 1024 * 10, disableFontFace: false, disableRange: true, disableStream: false, verbosity: 1 },
-            { stopAtErrors: false, verbosity: 1 }
+            { 
+                stopAtErrors: false, 
+                maxImageSize: -1,
+                disableFontFace: true, 
+                disableRange: true, 
+                disableStream: true, 
+                verbosity: 0
+            },
+            { 
+                stopAtErrors: false, 
+                maxImageSize: -1, // 埋め込み画像の最大サイズ制限なし
+                disableFontFace: false, 
+                disableRange: true, 
+                disableStream: false, 
+                verbosity: 0 
+            },
+            { 
+                stopAtErrors: false, 
+                maxImageSize: -1,
+                verbosity: 0 
+            }
         ];
 
         for (let i = 0; i < loadingOptions.length; i++) {
@@ -389,8 +426,8 @@ window.renderFirstPDFPage = async function (fileData, password) {
             };
         }
 
-        // サムネイル生成
         const page = await pdf.getPage(1);
+        
         let pageRotation = 0;
         try {
             if (typeof page.getRotation === 'function') pageRotation = page.getRotation();
@@ -400,8 +437,30 @@ window.renderFirstPDFPage = async function (fileData, password) {
         }
         pageRotation = ((Number(pageRotation) || 0) % 360 + 360) % 360;
 
-        const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
-        const thumbnail = canvas.toDataURL('image/png');
+        const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
+        const targetWidth = 200;
+        const scale = targetWidth / viewport.width;
+
+        let thumbnail = "";
+        try {
+            const renderPromise = renderPageToCanvas(page, scale, 0);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Thumbnail rendering timeout')), 10000)
+            );
+            
+            const canvas = await Promise.race([renderPromise, timeoutPromise]);
+            thumbnail = canvas.toDataURL('image/png');
+        } catch (renderError) {
+            console.error('Thumbnail rendering failed:', renderError);
+            try {
+                const fallbackScale = targetWidth / 2 / viewport.width;
+                const canvas = await renderPageToCanvas(page, fallbackScale, 0);
+                thumbnail = canvas.toDataURL('image/png');
+            } catch (fallbackError) {
+                console.error('Fallback thumbnail rendering also failed:', fallbackError);
+                thumbnail = "";
+            }
+        }
 
         // ブックマーク取得
         let bookmarks = [];
@@ -427,7 +486,6 @@ window.renderFirstPDFPage = async function (fileData, password) {
                             pageIndex: pageIndex !== null ? pageIndex : -1, 
                             items: [] 
                         };
-                        // const node = { title: it.title || '', pageIndex: pageIndex, items: [] };
                         if (it.items && it.items.length) {
                             node.items = await mapOutlineItems(it.items);
                         }
@@ -450,6 +508,7 @@ window.renderFirstPDFPage = async function (fileData, password) {
         };
 
     } catch (error) {
+        console.error('renderFirstPDFPage error:', error);
         return handlePdfError(error, 'renderFirstPDFPage');
     }
 };
@@ -626,7 +685,12 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
 // ========================================
 window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
     const uint8Array = base64ToUint8Array(pdfBase64);
-    const pdf = await loadPdfDocument(uint8Array);
+    
+    // 埋め込み画像が大きいと制限にかかるため，maxImageSize を明示的に -1 に設定（ない場合は自動で無制限になるが，ここでは明示的にする）
+    const pdf = await loadPdfDocument(uint8Array, { 
+        maxImageSize: -1, 
+        verbosity: 0 
+    });
     const page = await pdf.getPage(1);
     const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.normal, rotateAngle || 0);
     return canvas.toDataURL('image/jpeg', 0.85);
