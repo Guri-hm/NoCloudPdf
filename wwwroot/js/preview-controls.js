@@ -3,38 +3,43 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
         const viewport = document.querySelector('.preview-zoom-viewport');
         const inner = document.getElementById('preview-zoom-inner');
-        if (!inner || !viewport) return;
+        if (!inner || !viewport) {
+            console.warn('setPreviewZoom: viewport or inner not found');
+            return;
+        }
 
-        // 前回のズーム（なければ1）
         const prev = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
 
-        // 1) ビューポートの画面上中心を inner のクライアント座標系に変換（現在のスケール prev のまま）
         const vpRect = viewport.getBoundingClientRect();
         const innerRect = inner.getBoundingClientRect();
-        const centerClientX = vpRect.left + vpRect.width / 2;
-        const centerClientY = vpRect.top + vpRect.height / 2;
-
-        const centerInnerClientX = centerClientX - innerRect.left;
-        const centerInnerClientY = centerClientY - innerRect.top;
-
-        const centerUnscaledX = centerInnerClientX / prev;
-        const centerUnscaledY = centerInnerClientY / prev;
+        
+        // ★ 修正：現在のスクロール位置を保持（中心座標）
+        const centerX = viewport.scrollLeft + vpRect.width / 2;
+        const centerY = viewport.scrollTop + vpRect.height / 2;
+        
+        // 中心座標をスケール前の座標に変換
+        const unscaledCenterX = centerX / prev;
+        const unscaledCenterY = centerY / prev;
 
         inner.style.setProperty('--preview-zoom', String(zoom));
         inner.style.transform = `scale(${zoom})`;
-        inner.style.transformOrigin = '0 0';
+        inner.style.transformOrigin = 'top left'; // ★ 修正：左上を基準に
 
         const vpW = vpRect.width;
         const vpH = vpRect.height;
 
-        const contentScaledW = (inner.scrollWidth || innerRect.width) * zoom;
-        const contentScaledH = (inner.scrollHeight || innerRect.height) * zoom;
+        // ★ 修正：スケール後のコンテンツサイズを計算
+        const originalW = inner.scrollWidth / prev;
+        const originalH = inner.scrollHeight / prev;
+        const scaledW = originalW * zoom;
+        const scaledH = originalH * zoom;
 
-        let newScrollLeft = centerUnscaledX * zoom - vpW / 2;
-        let newScrollTop = centerUnscaledY * zoom - vpH / 2;
+        // ★ 修正：中心座標を維持するスクロール位置を計算
+        let newScrollLeft = unscaledCenterX * zoom - vpW / 2;
+        let newScrollTop = unscaledCenterY * zoom - vpH / 2;
 
-        newScrollLeft = Math.max(0, Math.min(contentScaledW - vpW, newScrollLeft));
-        newScrollTop = Math.max(0, Math.min(contentScaledH - vpH, newScrollTop));
+        newScrollLeft = Math.max(0, Math.min(scaledW - vpW, newScrollLeft));
+        newScrollTop = Math.max(0, Math.min(scaledH - vpH, newScrollTop));
 
         viewport.scrollLeft = Math.round(newScrollLeft);
         viewport.scrollTop = Math.round(newScrollTop);
@@ -43,48 +48,6 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         window._previewZoomState.lastZoom = zoom;
     } catch (e) {
         console.error('setPreviewZoom error', e);
-    }
-};
-
-window.computeAndApplyFitZoom = function () {
-    try {
-        const container = document.getElementById('trim-preview-container');
-        const inner = document.getElementById('preview-zoom-inner');
-        if (!container || !inner) {
-            return;
-        }
-
-        const containerW = container.clientWidth || 1;
-
-        const prev = (window._previewZoomState && window._previewZoomState.lastZoom) ? window._previewZoomState.lastZoom : 1;
-
-        let contentLogicalW = 0;
-        const canvases = inner.querySelectorAll('canvas');
-        if (canvases && canvases.length > 0) {
-            canvases.forEach((c, i) => {
-                try {
-                    const rect = c.getBoundingClientRect();
-                    const logical = (rect.width || c.clientWidth || 0) / prev;
-                    if (logical > contentLogicalW) contentLogicalW = logical;
-                } catch (e) { console.warn('computeAndApplyFitZoom: canvas measurement error', e); }
-            });
-        }
-
-        if (contentLogicalW <= 0) {
-            const innerRect = inner.getBoundingClientRect();
-            contentLogicalW = (inner.scrollWidth || innerRect.width || inner.clientWidth || 1) / prev;
-        }
-
-        if (!contentLogicalW || contentLogicalW <= 0) contentLogicalW = 1;
-
-        const rawFit = containerW / contentLogicalW;
-        const fit = Math.max(0.25, Math.min(3.0, rawFit));
-
-        if (typeof window.setPreviewZoom === 'function') {
-            window.setPreviewZoom(fit);
-        }
-    } catch (e) {
-        console.error('computeAndApplyFitZoom error', e);
     }
 };
 

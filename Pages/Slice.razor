@@ -84,32 +84,66 @@
                 </div>
             </Left>
             <Right>
-                <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
-                    <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
-                        <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
-                        <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
-                    </svg>
-                </div>
-
-                <div class="preview-zoom-viewport w-full h-full">
-                    <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
-                        @if (DisplayItems.Any(item => item.RawData is PageItem pageItem && pageItem.IsLoading))
+                <div class="preview-zoom-viewport w-full h-full overflow-auto">
+                    <div id="preview-zoom-inner" class="preview-zoom-inner" style="transform-origin: center top;">
+                        @if (DisplayItems.Any())
                         {
-                            <div class="w-full flex justify-center my-2">
-                                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded font-bold text-sm flex items-center gap-2">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>
-                                    ファイルの読み込み中です。すべてのページの読み込みが完了するまで、タブの切り替えや画面遷移を行わないでください。
-                                </div>
-                            </div>
-                        }
-                        @foreach (var (item, index) in DisplayItems.Select((x, i) => (x, i)))
-                        {
-                            string? keyName = $"{item.Id}-{_rotationCounter}";
-                            <TrimPreviewItem @key="keyName"
+                            var currentIndex = displayedPageNumber - 1;
+                            var item = DisplayItems[currentIndex];
+                            
+                            <TrimPreviewItem @key="@($"{item.Id}-{_rotationCounter}")"
                                             Item="@item"
-                                            Index="@index"
-                                            IsDrawingMode="@isDrawingMode"  AllowMultipleRects="@(true)"/>
+                                            Index="@currentIndex"
+                                            IsDrawingMode="@isDrawingMode" />
                         }
+                    </div>
+                </div>
+                            
+                <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg z-50"
+                    @onclick:stopPropagation>
+                    <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
+                        <button @onclick="PrevPage" disabled="@(displayedPageNumber <= 1)"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="前のページ">
+                            <i class="text-white fa-solid fa-chevron-left"></i>
+                        </button>
+                        
+                        <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
+                            <input type="number" min="1" max="@DisplayItems.Count" value="@displayedPageNumber"
+                                class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
+                                style="appearance: none; -moz-appearance: textfield;" @onchange="OnBottomPageInputChanged" />
+                            <span>/ @DisplayItems.Count</span>
+                        </div>
+                        
+                        <button @onclick="NextPage" disabled="@(displayedPageNumber >= DisplayItems.Count)"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="次のページ">
+                            <i class="text-white fa-solid fa-chevron-right"></i>
+                        </button>
+                        
+                        <button @onclick="ZoomOut"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                                title="縮小">
+                            <ZoomOutIcon Class="w-5 h-5 text-white" />
+                        </button>
+                        
+                        <button @onclick="ZoomIn"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                                title="拡大">
+                            <ZoomInIcon Class="w-5 h-5 text-white" />
+                        </button>
+                        
+                        <button @onclick="SetPreviewToActualSize"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                                title="実際のサイズ">
+                            <ViewRealSizeIcon Class="w-5 h-5 text-white" />
+                        </button>
+                        
+                        <button @onclick="FitPreviewWidth"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
+                                title="幅に合わせる">
+                            <FitWidthIcon Class="w-5 h-5 text-white" />
+                        </button>
                     </div>
                 </div>
             </Right>
@@ -282,7 +316,23 @@
     {
         InvokeAsync(StateHasChanged);
     }
-
+    private void PrevPage() => displayedPageNumber = Math.Max(1, displayedPageNumber - 1);
+    private void NextPage() => displayedPageNumber = Math.Min(DisplayItems.Count, displayedPageNumber + 1);
+    private Task OnBottomPageInputChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e?.Value?.ToString(), out var v))
+        {
+            var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
+            displayedPageNumber = target;
+            var targetIndex = target - 1;
+            try
+            {
+                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
+            }
+            catch { }
+        }
+        return Task.CompletedTask;
+    }
     private async Task OnDialogError(string message)
     {
         // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
@@ -894,12 +944,6 @@ private List<ActionButtonItem> showOptionsModal => new()
                 }
             }
 
-            // プレビュー画像を倍率1で初期表示
-            if (!previewZoomInitialized)
-            {
-                await ApplyPreviewZoomAsync();
-                previewZoomInitialized = true;
-            }
             if (DisplayItems.Count != _visibleObserverLastCount)
             {
                 try
@@ -1076,55 +1120,41 @@ private List<ActionButtonItem> showOptionsModal => new()
     private const double MinZoom = 0.25;
     private const double MaxZoom = 3.0;
 
-    private async Task ApplyPreviewZoomAsync()
-    {
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"setPreviewZoom failed: {ex.Message}");
-        }
-    }
-
     private Task ZoomIn()
     {
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
-        _ = ApplyPreviewZoomAsync();
+        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
         return Task.CompletedTask;
     }
 
     private Task ZoomOut()
     {
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
-        _ = ApplyPreviewZoomAsync();
+        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
         return Task.CompletedTask;
     }
 
     private Task FitPreviewWidth()
     {
-        try
-        {
-            _ = JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"FitPreviewWidth failed: {ex.Message}");
-            // フォールバック: 直接倍率 1 を設定
-            previewZoom = 1.0;
-            _ = ApplyPreviewZoomAsync();
-        }
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        _ = JSRuntime.InvokeVoidAsync("fitPreviewToViewport", canvasId, "fit-width");
         return Task.CompletedTask;
-
     }
 
-    private  Task SetPreviewToActualSize()
+    private Task FitPreviewBoth()
+    {
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        _ = JSRuntime.InvokeVoidAsync("fitPreviewToViewport", canvasId, "fit-both");
+        return Task.CompletedTask;
+    }
+
+    private Task SetPreviewToActualSize()
     {
         previewZoom = 1.0;
-        _ = ApplyPreviewZoomAsync();
+        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
         return Task.CompletedTask;
     }
+
 
     // 切り出し画像のデータモデル
     private class SlicedImage

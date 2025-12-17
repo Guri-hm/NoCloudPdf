@@ -257,18 +257,19 @@ input[type=number] {
 /* 終了:sortable.js内で一時的に追加削除されるスタイル */
 
 /* 描画・パン */
-/* プレビュー全体のスケーリング（カスタムプロパティで制御） */
-.preview-zoom-inner {
-    width: 100%;               /* 重要: 親幅に収める */
-    box-sizing: border-box;
-    transform: scale(var(--preview-zoom, 1));
-    transform-origin: 0 0;
-}
 /* ビューポート側の振る舞い（横スクロールを内側に閉じる） */
 .preview-zoom-viewport {
     overflow: auto;
-    -webkit-overflow-scrolling: touch;
+    position: relative;
     cursor: default;
+}
+.preview-zoom-inner {
+    display: inline-block;
+    min-width: 100%;
+    min-height: 100%;
+    transform: scale(var(--preview-zoom, 1));
+    transform-origin: top left;
+    transition: transform 0.2s ease-out;
 }
 /* svgオーバレイ上は基本がccosshairなのでここで一時上書き */
 .preview-zoom-viewport.pan-active,

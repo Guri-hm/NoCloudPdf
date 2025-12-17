@@ -1729,3 +1729,51 @@ window.clearTrimState = function(canvasId) {
         return false;
     }
 };
+
+// Viewport に合わせた transform 自動調整
+window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
+    try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.warn('fitPreviewToViewport: canvas not found', canvasId);
+            return false;
+        }
+        
+        const viewport = document.querySelector('.preview-zoom-viewport');
+        if (!viewport) {
+            console.warn('fitPreviewToViewport: viewport not found');
+            return false;
+        }
+        
+        const viewportW = viewport.clientWidth;
+        const viewportH = viewport.clientHeight;
+        
+        const canvasW = canvas.clientWidth;
+        const canvasH = canvas.clientHeight;
+        
+        if (canvasW === 0 || canvasH === 0) {
+            console.warn('fitPreviewToViewport: canvas size is 0');
+            return false;
+        }
+        
+        let scale = 1.0;
+        
+        if (mode === 'fit-width') {
+            scale = (viewportW * 0.9) / canvasW;
+        } else if (mode === 'fit-height') {
+            scale = (viewportH * 0.9) / canvasH;
+        } else if (mode === 'fit-both') {
+            const scaleW = viewportW / canvasW;
+            const scaleH = viewportH / canvasH;
+            scale = Math.min(scaleW, scaleH) * 0.9;
+        }
+        
+        // setPreviewZoom を呼び出してズーム適用
+        window.setPreviewZoom(scale);
+        
+        return scale;
+    } catch (e) {
+        console.error('fitPreviewToViewport error', e);
+        return 1.0;
+    }
+};

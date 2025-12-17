@@ -208,16 +208,18 @@ input[type=number] {
 .touch-drag-handle:active {
   cursor: grabbing;
 }
-.preview-zoom-inner {
-  width: 100%;
-  box-sizing: border-box;
-  transform: scale(var(--preview-zoom, 1));
-  transform-origin: 0 0;
-}
 .preview-zoom-viewport {
   overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  position: relative;
   cursor: default;
+}
+.preview-zoom-inner {
+  display: inline-block;
+  min-width: 100%;
+  min-height: 100%;
+  transform: scale(var(--preview-zoom, 1));
+  transform-origin: top left;
+  transition: transform 0.2s ease-out;
 }
 .preview-zoom-viewport.pan-active,
 .preview-zoom-viewport.pan-active svg {
@@ -754,9 +756,6 @@ input[type=number] {
   }
   .z-\[201\] {
     z-index: 201;
-  }
-  .z-\[210\] {
-    z-index: 210;
   }
   .z-\[250\] {
     z-index: 250;
@@ -1313,13 +1312,6 @@ input[type=number] {
   .gap-x-4 {
     -moz-column-gap: calc(var(--spacing) * 4);
          column-gap: calc(var(--spacing) * 4);
-  }
-  .space-x-4 {
-    :where(& > :not(:last-child)) {
-      --tw-space-x-reverse: 0;
-      margin-inline-start: calc(calc(var(--spacing) * 4) * var(--tw-space-x-reverse));
-      margin-inline-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-x-reverse)));
-    }
   }
   .divide-x {
     :where(& > :not(:last-child)) {
@@ -2910,6 +2902,11 @@ input[type=number] {
       align-items: stretch;
     }
   }
+  .md\:gap-0 {
+    @media (width >= 48rem) {
+      gap: calc(var(--spacing) * 0);
+    }
+  }
   .md\:space-y-4 {
     @media (width >= 48rem) {
       :where(& > :not(:last-child)) {
@@ -2929,15 +2926,6 @@ input[type=number] {
     @media (width >= 48rem) {
       -moz-column-gap: calc(var(--spacing) * 3);
            column-gap: calc(var(--spacing) * 3);
-    }
-  }
-  .md\:space-x-0 {
-    @media (width >= 48rem) {
-      :where(& > :not(:last-child)) {
-        --tw-space-x-reverse: 0;
-        margin-inline-start: calc(calc(var(--spacing) * 0) * var(--tw-space-x-reverse));
-        margin-inline-end: calc(calc(var(--spacing) * 0) * calc(1 - var(--tw-space-x-reverse)));
-      }
     }
   }
   .md\:gap-y-0 {
@@ -3182,11 +3170,6 @@ input[type=number] {
   inherits: false;
 }
 @property --tw-space-y-reverse {
-  syntax: "*";
-  inherits: false;
-  initial-value: 0;
-}
-@property --tw-space-x-reverse {
   syntax: "*";
   inherits: false;
   initial-value: 0;
@@ -3448,7 +3431,6 @@ input[type=number] {
       --tw-skew-x: initial;
       --tw-skew-y: initial;
       --tw-space-y-reverse: 0;
-      --tw-space-x-reverse: 0;
       --tw-divide-x-reverse: 0;
       --tw-border-style: solid;
       --tw-divide-y-reverse: 0;
