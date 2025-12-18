@@ -1072,23 +1072,6 @@ private List<ActionButtonItem> showOptionsModal => new()
         return Task.CompletedTask;
     }
 
-    [JSInvokable]
-    public void OnPanelMouseMove(double clientX)
-    {
-        if (isResizingPanel)
-        {
-            var delta = clientX - resizeStartX;
-            thumbnailAreaWidth = Math.Max(200, Math.Min(600, resizeStartWidth + (int)delta));
-            StateHasChanged();
-        }
-    }
-
-    [JSInvokable]
-    public void OnPanelMouseUp()
-    {
-        isResizingPanel = false;
-    }
-
     private int BrowserViewportWidth()
     {
         // 既定値フォールバック

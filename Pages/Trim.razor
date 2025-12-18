@@ -58,7 +58,7 @@
                     <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
                         <input type="checkbox" @bind="useRasterize" class="form-checkbox h-5 w-5 accent-blue-500" />
                         ラスタ化
-                         <Tooltip Text="ラスタ化を有効にすると、トリミング時にPDFを画像として再描画します。テキスト選択や検索ができなくなり、画質が若干低下する可能性があります。">
+                        <Tooltip Text="ラスタ化を有効にすると、トリミング時にPDFを画像として再描画します。テキスト選択や検索ができなくなり、画質が若干低下する可能性があります。">
                             <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                         </Tooltip>
                     </label>
@@ -66,7 +66,10 @@
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
         </div>
-        <SplitPane LeftWidth="@thumbnailAreaWidth" LeftWidthChanged="@(async w => { thumbnailAreaWidth = w; })">
+        <SplitPane 
+            LeftWidth="@thumbnailAreaWidth" 
+            LeftWidthChanged="@(w => { thumbnailAreaWidth = w; StateHasChanged(); })"
+            EnableAutoResize="true">
             <Left>
                 <div id="thumbnail-container" class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
                     @for (int i = 0; i < DisplayItems.Count; i++)
@@ -360,16 +363,16 @@
 
     public async ValueTask DisposeAsync()
     {
-        // 1) サービスのイベント購読解除
+        //  サービスのイベント購読解除
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         try { CompletionState.Reset(); } catch { }
 
-        // 2) JS 側の登録解除を確実に await（順序は逆順推奨）
+        // JS 側の登録解除を確実に await（順序は逆順推奨）
         
-        // 2-1) trim-preview.js の一括解除（新規追加した unregisterAllTrimPreview を呼ぶ）
+        //  trim-preview.js の一括解除（新規追加した unregisterAllTrimPreview を呼ぶ）
         try { await JSRuntime.InvokeVoidAsync("unregisterAllTrimPreview"); } catch { }
 
-        // 2-2) 個別の unregister（念のため重複呼び出し）
+        // 個別の unregister（念のため重複呼び出し）
         try { await JSRuntime.InvokeVoidAsync("unregisterPreviewCacheCleanup", "trim-preview-container"); } catch { }
         _previewCacheCleanupRegistered = false;
 
@@ -388,31 +391,20 @@
         catch { }
         _dropAreaRegistered = false;
 
-        // 2-3) select-drop-area の解除（初期画面用）
+        // select-drop-area の解除（初期画面用）
         try { await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea"); } catch { }
 
-        // 2-4) trimPreviewArea の解除
+        // trimPreviewArea の解除
         try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
 
-        // 2-5) window resize の解除
-        try
-        {
-            if (_windowResizeRegistered)
-            {
-                await JSRuntime.InvokeVoidAsync("unregisterWindowResize");
-            }
-        }
-        catch { }
-        _windowResizeRegistered = false;
-
-        // 3) 非同期タスクのキャンセル
+        // 非同期タスクのキャンセル
         try { passwordTcs?.TrySetCanceled(); } catch { }
         passwordTcs = null;
 
-        // 4) JS が参照をクリアする時間を少し与える（オプション：安全策）
+        // JS が参照をクリアする時間を少し与える（オプション：安全策）
         try { await Task.Delay(30); } catch { }
 
-        // 5) 最後に DotNetObjectReference を破棄
+        // 最後に DotNetObjectReference を破棄
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
     }
@@ -839,7 +831,6 @@
     private bool previewZoomInitialized = false;
     private int displayedPageNumber = 1;
     private int _visibleObserverLastCount = -1;
-    private bool _windowResizeRegistered = false;
     private bool _previewCacheCleanupRegistered = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -847,15 +838,6 @@
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
-                _windowResizeRegistered = true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"registerWindowResize failed: {ex.Message}");
-            }
         }
 
         if (IsFilesLoaded && DisplayItems.Any())
@@ -909,26 +891,6 @@
             _renderedMergedPages = false;
         }
 
-    }
-
-    // 利用可能幅をjavascriptからうけとって幅を調節
-    [JSInvokable("OnWindowResizedFromJs")]
-    public Task OnWindowResizedFromJs(int availableWidth, int sidebarWidth)
-    {
-        try
-        {
-            if (isResizingPanel) return Task.CompletedTask;
-
-            var computed = (int)Math.Round(availableWidth * 0.25);
-            thumbnailAreaWidth = Math.Max(150, Math.Min(600, computed));
-        
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
-        }
-        return Task.CompletedTask;
     }
 
     private async void DownloadMergedPdf()
@@ -994,23 +956,6 @@
         displayedPageNumber = index + 1;
 
         return Task.CompletedTask;
-    }
-
-    [JSInvokable]
-    public void OnPanelMouseMove(double clientX)
-    {
-        if (isResizingPanel)
-        {
-            var delta = clientX - resizeStartX;
-            thumbnailAreaWidth = Math.Max(200, Math.Min(600, resizeStartWidth + (int)delta));
-            StateHasChanged();
-        }
-    }
-
-    [JSInvokable]
-    public void OnPanelMouseUp()
-    {
-        isResizingPanel = false;
     }
 
     private int BrowserViewportWidth()
