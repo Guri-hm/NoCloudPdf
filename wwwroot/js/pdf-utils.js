@@ -2077,3 +2077,36 @@ async function drawThumbnailToCanvasWithRotation(canvas, base64Data, rotateAngle
         img.src = base64Data.startsWith('data:') ? base64Data : `data:image/png;base64,${base64Data}`;
     });
 }
+
+/**
+ * Canvas の自然なサイズを取得
+ */
+window.getCanvasNaturalSize = function(canvasId) {
+    try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return [0, 0];
+        
+        // Canvas の実際のピクセルサイズ
+        return [canvas.width, canvas.height];
+    } catch (e) {
+        console.error('getCanvasNaturalSize error', e);
+        return [0, 0];
+    }
+};
+
+window.setCanvasSize = function(canvasId, width, height) {
+    try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return false;
+        
+        canvas.naturalWidth = width;
+        canvas.naturalHeight = height;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        
+        return true;
+    } catch (e) {
+        console.error('setCanvasSize error', e);
+        return false;
+    }
+};

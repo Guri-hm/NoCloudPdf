@@ -1,8 +1,6 @@
 
 window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 1500) {
-
     try {
-        
         if (window._trimResize && window._trimResize.cleanupForHandle) {
             try { window._trimResize.cleanupForHandle(); } catch (e) { }
             window._trimResize.cleanupForHandle = null;
@@ -22,7 +20,6 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 15
 
         function measureAvail() {
             const vw = window.innerWidth || document.documentElement.clientWidth;
-            // tailwindのmdブレークポイント
             const isMobileHeaderSidebar = vw < 768;
             const sidebarEl = document.querySelector('.sidebar');
             const sidebarW = (sidebarEl && !isMobileHeaderSidebar) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
@@ -64,40 +61,23 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 15
             }
         }
 
-        function applyWidthsUsingAvail(requestedLeft) {
+        // ★ 簡素化: flex-basis のみ変更し、固定幅は設定しない
+        function applyFlexBasis(requestedLeft) {
             try {
                 const measured = measureAvail();
                 const avail = measured.avail;
-                const splitterW = handle.getBoundingClientRect().width || 8;
 
-                const availableForLeft = Math.max(minLeft, Math.round(avail - minRight - splitterW));
+                const availableForLeft = Math.max(minLeft, Math.round(avail - minRight));
                 let left = Math.max(minLeft, Math.min(availableForLeft, Math.round(requestedLeft)));
-                left = Math.min(left, availableForLeft);
-
-                const right = Math.max(minRight, Math.round(avail - left - splitterW));
 
                 if (thumbArea) {
-                    thumbArea.style.setProperty('--thumbnail-width', left + 'px');
-                    thumbArea.style.width = left + 'px';
-                    thumbArea.style.flex = `0 0 ${left}px`;
+                    thumbArea.style.flexBasis = left + 'px';
                 }
-
-                const splitEl = document.getElementById('split-container');
-                const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (handle.nextElementSibling || null);
-                if (rightPane) {
-                    rightPane.style.width = right + 'px';
-                    rightPane.style.flex = '0 0 auto';
-                    rightPane.style.minWidth = '0';
-                    rightPane.style.maxWidth = right + 'px';
-                }
-
-                splitEl && splitEl.offsetHeight;
-                try { if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays(); } catch (e) { /* ignore */ }
 
                 window._trimResize.lastAppliedLeft = left;
                 window._trimResize.lastAvail = avail;
             } catch (e) {
-                console.error('applyWidthsUsingAvail error', e);
+                console.error('applyFlexBasis error', e);
             }
         }
 
@@ -118,7 +98,7 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 15
                                 const measured = measureAvail();
                                 const originLeft = computeOriginLeft(measured);
                                 const computedLeft = Math.round(latestClientX - originLeft);
-                                applyWidthsUsingAvail(computedLeft);
+                                applyFlexBasis(computedLeft);
 
                                 scheduleDotNetNotify(latestClientX);
                             } catch (err) {
@@ -143,10 +123,9 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 15
 
                         const measured = measureAvail();
                         const originLeft = computeOriginLeft(measured);
-                        const splitterW = handle.getBoundingClientRect().width || 8;
 
                         const availForCalc = measured.avail;
-                        const maxLeft = Math.max(minLeft, Math.round(availForCalc - minRight - splitterW));
+                        const maxLeft = Math.max(minLeft, Math.round(availForCalc - minRight));
                         const computedFinalLeft = Math.round(ev.clientX - originLeft);
                         const finalLeftWidth = Math.max(minLeft, Math.min(maxLeft, computedFinalLeft));
 
@@ -154,11 +133,8 @@ window.registerPanelResize = function (dotNetRef, handleId, panelDebounceMs = 15
                             try { window._trimResize.dotNetRef.invokeMethodAsync('CommitPanelWidth', finalLeftWidth).catch(() => { }); } catch (e) { /* ignore */ }
                         }
 
-                        applyWidthsUsingAvail(finalLeftWidth);
+                        applyFlexBasis(finalLeftWidth);
 
-                        requestAnimationFrame(function () {
-                            if (window._trimResize && window._trimResize.updateAllTrimOverlays) window._trimResize.updateAllTrimOverlays();
-                        });
                     } catch (err) {
                         console.error('onPointerUp error', err);
                     } finally {
@@ -288,60 +264,19 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
         function measureAndNotify() {
             try {
                 const vw = window.innerWidth || document.documentElement.clientWidth;
-                // tailwindのブレークポイントを参考
                 const TW_BREAKPOINTS_MD = 768;
                 const IS_MOBILE_HEADER_SIDEBAR = vw < TW_BREAKPOINTS_MD;
                 const sidebarEl = document.querySelector('.sidebar');
                 const sidebarW = (sidebarEl && !IS_MOBILE_HEADER_SIDEBAR) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
                 const avail = Math.max(0, vw - sidebarW);
 
-                try {
-                    const MIN_LEFT = 200;
-                    const MAX_LEFT = 600;
-                    const MIN_RIGHT = 260;
-                    const handle = document.getElementById('splitter-handle');
-                    const splitterW = handle ? (handle.getBoundingClientRect().width || 8) : 8;
-
-                    let leftPx = Math.round(avail * 0.25);
-                    leftPx = Math.max(MIN_LEFT, Math.min(MAX_LEFT, leftPx));
-                    leftPx = Math.min(leftPx, Math.max(MIN_LEFT, Math.round(avail - MIN_RIGHT - splitterW)));
-
-                    const rightPx = Math.max(0, Math.round(avail - leftPx - splitterW));
-
-                    const thumb = document.getElementById('thumbnail-area');
-                    if (thumb) {
-                        thumb.style.setProperty('--thumbnail-width', leftPx + 'px');
-                        thumb.style.width = leftPx + 'px';
-                        thumb.style.flex = `0 0 ${leftPx}px`;
-                    }
-
-                    const splitEl = document.getElementById('split-container');
-                    const rightPane = splitEl ? splitEl.querySelector(':scope > .flex-1') : (document.getElementById('trim-preview-container')?.closest('.flex-1') || null);
-                    if (rightPane) {
-                        rightPane.style.width = '';
-                        rightPane.style.flex = '1 1 0%';
-                        rightPane.style.minWidth = '0';
-                        rightPane.style.maxWidth = rightPx + 'px';
-                    }
-
-                    if (window._trimResize && window._trimResize.windowResizeDotNetRef) {
-                        try {
-                            // 利用可能幅をBlazor側に通知
-                            window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(() => { });
-                        } catch (e) { /* ignore */ }
-                    }
-
-                    try { splitEl && splitEl.offsetHeight; } catch (e) { /* ignore */ }
-
-                    if (window._trimResize?.updateAllTrimOverlays) {
-                        try {
-                            window._trimResize.updateAllTrimOverlays();
-                        } catch (e) { console.error(e); }
-                    }
-
-                } catch (e) {
-                    console.error('measureAndNotify inner error', e);
+                // Blazor 側に通知（必要なら）
+                if (window._trimResize && window._trimResize.windowResizeDotNetRef) {
+                    try {
+                        window._trimResize.windowResizeDotNetRef.invokeMethodAsync('OnWindowResizedFromJs', avail, sidebarW).catch(() => { });
+                    } catch (e) { /* ignore */ }
                 }
+
             } catch (e) {
                 console.error('measureAndNotify error', e);
             }
@@ -365,6 +300,7 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
         console.error('registerWindowResize error', e);
     }
 };
+
 
 window.unregisterWindowResize = function () {
     try {

@@ -4,7 +4,8 @@
 @inject NoCloudPdf.Services.PdfDataService PdfDataService
 @implements IAsyncDisposable
 
-<div id="preview-container-@Index" class="relative p-4 mb-4 w-full flex justify-center">
+<div id="preview-container-@Index" class="relative w-full h-full flex items-start justify-center">
+    <!-- ファイル名表示 -->
     <div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-2 py-1 rounded text-sm" data-no-scale>
         <div class="flex items-center gap-2 text-xs font-semibold px-2 py-0.5 rounded max-w-[80vw]"
              title="@Item?.FullFileName"
@@ -14,17 +15,21 @@
         </div>
     </div>
 
-    <div class="w-full">
-        <canvas id="@CanvasId" data-item-id="@(Item?.RawData is PageItem page ? page.Id : "")"@ref="canvasRef" class="block mx-auto"></canvas>
-    </div>
+    <!-- Canvas（中央配置） -->
+    <canvas id="@CanvasId" 
+            data-item-id="@(Item?.RawData is PageItem page ? page.Id : "")"
+            @ref="canvasRef" 
+            class="block"></canvas>
 
-    <div class="absolute mx-auto w-full md:w-1/2 inset-0 flex items-center justify-center bg-white/60 z-20" hidden="@(!isLoading)">
+    <!-- ローディング表示 -->
+    <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-20" hidden="@(!isLoading)">
         <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
             <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
             <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
         </svg>
     </div>
 </div>
+
 
 @code {
     [Parameter] public DisplayItem Item { get; set; } = default!;
@@ -159,13 +164,24 @@
             string? src = null;
             if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
             {
-                // GetPreviewImageAsync が内部で LRU キャッシュを管理
                 src = await PdfDataService.GetPreviewImageAsync(page.Id);
             }
 
             if (string.IsNullOrEmpty(src)) return;
 
+            // Canvas に直接描画
             await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
+
+            // Canvas の自然なサイズを取得して CSS サイズに反映（eval を使わない）
+            var size = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", CanvasId);
+            if (size != null && size.Length >= 2)
+            {
+                var w = size[0];
+                var h = size[1];
+                
+                // 専用関数で Canvas サイズを設定
+                await JSRuntime.InvokeVoidAsync("setCanvasSize", CanvasId, w, h);
+            }
 
             const int CANVAS_READY_TIMEOUT_MS = 500;
             var ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, CANVAS_READY_TIMEOUT_MS);
@@ -176,7 +192,6 @@
                 await InvokeAsync(StateHasChanged);
             }
 
-            // Canvas描画完了フラグを立てる
             isCanvasDrawn = true;
 
             await InitializeTrimmingAsync();
@@ -193,6 +208,7 @@
             }
         }
     }
+
 
     private async Task InitializeTrimmingAsync()
     {

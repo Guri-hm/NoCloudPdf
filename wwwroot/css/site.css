@@ -1058,9 +1058,6 @@ input[type=number] {
   .w-\[100vw\] {
     width: 100vw;
   }
-  .w-auto {
-    width: auto;
-  }
   .w-full {
     width: 100%;
   }
@@ -2843,11 +2840,6 @@ input[type=number] {
   .md\:min-h-screen {
     @media (width >= 48rem) {
       min-height: 100vh;
-    }
-  }
-  .md\:w-1\/2 {
-    @media (width >= 48rem) {
-      width: calc(1/2 * 100%);
     }
   }
   .md\:w-16 {

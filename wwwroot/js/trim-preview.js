@@ -608,13 +608,13 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     const scaleFromRects = (canvasRect.width && logicalW) ? (canvasRect.width / logicalW) : 1;
                     const scale = window._previewZoomState?.lastZoom || scaleFromRects || 1;
 
-                    const offset = getOffsetRelativeTo(canvas, host);
-                    const hostRect = host.getBoundingClientRect();
-                    const canvasLeftInViewport = hostRect.left + offset.x * scale;
-                    const canvasTopInViewport = hostRect.top + offset.y * scale;
+                    const viewport = document.querySelector('.preview-zoom-viewport');
+                    const viewportRect = viewport.getBoundingClientRect();
+                    const canvasLeftInViewport = canvasRect.left - viewportRect.left + viewport.scrollLeft;
+                    const canvasTopInViewport = canvasRect.top - viewportRect.top + viewport.scrollTop;
 
-                    const xInScaled = clientX - canvasLeftInViewport;
-                    const yInScaled = clientY - canvasTopInViewport;
+                    const xInScaled = clientX - (viewportRect.left + canvasLeftInViewport - viewport.scrollLeft);
+                    const yInScaled = clientY - (viewportRect.top + canvasTopInViewport - viewport.scrollTop);
 
                     return {
                         x: xInScaled / scale,

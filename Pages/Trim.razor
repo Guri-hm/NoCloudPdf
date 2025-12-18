@@ -90,18 +90,16 @@
             </Left>
             <Right>
                 <div class="preview-zoom-viewport w-full h-full overflow-auto">
-                    <div id="preview-zoom-inner" class="preview-zoom-inner" style="transform-origin: center top;">
-                        @if (DisplayItems.Any())
-                        {
-                            var currentIndex = displayedPageNumber - 1;
-                            var item = DisplayItems[currentIndex];
-                            
-                            <TrimPreviewItem @key="@($"{item.Id}-{_rotationCounter}")"
-                                Item="@item"
-                                Index="@currentIndex"
-                                IsDrawingMode="@isDrawingMode" />
-                        }
-                    </div>
+                    @if (DisplayItems.Any())
+                    {
+                        var currentIndex = displayedPageNumber - 1;
+                        var item = DisplayItems[currentIndex];
+                        
+                        <TrimPreviewItem @key="@($"{item.Id}-{_rotationCounter}")"
+                            Item="@item"
+                            Index="@currentIndex"
+                            IsDrawingMode="@isDrawingMode" />
+                    }
                 </div>
                 
                 <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg z-50"
@@ -876,25 +874,8 @@
                 }
             }
             
-            if (DisplayItems.Count != _visibleObserverLastCount)
-            {
-                try
-                {   
-                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container");
-                    _visibleObserverLastCount = DisplayItems.Count;
-                }
-                catch { _visibleObserverLastCount = -1; }
-            }
             // サムネイル描画
             await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "thumbnail-container");
-        }
-        else
-        {
-            if (_visibleObserverLastCount != -1)
-            {
-                try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
-                _visibleObserverLastCount = -1;
-            }
         }
 
         // 初期画面のときのみ登録
@@ -939,13 +920,9 @@
             if (isResizingPanel) return Task.CompletedTask;
 
             var computed = (int)Math.Round(availableWidth * 0.25);
-
-            var clamped = Math.Max(200, Math.Min( Math.Min(600, computed), (int)(BrowserViewportWidth() - 260) ));
-
-            thumbnailAreaWidth = clamped;
+            thumbnailAreaWidth = Math.Max(150, Math.Min(600, computed));
+        
             StateHasChanged();
-
-            _ = JSRuntime.InvokeVoidAsync("applyThumbnailWidth", clamped);
         }
         catch (Exception ex)
         {
@@ -1047,39 +1024,42 @@
     private const double MinZoom = 0.25;
     private const double MaxZoom = 3.0;
 
-    private Task ZoomIn()
+    private async Task ZoomIn()
     {
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
-        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        return Task.CompletedTask;
+        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
-    private Task ZoomOut()
+    private async Task ZoomOut()
     {
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
-        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        return Task.CompletedTask;
+        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
-    private Task FitPreviewWidth()
+    private async Task FitPreviewWidth()
     {
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
-        _ = JSRuntime.InvokeVoidAsync("fitPreviewToViewport", canvasId, "fit-width");
-        return Task.CompletedTask;
+        
+        // Viewport の幅を取得
+        var vpWidth = await JSRuntime.InvokeAsync<int>("eval", @"
+            document.querySelector('.preview-zoom-viewport')?.clientWidth || 800
+        ");
+        
+        // Canvas の自然なサイズを取得
+        var size = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", canvasId);
+        if (size != null && size.Length >= 2 && size[0] > 0)
+        {
+            var naturalW = size[0];
+            previewZoom = (vpWidth * 0.9) / naturalW; // 90% に収める
+            previewZoom = Math.Max(MinZoom, Math.Min(MaxZoom, previewZoom));
+            await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
+        }
     }
 
-    private Task FitPreviewBoth()
-    {
-        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
-        _ = JSRuntime.InvokeVoidAsync("fitPreviewToViewport", canvasId, "fit-both");
-        return Task.CompletedTask;
-    }
-
-    private Task SetPreviewToActualSize()
+    private async Task SetPreviewToActualSize()
     {
         previewZoom = 1.0;
-        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        return Task.CompletedTask;
+        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
     private bool useRasterize = false;
