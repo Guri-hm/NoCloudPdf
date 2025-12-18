@@ -344,13 +344,14 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 500) {
 
 window.unregisterWindowResize = function () {
     try {
-        if (window._trimResize && window._trimResize.unregisterWindowResize) {
-            window._trimResize.unregisterWindowResize();
-            window._trimResize.unregisterWindowResize = null;
+        if (window._trimResize) {
+            if (window._trimResize.windowResizeCallback && window.removeEventListener) {
+                window.removeEventListener('resize', window._trimResize.windowResizeCallback);
+            }
+            window._trimResize.windowResizeCallback = null;
+            window._trimResize.windowResizeDotNetRef = null;
         }
-    } catch (e) {
-        console.error('unregisterWindowResize error', e);
-    }
+    } catch (e) { /* ignore */ }
 };
 
 window._trimShared = window._trimShared || { resizeHandler: null, timer: null, debounceMs: 120 };

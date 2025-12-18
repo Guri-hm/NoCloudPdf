@@ -40,7 +40,6 @@
     [Parameter] public bool EnableAutoResize { get; set; } = true;
 
     private DotNetObjectReference<SplitPane>? _dotNetRef;
-    private bool _windowResizeRegistered = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -64,7 +63,6 @@
                 try
                 {
                     await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
-                    _windowResizeRegistered = true;
                 }
                 catch (Exception ex)
                 {
@@ -113,16 +111,11 @@
         }
         catch { }
 
-        // ★ ウィンドウリサイズハンドラも解除
-        if (_windowResizeRegistered)
+        try
         {
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("unregisterWindowResize");
-            }
-            catch { }
-            _windowResizeRegistered = false;
+            await JSRuntime.InvokeVoidAsync("unregisterWindowResize");
         }
+        catch { }
 
         _dotNetRef?.Dispose();
         _dotNetRef = null;
