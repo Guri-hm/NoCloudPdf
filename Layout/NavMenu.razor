@@ -23,8 +23,8 @@
     </button>
 
     <!-- オーバレイ（ヘッダー以外を覆う） -->
-    <div class=@($"fixed inset-0 top-[56px] bg-black transition-opacity duration-[500ms] ease-in-out z-60 md:hidden {(collapseNavMenu ? "opacity-0 pointer-events-none" : "opacity-50")}")
-         @onclick="ToggleNavMenu"></div>
+    <div class="@($"fixed inset-0 top-[56px] bg-black transition-opacity duration-[500ms] ease-in-out z-60 md:hidden {(collapseNavMenu ? "opacity-0 pointer-events-none" : "opacity-50")}")"
+     @onclick="CloseNavMenu"></div>
 
     <!-- 機能アイコンエリア -->
    <div class="fixed top-[56px] left-0 w-full md:static md:w-auto md:flex-1 md:overflow-y-auto z-70 sidebar transition-opacity duration-[500ms] navmenu-sidebar-bg ease-in-out md:opacity-100 md:pointer-events-auto md:block @(collapseNavMenu ? "opacity-0 pointer-events-none" : "opacity-100") max-w-[100vw]">
