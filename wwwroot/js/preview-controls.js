@@ -25,11 +25,9 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         const innerContainer = canvas.closest('.preview-zoom-inner') || canvas.parentElement;
         if (innerContainer) {
             if (newW > vpW) {
-                // Canvas が横幅を超える → 左端揃えに変更
                 innerContainer.classList.remove('justify-center');
                 innerContainer.classList.add('justify-start');
             } else {
-                // Canvas が横幅内に収まる → 中央揃えに戻す
                 innerContainer.classList.remove('justify-start');
                 innerContainer.classList.add('justify-center');
             }
@@ -37,35 +35,28 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
 
         // 現在のスクロール位置
         const scrollLeft = viewport.scrollLeft;
+        const scrollTop = viewport.scrollTop;
 
         // 現在の Canvas のサイズ（CSS）
         const oldW = parseFloat(canvas.style.width) || naturalW;
         const oldH = parseFloat(canvas.style.height) || naturalH;
 
-        // 基点判定：画像左端が表示エリア左端に接しているか
-        const isLeftAligned = scrollLeft <= 1;
+        // ★ 修正：viewport の中心点を基準にズーム
+        // viewport 内での中心座標（スクロール位置 + viewport サイズの半分）
+        const centerX = scrollLeft + vpW / 2;
+        const centerY = scrollTop + vpH / 2;
 
-        let newScrollLeft, newScrollTop;
-
-        if (isLeftAligned || newW > vpW) {
-            // 左端基点（左端固定）
-            newScrollLeft = 0;
-            // 垂直方向：上辺固定（scrollTop = 0）
-            newScrollTop = 0;
-        } else {
-            // 上辺中心基点
-            // 水平方向：中心位置を維持
-            const centerX = scrollLeft + vpW / 2;
-            const normX = centerX / oldW;
-            newScrollLeft = normX * newW - vpW / 2;
-            
-            // 垂直方向：上辺固定（scrollTop = 0）
-            newScrollTop = 0;
-        }
+        // 正規化座標（0..1）で中心点の位置を保持
+        const normX = centerX / oldW;
+        const normY = centerY / oldH;
 
         // Canvas サイズを更新
         canvas.style.width = newW + 'px';
         canvas.style.height = newH + 'px';
+
+        // 新しいスクロール位置を計算（中心点を維持）
+        let newScrollLeft = normX * newW - vpW / 2;
+        let newScrollTop = normY * newH - vpH / 2;
 
         // スクロール範囲をクランプ
         const maxScrollLeft = Math.max(0, newW - vpW);
