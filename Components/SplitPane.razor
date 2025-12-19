@@ -3,18 +3,22 @@
 @inject IJSRuntime JSRuntime
 
 <div id="@ContainerId" class="flex-1 flex overflow-hidden">
+    <!-- 左エリア: 固定幅 -->
     <div id="@LeftId" 
-         class="flex-shrink-0 overflow-y-auto @LeftAreaClass"
-         style="flex-basis: @(LeftWidth)px; min-width: 150px; max-width: 600px;">
+         class="overflow-y-auto @LeftAreaClass"
+         style="width: @(LeftWidth)px; flex: none; min-width: 150px; max-width: 600px;">
         @Left
     </div>
 
+    <!-- 仕切り線 -->
     <div id="@HandleId" 
-         class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500 flex-shrink-0"
-         style="touch-action: none;">
+         class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500"
+         style="flex: none; touch-action: none;">
     </div>
 
-    <div class="flex-1 overflow-auto min-w-[260px]">
+    <!-- 右エリア: 固定幅（JavaScript で設定） -->
+    <div class="overflow-auto"
+         style="flex: none; min-width: 260px;">
         <div id="@RightContainerId" class="relative h-full @RightAreaClass">
             @Right
         </div>
@@ -36,7 +40,6 @@
     [Parameter] public string HandleId { get; set; } = "splitter-handle";
     [Parameter] public string RightContainerId { get; set; } = "trim-preview-container";
 
-    // ウィンドウリサイズ時の自動調整を有効化するか
     [Parameter] public bool EnableAutoResize { get; set; } = true;
 
     private DotNetObjectReference<SplitPane>? _dotNetRef;
@@ -49,7 +52,6 @@
             
             try
             {
-                // パネルリサイズハンドラ登録
                 await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef, HandleId);
             }
             catch (Exception ex)
@@ -57,12 +59,11 @@
                 Console.WriteLine($"registerPanelResize failed: {ex.Message}");
             }
 
-            // ウィンドウリサイズハンドラ登録
             if (EnableAutoResize)
             {
                 try
                 {
-                    await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
+                    await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef, 350);
                 }
                 catch (Exception ex)
                 {
@@ -72,7 +73,6 @@
         }
     }
 
-    // JS(registerPanelResize) から確定幅を受け取る
     [JSInvokable("CommitPanelWidth")]
     public async Task CommitPanelWidth(int width)
     {
@@ -80,17 +80,14 @@
         await LeftWidthChanged.InvokeAsync(LeftWidth);
     }
 
-    // JS(registerWindowResize) から呼ばれる
     [JSInvokable("OnWindowResizedFromJs")]
     public async Task OnWindowResizedFromJs(int availableWidth, int sidebarWidth)
     {
         try
         {
-            // 利用可能幅の 25% を基準に、最小/最大範囲内でクランプ
             var computed = (int)Math.Round(availableWidth * 0.25);
             var newWidth = Math.Max(150, Math.Min(600, computed));
 
-            // 幅が変わった場合のみ通知
             if (newWidth != LeftWidth)
             {
                 LeftWidth = newWidth;
