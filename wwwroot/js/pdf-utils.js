@@ -1611,36 +1611,65 @@ window.drawVisibleCanvases = function(containerId) {
  */
 window.createNUpPdf = async function (pages, nup, direction, orientation, showDividers = false) {
     try {
-        const { PDFDocument, rgb, degrees } = PDFLib;
+        const { PDFDocument, rgb, degrees, PDFName, PDFArray, PDFNumber } = PDFLib;
         
-        const outputPdf = await PDFDocument.create();
+        // 各ページを個別の PDF として保持（後で埋め込み）
+        const pagePdfs = [];
         
-        // ページをロード（埋め込みページとして保持）
-        const embeddedPages = [];
-        
-        for (const pageData of pages) {
+        for (let i = 0; i < pages.length; i++) {
+            const pageData = pages[i];
             try {
+                
                 const pdfBytes = base64ToUint8Array(pageData.pageData);
+                
                 const tempPdf = await PDFDocument.load(pdfBytes);
+                const tempPage = tempPdf.getPage(0);
                 
-                // ★ 修正：embedPdf で埋め込みページを取得
-                const [embeddedPage] = await outputPdf.embedPdf(tempPdf, [0]);
+                // Contents ストリームの存在確認
+                const pageDict = tempPage.node;
+                const contents = pageDict.lookup(PDFName.of('Contents'));
                 
-                embeddedPages.push({
-                    page: embeddedPage,
-                    rotateAngle: pageData.rotateAngle || 0
-                });
+                // Contents が存在しない場合は空のページを作成（コンテンツ付き）
+                if (!contents) {
+                    console.warn(`[createNUpPdf] Page ${i + 1} has no Contents, creating blank page with content`);
+                    const { width, height } = tempPage.getSize();
+                    const blankPdf = await PDFDocument.create();
+                    const blankPage = blankPdf.addPage([width, height]);
+                    
+                    // 最小限のコンテンツを描画して Contents ストリームを生成
+                    // 白い矩形を描画（視覚的には空白だが、Contents は存在する）
+                    blankPage.drawRectangle({
+                        x: 0,
+                        y: 0,
+                        width: width,
+                        height: height,
+                        color: rgb(1, 1, 1), // 白色
+                        opacity: 1
+                    });
+                    
+                    pagePdfs.push({
+                        pdf: blankPdf,
+                        rotateAngle: pageData.rotateAngle || 0,
+                        isBlank: true
+                    });
+                } else {
+                    pagePdfs.push({
+                        pdf: tempPdf,
+                        rotateAngle: pageData.rotateAngle || 0,
+                        isBlank: false
+                    });
+                }
             } catch (error) {
-                console.error('Error loading page:', error, pageData);
-                embeddedPages.push(null);
+                console.error(`[createNUpPdf] Error loading page ${i + 1}:`, error);
+                pagePdfs.push(null);
             }
         }
         
         // グリッド計算
         const { rows, cols } = getNUpGrid(nup, orientation);
         
-        // 元ページの平均サイズを計算（null以外のページから）
-        const validPages = embeddedPages.filter(p => p !== null);
+        // 元ページの平均サイズを計算
+        const validPages = pagePdfs.filter(p => p !== null);
         if (validPages.length === 0) {
             throw new Error('No valid pages to process');
         }
@@ -1648,8 +1677,10 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
         let totalWidth = 0;
         let totalHeight = 0;
         validPages.forEach(item => {
-            totalWidth += item.page.width;
-            totalHeight += item.page.height;
+            const page = item.pdf.getPage(0);
+            const { width, height } = page.getSize();
+            totalWidth += width;
+            totalHeight += height;
         });
         
         const avgWidth = totalWidth / validPages.length;
@@ -1662,9 +1693,10 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
         const cellHeight = pageHeight / rows;
         
         // 並び順を決定
-        const orderedIndices = getPageOrder(embeddedPages.length, rows, cols, direction);
+        const orderedIndices = getPageOrder(pagePdfs.length, rows, cols, direction);
         
-        // 新しいページを作成してNアップ配置
+        // 出力 PDF を作成
+        const outputPdf = await PDFDocument.create();
         const outputPage = outputPdf.addPage([pageWidth, pageHeight]);
         
         // 背景を白で塗りつぶし
@@ -1678,34 +1710,40 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
         
         for (let i = 0; i < orderedIndices.length; i++) {
             const pageIndex = orderedIndices[i];
-            if (pageIndex >= embeddedPages.length || embeddedPages[pageIndex] === null) {
+            if (pageIndex >= pagePdfs.length || pagePdfs[pageIndex] === null) {
                 continue;
             }
             
-            const item = embeddedPages[pageIndex];
-            const embeddedPage = item.page;
-            const width = embeddedPage.width;
-            const height = embeddedPage.height;
+            const item = pagePdfs[pageIndex];
             
-            // 配置位置計算
-            const { x, y } = getCellPosition(i, rows, cols, cellWidth, cellHeight, direction);
-            
-            // スケール計算（セルに収まるように）
-            const scaleX = cellWidth / width;
-            const scaleY = cellHeight / height;
-            const scale = Math.min(scaleX, scaleY);
-            
-            // 中央寄せ
-            const offsetX = (cellWidth - width * scale) / 2;
-            const offsetY = (cellHeight - height * scale) / 2;
-            
-            // ★ embedPdf で取得した埋め込みページを描画
-            outputPage.drawPage(embeddedPage, {
-                x: x + offsetX,
-                y: y + offsetY,
-                width: width * scale,
-                height: height * scale
-            });
+            try {
+                // embedPdf で埋め込み
+                const [embeddedPage] = await outputPdf.embedPdf(item.pdf, [0]);
+                
+                const { width, height } = embeddedPage;
+                
+                // 配置位置計算
+                const { x, y } = getCellPosition(i, rows, cols, cellWidth, cellHeight, direction);
+                
+                // スケール計算（セルに収まるように）
+                const scaleX = cellWidth / width;
+                const scaleY = cellHeight / height;
+                const scale = Math.min(scaleX, scaleY);
+                
+                // 中央寄せ
+                const offsetX = (cellWidth - width * scale) / 2;
+                const offsetY = (cellHeight - height * scale) / 2;
+                
+                outputPage.drawPage(embeddedPage, {
+                    x: x + offsetX,
+                    y: y + offsetY,
+                    width: width * scale,
+                    height: height * scale
+                });
+            } catch (embedError) {
+                console.error(`[createNUpPdf] Error embedding page ${pageIndex + 1}:`, embedError);
+                throw embedError;
+            }
         }
         
         // 仕切り線を描画
@@ -1737,9 +1775,11 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
         
         const pdfBytes = await outputPdf.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        return URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
+        return url;
     } catch (error) {
-        console.error('createNUpPdf error:', error);
+        console.error('[createNUpPdf] Fatal error:', error);
+        console.error('[createNUpPdf] Stack trace:', error.stack);
         throw error;
     }
 };
