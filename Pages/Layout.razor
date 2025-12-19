@@ -226,6 +226,8 @@
                             SplitPositions="Array.Empty<int>()" 
                             OperationMode="OperationMode.Normal"
                             OnShowPreview="args => ShowPreviewAsync(args.fileIndex, args.pageIndex)"
+                            OnInsertBlankPage="InsertBlankPage"
+                            OnInsertPdfAtPosition="InsertPdfAtPosition"
                             OnSwapWithNext="OnSwapWithNext" 
                             OnReloadPageItem="ReloadPageItem" 
                             OnRemove="RemovePage"
