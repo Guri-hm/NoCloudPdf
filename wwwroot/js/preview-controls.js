@@ -41,7 +41,6 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         const oldW = parseFloat(canvas.style.width) || naturalW;
         const oldH = parseFloat(canvas.style.height) || naturalH;
 
-        // ★ 修正：viewport の中心点を基準にズーム
         // viewport 内での中心座標（スクロール位置 + viewport サイズの半分）
         const centerX = scrollLeft + vpW / 2;
         const centerY = scrollTop + vpH / 2;
@@ -100,7 +99,6 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
     }
 };
 
-// ...existing code（setPreviewPanEnabled 以降は変更なし）...
 window.setPreviewPanEnabled = function (enabled) {
     try {
         const viewport = document.querySelector('.preview-zoom-viewport');
@@ -194,3 +192,92 @@ window.setPreviewInteractionMode = function (mode) {
 };
 
 window._previewPan = window._previewPan || { enabled: false, handlers: null, state: null };
+
+// ========================================
+// 自動フィットモード管理
+// ========================================
+window._previewZoomState = window._previewZoomState || {
+    lastZoom: 1.0,
+    autoFitWidth: false,
+    autoFitHeight: false
+};
+
+/**
+ * 自動フィットモードを設定（width / height / both）
+ */
+window.setAutoFitMode = function (mode) {
+    try {
+        const state = window._previewZoomState;
+        mode = (mode || '').toString().toLowerCase();
+
+        if (mode === 'width') {
+            state.autoFitWidth = true;
+            state.autoFitHeight = false;
+        } else if (mode === 'height') {
+            state.autoFitWidth = false;
+            state.autoFitHeight = true;
+        } else if (mode === 'both') {
+            state.autoFitWidth = true;
+            state.autoFitHeight = true;
+        } else {
+            state.autoFitWidth = false;
+            state.autoFitHeight = false;
+        }
+        return true;
+    } catch (e) {
+        console.error('setAutoFitMode error', e);
+        return false;
+    }
+};
+
+/**
+ * 自動フィットモードをクリア
+ */
+window.clearAutoFitMode = function () {
+    try {
+        window._previewZoomState.autoFitWidth = false;
+        window._previewZoomState.autoFitHeight = false;
+        return true;
+    } catch (e) {
+        console.error('clearAutoFitMode error', e);
+        return false;
+    }
+};
+
+/**
+ * 自動フィットが有効な場合、現在のキャンバスを再調整
+ */
+window.adjustAutoFitIfNeeded = function () {
+    try {
+        const state = window._previewZoomState;
+        if (!state.autoFitWidth && !state.autoFitHeight) return false;
+
+        const canvas = document.querySelector('.preview-zoom-viewport canvas');
+        if (!canvas) return false;
+
+        const canvasId = canvas.id;
+        if (!canvasId) return false;
+
+        // モード決定
+        let mode = 'fit-width';
+        if (state.autoFitWidth && state.autoFitHeight) {
+            mode = 'fit-both';
+        } else if (state.autoFitHeight) {
+            mode = 'fit-height';
+        }
+
+        // fitPreviewToViewport を呼び出し
+        if (typeof window.fitPreviewToViewport === 'function') {
+            try {
+                window.fitPreviewToViewport(canvasId, mode);
+            } catch (e) {
+                console.error('adjustAutoFitIfNeeded fitPreviewToViewport error', e);
+            }
+            return true;
+        }
+        return false;
+    } catch (e) {
+        console.error('adjustAutoFitIfNeeded error', e);
+        return false;
+    }
+};

@@ -44,6 +44,15 @@ function applyLeftPanelWidth(leftPx, avail) {
             window._trimResize.lastAppliedLeft = leftPx;
             window._trimResize.lastAvail = avail;
         }
+
+        // パネル幅変更後に自動フィット再調整
+        requestAnimationFrame(() => {
+            try {
+                if (typeof window.adjustAutoFitIfNeeded === 'function') {
+                    window.adjustAutoFitIfNeeded();
+                }
+            } catch (e) { /* ignore */ }
+        });
     } catch (e) {
         console.error('applyLeftPanelWidth error', e);
     }
@@ -179,6 +188,15 @@ window.registerWindowResize = function (dotNetRef, debounceMs = 350, invokeImmed
                 
                 applyLeftPanelWidth(newLeft, measured.avail);
 
+                // ウィンドウリサイズ時に自動フィット再調整
+                requestAnimationFrame(() => {
+                    try {
+                        if (typeof window.adjustAutoFitIfNeeded === 'function') {
+                            window.adjustAutoFitIfNeeded();
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+
                 const ref = window._trimResize && window._trimResize.windowResizeDotNetRef;
                 if (ref && typeof ref.invokeMethodAsync === 'function') {
                     try {
@@ -310,3 +328,4 @@ window.applyThumbnailWidth = function (leftPx) {
 };
 
 window._trimShared = window._trimShared || { resizeHandler: null, timer: null, debounceMs: 350 };
+

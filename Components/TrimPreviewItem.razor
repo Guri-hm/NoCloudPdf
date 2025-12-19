@@ -186,6 +186,16 @@
             const int CANVAS_READY_TIMEOUT_MS = 500;
             var ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, CANVAS_READY_TIMEOUT_MS);
 
+            // 初期表示時に全体表示を適用（自動フィットモードは有効化しない）
+            try
+            {
+                await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", CanvasId, "fit-both");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Initial fit-both failed idx={Index}: {ex.Message}");
+            }
+
             if (isLoading)
             {
                 isLoading = false;

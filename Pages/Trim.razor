@@ -139,16 +139,21 @@
                             <ZoomInIcon Class="w-5 h-5 text-white" />
                         </button>
                         
-                        <button @onclick="SetPreviewToActualSize"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="実際のサイズ">
-                            <ViewRealSizeIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        
                         <button @onclick="FitPreviewWidth"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
                                 title="幅に合わせる">
                             <FitWidthIcon Class="w-5 h-5 text-white" />
+                        </button>
+                        <button @onclick="FitPreviewHeight"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                                title="高さに合わせる">
+                            <FitHeightIcon Class="w-5 h-5 text-white" />
+                        </button>
+                        
+                        <button @onclick="FitPreviewBoth"
+                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
+                                title="全体表示">
+                            <FitScreenIcon Class="w-5 h-5 text-white" />
                         </button>
                     </div>
                 </div>
@@ -664,6 +669,30 @@
         },
         new ActionButtonItem
         {
+            Label = "高さに合わせる",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitHeightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "高さに合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewHeight),
+        },
+                new ActionButtonItem
+        {
+            Label = "全体表示",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitScreenIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "全体表示",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewBoth),
+        },
+        new ActionButtonItem
+        {
             Label = "実際のサイズ",
             Icon = builder =>
             {
@@ -971,12 +1000,16 @@
 
     private async Task ZoomIn()
     {
+        // ★ 手動ズーム → 自動フィット解除
+        try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
         await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
     private async Task ZoomOut()
     {
+        // ★ 手動ズーム → 自動フィット解除
+        try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
         await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
@@ -984,27 +1017,65 @@
     private async Task FitPreviewWidth()
     {
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
-        
-        // Viewport の幅を取得
-        var vpWidth = await JSRuntime.InvokeAsync<int>("eval", @"
-            document.querySelector('.preview-zoom-viewport')?.clientWidth || 800
-        ");
-        
-        // Canvas の自然なサイズを取得
-        var size = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", canvasId);
-        if (size != null && size.Length >= 2 && size[0] > 0)
+        try
         {
-            var naturalW = size[0];
-            previewZoom = (vpWidth * 0.9) / naturalW; // 90% に収める
-            previewZoom = Math.Max(MinZoom, Math.Min(MaxZoom, previewZoom));
-            await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
+            // ★ 横幅フィットモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "width");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-width");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewWidth error: {ex.Message}");
+        }
+    }
+
+    private async Task FitPreviewHeight()
+    {
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // ★ 縦幅フィットモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "height");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-height");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewHeight error: {ex.Message}");
         }
     }
 
     private async Task SetPreviewToActualSize()
     {
-        previewZoom = 1.0;
-        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // ★ 実際のサイズモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "none");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "actual-size");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SetPreviewToActualSize error: {ex.Message}");
+        }
+    }
+
+    private async Task FitPreviewBoth()
+    {
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // ★ 全体表示モードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "both");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-both");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewBoth error: {ex.Message}");
+        }
     }
 
     private bool useRasterize = false;

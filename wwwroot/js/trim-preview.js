@@ -1736,44 +1736,53 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
         const canvas = document.getElementById(canvasId);
         if (!canvas) {
             console.warn('fitPreviewToViewport: canvas not found', canvasId);
-            return false;
+            return 1.0;
         }
         
         const viewport = document.querySelector('.preview-zoom-viewport');
         if (!viewport) {
             console.warn('fitPreviewToViewport: viewport not found');
-            return false;
+            return 1.0;
         }
         
         const viewportW = viewport.clientWidth;
         const viewportH = viewport.clientHeight;
         
-        const canvasW = canvas.clientWidth;
-        const canvasH = canvas.clientHeight;
+        // Canvas の自然なサイズ（実際のピクセルサイズ）
+        const canvasW = canvas.width || 1;  // canvas.width は実際のピクセルサイズ
+        const canvasH = canvas.height || 1;
         
         if (canvasW === 0 || canvasH === 0) {
             console.warn('fitPreviewToViewport: canvas size is 0');
-            return false;
+            return 1.0;
         }
         
         let scale = 1.0;
         
         if (mode === 'fit-width') {
-            scale = (viewportW * 0.9) / canvasW;
+            // 横幅を95%に収める
+            scale = (viewportW * 0.95) / canvasW;
         } else if (mode === 'fit-height') {
-            scale = (viewportH * 0.9) / canvasH;
+            // 縦幅を95%に収める
+            scale = (viewportH * 0.95) / canvasH;
         } else if (mode === 'fit-both') {
+            // 全体が収まるように（小さい方を採用）
             const scaleW = viewportW / canvasW;
             const scaleH = viewportH / canvasH;
-            scale = Math.min(scaleW, scaleH) * 0.9;
+            scale = Math.min(scaleW, scaleH) * 0.95;
+        } else if (mode === 'actual-size') {
+            // 実際のサイズ = 1.0（元画像の1ピクセル = 画面の1ピクセル）
+            scale = 1.0;
         }
         
         // setPreviewZoom を呼び出してズーム適用
-        window.setPreviewZoom(scale);
+        if (typeof window.setPreviewZoom === 'function') {
+            window.setPreviewZoom(scale);
+        }
         
         return scale;
     } catch (e) {
         console.error('fitPreviewToViewport error', e);
         return 1.0;
     }
-};
+};;
