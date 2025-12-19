@@ -59,6 +59,16 @@
                 Console.WriteLine($"registerPanelResize failed: {ex.Message}");
             }
 
+            // 初期表示時に左右を固定幅にする（JS側で右幅を計算して設定する）
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("applyThumbnailWidth", LeftWidth);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"applyThumbnailWidth failed: {ex.Message}");
+            }
+
             if (EnableAutoResize)
             {
                 try
