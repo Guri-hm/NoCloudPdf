@@ -21,32 +21,45 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         const vpW = viewport.clientWidth;
         const vpH = viewport.clientHeight;
 
+        // Canvas が Viewport より大きい場合は justify-content を削除（左上基点に）
+        const innerContainer = canvas.closest('.preview-zoom-inner') || canvas.parentElement;
+        if (innerContainer) {
+            if (newW > vpW) {
+                // Canvas が横幅を超える → 左端揃えに変更
+                innerContainer.classList.remove('justify-center');
+                innerContainer.classList.add('justify-start');
+            } else {
+                // Canvas が横幅内に収まる → 中央揃えに戻す
+                innerContainer.classList.remove('justify-start');
+                innerContainer.classList.add('justify-center');
+            }
+        }
+
         // 現在のスクロール位置
         const scrollLeft = viewport.scrollLeft;
-        const scrollTop = viewport.scrollTop;
 
         // 現在の Canvas のサイズ（CSS）
         const oldW = parseFloat(canvas.style.width) || naturalW;
         const oldH = parseFloat(canvas.style.height) || naturalH;
 
-        // ★ 基点判定：画像左端が表示エリア左端に接しているか
+        // 基点判定：画像左端が表示エリア左端に接しているか
         const isLeftAligned = scrollLeft <= 1;
 
         let newScrollLeft, newScrollTop;
 
-        if (isLeftAligned) {
-            // ★ 左端基点（左端固定）
+        if (isLeftAligned || newW > vpW) {
+            // 左端基点（左端固定）
             newScrollLeft = 0;
-            // ★ 垂直方向：上辺固定（scrollTop = 0）
+            // 垂直方向：上辺固定（scrollTop = 0）
             newScrollTop = 0;
         } else {
-            // ★ 上辺中心基点
+            // 上辺中心基点
             // 水平方向：中心位置を維持
             const centerX = scrollLeft + vpW / 2;
             const normX = centerX / oldW;
             newScrollLeft = normX * newW - vpW / 2;
             
-            // ★ 垂直方向：上辺固定（scrollTop = 0）
+            // 垂直方向：上辺固定（scrollTop = 0）
             newScrollTop = 0;
         }
 
@@ -69,7 +82,7 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         window._previewZoomState = window._previewZoomState || {};
         window._previewZoomState.lastZoom = zoom;
 
-        // ★ SVG オーバーレイを再描画
+        // SVG オーバーレイを再描画
         const canvasId = canvas.id;
         if (canvasId && window._simpleTrim && window._simpleTrim[canvasId]) {
             const trimState = window._simpleTrim[canvasId];
