@@ -19,7 +19,7 @@
         z-index: 10;
     }
     
-    /* ★ Nアップコンテンツ（固定幅・用紙イメージ） */
+    /* Nアップコンテンツ（固定幅・用紙イメージ） */
     .n-up-group-content {
         background-color: white;
         border: 2px solid #d1d5db; /* グレーの枠線 */

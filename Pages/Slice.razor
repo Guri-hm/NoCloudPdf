@@ -408,8 +408,6 @@
         try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
         _visibleObserverLastCount = -1;
 
-        try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", "trim-preview-container"); } catch { }
-
         try
         {
             if (_dropAreaRegistered)

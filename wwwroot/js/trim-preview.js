@@ -155,17 +155,17 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             container.appendChild(svg);
         }
 
-        // ★ 修正：viewBox のみ更新
+        // 修正：viewBox のみ更新
         svg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
 
-        // ★ 修正：Container 全体を一時的に非表示（visibility: hidden）
+        // 修正：Container 全体を一時的に非表示（visibility: hidden）
         const originalVisibility = container.style.visibility;
         container.style.visibility = 'hidden';
 
         // 子要素のみ削除
         while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-        // ★ 修正：削除完了後、即座に表示を復元
+        // 修正：削除完了後、即座に表示を復元
         container.style.visibility = originalVisibility || 'visible';
 
         if (!Array.isArray(rects) || rects.length === 0) {
@@ -1444,70 +1444,6 @@ window.unregisterPreviewCacheCleanup = function(containerId) {
     }
 };
 
-// ========================================
-// TrimPreviewItem 可視監視（IntersectionObserver）
-// ========================================
-(function () {
-    // 既存の observerMap を window._trimPreview.visibilityObservers に統合
-    const observerMap = window._trimPreview.visibilityObservers;
-
-    window.observeTrimPreviewVisibility = function (elementId, dotNetRef, rootMargin = '400px') {
-        try {
-            const element = document.getElementById(elementId);
-            if (!element) {
-                console.warn(`observeTrimPreviewVisibility: element not found: ${elementId}`);
-                return false;
-            }
-
-            // 既存の Observer があれば解除
-            if (observerMap.has(elementId)) {
-                const existing = observerMap.get(elementId);
-                try { existing.observer.disconnect(); } catch (e) {}
-                observerMap.delete(elementId);
-            }
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    try {
-                        const store = observerMap.get(elementId);
-                        if (store && store.dotNetRef) {
-                            window._trimPreview.safeInvoke(store.dotNetRef, 'OnVisibilityChanged', entry.isIntersecting);
-                        }
-                    } catch (e) {
-                        console.error(`IntersectionObserver callback error for ${elementId}`, e);
-                    }
-                });
-            }, {
-                root: null,
-                rootMargin: rootMargin,
-                threshold: 0.01
-            });
-
-            observer.observe(element);
-            observerMap.set(elementId, { observer, dotNetRef });
-
-            return true;
-        } catch (e) {
-            console.error('observeTrimPreviewVisibility error', e);
-            return false;
-        }
-    };
-
-    window.unobserveTrimPreviewVisibility = function (elementId) {
-        try {
-            const entry = observerMap.get(elementId);
-            if (entry && entry.observer) {
-                try { entry.observer.disconnect(); } catch (e) {}
-                if (entry) entry.dotNetRef = null;
-                observerMap.delete(elementId);
-            }
-            return true;
-        } catch (e) {
-            console.error('unobserveTrimPreviewVisibility error', e);
-            return false;
-        }
-    };
-})();
 
 // ========================================
 // 一括解除: すべての Observer と DotNetRef をクリア
@@ -1629,12 +1565,12 @@ window.trimPreviewArea = window.trimPreviewArea || {
                 return false;
             }
 
-            // ★ スクロール開始前に Observer を一時停止
+            // スクロール開始前に Observer を一時停止
             if (typeof window.pauseVisiblePageObserver === 'function') {
                 window.pauseVisiblePageObserver();
             }
 
-            // ★ スクロール完了後に Observer を再開 + 青枠を更新
+            // スクロール完了後に Observer を再開 + 青枠を更新
             const onScrollEnd = () => {
                 // Observer を再開
                 if (typeof window.resumeVisiblePageObserver === 'function') {
@@ -1686,7 +1622,7 @@ window.selectThumbnailByIndex = function(selectedIndex) {
             return;
         }
 
-        // ★ すべてのサムネイルから selected クラスを削除（排他制御）
+        // すべてのサムネイルから selected クラスを削除（排他制御）
         container.querySelectorAll('.trim-thumbnail-card').forEach(card => {
             const innerDiv = card.querySelector('.flex.flex-col');
             if (innerDiv) {
@@ -1694,7 +1630,7 @@ window.selectThumbnailByIndex = function(selectedIndex) {
             }
         });
 
-        // ★ 指定されたインデックスのサムネイルにのみ selected クラスを追加
+        // 指定されたインデックスのサムネイルにのみ selected クラスを追加
         const targetCard = container.querySelector(`[data-thumb-index="${selectedIndex}"]`);
         if (targetCard) {
             const innerDiv = targetCard.querySelector('.flex.flex-col');

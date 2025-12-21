@@ -384,8 +384,6 @@
         try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
         _visibleObserverLastCount = -1;
 
-        try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", "trim-preview-container"); } catch { }
-
         try
         {
             if (_dropAreaRegistered)
@@ -1000,16 +998,25 @@
 
     private async Task ZoomIn()
     {
-        // ★ 手動ズーム → 自動フィット解除
         try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
+
+        // 現在の実際の倍率を取得してから計算
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        var currentScale = await JSRuntime.InvokeAsync<double>("getCurrentPreviewZoom", canvasId);
+        if (currentScale > 0) previewZoom = currentScale;
+
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
         await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
     private async Task ZoomOut()
     {
-        // ★ 手動ズーム → 自動フィット解除
         try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
+
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        var currentScale = await JSRuntime.InvokeAsync<double>("getCurrentPreviewZoom", canvasId);
+        if (currentScale > 0) previewZoom = currentScale;
+
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
         await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
@@ -1019,7 +1026,7 @@
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
         try
         {
-            // ★ 横幅フィットモードを有効化
+            // 横幅フィットモードを有効化
             await JSRuntime.InvokeVoidAsync("setAutoFitMode", "width");
             var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-width");
             previewZoom = scale;
@@ -1035,7 +1042,7 @@
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
         try
         {
-            // ★ 縦幅フィットモードを有効化
+            // 縦幅フィットモードを有効化
             await JSRuntime.InvokeVoidAsync("setAutoFitMode", "height");
             var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-height");
             previewZoom = scale;
@@ -1051,7 +1058,7 @@
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
         try
         {
-            // ★ 実際のサイズモードを有効化
+            // 実際のサイズモードを有効化
             await JSRuntime.InvokeVoidAsync("setAutoFitMode", "none");
             var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "actual-size");
             previewZoom = scale;
@@ -1067,7 +1074,7 @@
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
         try
         {
-            // ★ 全体表示モードを有効化
+            // 全体表示モードを有効化
             await JSRuntime.InvokeVoidAsync("setAutoFitMode", "both");
             var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-both");
             previewZoom = scale;

@@ -73,87 +73,19 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // ▼ Observer登録（初回のみ）
-        if (!_observerRegistered)
+        if (firstRender)
         {
             try
             {
-                _dotNetRef ??= DotNetObjectReference.Create(this);
-                var success = await JSRuntime.InvokeAsync<bool>(
-                    "observeTrimPreviewVisibility",
-                    $"preview-container-{Index}",
-                    _dotNetRef,
-                    "400px" // 表示領域の上下400pxを事前読み込み
-                );
-
-                if (success)
-                {
-                    _observerRegistered = true;
-                }
+                await InitializeCanvasAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Observer registration error idx={Index}: {ex.Message}");
+                Console.WriteLine($"InitializeCanvasAsync error idx={Index}: {ex.Message}");
             }
         }
     }
 
-    /// <summary>
-    /// JS側のIntersectionObserverから呼ばれる（可視状態変化時）
-    /// </summary>
-        [JSInvokable]
-    public async Task OnVisibilityChanged(bool isVisible)
-    {
-        try
-        {
-            // ▼ 可視になった
-            if (isVisible)
-            {
-                // まだ描画していない → 初期化（重い処理）
-                if (!isCanvasDrawn)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await InitializeCanvasAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"InitializeCanvasAsync failed idx={Index}: {ex.Message}");
-                        }
-                    });
-                }
-                else if (!isTrimmingActive)
-                {
-                    // 既に描画済みだが listener が無効 → listener だけ再登録（軽い処理）
-                    await InitializeTrimmingAsync();
-                    isTrimmingActive = true;
-                }
-            }
-            else
-            {
-                // ▼ 非可視になった
-                if (isTrimmingActive)
-                {
-                    // トリミング listener だけ解除（canvas は保持）
-                    try
-                    {
-                        await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId);
-                        isTrimmingActive = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Deactivate error idx={Index}: {ex.Message}");
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"OnVisibilityChanged error idx={Index}: {ex.Message}");
-        }
-    }
 
     private async Task InitializeCanvasAsync()
     {
@@ -172,24 +104,10 @@
             // Canvas に直接描画
             await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
 
-            // Canvas の自然なサイズを取得して CSS サイズに反映（eval を使わない）
-            var size = await JSRuntime.InvokeAsync<int[]>("getCanvasNaturalSize", CanvasId);
-            if (size != null && size.Length >= 2)
-            {
-                var w = size[0];
-                var h = size[1];
-                
-                // 専用関数で Canvas サイズを設定
-                await JSRuntime.InvokeVoidAsync("setCanvasSize", CanvasId, w, h);
-            }
-
-            const int CANVAS_READY_TIMEOUT_MS = 500;
-            var ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, CANVAS_READY_TIMEOUT_MS);
-
             // 初期表示時に全体表示を適用（自動フィットモードは有効化しない）
             try
             {
-                await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", CanvasId, "fit-both");
+                double initialScale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", CanvasId, "fit-both");
             }
             catch (Exception ex)
             {
@@ -348,7 +266,6 @@
     {
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         
-        try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", $"preview-container-{Index}"); } catch { }
         try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;

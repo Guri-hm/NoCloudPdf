@@ -1,7 +1,7 @@
 window._visiblePageObserver = window._visiblePageObserver || {};
 
 // ========================================
-// ★ 追加：Observer の一時停止/再開機能
+// 追加：Observer の一時停止/再開機能
 // ========================================
 window._visiblePageObserver.isPaused = false;
 
@@ -87,7 +87,7 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
                 if (topInput) topInput.value = String(idx + 1);
             } catch (e) { /* ignore */ }
 
-            // ★ 追加：selectThumbnailByIndex を呼び出し（青枠を更新）
+            // 追加：selectThumbnailByIndex を呼び出し（青枠を更新）
             try {
                 if (typeof window.selectThumbnailByIndex === 'function') {
                     window.selectThumbnailByIndex(idx);
@@ -115,7 +115,7 @@ window.registerVisiblePageObserver = function (dotNetRef, containerId, debounceM
         }
 
         const cb = function (entries) {
-            // ★ 追加：一時停止中は処理をスキップ
+            // 追加：一時停止中は処理をスキップ
             if (window._visiblePageObserver.isPaused) {
                 return;
             }

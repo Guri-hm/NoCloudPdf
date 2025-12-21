@@ -1922,10 +1922,10 @@ window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction, ra
                 
                 let tileUrl;
                 if (rasterize) {
-                    // ★ ラスタ化：指定領域を画像として抽出してPDF化
+                    // ラスタ化：指定領域を画像として抽出してPDF化
                     tileUrl = await createRasterizedTile(uint8Array, x, y, tileWidth, tileHeight, width, height);
                 } else {
-                    // ★ ベクトル：CropBox でトリミング
+                    // ベクトル：CropBox でトリミング
                     tileUrl = await createVectorTile(srcPdf, x, y, tileWidth, tileHeight);
                 }
                 

@@ -281,3 +281,21 @@ window.adjustAutoFitIfNeeded = function () {
         return false;
     }
 };
+
+/**
+ * 現在の Canvas 表示倍率を取得（CSS サイズ ÷ 自然なサイズ）
+ */
+window.getCurrentPreviewZoom = function(canvasId) {
+    try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return 1.0;
+
+        const naturalW = canvas.width || 1;
+        const cssW = parseFloat(canvas.style.width) || naturalW;
+
+        return cssW / naturalW;
+    } catch (e) {
+        console.error('getCurrentPreviewZoom error', e);
+        return 1.0;
+    }
+};
