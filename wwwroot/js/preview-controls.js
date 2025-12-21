@@ -319,7 +319,7 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
         const viewportH = viewport.clientHeight;
             
         // Canvas の自然なサイズ（実際のピクセルサイズ）
-        const canvasW = canvas.width || 1;  // canvas.width は実際のピクセルサイズ
+        const canvasW = canvas.width || 1;
         const canvasH = canvas.height || 1;
         
         if (canvasW === 0 || canvasH === 0) {
@@ -335,12 +335,10 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
         } else if (mode === 'fit-height') {
             scale = (viewportH * MAX_RATIO) / canvasH;
         } else if (mode === 'fit-both') {
-            // 全体が収まるように（小さい方を採用）
             const scaleW = viewportW / canvasW;
             const scaleH = viewportH / canvasH;
             scale = Math.min(scaleW, scaleH) * MAX_RATIO;
         } else if (mode === 'actual-size') {
-            // 実際のサイズ = 1.0（元画像の1ピクセル = 画面の1ピクセル）
             scale = 1.0;
         }
         
@@ -354,4 +352,4 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
         console.error('fitPreviewToViewport error', e);
         return 1.0;
     }
-};;
+};
