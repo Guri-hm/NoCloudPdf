@@ -331,10 +331,8 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
         const MAX_RATIO = 1.0;
         
         if (mode === 'fit-width') {
-            // 横幅を95%に収める
             scale = (viewportW * MAX_RATIO) / canvasW;
         } else if (mode === 'fit-height') {
-            // 縦幅を95%に収める
             scale = (viewportH * MAX_RATIO) / canvasH;
         } else if (mode === 'fit-both') {
             // 全体が収まるように（小さい方を採用）
