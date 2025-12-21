@@ -1,7 +1,7 @@
 window.setPreviewZoom = function (zoom, mode = 'contain') {
     try {
         zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
-        const viewport = document.querySelector('.preview-zoom-viewport');
+        const viewport = document.getElementById('preview-zoom-viewport');
         const canvas = viewport?.querySelector('canvas');
         
         if (!viewport || !canvas) {
@@ -22,7 +22,7 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         const vpH = viewport.clientHeight;
 
         // Canvas が Viewport より大きい場合は justify-content を削除（左上基点に）
-        const innerContainer = canvas.closest('.preview-zoom-inner') || canvas.parentElement;
+        const innerContainer = canvas.parentElement;
         if (innerContainer) {
             if (newW > vpW) {
                 innerContainer.classList.remove('justify-center');
@@ -101,7 +101,7 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
 
 window.setPreviewPanEnabled = function (enabled) {
     try {
-        const viewport = document.querySelector('.preview-zoom-viewport');
+        const viewport = document.getElementById('preview-zoom-viewport');
         if (!viewport) return;
 
         if (window._previewPan.handlers) {
@@ -252,7 +252,8 @@ window.adjustAutoFitIfNeeded = function () {
         const state = window._previewZoomState;
         if (!state.autoFitWidth && !state.autoFitHeight) return false;
 
-        const canvas = document.querySelector('.preview-zoom-viewport canvas');
+        const viewport = document.getElementById('preview-zoom-viewport');
+        const canvas = viewport?.querySelector('canvas');
         if (!canvas) return false;
 
         const canvasId = canvas.id;
@@ -299,3 +300,60 @@ window.getCurrentPreviewZoom = function(canvasId) {
         return 1.0;
     }
 };
+
+window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
+    try {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.warn('fitPreviewToViewport: canvas not found', canvasId);
+            return 1.0;
+        }
+        
+        const viewport = document.getElementById('preview-zoom-viewport');
+        if (!viewport) {
+            console.warn('fitPreviewToViewport: viewport not found');
+            return 1.0;
+        }
+        
+        const viewportW = viewport.clientWidth;
+        const viewportH = viewport.clientHeight;
+            
+        // Canvas の自然なサイズ（実際のピクセルサイズ）
+        const canvasW = canvas.width || 1;  // canvas.width は実際のピクセルサイズ
+        const canvasH = canvas.height || 1;
+        
+        if (canvasW === 0 || canvasH === 0) {
+            console.warn('fitPreviewToViewport: canvas size is 0');
+            return 1.0;
+        }
+        
+        let scale = 1.0;
+        const MAX_RATIO = 1.0;
+        
+        if (mode === 'fit-width') {
+            // 横幅を95%に収める
+            scale = (viewportW * MAX_RATIO) / canvasW;
+        } else if (mode === 'fit-height') {
+            // 縦幅を95%に収める
+            scale = (viewportH * MAX_RATIO) / canvasH;
+        } else if (mode === 'fit-both') {
+            // 全体が収まるように（小さい方を採用）
+            const scaleW = viewportW / canvasW;
+            const scaleH = viewportH / canvasH;
+            scale = Math.min(scaleW, scaleH) * MAX_RATIO;
+        } else if (mode === 'actual-size') {
+            // 実際のサイズ = 1.0（元画像の1ピクセル = 画面の1ピクセル）
+            scale = 1.0;
+        }
+        
+        // setPreviewZoom を呼び出してズーム適用
+        if (typeof window.setPreviewZoom === 'function') {
+            window.setPreviewZoom(scale);
+        }
+        
+        return scale;
+    } catch (e) {
+        console.error('fitPreviewToViewport error', e);
+        return 1.0;
+    }
+};;

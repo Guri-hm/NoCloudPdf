@@ -1550,8 +1550,7 @@ window.trimPreviewArea = window.trimPreviewArea || {
     scrollToPage: function (pageIndex) {
         try {
             // コンテナを取得（preview-zoom-viewport を優先）
-            const container = document.querySelector('.preview-zoom-viewport') 
-                           || document.getElementById('trim-preview-container');
+            const container = document.getElementById('preview-zoom-viewport');
             
             if (!container) {
                 console.warn('scrollToPage: container not found');
@@ -1665,60 +1664,3 @@ window.clearTrimState = function(canvasId) {
         return false;
     }
 };
-
-// Viewport に合わせた transform 自動調整
-window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
-    try {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) {
-            console.warn('fitPreviewToViewport: canvas not found', canvasId);
-            return 1.0;
-        }
-        
-        const viewport = document.querySelector('.preview-zoom-viewport');
-        if (!viewport) {
-            console.warn('fitPreviewToViewport: viewport not found');
-            return 1.0;
-        }
-        
-        const viewportW = viewport.clientWidth;
-        const viewportH = viewport.clientHeight;
-        
-        // Canvas の自然なサイズ（実際のピクセルサイズ）
-        const canvasW = canvas.width || 1;  // canvas.width は実際のピクセルサイズ
-        const canvasH = canvas.height || 1;
-        
-        if (canvasW === 0 || canvasH === 0) {
-            console.warn('fitPreviewToViewport: canvas size is 0');
-            return 1.0;
-        }
-        
-        let scale = 1.0;
-        
-        if (mode === 'fit-width') {
-            // 横幅を95%に収める
-            scale = (viewportW * 0.95) / canvasW;
-        } else if (mode === 'fit-height') {
-            // 縦幅を95%に収める
-            scale = (viewportH * 0.95) / canvasH;
-        } else if (mode === 'fit-both') {
-            // 全体が収まるように（小さい方を採用）
-            const scaleW = viewportW / canvasW;
-            const scaleH = viewportH / canvasH;
-            scale = Math.min(scaleW, scaleH) * 0.95;
-        } else if (mode === 'actual-size') {
-            // 実際のサイズ = 1.0（元画像の1ピクセル = 画面の1ピクセル）
-            scale = 1.0;
-        }
-        
-        // setPreviewZoom を呼び出してズーム適用
-        if (typeof window.setPreviewZoom === 'function') {
-            window.setPreviewZoom(scale);
-        }
-        
-        return scale;
-    } catch (e) {
-        console.error('fitPreviewToViewport error', e);
-        return 1.0;
-    }
-};;

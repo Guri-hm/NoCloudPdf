@@ -84,19 +84,17 @@
                 </div>
             </Left>
             <Right>
-                <div class="preview-zoom-viewport w-full h-full overflow-auto">
-                    <div id="preview-zoom-inner" class="preview-zoom-inner" style="transform-origin: center top;">
-                        @if (DisplayItems.Any())
-                        {
-                            var currentIndex = displayedPageNumber - 1;
-                            var item = DisplayItems[currentIndex];
-                            
-                            <TrimPreviewItem @key="@($"{item.Id}-{_rotationCounter}")"
-                                            Item="@item"
-                                            Index="@currentIndex"
-                                            IsDrawingMode="@isDrawingMode" />
-                        }
-                    </div>
+                <div id="preview-zoom-viewport" class="w-full h-full overflow-auto">
+                    @if (DisplayItems.Any())
+                    {
+                        var currentIndex = displayedPageNumber - 1;
+                        var item = DisplayItems[currentIndex];
+                        
+                        <TrimPreviewItem @key="@($"{item.Id}-{_rotationCounter}")"
+                            Item="@item"
+                            Index="@currentIndex"
+                            IsDrawingMode="@isDrawingMode" />
+                    }
                 </div>
                             
                 <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg z-50"

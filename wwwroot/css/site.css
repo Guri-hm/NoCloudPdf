@@ -209,34 +209,26 @@ input[type=number] {
 .touch-drag-handle:active {
   cursor: grabbing;
 }
-.preview-zoom-viewport {
+#preview-zoom-viewport {
   overflow: auto;
   position: relative;
   cursor: default;
 }
-.preview-zoom-inner {
-  display: inline-block;
-  min-width: 100%;
-  min-height: 100%;
-  transform: scale(var(--preview-zoom, 1));
-  transform-origin: top left;
-  transition: transform 0.2s ease-out;
-}
-.preview-zoom-viewport.pan-active,
-.preview-zoom-viewport.pan-active svg {
+#preview-zoom-viewport.pan-active,
+#preview-zoom-viewport.pan-active svg {
   cursor: grab;
 }
-.preview-zoom-viewport:not(.pan-active) svg rect {
+#preview-zoom-viewport:not(.pan-active) svg rect {
   cursor: move;
 }
-.preview-zoom-viewport:not(.pan-active) canvas,
-.preview-zoom-viewport:not(.pan-active) svg {
+#preview-zoom-viewport:not(.pan-active) canvas,
+#preview-zoom-viewport:not(.pan-active) svg {
   cursor: crosshair;
 }
-.preview-zoom-viewport.pan-active.panning,
-.preview-zoom-viewport.panning,
-.preview-zoom-viewport.pan-active.panning svg, 
-.preview-zoom-viewport.pan-active.panning svg rect {
+#preview-zoom-viewport.pan-active.panning,
+#preview-zoom-viewport.panning,
+#preview-zoom-viewport.pan-active.panning svg, 
+#preview-zoom-viewport.pan-active.panning svg rect {
   cursor: grabbing !important;
   -moz-user-select: none;
        user-select: none;
