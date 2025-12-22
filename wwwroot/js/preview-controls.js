@@ -37,9 +37,19 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         const scrollLeft = viewport.scrollLeft;
         const scrollTop = viewport.scrollTop;
 
+        const computedStyle = getComputedStyle(canvas);
+        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
         // 現在の Canvas のサイズ（CSS）
         const oldW = parseFloat(canvas.style.width) || naturalW;
         const oldH = parseFloat(canvas.style.height) || naturalH;
+
+        // padding を引いた内側のサイズ（矩形座標の基準）
+        const oldInnerW = oldW - paddingLeft - paddingRight;
+        const oldInnerH = oldH - paddingTop - paddingBottom;
 
         // viewport 内での中心座標（スクロール位置 + viewport サイズの半分）
         const centerX = scrollLeft + vpW / 2;
@@ -78,10 +88,10 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
             const trimState = window._simpleTrim[canvasId];
             if (trimState.currentRectsPx && trimState.currentRectsPx.length > 0) {
                 const rectsToRender = trimState.currentRectsPx.map(r => ({
-                    X: r.x / oldW,
-                    Y: r.y / oldH,
-                    Width: r.w / oldW,
-                    Height: r.h / oldH
+                    X: r.x / oldInnerW,
+                    Y: r.y / oldInnerH,
+                    Width: r.w / oldInnerW,
+                    Height: r.h / oldInnerH
                 }));
                 
                 requestAnimationFrame(() => {

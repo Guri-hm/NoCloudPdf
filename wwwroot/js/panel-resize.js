@@ -46,13 +46,11 @@ function applyLeftPanelWidth(leftPx, avail) {
         }
 
         // パネル幅変更後に自動フィット再調整
-        requestAnimationFrame(() => {
-            try {
-                if (typeof window.adjustAutoFitIfNeeded === 'function') {
-                    window.adjustAutoFitIfNeeded();
-                }
-            } catch (e) { /* ignore */ }
-        });
+        try {
+            if (typeof window.adjustAutoFitIfNeeded === 'function') {
+                window.adjustAutoFitIfNeeded();
+            }
+        } catch (e) { /* ignore */ }
     } catch (e) {
         console.error('applyLeftPanelWidth error', e);
     }
