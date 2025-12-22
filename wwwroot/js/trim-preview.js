@@ -1147,7 +1147,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                         const raw = trimState.currentRectPx || { x: 0, y: 0, w: 0, h: 0 };
                         if (raw.w > 0 && raw.h > 0) {
-                            const norm = rectPxToNormalized(raw);
+                            const norm = rectPxToNormalized(raw, canvas);
 
                             if (trimState.allowMultipleRects) {
                                 // 複数矩形時：配列に追加
