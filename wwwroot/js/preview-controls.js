@@ -301,6 +301,20 @@ window.getCurrentPreviewZoom = function(canvasId) {
     }
 };
 
+// 画面 DPI を取得（CSS px / inch）
+function getScreenDpi() {
+    try {
+        const d = document.createElement('div');
+        d.style.width = '1in';
+        d.style.position = 'absolute';
+        d.style.left = '-100%';
+        document.body.appendChild(d);
+        const dpi = d.offsetWidth || 96;
+        document.body.removeChild(d);
+        return dpi;
+    } catch (e) { return 96; }
+}
+
 window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
     try {
         const canvas = document.getElementById(canvasId);
@@ -317,7 +331,7 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
         
         const viewportW = viewport.clientWidth;
         const viewportH = viewport.clientHeight;
-            
+    
         // Canvas の自然なサイズ（実際のピクセルサイズ）
         const canvasW = canvas.width || 1;
         const canvasH = canvas.height || 1;
@@ -339,7 +353,81 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
             const scaleH = viewportH / canvasH;
             scale = Math.min(scaleW, scaleH) * MAX_RATIO;
         } else if (mode === 'actual-size') {
-            scale = 1.0;
+            console.group('🔍 actual-size 計算詳細');
+            
+            // 実寸表示の計算
+            const pdfVpW = parseFloat(canvas.dataset.originalWidth) || NaN;
+            const pdfVpH = parseFloat(canvas.dataset.originalHeight) || NaN;
+            
+            console.log('📄 PDF 情報:');
+            console.log('  - dataset.originalWidth (pt):', pdfVpW);
+            console.log('  - dataset.originalHeight (pt):', pdfVpH);
+            console.log('  - Adobe 表示 (参考): 272.7×385.9 mm');
+
+            if (!isNaN(pdfVpW) && pdfVpW > 0) {
+                // 画面 DPI を計測（ブラウザズーム・OS スケールを反映）
+                const dpi = getScreenDpi();
+                
+                console.log('\n🖥️ 画面情報:');
+                console.log('  - 計測した DPI:', dpi);
+                console.log('  - devicePixelRatio:', window.devicePixelRatio);
+                console.log('  - ブラウザズーム:', Math.round(window.devicePixelRatio * 100) + '%（推定）');
+                
+                // PDF の論理幅（pt）を CSS px に変換
+                // 1pt = 1/72 inch なので、CSS px = pt * (dpi / 72)
+                const desiredCssW = pdfVpW * (dpi / 72);
+                const desiredCssH = pdfVpH * (dpi / 72);
+                
+                console.log('\n📐 目標サイズ（CSS px）:');
+                console.log('  - 幅:', desiredCssW.toFixed(2), 'px');
+                console.log('  - 高さ:', desiredCssH.toFixed(2), 'px');
+                
+                // pt → mm 変換（参考：1pt = 0.3527777778 mm）
+                const expectedMmW = pdfVpW * 0.3527777778;
+                const expectedMmH = pdfVpH * 0.3527777778;
+                console.log('  - 換算（mm）:', expectedMmW.toFixed(1), '×', expectedMmH.toFixed(1), 'mm');
+                
+                // 現在のレンダリング画像の CSS px 幅
+                const renderedCssW = parseFloat(canvas.dataset.renderedCssWidth) || 
+                                    parseFloat(canvas.style.width) || 
+                                    (canvas.width / (window.devicePixelRatio || 1));
+                const renderedCssH = parseFloat(canvas.dataset.renderedCssHeight) || 
+                                    parseFloat(canvas.style.height) || 
+                                    (canvas.height / (window.devicePixelRatio || 1));
+                
+                console.log('\n🖼️ レンダリング画像:');
+                console.log('  - canvas.width × canvas.height:', canvasW, '×', canvasH, 'px（バックバッファ）');
+                console.log('  - dataset.renderedCssWidth:', canvas.dataset.renderedCssWidth);
+                console.log('  - canvas.style.width:', canvas.style.width);
+                console.log('  - 使用する renderedCssW:', renderedCssW.toFixed(2), 'px');
+                console.log('  - 使用する renderedCssH:', renderedCssH.toFixed(2), 'px');
+                
+                if (renderedCssW > 0) {
+                    scale = desiredCssW / renderedCssW;
+                    
+                    console.log('\n✅ 計算結果:');
+                    console.log('  - scale:', scale.toFixed(4));
+                    console.log('  - 適用後の表示サイズ:', (renderedCssW * scale).toFixed(2), '×', (renderedCssH * scale).toFixed(2), 'px');
+                    
+                    // 実際の画面上のサイズ（mm）を推定
+                    // 96dpi の場合、1px = 25.4mm / 96 ≈ 0.2645833 mm
+                    const pxToMm = 25.4 / dpi;
+                    const actualMmW = (renderedCssW * scale) * pxToMm;
+                    const actualMmH = (renderedCssH * scale) * pxToMm;
+                    console.log('  - 画面上の推定サイズ:', actualMmW.toFixed(1), '×', actualMmH.toFixed(1), 'mm');
+                    console.log('  - Adobe との差:', (actualMmW - 272.7).toFixed(1), 'mm（幅）');
+                } else {
+                    // フォールバック
+                    scale = pdfVpW / canvasW;
+                    console.warn('⚠️ renderedCssW が取得できないためフォールバック');
+                }
+            } else {
+                // dataset がない場合のフォールバック
+                console.warn('⚠️ actual-size: originalWidth not found, fallback to 1.0');
+                scale = 1.0;
+            }
+            
+            console.groupEnd();
         }
         
         // setPreviewZoom を呼び出してズーム適用

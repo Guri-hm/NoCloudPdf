@@ -101,8 +101,18 @@
 
             if (string.IsNullOrEmpty(src)) return;
 
+            var originalSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>("getPdfPageOriginalSize", page.PageData);
+
             // Canvas に直接描画
             await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
+
+            // Canvas に元PDFサイズを保存（data属性）
+            if (originalSize != null)
+            {
+                await JSRuntime.InvokeVoidAsync("eval", 
+                    $"document.getElementById('{CanvasId}').dataset.originalWidth = {originalSize["width"]}; " +
+                    $"document.getElementById('{CanvasId}').dataset.originalHeight = {originalSize["height"]};");
+            }
 
             // 初期表示時に全体表示を適用（自動フィットモードは有効化しない）
             try

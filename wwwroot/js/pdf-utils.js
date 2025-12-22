@@ -706,6 +706,26 @@ window.getPdfFileSize = async function (url) {
     return sizeMB;
 };
 
+/**
+ * PDFページの元サイズ（pt単位）を取得
+ */
+window.getPdfPageOriginalSize = async function(pdfBase64) {
+    try {
+        const uint8Array = base64ToUint8Array(pdfBase64);
+        const pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
+        
+        return {
+            width: viewport.width,   // pt (1pt ≈ 1.333px at 96dpi)
+            height: viewport.height
+        };
+    } catch (e) {
+        console.error('getPdfPageOriginalSize error', e);
+        return null;
+    }
+};
+
 // ========================================
 // ダウンロード
 // ========================================

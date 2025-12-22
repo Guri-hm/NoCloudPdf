@@ -1358,6 +1358,10 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
                     canvas.style.height = ih + 'px';
                     canvas.style.display = 'block';
 
+                    // レンダリング後の CSS px サイズを保存
+                    canvas.dataset.renderedCssWidth = iw;
+                    canvas.dataset.renderedCssHeight = ih;
+
                     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                     ctx.clearRect(0, 0, iw, ih);
                     ctx.drawImage(img, 0, 0, iw, ih);
