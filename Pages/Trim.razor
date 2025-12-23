@@ -1003,12 +1003,9 @@
 
         try
         {
-
-            // スナップショット（UI 再レンダリングで変わらないように）
             var displayList = DisplayItems.ToList();
             var pageCount = displayList.Count;
 
-            // 必要情報を先に集めて検証する
             var pageInfos = new List<(int Index, DisplayItem Item, PageItem Page, TrimRectInfo? Trim)>(pageCount);
 
             for (int i = 0; i < pageCount; i++)
@@ -1023,17 +1020,16 @@
                 pageInfos.Add((i, item, page, PdfDataService.GetTrimRect(i)));
             }
 
-            // 準備できていないページを検出（まとめて一度だけ判定）
             var notReady = pageInfos.Count(p => string.IsNullOrEmpty(p.Page.PageData) || p.Page.HasError);
             if (notReady > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
                 return;
             }
+            
             await MessageService.ShowLoadingAsync("トリミング中...");
             await Task.Yield();
 
-            // マージ用データを作成（トリムは JS 側で処理）
             var mergeData = new List<object>(pageCount);
 
             for (int idx = 0; idx < pageInfos.Count; idx++)
@@ -1053,7 +1049,13 @@
                 {
                     try
                     {
-                        // ラスタライズオプションに応じて関数を選択
+                        // PDF の元サイズを取得（診断用）
+                        try
+                        {
+                            var pageSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>("getPdfPageOriginalSize", page.PageData);
+                        }
+                        catch { }
+
                         var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
 
                         var rotate = page.RotateAngle % 360;
@@ -1072,6 +1074,13 @@
                             _ = MessageService.ShowAsync($"ページのトリミングに失敗しました: {info.Item.DisplayName}", MessageType.Error);
                             return;
                         }
+
+                        // トリミング後のサイズを確認
+                        try
+                        {
+                            var croppedSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>("getPdfPageOriginalSize", pageDataToUse);
+                        }
+                        catch { }
                     }
                     catch (Exception ex)
                     {
@@ -1083,7 +1092,6 @@
                 mergeData.Add(new
                 {
                     pageData = pageDataToUse,
-                    // ラスタ版は画像化で回転済み→0、ベクトル版は元の回転を保持
                     rotateAngle = useRasterize ? 0 : (page.RotateAngle % 360)
                 });
             }

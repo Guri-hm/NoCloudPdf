@@ -1353,27 +1353,23 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
         
-        // 元のページサイズを取得（回転前）
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
         const pageW = originalViewport.width;
         const pageH = originalViewport.height;
         
         const quant = normalizeRotationAngle(rotateAngle);
         const scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
-        
-        // 正規化座標をクランプ
+
         const nx = Math.max(0, Math.min(1, Number(normX) || 0));
         const ny = Math.max(0, Math.min(1, Number(normY) || 0));
         const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
         
-        // PDF座標系で計算（cropPdfPageToTrimVectorと同じロジック）
         const llx = nx * pageW;
-        const lly = pageH * (1 - ny - nh);  // Y座標を反転
+        const lly = pageH * (1 - ny - nh);
         const urx = llx + (nw * pageW);
         const ury = lly + (nh * pageH);
-        
-        // 回転を適用したviewport
+
         const viewport = page.getViewport({ scale: scale, rotation: quant });
 
         const srcCanvas = document.createElement('canvas');
@@ -1382,12 +1378,11 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
         const srcCtx = srcCanvas.getContext('2d', { alpha: false });
         await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
 
-        // PDF座標をCanvas座標にスケール変換
         const scaleX = srcCanvas.width / pageW;
         const scaleY = srcCanvas.height / pageH;
         
         const sx = Math.round(llx * scaleX);
-        const sy = Math.round((pageH - ury) * scaleY);  // Canvas座標系に変換
+        const sy = Math.round((pageH - ury) * scaleY);
         const sw = Math.max(1, Math.round((urx - llx) * scaleX));
         const sh = Math.max(1, Math.round((ury - lly) * scaleY));
 
@@ -1410,7 +1405,7 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
         const newPdfBytes = await doc.save();
         return uint8ArrayToBase64(newPdfBytes);
     } catch (e) {
-        console.error("cropPdfPageRasterized error", e);
+        console.error('[cropPdfPageRasterized] Error:', e);
         return pdfBase64 || "";
     }
 };
@@ -1438,50 +1433,41 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
         let llx, lly, urx, ury;
 
         if (quant === 0) {
-            // PDF座標系（左下原点）で計算
-            // normY, normHeight は「上から」の正規化座標なので、PDF座標に変換
             llx = nx * pageW;
-            lly = pageH * (1 - ny - nh);  // Y座標を反転
+            lly = pageH * (1 - ny - nh);
             urx = llx + (nw * pageW);
             ury = lly + (nh * pageH);
-        } else {
-            // 回転時の座標変換（既存コード維持）
-            const D_w = (quant % 180 === 0) ? pageW : pageH;
-            const D_h = (quant % 180 === 0) ? pageH : pageW;
-
-            const sx = nx * D_w;
-            const sy = ny * D_h;
-            const sw = Math.max(1, nw * D_w);
-            const sh = Math.max(1, nh * D_h);
-
-            const cxD = D_w / 2;
-            const cyD = D_h / 2;
-            const cxP = pageW / 2;
-            const cyP = pageH / 2;
-            const theta = -quant * Math.PI / 180;
-            const cosT = Math.cos(theta);
-            const sinT = Math.sin(theta);
-
-            function displayToPdf(x_d, y_d) {
-                const x_c = x_d - cxD;
-                const y_c = cyD - y_d;
-                const x_pc = x_c * cosT - y_c * sinT;
-                const y_pc = x_c * sinT + y_c * cosT;
-                return { x: x_pc + cxP, y: y_pc + cyP };
-            }
-
-            const tl = displayToPdf(sx, sy);
-            const tr = displayToPdf(sx + sw, sy);
-            const bl = displayToPdf(sx, sy + sh);
-            const br = displayToPdf(sx + sw, sy + sh);
-
-            const xs = [tl.x, tr.x, bl.x, br.x];
-            const ys = [tl.y, tr.y, bl.y, br.y];
             
-            llx = Math.min(...xs);
-            lly = Math.min(...ys);
-            urx = Math.max(...xs);
-            ury = Math.max(...ys);
+        } else if (quant === 90) {
+            // 90°回転時の座標変換
+            // 表示：横長 (pageH × pageW)、元PDF：縦長 (pageW × pageH)
+            const sx = nx * pageH;  // 表示X座標（元PDFの高さ方向）
+            const sy = ny * pageW;  // 表示Y座標（元PDFの幅方向）
+            const sw = nw * pageH;  // 表示幅
+            const sh = nh * pageW;  // 表示高さ
+
+            // PDF座標系への変換（90°時計回り回転の逆変換）
+            // 表示左上 (sx, sy) → PDF左下 (lly, llx)
+            llx = sy;                // 表示Y → PDF左端
+            lly = sx;                // 表示X → PDF下端
+            urx = sy + sh;           // 表示Y + 高さ → PDF右端
+            ury = sx + sw;           // 表示X + 幅 → PDF上端
+        } else if (quant === 180) {
+            llx = pageW * (1 - nx - nw);
+            lly = pageH * ny;
+            urx = pageW * (1 - nx);
+            ury = pageH * (ny + nh);
+            
+        } else if (quant === 270) {
+            const sx = nx * pageH;
+            const sy = ny * pageW;
+            const sw = nw * pageH;
+            const sh = nh * pageW;
+
+            llx = pageH - sy - sh;
+            lly = pageW - sx - sw;
+            urx = pageH - sy;
+            ury = pageW - sx;
         }
 
         const clampedLlX = Math.max(0, Math.min(pageW, Math.round(llx)));
@@ -1503,7 +1489,7 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
         const outBytes = await outDoc.save();
         return uint8ArrayToBase64(outBytes);
     } catch (e) {
-        console.error('cropPdfPageToTrimVector error', e);
+        console.error('[cropPdfPageToTrimVector] Error:', e);
         return pdfBase64 || "";
     }
 };
@@ -1556,10 +1542,39 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
         
         // PDF座標系で計算（cropPdfPageToTrimVectorと同じロジック）
-        const llx = nx * pageW;
-        const lly = pageH * (1 - ny - nh);  // Y座標を反転
-        const urx = llx + (nw * pageW);
-        const ury = lly + (nh * pageH);
+        let llx, lly, urx, ury;
+
+        if (quant === 0) {
+            llx = nx * pageW;
+            lly = pageH * (1 - ny - nh);
+            urx = llx + (nw * pageW);
+            ury = lly + (nh * pageH);
+        } else if (quant === 90) {
+            const sx = nx * pageH;
+            const sy = ny * pageW;
+            const sw = nw * pageH;
+            const sh = nh * pageW;
+
+            llx = sy;
+            lly = sx;
+            urx = sy + sh;
+            ury = sx + sw;
+        } else if (quant === 180) {
+            llx = pageW * (1 - nx - nw);
+            lly = pageH * ny;
+            urx = pageW * (1 - nx);
+            ury = pageH * (ny + nh);
+        } else if (quant === 270) {
+            const sx = nx * pageH;
+            const sy = ny * pageW;
+            const sw = nw * pageH;
+            const sh = nh * pageW;
+
+            llx = pageH - sy - sh;
+            lly = pageW - sx - sw;
+            urx = pageH - sy;
+            ury = pageW - sx;
+        }
 
         const viewport = page.getViewport({ scale: scale, rotation: quant });
 
