@@ -1,11 +1,7 @@
 // ========================================
-// グローバル状態管理: Observer と DotNetRef の保持
+// グローバル状態管理: DotNetRefの保持
 // ========================================
-window._trimPreview = window._trimPreview || {
-    previewCacheObservers: new Map(), // containerId -> { observer, dotNetRef }
-    visibilityObservers: new Map()    // elementId -> { observer, dotNetRef }
-};
-
+window._trimPreview = window._trimPreview || {};
 // ========================================
 // 安全な DotNet 呼び出しヘルパー
 // ========================================
@@ -1416,99 +1412,6 @@ window.setTrimRectGridDivision = function(cols, rows) {
 };
 
 // ========================================
-// スクロール監視: プレビューキャッシュの自動クリーンアップ
-// ========================================
-window.registerPreviewCacheCleanup = function(containerId, dotNetRef) {
-    try {
-        const container = document.getElementById(containerId);
-        if (!container) {
-            console.warn(`registerPreviewCacheCleanup: container not found: ${containerId}`);
-            return false;
-        }
-
-        // 既存の Observer があれば解除して置換
-        const existing = window._trimPreview.previewCacheObservers.get(containerId);
-        if (existing && existing.observer) {
-            try { existing.observer.disconnect(); } catch (e) {}
-        }
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const canvas = entry.target;
-                const itemId = canvas?.dataset?.itemId;
-
-                if (!entry.isIntersecting && itemId) {
-                    // 表示領域外になったらキャッシュを破棄（安全呼び出し）
-                    const store = window._trimPreview.previewCacheObservers.get(containerId);
-                    if (store && store.dotNetRef) {
-                        window._trimPreview.safeInvoke(store.dotNetRef, 'OnPreviewOutOfView', itemId);
-                    }
-                }
-            });
-        }, { rootMargin: '400px' });
-
-        container.querySelectorAll('canvas[data-item-id]').forEach(canvas => observer.observe(canvas));
-
-        // Observer と DotNetRef を保存
-        window._trimPreview.previewCacheObservers.set(containerId, { observer, dotNetRef });
-
-        return true;
-    } catch (e) {
-        console.error('registerPreviewCacheCleanup error', e);
-        return false;
-    }
-};
-
-// ========================================
-// プレビューキャッシュクリーンアップの解除
-// ========================================
-window.unregisterPreviewCacheCleanup = function(containerId) {
-    try {
-        const entry = window._trimPreview.previewCacheObservers.get(containerId);
-        if (entry) {
-            try { if (entry.observer) entry.observer.disconnect(); } catch (e) {}
-            entry.dotNetRef = null;
-            window._trimPreview.previewCacheObservers.delete(containerId);
-        }
-        return true;
-    } catch (e) {
-        console.error('unregisterPreviewCacheCleanup error', e);
-        return false;
-    }
-};
-
-
-// ========================================
-// 一括解除: すべての Observer と DotNetRef をクリア
-// ========================================
-window.unregisterAllTrimPreview = function() {
-    try {
-        let count = 0;
-
-        // プレビューキャッシュ Observer
-        window._trimPreview.previewCacheObservers.forEach((v, k) => {
-            try { if (v.observer) v.observer.disconnect(); } catch (e) {}
-            if (v) v.dotNetRef = null;
-            count++;
-        });
-        window._trimPreview.previewCacheObservers.clear();
-
-        // 可視監視 Observer
-        window._trimPreview.visibilityObservers.forEach((v, k) => {
-            try { if (v.observer) v.observer.disconnect(); } catch (e) {}
-            if (v) v.dotNetRef = null;
-            count++;
-        });
-        window._trimPreview.visibilityObservers.clear();
-
-        return true;
-    } catch (e) {
-        console.error('unregisterAllTrimPreview error', e);
-        return false;
-    }
-};
-
-// ========================================
 // trimPreviewArea: スクロール・ページ移動関連
 // ========================================
 window.trimPreviewArea = window.trimPreviewArea || {
@@ -1578,7 +1481,7 @@ window.trimPreviewArea = window.trimPreviewArea || {
     },
 
     /**
-     * 指定ページまでスムーズスクロール（Observer 一時停止機能付き）
+     * 指定ページまでスムーズスクロール
      */
     scrollToPage: function (pageIndex) {
         try {
@@ -1597,17 +1500,8 @@ window.trimPreviewArea = window.trimPreviewArea || {
                 return false;
             }
 
-            // スクロール開始前に Observer を一時停止
-            if (typeof window.pauseVisiblePageObserver === 'function') {
-                window.pauseVisiblePageObserver();
-            }
-
-            // スクロール完了後に Observer を再開 + 青枠を更新
+            // スクロール完了後に青枠を更新
             const onScrollEnd = () => {
-                // Observer を再開
-                if (typeof window.resumeVisiblePageObserver === 'function') {
-                    window.resumeVisiblePageObserver();
-                }
 
                 // スクロール完了後に青枠を更新
                 if (typeof window.selectThumbnailByIndex === 'function') {
@@ -1637,10 +1531,7 @@ window.trimPreviewArea = window.trimPreviewArea || {
             return true;
         } catch (e) {
             console.error('scrollToPage error', e);
-            // エラー時も Observer を再開
-            if (typeof window.resumeVisiblePageObserver === 'function') {
-                window.resumeVisiblePageObserver();
-            }
+
             return false;
         }
     }

@@ -546,21 +546,9 @@
     }
     public async ValueTask DisposeAsync()
     {
-        // 1) サービスのイベント購読解除
+        // サービスのイベント解除
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         try { CompletionState.Reset(); } catch { }
-
-        // 2) JS 側の登録解除を確実に await（逆順推奨）
-
-        // 2-1) trim-preview.js の一括解除
-        try { await JSRuntime.InvokeVoidAsync("unregisterAllTrimPreview"); } catch { }
-
-        // 2-2) 個別の unregister（念のため重複呼び出し）
-        try { await JSRuntime.InvokeVoidAsync("unregisterPreviewCacheCleanup", "trim-preview-container"); } catch { }
-        _previewCacheCleanupRegistered = false;
-
-        try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
-        _visibleObserverLastCount = -1;
 
         try
         {
@@ -626,7 +614,6 @@
     private bool _dropAreaRegistered = false;
     private bool previewZoomInitialized = false;
     private int displayedPageNumber = 1;
-    private int _visibleObserverLastCount = -1;
     private bool _windowResizeRegistered = false;
     private double previewZoom = 1.0;
     private const double ZoomStep = 0.25;
@@ -636,7 +623,6 @@
     private string currentPreviewImage = "";
     private TrimRectInfo? InitialTrimRectNormalized;
     private bool useSnapToGrid = false;
-    private bool _previewCacheCleanupRegistered = false;
 
     // ========================================
     // OCR関連
@@ -1514,40 +1500,9 @@
 
         if (IsFilesLoaded && DisplayItems.Any())
         {
-            // プレビューキャッシュの自動クリーンアップを登録（初回のみ）
-            if (!_previewCacheCleanupRegistered)
-            {
-                try
-                {
-                    await JSRuntime.InvokeVoidAsync("registerPreviewCacheCleanup", "trim-preview-container", _dotNetRef);
-                    _previewCacheCleanupRegistered = true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Trim] registerPreviewCacheCleanup failed: {ex.Message}");
-                }
-            }
-
-            if (DisplayItems.Count != _visibleObserverLastCount)
-            {
-                try
-                {   
-                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container");
-                    _visibleObserverLastCount = DisplayItems.Count;
-                }
-                catch { _visibleObserverLastCount = -1; }
-            }
             // サムネイル描画
             await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "thumbnail-container");
 
-        }
-        else
-        {
-            if (_visibleObserverLastCount != -1)
-            {
-                try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
-                _visibleObserverLastCount = -1;
-            }
         }
 
         if (!IsFilesLoaded && !CompletionState.ShowResult)
