@@ -286,6 +286,32 @@ input[type=number] {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(107, 114, 128, 0.8);
 }
+#preview-zoom-viewport {
+  overflow: scroll;
+  position: relative;
+  cursor: default;
+}
+#preview-zoom-viewport.pan-active,
+#preview-zoom-viewport.pan-active svg {
+  cursor: grab;
+}
+#preview-zoom-viewport:not(.pan-active) svg rect {
+  cursor: move;
+}
+#preview-zoom-viewport:not(.pan-active) canvas,
+#preview-zoom-viewport:not(.pan-active) svg {
+  cursor: crosshair;
+}
+#preview-zoom-viewport.pan-active.panning,
+#preview-zoom-viewport.panning,
+#preview-zoom-viewport.pan-active.panning svg,
+#preview-zoom-viewport.pan-active.panning svg rect {
+  cursor: grabbing !important;
+  -moz-user-select: none;
+       user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
 @layer theme, base, components, utilities;
 @layer theme {
   :root, :host {
