@@ -1,114 +1,3 @@
-window.setPreviewZoom = function (zoom, mode = 'contain') {
-    try {
-        zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
-        const viewport = document.getElementById('preview-zoom-viewport');
-        const canvas = viewport?.querySelector('canvas');
-        
-        if (!viewport || !canvas) {
-            console.warn('setPreviewZoom: required elements not found');
-            return;
-        }
-
-        // Canvas の自然なサイズ
-        const naturalW = canvas.naturalWidth || canvas.width || 1;
-        const naturalH = canvas.naturalHeight || canvas.height || 1;
-
-        // 新しい表示サイズを計算
-        const newW = Math.round(naturalW * zoom);
-        const newH = Math.round(naturalH * zoom);
-
-        // Viewport のサイズ
-        const vpW = viewport.clientWidth;
-        const vpH = viewport.clientHeight;
-
-        // Canvas が Viewport より大きい場合は justify-content を削除（左上基点に）
-        const innerContainer = canvas.parentElement;
-        if (innerContainer) {
-            if (newW > vpW) {
-                innerContainer.classList.remove('justify-center');
-                innerContainer.classList.add('justify-start');
-            } else {
-                innerContainer.classList.remove('justify-start');
-                innerContainer.classList.add('justify-center');
-            }
-        }
-
-        // 現在のスクロール位置
-        const scrollLeft = viewport.scrollLeft;
-        const scrollTop = viewport.scrollTop;
-
-        const computedStyle = getComputedStyle(canvas);
-        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-
-        // 現在の Canvas のサイズ（CSS）
-        const oldW = parseFloat(canvas.style.width) || naturalW;
-        const oldH = parseFloat(canvas.style.height) || naturalH;
-
-        // padding を引いた内側のサイズ（矩形座標の基準）
-        const oldInnerW = oldW - paddingLeft - paddingRight;
-        const oldInnerH = oldH - paddingTop - paddingBottom;
-
-        // viewport 内での中心座標（スクロール位置 + viewport サイズの半分）
-        const centerX = scrollLeft + vpW / 2;
-        const centerY = scrollTop + vpH / 2;
-
-        // 正規化座標（0..1）で中心点の位置を保持
-        const normX = centerX / oldW;
-        const normY = centerY / oldH;
-
-        // Canvas サイズを更新
-        canvas.style.width = newW + 'px';
-        canvas.style.height = newH + 'px';
-
-        // 新しいスクロール位置を計算（中心点を維持）
-        let newScrollLeft = normX * newW - vpW / 2;
-        let newScrollTop = normY * newH - vpH / 2;
-
-        // スクロール範囲をクランプ
-        const maxScrollLeft = Math.max(0, newW - vpW);
-        const maxScrollTop = Math.max(0, newH - vpH);
-
-        newScrollLeft = Math.max(0, Math.min(maxScrollLeft, newScrollLeft));
-        newScrollTop = Math.max(0, Math.min(maxScrollTop, newScrollTop));
-
-        // スクロール位置を適用
-        viewport.scrollLeft = Math.round(newScrollLeft);
-        viewport.scrollTop = Math.round(newScrollTop);
-
-        // 状態を保存
-        window._previewZoomState = window._previewZoomState || {};
-        window._previewZoomState.lastZoom = zoom;
-
-        // SVG オーバーレイを再描画
-        const canvasId = canvas.id;
-        if (canvasId && window._simpleTrim && window._simpleTrim[canvasId]) {
-            const trimState = window._simpleTrim[canvasId];
-            if (trimState.currentRectsPx && trimState.currentRectsPx.length > 0) {
-                const rectsToRender = trimState.currentRectsPx.map(r => ({
-                    X: r.x / oldInnerW,
-                    Y: r.y / oldInnerH,
-                    Width: r.w / oldInnerW,
-                    Height: r.h / oldInnerH
-                }));
-                
-                requestAnimationFrame(() => {
-                    if (window.drawTrimOverlayAsSvg) {
-                        window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
-                    }
-                });
-            }
-        }
-
-        return zoom;
-    } catch (e) {
-        console.error('setPreviewZoom error', e);
-        return 1.0;
-    }
-};
-
 window.setPreviewPanEnabled = function (enabled) {
     try {
         const viewport = document.getElementById('preview-zoom-viewport');
@@ -451,3 +340,168 @@ window.fitPreviewToViewport = function(canvasId, mode = 'fit-width') {
         return 1.0;
     }
 };
+
+/**
+ * SVG オーバーレイを再描画（現在の Canvas サイズ基準）
+ */
+window.redrawTrimOverlays = function() {
+    try {
+        if (!window._simpleTrim) return false;
+
+        let redrawn = false;
+        for (const canvasId in window._simpleTrim) {
+            const trimState = window._simpleTrim[canvasId];
+            if (!trimState || !trimState.currentRectsPx || trimState.currentRectsPx.length === 0) {
+                continue;
+            }
+
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) continue;
+
+            // Canvas の現在の CSS サイズを取得
+            const computedStyle = getComputedStyle(canvas);
+            const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+            const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+            const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+            const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+            const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+
+            const innerW = cssW - paddingLeft - paddingRight;
+            const innerH = cssH - paddingTop - paddingBottom;
+
+            // 現在の矩形（px）を正規化座標に変換
+            const rectsToRender = trimState.currentRectsPx.map(r => ({
+                X: r.x / innerW,
+                Y: r.y / innerH,
+                Width: r.w / innerW,
+                Height: r.h / innerH
+            }));
+
+            // SVG を再描画
+            if (window.drawTrimOverlayAsSvg) {
+                window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                redrawn = true;
+            }
+        }
+
+        return redrawn;
+    } catch (e) {
+        console.error('redrawTrimOverlays error', e);
+        return false;
+    }
+};
+
+window.setPreviewZoom = function (zoom, mode = 'contain') {
+    try {
+        zoom = Math.max(0.25, Math.min(3, Number(zoom) || 1));
+        const viewport = document.getElementById('preview-zoom-viewport');
+        const canvas = viewport?.querySelector('canvas');
+        
+        if (!viewport || !canvas) {
+            console.warn('setPreviewZoom: required elements not found');
+            return;
+        }
+
+        // Canvas の自然なサイズ
+        const naturalW = canvas.naturalWidth || canvas.width || 1;
+        const naturalH = canvas.naturalHeight || canvas.height || 1;
+
+        // 新しい表示サイズを計算
+        const newW = Math.round(naturalW * zoom);
+        const newH = Math.round(naturalH * zoom);
+
+        // Viewport のサイズ
+        const vpW = viewport.clientWidth;
+        const vpH = viewport.clientHeight;
+
+        // Canvas が Viewport より大きい場合は justify-content を削除（左上基点に）
+        const innerContainer = canvas.parentElement;
+        if (innerContainer) {
+            if (newW > vpW) {
+                innerContainer.classList.remove('justify-center');
+                innerContainer.classList.add('justify-start');
+            } else {
+                innerContainer.classList.remove('justify-start');
+                innerContainer.classList.add('justify-center');
+            }
+        }
+
+        // 現在のスクロール位置
+        const scrollLeft = viewport.scrollLeft;
+        const scrollTop = viewport.scrollTop;
+
+        const computedStyle = getComputedStyle(canvas);
+        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+        // 現在の Canvas のサイズ（CSS）
+        const oldW = parseFloat(canvas.style.width) || naturalW;
+        const oldH = parseFloat(canvas.style.height) || naturalH;
+
+        // padding を引いた内側のサイズ（矩形座標の基準）
+        const oldInnerW = oldW - paddingLeft - paddingRight;
+        const oldInnerH = oldH - paddingTop - paddingBottom;
+
+        // viewport 内での中心座標（スクロール位置 + viewport サイズの半分）
+        const centerX = scrollLeft + vpW / 2;
+        const centerY = scrollTop + vpH / 2;
+
+        // 正規化座標（0..1）で中心点の位置を保持
+        const normX = centerX / oldW;
+        const normY = centerY / oldH;
+
+        // Canvas サイズを更新
+        canvas.style.width = newW + 'px';
+        canvas.style.height = newH + 'px';
+
+        // 新しいスクロール位置を計算（中心点を維持）
+        let newScrollLeft = normX * newW - vpW / 2;
+        let newScrollTop = normY * newH - vpH / 2;
+
+        // スクロール範囲をクランプ
+        const maxScrollLeft = Math.max(0, newW - vpW);
+        const maxScrollTop = Math.max(0, newH - vpH);
+
+        newScrollLeft = Math.max(0, Math.min(maxScrollLeft, newScrollLeft));
+        newScrollTop = Math.max(0, Math.min(maxScrollTop, newScrollTop));
+
+        // スクロール位置を適用
+        viewport.scrollLeft = Math.round(newScrollLeft);
+        viewport.scrollTop = Math.round(newScrollTop);
+
+        // 状態を保存
+        window._previewZoomState = window._previewZoomState || {};
+        window._previewZoomState.lastZoom = zoom;
+
+        // SVG オーバーレイを再描画
+        const canvasId = canvas.id;
+        if (canvasId && window._simpleTrim && window._simpleTrim[canvasId]) {
+            const trimState = window._simpleTrim[canvasId];
+            if (trimState.currentRectsPx && trimState.currentRectsPx.length > 0) {
+                const rectsToRender = trimState.currentRectsPx.map(r => ({
+                    X: r.x / oldInnerW,
+                    Y: r.y / oldInnerH,
+                    Width: r.w / oldInnerW,
+                    Height: r.h / oldInnerH
+                }));
+                
+                requestAnimationFrame(() => {
+                    if (window.drawTrimOverlayAsSvg) {
+                        window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
+                    }
+                });
+            }
+        }
+
+        return zoom;
+    } catch (e) {
+        console.error('setPreviewZoom error', e);
+        return 1.0;
+    }
+};
+
+// ...existing code...

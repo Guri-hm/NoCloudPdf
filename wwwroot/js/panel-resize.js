@@ -51,6 +51,15 @@ function applyLeftPanelWidth(leftPx, avail) {
                 window.adjustAutoFitIfNeeded();
             }
         } catch (e) { /* ignore */ }
+
+        // SVG オーバーレイを再描画
+        requestAnimationFrame(() => {
+            try {
+                if (typeof window.redrawTrimOverlays === 'function') {
+                    window.redrawTrimOverlays();
+                }
+            } catch (e) { /* ignore */ }
+        });
     } catch (e) {
         console.error('applyLeftPanelWidth error', e);
     }
@@ -280,6 +289,14 @@ function ensureSharedTrimResizeHandler() {
                                 window._trimResize.windowResizeCallback();
                             } catch (e) { console.error('windowResizeCallback error', e); }
                         }
+
+                        requestAnimationFrame(() => {
+                            try {
+                                if (typeof window.redrawTrimOverlays === 'function') {
+                                    window.redrawTrimOverlays();
+                                }
+                            } catch (e) { /* ignore */ }
+                        });
                     } catch (e) { console.error('shared resize handler inner error', e); }
                     finally { timer = null; }
                 }, window._trimShared.debounceMs);
