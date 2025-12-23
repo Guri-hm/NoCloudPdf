@@ -254,16 +254,7 @@ input[type=number] {
 .touch-drag-handle:active {
     cursor: grabbing;
 }
-
 /* 終了:sortable.js内で一時的に追加削除されるスタイル */
-
-
-#thumbnail-area {
-    /* --thumbnail-width を flex-basis にして親からはみ出さないようにする */
-    flex: 0 0 var(--thumbnail-width);
-    max-width: 100%;
-    box-sizing: border-box;
-}
 
 /* 上部バーを左右列に分割（Bootstrapのcolイメージ） */
 .topbar-columns {

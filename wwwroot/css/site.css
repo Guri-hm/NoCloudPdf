@@ -209,11 +209,6 @@ input[type=number] {
 .touch-drag-handle:active {
   cursor: grabbing;
 }
-#thumbnail-area {
-  flex: 0 0 var(--thumbnail-width);
-  max-width: 100%;
-  box-sizing: border-box;
-}
 .topbar-columns {
   display: flex;
   align-items: center;
