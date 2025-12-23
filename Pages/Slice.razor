@@ -890,10 +890,8 @@ private List<ActionButtonItem> showOptionsModal => new()
     }
 
     private bool _dropAreaRegistered = false;
-    private bool previewZoomInitialized = false;
     private int displayedPageNumber = 1;
     private bool _windowResizeRegistered = false;
-    private bool _previewCacheCleanupRegistered = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1010,8 +1008,6 @@ private List<ActionButtonItem> showOptionsModal => new()
     // リサイズ関連
     private int thumbnailAreaWidth = 300;
     private bool isResizingPanel = false;
-    private double resizeStartX = 0;
-    private int resizeStartWidth = 0;
 
     private Task SelectPage(int index)
     {

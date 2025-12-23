@@ -784,7 +784,6 @@
 
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
-    private bool previewZoomInitialized = false;
     private int displayedPageNumber = 1;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -883,9 +882,6 @@
 
     // リサイズ関連
     private int thumbnailAreaWidth = 300;
-    private bool isResizingPanel = false;
-    private double resizeStartX = 0;
-    private int resizeStartWidth = 0;
 
     private Task SelectPage(int index)
     {

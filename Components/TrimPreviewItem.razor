@@ -41,8 +41,6 @@
     private ElementReference canvasRef;
     private bool isLoading = true;
     private bool isCanvasDrawn = false;
-    private bool isTrimmingActive = false; 
-    private bool _observerRegistered = false;
     private string CanvasId => $"trim-preview-canvas-{Index}";
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
@@ -133,7 +131,6 @@
             isCanvasDrawn = true;
 
             await InitializeTrimmingAsync();
-            isTrimmingActive = true;
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
