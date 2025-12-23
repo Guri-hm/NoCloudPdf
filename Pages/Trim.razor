@@ -248,6 +248,17 @@
         }
         return Task.CompletedTask;
     }
+
+    private async Task OnDialogError(string message)
+    {
+        // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
+        Console.WriteLine($"OnDialogError called: {message}");
+        isTrimRangeDialogOpen = false;
+        _ = MessageService.ShowAsync(message, MessageType.Error);
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
     private async Task ReloadPageItem(DisplayItem item)
     {
         // ページ単位の場合のみ対応
@@ -262,16 +273,6 @@
                 _ = MessageService.ShowAsync(errorMsg, MessageType.Error);
             }
         }
-    }
-
-    private async Task OnDialogError(string message)
-    {
-        // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
-        Console.WriteLine($"OnDialogError called: {message}");
-        isTrimRangeDialogOpen = false;
-        _ = MessageService.ShowAsync(message, MessageType.Error);
-        StateHasChanged();
-        await Task.CompletedTask;
     }
 
     // 表示中の現在ページ番号を変更
@@ -309,7 +310,6 @@
 
     public async ValueTask DisposeAsync()
     {
-        //  サービスのイベント解除
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         try { CompletionState.Reset(); } catch { }
 
@@ -323,10 +323,8 @@
         catch { }
         _dropAreaRegistered = false;
 
-        // select-drop-area の解除（初期画面用）
         try { await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea"); } catch { }
 
-        // trimPreviewArea の解除
         try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
 
         // 非同期タスクのキャンセル

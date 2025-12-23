@@ -60,7 +60,10 @@
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
         </div>
-        <SplitPane LeftWidth="@thumbnailAreaWidth" LeftWidthChanged="@(async w => { thumbnailAreaWidth = w; })">
+        <SplitPane 
+            LeftWidth="@thumbnailAreaWidth" 
+            LeftWidthChanged="@(w => { thumbnailAreaWidth = w; StateHasChanged(); })"
+            EnableAutoResize="true">
             <Left>
                 <div id="thumbnail-container" class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
                     @for (int i = 0; i < DisplayItems.Count; i++)
@@ -69,12 +72,11 @@
                         var item = DisplayItems[i];
                         <TrimThumbnailCard Item="@item"
                                         Index="@index"
-                                        IsSelected="@(displayedPageNumber - 1 == index)"
+                                        IsSelected="@(displayedPageNumber -1 == index)"
                                         HasTrimRect="@(PdfDataService.GetTrimRect(index) != null)"
                                         OnClick="@(() => SelectPage(index))"
                                         OnReloadPageItem="ReloadPageItem" 
                                         />
-                                        
                     }
                     <FileAddArea
                     Position="@DisplayItems.Count"
@@ -84,66 +86,12 @@
                 </div>
             </Left>
             <Right>
-                <div id="preview-zoom-viewport" class="w-full h-full overflow-auto">
-                    @if (DisplayItems.Any())
-                    {
-                        var currentIndex = displayedPageNumber - 1;
-                        var item = DisplayItems[currentIndex];
-                        
-                        <TrimPreviewItem @key="@($"{item.Id}-{_rotationCounter}")"
-                            Item="@item"
-                            Index="@currentIndex"
-                            IsDrawingMode="@isDrawingMode" />
-                    }
-                </div>
-                            
-                <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg z-50"
-                    @onclick:stopPropagation>
-                    <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
-                        <button @onclick="PrevPage" disabled="@(displayedPageNumber <= 1)"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="前のページ">
-                            <i class="text-white fa-solid fa-chevron-left"></i>
-                        </button>
-                        
-                        <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
-                            <input type="number" min="1" max="@DisplayItems.Count" value="@displayedPageNumber"
-                                class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
-                                style="appearance: none; -moz-appearance: textfield;" @onchange="OnBottomPageInputChanged" />
-                            <span>/ @DisplayItems.Count</span>
-                        </div>
-                        
-                        <button @onclick="NextPage" disabled="@(displayedPageNumber >= DisplayItems.Count)"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="次のページ">
-                            <i class="text-white fa-solid fa-chevron-right"></i>
-                        </button>
-                        
-                        <button @onclick="ZoomOut"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="縮小">
-                            <ZoomOutIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        
-                        <button @onclick="ZoomIn"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="拡大">
-                            <ZoomInIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        
-                        <button @onclick="SetPreviewToActualSize"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="実際のサイズ">
-                            <ViewRealSizeIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        
-                        <button @onclick="FitPreviewWidth"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
-                                title="幅に合わせる">
-                            <FitWidthIcon Class="w-5 h-5 text-white" />
-                        </button>
-                    </div>
-                </div>
+                    <PreviewArea 
+                        Items="@DisplayItems"
+                        CurrentPageNumber="@displayedPageNumber"
+                        CurrentPageNumberChanged="@(p => displayedPageNumber = p)"
+                        IsDrawingMode="@isDrawingMode"
+                        RotationCounter="@_rotationCounter" />
             </Right>
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
@@ -275,6 +223,7 @@
         }
     </div>
 }
+
 <!-- ローディング中 -->
 <LoadingOverlay />
 
@@ -314,6 +263,7 @@
     {
         InvokeAsync(StateHasChanged);
     }
+
     private void PrevPage() => displayedPageNumber = Math.Max(1, displayedPageNumber - 1);
     private void NextPage() => displayedPageNumber = Math.Min(DisplayItems.Count, displayedPageNumber + 1);
     private Task OnBottomPageInputChanged(ChangeEventArgs e)
@@ -331,6 +281,7 @@
         }
         return Task.CompletedTask;
     }
+
     private async Task OnDialogError(string message)
     {
         // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
@@ -366,13 +317,14 @@
             if (pageIndex < 0) pageIndex = 0;
             if (pageIndex >= DisplayItems.Count) pageIndex = Math.Max(0, DisplayItems.Count - 1);
             displayedPageNumber = pageIndex + 1;
+
         }
         catch { }
         return Task.CompletedTask;
     }
 
     // 上部バーの入力でページ移動
-    private async Task OnTopBarPageInputChanged(ChangeEventArgs e)
+    private Task OnTopBarPageInputChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e?.Value?.ToString(), out var v))
         {
@@ -382,15 +334,15 @@
             try
             {
                 // スクロール移動
-                await JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
+                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
             }
             catch { }
         }
+        return Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
-        // サービスのイベント解除
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         try { CompletionState.Reset(); } catch { }
 
@@ -408,27 +360,16 @@
 
         try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
 
-        try
-        {
-            if (_windowResizeRegistered)
-            {
-                await JSRuntime.InvokeVoidAsync("unregisterWindowResize");
-            }
-        }
-        catch { }
-        _windowResizeRegistered = false;
-
-        // 3) 非同期タスクのキャンセル
+        // 非同期タスクのキャンセル
         try { passwordTcs?.TrySetCanceled(); } catch { }
         passwordTcs = null;
 
-        // 4) JS が参照をクリアする時間を少し与える（オプション：安全策）
+        // JS が参照をクリアする時間を少し与える（オプション：安全策）
         try { await Task.Delay(30); } catch { }
 
-        // 5) 最後に DotNetObjectReference を破棄
+        // 最後に DotNetObjectReference を破棄
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
-
     }
 
     // 統一アーキテクチャ対応プロパティ
@@ -526,13 +467,13 @@
     private void StartNew()
     {
         CompletionState.Reset(); // グローバルな完了フラグをリセット
-
         PdfDataService.Clear();
 
         slicedImages.Clear();
         mergedFileName = "";
         mergedFileSize = "";
         mergedPageCount = 0;
+
     }
 
     private async Task RotateAllLeft() => await RotateAll(-90);
@@ -571,7 +512,8 @@
             CurrentDisplayMode,
             DisplayItems,
             position,
-            pos => insertPosition = pos
+            pos => insertPosition = pos,
+            msg => _ = MessageService.ShowAsync(msg, MessageType.Error)
         );
     }
 
@@ -581,6 +523,7 @@
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
         try{
+
             await MessageService.ShowLoadingAsync("ファイル読み込み中...");
             await PdfDataService.HandleFileInputAsync(
                 e,
@@ -590,7 +533,7 @@
 
         }catch (Exception ex){
             Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイルの読み込みに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
 
         }finally{
             await MessageService.HideLoadingAsync();
