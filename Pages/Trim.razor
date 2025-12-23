@@ -91,73 +91,14 @@
                     OnAddFileClick="OpenFileDialog" ShowInsertButton="@(false)" />
                 </div>
             </Left>
-            <Right>
-                <div id="preview-zoom-viewport" class="w-full h-full overflow-auto">
-                    @if (DisplayItems.Any())
-                    {
-                        var currentIndex = displayedPageNumber - 1;
-                        var item = DisplayItems[currentIndex];
-                        
-                        <TrimPreviewItem @key="@($"{item.Id}-{_rotationCounter}")"
-                            Item="@item"
-                            Index="@currentIndex"
-                            IsDrawingMode="@isDrawingMode" />
-                    }
-                </div>
-                
-                <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg z-50"
-                    @onclick:stopPropagation>
-                    <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
-                        <button @onclick="PrevPage" disabled="@(displayedPageNumber <= 1)"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="前のページ">
-                            <i class="text-white fa-solid fa-chevron-left"></i>
-                        </button>
-                        
-                        <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
-                            <input type="number" min="1" max="@DisplayItems.Count" value="@displayedPageNumber"
-                                class="w-12 h-full text-center rounded bg-gray-800 text-white border border-gray-400 mx-1"
-                                style="appearance: none; -moz-appearance: textfield;" @onchange="OnBottomPageInputChanged" />
-                            <span>/ @DisplayItems.Count</span>
-                        </div>
-                        
-                        <button @onclick="NextPage" disabled="@(displayedPageNumber >= DisplayItems.Count)"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="次のページ">
-                            <i class="text-white fa-solid fa-chevron-right"></i>
-                        </button>
-                        
-                        <button @onclick="ZoomOut"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="縮小">
-                            <ZoomOutIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        
-                        <button @onclick="ZoomIn"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="拡大">
-                            <ZoomInIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        
-                        <button @onclick="FitPreviewWidth"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="幅に合わせる">
-                            <FitWidthIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        <button @onclick="FitPreviewHeight"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                                title="高さに合わせる">
-                            <FitHeightIcon Class="w-5 h-5 text-white" />
-                        </button>
-                        
-                        <button @onclick="FitPreviewBoth"
-                                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg"
-                                title="全体表示">
-                            <FitScreenIcon Class="w-5 h-5 text-white" />
-                        </button>
-                    </div>
-                </div>
-            </Right>
+                <Right>
+                    <PreviewArea 
+                        Items="@DisplayItems"
+                        CurrentPageNumber="@displayedPageNumber"
+                        CurrentPageNumberChanged="@(p => displayedPageNumber = p)"
+                        IsDrawingMode="@isDrawingMode"
+                        RotationCounter="@_rotationCounter" />
+                </Right>
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-lg"

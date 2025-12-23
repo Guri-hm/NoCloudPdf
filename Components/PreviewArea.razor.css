@@ -1,0 +1,53 @@
+/* ビューポート側の振る舞い（横スクロールを内側に閉じる） */
+#preview-zoom-viewport {
+    overflow: scroll;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent; /* つまみ: 灰色半透明、トラック: 透明 */
+    position: relative;
+    cursor: default;
+}
+/* Chrome/Safari/Edge: カスタムスクロールバー */
+#preview-zoom-viewport::-webkit-scrollbar {
+    width: 8px; /* 縦スクロールバーの幅 */
+    height: 8px; /* 横スクロールバーの高さ */
+}
+
+#preview-zoom-viewport::-webkit-scrollbar-track {
+    background: transparent; /* トラック（背景）は透明 */
+}
+
+#preview-zoom-viewport::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5); /* つまみ: 灰色半透明 */
+    border-radius: 4px; /* 角を丸く */
+    border: 2px solid transparent; /* 内側に余白 */
+    background-clip: padding-box; /* 余白部分を透明に */
+}
+
+#preview-zoom-viewport::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(107, 114, 128, 0.8); /* ホバー時: 濃いグレー */
+}
+
+/* svgオーバレイ上は基本がccosshairなのでここで一時上書き */
+#preview-zoom-viewport.pan-active,
+#preview-zoom-viewport.pan-active svg{
+    cursor: grab;
+}
+#preview-zoom-viewport:not(.pan-active) svg rect{
+    cursor: move;
+}
+#preview-zoom-viewport:not(.pan-active) canvas,
+#preview-zoom-viewport:not(.pan-active) svg {
+    cursor: crosshair;
+}
+
+#preview-zoom-viewport.pan-active.panning,
+#preview-zoom-viewport.panning,
+#preview-zoom-viewport.pan-active.panning svg, 
+#preview-zoom-viewport.pan-active.panning svg rect {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
