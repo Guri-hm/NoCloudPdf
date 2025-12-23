@@ -209,52 +209,6 @@ input[type=number] {
 .touch-drag-handle:active {
   cursor: grabbing;
 }
-#preview-zoom-viewport {
-  overflow: scroll;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
-  position: relative;
-  cursor: default;
-}
-#preview-zoom-viewport::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-#preview-zoom-viewport::-webkit-scrollbar-track {
-  background: transparent;
-}
-#preview-zoom-viewport::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.5);
-  border-radius: 4px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-#preview-zoom-viewport::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(107, 114, 128, 0.8);
-}
-#preview-zoom-viewport.pan-active,
-#preview-zoom-viewport.pan-active svg {
-  cursor: grab;
-}
-#preview-zoom-viewport:not(.pan-active) svg rect {
-  cursor: move;
-}
-#preview-zoom-viewport:not(.pan-active) canvas,
-#preview-zoom-viewport:not(.pan-active) svg {
-  cursor: crosshair;
-}
-#preview-zoom-viewport.pan-active.panning,
-#preview-zoom-viewport.panning,
-#preview-zoom-viewport.pan-active.panning svg, 
-#preview-zoom-viewport.pan-active.panning svg rect {
-  cursor: grabbing !important;
-  -moz-user-select: none;
-       user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-}
 #thumbnail-area {
   flex: 0 0 var(--thumbnail-width);
   max-width: 100%;
@@ -314,6 +268,28 @@ input[type=number] {
   .topbar-actions-wrap {
     gap: 0.4rem;
   }
+}
+.custom-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.8);
 }
 @layer theme, base, components, utilities;
 @layer theme {

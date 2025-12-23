@@ -328,7 +328,32 @@ input[type=number] {
     .topbar-actions-wrap { gap: 0.4rem; }
 }
 
-/* 終了：描画・パン */
+.custom-scrollbar{
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent; /* つまみ: 灰色半透明、トラック: 透明 */
+}
 
+/* Chrome/Safari/Edge: カスタムスクロールバー */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px; /* 縦スクロールバーの幅 */
+    height: 8px; /* 横スクロールバーの高さ */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent; /* トラック（背景）は透明 */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5); /* つまみ: 灰色半透明 */
+    border-radius: 4px; /* 角を丸く */
+    border: 2px solid transparent; /* 内側に余白 */
+    background-clip: padding-box; /* 余白部分を透明に */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(107, 114, 128, 0.8); /* ホバー時: 濃いグレー */
+}
 
 @import "tailwindcss";
