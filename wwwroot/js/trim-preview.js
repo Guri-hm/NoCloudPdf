@@ -1148,7 +1148,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             if (trimState.allowMultipleRects) {
                                 // 複数矩形時：配列に追加
                                 if (trimState.mode === 'draw') {
-                                    // ▼ グリッド分割の適用（新規描画時のみ）
+                                    // グリッド分割の適用（新規描画時のみ）
                                     const gridDiv = window._trimGridDivision || { cols: 1, rows: 1 };
                                     const cols = Math.max(1, gridDiv.cols);
                                     const rows = Math.max(1, gridDiv.rows);
@@ -1216,7 +1216,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 }
 
                                 if (trimState.didDrag) {
-                                    trimState.selected = false;
                                     if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
                                         window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw, canvas)]);
                                     }
