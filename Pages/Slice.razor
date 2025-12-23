@@ -91,7 +91,8 @@
                         CurrentPageNumber="@displayedPageNumber"
                         CurrentPageNumberChanged="@(p => displayedPageNumber = p)"
                         IsDrawingMode="@isDrawingMode"
-                        RotationCounter="@_rotationCounter" />
+                        RotationCounter="@_rotationCounter"
+                        AllowMultipleRects="@(true)" />
             </Right>
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
@@ -614,6 +615,30 @@
         },
         new ActionButtonItem
         {
+            Label = "高さに合わせる",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitHeightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "高さに合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewHeight),
+        },
+                new ActionButtonItem
+        {
+            Label = "全体表示",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitScreenIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "全体表示",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewBoth),
+        },
+        new ActionButtonItem
+        {
             Label = "実際のサイズ",
             Icon = builder =>
             {
@@ -994,39 +1019,93 @@ private List<ActionButtonItem> showOptionsModal => new()
     private const double MinZoom = 0.25;
     private const double MaxZoom = 3.0;
 
-    private Task ZoomIn()
+    private async Task ZoomIn()
     {
+        try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
+
+        // 現在の実際の倍率を取得してから計算
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        var currentScale = await JSRuntime.InvokeAsync<double>("getCurrentPreviewZoom", canvasId);
+        if (currentScale > 0) previewZoom = currentScale;
+
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
-        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        return Task.CompletedTask;
+        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
-    private Task ZoomOut()
+    private async Task ZoomOut()
     {
+        try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
+
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        var currentScale = await JSRuntime.InvokeAsync<double>("getCurrentPreviewZoom", canvasId);
+        if (currentScale > 0) previewZoom = currentScale;
+
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
-        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        return Task.CompletedTask;
+        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
-    private Task FitPreviewWidth()
+    private async Task FitPreviewWidth()
     {
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
-        _ = JSRuntime.InvokeVoidAsync("fitPreviewToViewport", canvasId, "fit-width");
-        return Task.CompletedTask;
+        try
+        {
+            // 横幅フィットモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "width");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-width");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewWidth error: {ex.Message}");
+        }
     }
 
-    private Task FitPreviewBoth()
+    private async Task FitPreviewHeight()
     {
         var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
-        _ = JSRuntime.InvokeVoidAsync("fitPreviewToViewport", canvasId, "fit-both");
-        return Task.CompletedTask;
+        try
+        {
+            // 縦幅フィットモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "height");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-height");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewHeight error: {ex.Message}");
+        }
     }
 
-    private Task SetPreviewToActualSize()
+    private async Task SetPreviewToActualSize()
     {
-        previewZoom = 1.0;
-        _ = JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        return Task.CompletedTask;
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // 実際のサイズモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "none");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "actual-size");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SetPreviewToActualSize error: {ex.Message}");
+        }
+    }
+
+    private async Task FitPreviewBoth()
+    {
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // 全体表示モードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "both");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-both");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewBoth error: {ex.Message}");
+        }
     }
 
 
@@ -1215,7 +1294,6 @@ private List<ActionButtonItem> showOptionsModal => new()
             int w = settings.ImageNaturalWidth;
             int h = settings.ImageNaturalHeight;
 
-            // フォールバック: ダイアログで取得できていなければ既存の canvas から取得
             if (w <= 0 || h <= 0)
             {
                 try

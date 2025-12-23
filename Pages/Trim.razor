@@ -310,6 +310,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        //  サービスのイベント解除
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         try { CompletionState.Reset(); } catch { }
 
