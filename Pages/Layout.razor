@@ -74,7 +74,7 @@
                             <!-- 仕切り線オプション -->
                             <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded-lg h-10 cursor-pointer select-none">
                                 <input type="checkbox" @bind="ShowDividerLines" class="form-checkbox h-4 w-4 text-blue-600" />
-                                <span class="ml-2 text-sm font-semibold whitespace-nowrap">仕切り線</span>
+                                <span class="ml-2 font-semibold whitespace-nowrap">仕切り線</span>
                                 <Tooltip Text="Nアップ時にページ間に仕切り線を表示します。">
                                     <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
                                 </Tooltip>
@@ -89,7 +89,7 @@
                         <!-- 画像化オプション -->
                         <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded-lg h-10 cursor-pointer select-none">
                             <input type="checkbox" @bind="RasterizeTiles" class="form-checkbox h-4 w-4 text-blue-600" />
-                            <span class="ml-2 text-sm font-semibold whitespace-nowrap">画像化</span>
+                            <span class="ml-2 font-semibold whitespace-nowrap">画像化</span>
                             <Tooltip Text="タイル分割時にPDFを画像として再描画します。テキスト選択や検索ができなくなります。">
                                 <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
                             </Tooltip>
