@@ -376,7 +376,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             const overlayContainer = document.getElementById(canvasId + '-overlay-svg');
             if (!overlayContainer) return;
 
-            // 補助線専用の SVG を探す（なければ作成）
             let guideSvg = overlayContainer.querySelector('.snap-guide-svg');
             if (!guideSvg) {
                 guideSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -387,27 +386,26 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 guideSvg.style.position = 'absolute';
                 guideSvg.style.left = '0';
                 guideSvg.style.top = '0';
-                guideSvg.style.zIndex = '44'; // 矩形より下、背景より上
+                guideSvg.style.zIndex = '44';
                 overlayContainer.appendChild(guideSvg);
             }
 
-            // viewBox を動的に設定
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
 
-            const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
-            const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+            // padding を含む全体サイズで viewBox を設定
+            const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+            const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+            
             guideSvg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
             guideSvg.setAttribute('preserveAspectRatio', 'none');
 
-            // 既存の補助線をクリア
             while (guideSvg.firstChild) {
                 guideSvg.removeChild(guideSvg.firstChild);
             }
 
             if (!snapLines || snapLines.length === 0) return;
 
-            // 補助線を描画
             snapLines.forEach(line => {
                 const snapLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 
@@ -416,17 +414,17 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     snapLine.setAttribute('y1', '0');
                     snapLine.setAttribute('x2', String(line.position));
                     snapLine.setAttribute('y2', String(cssH));
-                } else { // horizontal
+                } else {
                     snapLine.setAttribute('x1', '0');
                     snapLine.setAttribute('y1', String(line.position));
                     snapLine.setAttribute('x2', String(cssW));
                     snapLine.setAttribute('y2', String(line.position));
                 }
 
-                snapLine.setAttribute('stroke', 'rgba(59,130,246,0.8)'); // 青色
+                snapLine.setAttribute('stroke', 'rgba(59,130,246,0.8)');
                 snapLine.setAttribute('stroke-width', '2');
-                snapLine.setAttribute('stroke-dasharray', '5 5'); // 破線
-                snapLine.setAttribute('vector-effect', 'non-scaling-stroke'); // ズームしても線幅を維持
+                snapLine.setAttribute('stroke-dasharray', '5 5');
+                snapLine.setAttribute('vector-effect', 'non-scaling-stroke');
                 snapLine.style.pointerEvents = 'none';
 
                 guideSvg.appendChild(snapLine);
@@ -759,17 +757,23 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             }
                         }
 
+                        // paddingを考慮した座標系で補助線を描画
+                        const computedStyle = getComputedStyle(canvas);
+                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+
                         // スナップ適用（描画中）
                         const snappedLeft = snapValue(rawX, snapTargets.x, snapThreshold);
                         const snappedTop = snapValue(rawY, snapTargets.y, snapThreshold);
                         const snappedRight = snapValue(rawX + rawW, snapTargets.x, snapThreshold);
                         const snappedBottom = snapValue(rawY + rawH, snapTargets.y, snapThreshold);
 
-                        // 補助線を追加
-                        if (snappedLeft.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
-                        if (snappedTop.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
-                        if (snappedRight.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
-                        if (snappedBottom.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
+                        // 補助線の位置を padding を含む座標系に変換
+                        if (snappedLeft.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget + paddingLeft });
+                        if (snappedTop.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget + paddingTop });
+                        if (snappedRight.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget + paddingLeft });
+                        if (snappedBottom.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget + paddingTop });
+
 
                         rawX = snappedLeft.snapped;
                         rawY = snappedTop.snapped;
@@ -804,6 +808,11 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         let nx = trimState.startRectPx.x + dx;
                         let ny = trimState.startRectPx.y + dy;
 
+                        // padding を取得
+                        const computedStyle = getComputedStyle(canvas);
+                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+
                         // スナップ適用（移動中）
                         const snappedLeft = snapValue(nx, snapTargets.x, snapThreshold);
                         const snappedTop = snapValue(ny, snapTargets.y, snapThreshold);
@@ -814,20 +823,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         const rightDist = Math.abs((nx + trimState.startRectPx.w) - snappedRight.snapped);
                         if (rightDist < leftDist && snappedRight.hasSnap) {
                             nx = snappedRight.snapped - trimState.startRectPx.w;
-                            activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget + paddingLeft });
                         } else if (snappedLeft.hasSnap) {
                             nx = snappedLeft.snapped;
-                            activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget + paddingLeft });
                         }
 
                         const topDist = Math.abs(ny - snappedTop.snapped);
                         const bottomDist = Math.abs((ny + trimState.startRectPx.h) - snappedBottom.snapped);
                         if (bottomDist < topDist && snappedBottom.hasSnap) {
                             ny = snappedBottom.snapped - trimState.startRectPx.h;
-                            activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget + paddingTop });
                         } else if (snappedTop.hasSnap) {
                             ny = snappedTop.snapped;
-                            activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget + paddingTop });
                         }
 
                         nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
@@ -840,13 +853,17 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             h: Math.round(trimState.startRectPx.h)
                         };
                         trimState.didDrag = true;
-
                     } else if (trimState.mode === 'resize' && trimState.startRectPx) {
                         const dx = loc.x - trimState.startClientLocal.x;
                         const dy = loc.y - trimState.startClientLocal.y;
                         const { x: sx, y: sy, w: sw, h: sh } = trimState.startRectPx;
                         const ex = sx + sw, ey = sy + sh;
                         const hKey = trimState.resizeHandle;
+
+                        // padding を取得
+                        const computedStyle = getComputedStyle(canvas);
+                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
 
                         let propLeft = sx, propRight = ex, propTop = sy, propBottom = ey;
 
@@ -859,22 +876,26 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         if (['nw', 'w', 'sw'].includes(hKey)) {
                             const snapped = snapValue(propLeft, snapTargets.x, snapThreshold);
                             propLeft = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget + paddingLeft });
                         }
                         if (['ne', 'e', 'se'].includes(hKey)) {
                             const snapped = snapValue(propRight, snapTargets.x, snapThreshold);
                             propRight = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget + paddingLeft });
                         }
                         if (['nw', 'n', 'ne'].includes(hKey)) {
                             const snapped = snapValue(propTop, snapTargets.y, snapThreshold);
                             propTop = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget + paddingTop });
                         }
                         if (['sw', 's', 'se'].includes(hKey)) {
                             const snapped = snapValue(propBottom, snapTargets.y, snapThreshold);
                             propBottom = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget + paddingTop });
                         }
 
                         let newLeft = Math.min(propLeft, propRight);
@@ -1174,13 +1195,11 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                                 // 複数矩形時：配列に追加
                                 if (trimState.mode === 'draw') {
-                                    // グリッド分割の適用（新規描画時のみ）
                                     const gridDiv = window._trimGridDivision || { cols: 1, rows: 1 };
                                     const cols = Math.max(1, gridDiv.cols);
                                     const rows = Math.max(1, gridDiv.rows);
 
                                     if (cols > 1 || rows > 1) {
-                                        // 描画した矩形を基準に分割
                                         const colWidth = raw.w / cols;
                                         const rowHeight = raw.h / rows;
 
@@ -1196,35 +1215,57 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                         }
                                         trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
                                         
-                                        // 分割結果を即座に再描画（視覚的フィードバック）
+                                        // padding を考慮した正規化座標変換
+                                        const computedStyle = getComputedStyle(canvas);
+                                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                                        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                                        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                                        const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                                        const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                                        
+                                        const innerW = cssW - paddingLeft - paddingRight;
+                                        const innerH = cssH - paddingTop - paddingBottom;
+
                                         const rectsToRender = trimState.currentRectsPx.map(r => ({
-                                            X: r.x / (canvas.clientWidth || 1),
-                                            Y: r.y / (canvas.clientHeight || 1),
-                                            Width: r.w / (canvas.clientWidth || 1),
-                                            Height: r.h / (canvas.clientHeight || 1)
+                                            X: r.x / innerW,
+                                            Y: r.y / innerH,
+                                            Width: r.w / innerW,
+                                            Height: r.h / innerH
                                         }));
                                         if (window.drawTrimOverlayAsSvg) {
                                             window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                                         }
                                     } else { 
-                                        // 1×1矩形
                                         trimState.currentRectsPx.push(raw);
                                         trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
                                     }
 
                                 } else if (trimState.mode === 'move' || trimState.mode === 'resize') {
-                                    // 移動/リサイズ → 該当インデックスを更新
                                     if (trimState.selectedRectIndex >= 0 && trimState.selectedRectIndex < trimState.currentRectsPx.length) {
                                         trimState.currentRectsPx[trimState.selectedRectIndex] = raw;
                                     }
                                 }
 
-                                // 配列全体を .NET に通知
+                                // .NET への通知時も padding を考慮
+                                const computedStyle = getComputedStyle(canvas);
+                                const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                                const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                                const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                                const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                                const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                                const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                                
+                                const innerW = cssW - paddingLeft - paddingRight;
+                                const innerH = cssH - paddingTop - paddingBottom;
+
                                 const rectsToCommit = trimState.currentRectsPx.map(r => ({
-                                    X: r.x / (canvas.clientWidth || 1),
-                                    Y: r.y / (canvas.clientHeight || 1),
-                                    Width: r.w / (canvas.clientWidth || 1),
-                                    Height: r.h / (canvas.clientHeight || 1)
+                                    X: r.x / innerW,
+                                    Y: r.y / innerH,
+                                    Width: r.w / innerW,
+                                    Height: r.h / innerH
                                 }));
 
                                 if (trimState.dotNetRef?.invokeMethodAsync) {
