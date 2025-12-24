@@ -964,18 +964,30 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 });
             }
 
-            // 空白クリック（maybe-draw）処理を共通化 ---
+            // 空白クリック（maybe-draw）処理を共通化
             function startMaybeDraw() {
                 trimState.mode = 'maybe-draw';
 
                 let rectsToRender = [];
                 if (trimState.allowMultipleRects) {
                     trimState.selectedRectIndex = -1;
-                    const baseW = trimState.logicalWAtDown || Math.max(1, Math.round(canvas.clientWidth || 1));
-                    const baseH = trimState.logicalHAtDown || Math.max(1, Math.round(canvas.clientHeight || 1));
+                    const computedStyle = getComputedStyle(canvas);
+                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                    const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                    
+                    const innerW = cssW - paddingLeft - paddingRight;
+                    const innerH = cssH - paddingTop - paddingBottom;
+
                     rectsToRender = trimState.currentRectsPx.map(r => ({
-                        X: r.x / baseW, Y: r.y / baseH,
-                        Width: r.w / baseW, Height: r.h / baseH
+                        X: r.x / innerW,
+                        Y: r.y / innerH,
+                        Width: r.w / innerW,
+                        Height: r.h / innerH
                     }));
                 } else {
                     trimState.selected = false;
@@ -1051,7 +1063,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 trimState.selectedRectIndex = targetRectIndex;
                                 trimState.startRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
                                 
-                                // 【修正】currentRectPx も同期（移動/リサイズ処理で参照されるため）
+                                // currentRectPx も同期（移動/リサイズ処理で参照されるため）
                                 trimState.currentRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
 
                                 // 他の Canvas の矩形を非選択（selectionMode === 'single' の場合）
@@ -1065,12 +1077,25 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                     });
                                 }
 
+                                // 現在の Canvas サイズで正規化座標を計算
+                                const computedStyle = getComputedStyle(canvas);
+                                const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                                const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                                const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                                const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                                const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                                const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                                
+                                const innerW = cssW - paddingLeft - paddingRight;
+                                const innerH = cssH - paddingTop - paddingBottom;
+
                                 // 再描画（選択状態反映）
                                 const rectsToRender = trimState.currentRectsPx.map(r => ({
-                                    X: r.x / trimState.logicalWAtDown,
-                                    Y: r.y / trimState.logicalHAtDown,
-                                    Width: r.w / trimState.logicalWAtDown,
-                                    Height: r.h / trimState.logicalHAtDown
+                                    X: r.x / innerW,
+                                    Y: r.y / innerH,
+                                    Width: r.w / innerW,
+                                    Height: r.h / innerH
                                 }));
                                 window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
 
@@ -1146,6 +1171,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             const norm = rectPxToNormalized(raw, canvas);
 
                             if (trimState.allowMultipleRects) {
+
                                 // 複数矩形時：配列に追加
                                 if (trimState.mode === 'draw') {
                                     // グリッド分割の適用（新規描画時のみ）
