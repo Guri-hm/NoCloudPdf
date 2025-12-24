@@ -1527,7 +1527,6 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
         
-        // 元のページサイズを取得（回転前）
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
         const pageW = originalViewport.width;
         const pageH = originalViewport.height;
@@ -1535,46 +1534,16 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         const quant = normalizeRotationAngle(rotateAngle);
         const scale = dpi / 72;
 
-        // 正規化座標をクランプ
         const nx = Math.max(0, Math.min(1, Number(normX) || 0));
         const ny = Math.max(0, Math.min(1, Number(normY) || 0));
         const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
         
-        // PDF座標系で計算（cropPdfPageToTrimVectorと同じロジック）
-        let llx, lly, urx, ury;
-
-        if (quant === 0) {
-            llx = nx * pageW;
-            lly = pageH * (1 - ny - nh);
-            urx = llx + (nw * pageW);
-            ury = lly + (nh * pageH);
-        } else if (quant === 90) {
-            const sx = nx * pageH;
-            const sy = ny * pageW;
-            const sw = nw * pageH;
-            const sh = nh * pageW;
-
-            llx = sy;
-            lly = sx;
-            urx = sy + sh;
-            ury = sx + sw;
-        } else if (quant === 180) {
-            llx = pageW * (1 - nx - nw);
-            lly = pageH * ny;
-            urx = pageW * (1 - nx);
-            ury = pageH * (ny + nh);
-        } else if (quant === 270) {
-            const sx = nx * pageH;
-            const sy = ny * pageW;
-            const sw = nw * pageH;
-            const sh = nh * pageW;
-
-            llx = pageH - sy - sh;
-            lly = pageW - sx - sw;
-            urx = pageH - sy;
-            ury = pageW - sx;
-        }
+        // cropPdfPageRasterized と同じ座標計算
+        const llx = nx * pageW;
+        const lly = pageH * (1 - ny - nh);
+        const urx = llx + (nw * pageW);
+        const ury = lly + (nh * pageH);
 
         const viewport = page.getViewport({ scale: scale, rotation: quant });
 
@@ -1588,12 +1557,12 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         
         await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
 
-        // PDF座標をCanvas座標にスケール変換
+        // cropPdfPageRasterized と同じスケール計算
         const scaleX = srcCanvas.width / pageW;
         const scaleY = srcCanvas.height / pageH;
         
         const sx = Math.round(llx * scaleX);
-        const sy = Math.round((pageH - ury) * scaleY);  // Canvas座標系に変換
+        const sy = Math.round((pageH - ury) * scaleY);
         const sw = Math.max(1, Math.round((urx - llx) * scaleX));
         const sh = Math.max(1, Math.round((ury - lly) * scaleY));
 
@@ -1610,7 +1579,7 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         return cropCanvas.toDataURL('image/png');
 
     } catch (error) {
-        console.error('cropPdfPageToImage error:', error);
+        console.error('[cropPdfPageToImage] error:', error);
         throw error;
     }
 };
