@@ -1,16 +1,17 @@
 <div class="space-y-6">
     <!-- 書き出し解像度 -->
     <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold text-gray-700">画質 (DPI)</label>
+        <label class="text-sm font-semibold text-gray-700">画質 (DPI)
+        <Tooltip Text="高すぎる設定はノイズ増加で精度が低下する可能性があります。">
+            <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer ml-1" />
+        </Tooltip>
+        </label>
         <select @bind="ExportDpi" @bind:after="NotifyExportDpiChanged" class="px-3 py-2 border border-gray-300 rounded bg-white text-gray-900">
             <option value="150">150 (低画質・高速)</option>
             <option value="200">200 (推奨)</option>
             <option value="300">300 (高画質)</option>
             <option value="400">400 (最高画質・低速)</option>
         </select>
-        <Tooltip Text="高すぎる設定はノイズ増加で精度が低下する可能性があります。">
-            <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer ml-1" />
-        </Tooltip>
     </div>
 
     <div class="border-t border-gray-200"></div>
@@ -21,10 +22,14 @@
         
         <!-- 1:1固定 -->
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" 
-                   @bind="UseAspectRatioLock"
-                   @bind:after="NotifyAspectRatioLockChanged"
-                   class="form-checkbox h-5 w-5 accent-blue-500" />
+            <div class="relative">
+                <input type="checkbox"
+                       @bind="UseAspectRatioLock"
+                       @bind:after="NotifyAspectRatioLockChanged"
+                       class="sr-only peer" />
+                <div class="w-11 h-6 bg-gray-200 rounded-full transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-300"></div>
+                <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform peer-checked:translate-x-5"></div>
+            </div>
             <span>1:1固定（正方形）</span>
             <Tooltip Text="新しい矩形を正方形（1:1）に固定します。">
                 <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
@@ -33,10 +38,14 @@
 
         <!-- スナップ -->
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" 
-                   @bind="UseSnapToGrid"
-                   @bind:after="NotifySnapToGridChanged"
-                   class="form-checkbox h-5 w-5 accent-blue-500" />
+            <div class="relative">
+                <input type="checkbox"
+                       @bind="UseSnapToGrid"
+                       @bind:after="NotifySnapToGridChanged"
+                       class="sr-only peer" />
+                <div class="w-11 h-6 bg-gray-200 rounded-full transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-300"></div>
+                <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform peer-checked:translate-x-5"></div>
+            </div>
             <span>スナップ（吸着）</span>
             <Tooltip Text="既存の矩形の位置に合わせて、新しい矩形を自動的にスナップ（吸着）させます。">
                 <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />

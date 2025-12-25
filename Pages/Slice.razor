@@ -66,6 +66,16 @@
             EnableAutoResize="true">
             <Left>
                 <div id="thumbnail-container" class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
+
+                    @if (DisplayItems.Any(item => item.RawData is PageItem pi && (pi.IsPasswordProtected || pi.IsOperationRestricted)))
+                    {
+                        <div class="col-span-full w-full flex justify-center my-2">
+                            <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-900 p-3 rounded font-bold text-sm flex items-center gap-2">
+                                <UnlockIcon Class="w-5 h-5 text-yellow-500" />
+                                制限付きのPDFページが含まれています。
+                            </div>
+                        </div>
+                    }
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var index = i;
@@ -92,7 +102,10 @@
                         CurrentPageNumberChanged="@(p => displayedPageNumber = p)"
                         IsDrawingMode="@isDrawingMode"
                         RotationCounter="@_rotationCounter"
-                        AllowMultipleRects="@(true)" />
+                        AllowMultipleRects="@(true)" 
+                        SnapEnabled="@useSnapToGrid"
+                        SnapEnabledChanged="@(async (bool v) => { useSnapToGrid = v; await OnSnapToGridChanged(); })" 
+                        />
             </Right>
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
@@ -1111,17 +1124,29 @@
                     {
                         var rotate = page.RotateAngle % 360;
 
-                        // PDF の矩形を画像として切り出し（JS 関数を使用）
-                        var imageDataUrl = await JSRuntime.InvokeAsync<string>(
-                        "cropPdfPageToImage",
-                        page.PageData,
-                        rect.X,
-                        rect.Y,
-                        rect.Width,
-                        rect.Height,
-                        rotate,
-                        exportDpi
-                        );
+                        string imageDataUrl;
+
+                        // 制限付きPDFの場合は専用関数で直接切り出し
+                        if (page.IsOperationRestricted || page.IsPasswordProtected)
+                        {
+                            imageDataUrl = await PdfDataService.CropRestrictedPdfPageToImageAsync(
+                                page.Id,
+                                rect.X, rect.Y, rect.Width, rect.Height,
+                                exportDpi,
+                                rotate
+                            ) ?? "";
+                        }
+                        else
+                        {
+                            // 通常のページは既存の方法
+                            imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                                "cropPdfPageToImage",
+                                page.PageData,
+                                rect.X, rect.Y, rect.Width, rect.Height,
+                                rotate,
+                                exportDpi
+                            );
+                        }
                         
                         if (!string.IsNullOrEmpty(imageDataUrl))
                         {

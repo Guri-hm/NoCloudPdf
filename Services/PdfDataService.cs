@@ -170,7 +170,7 @@ public class PdfDataService
     {
         try
         {
-            Console.WriteLine($"Adding or inserting PDF file: {fileName}, size: {fileData.Length} bytes");
+            // Console.WriteLine($"PDF file: {fileName}, size: {fileData.Length} bytes");
             // ファイルヘッダーの検証
             var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
             if (!header.StartsWith("%PDF-"))
@@ -2062,5 +2062,34 @@ public class PdfDataService
         }
     }
 
+    /// <summary>
+    /// 制限付きPDF専用：元FileDataから直接トリミング領域を切り出し
+    /// </summary>
+    public async Task<string?> CropRestrictedPdfPageToImageAsync(
+        string pageId,
+        double normX, double normY, double normWidth, double normHeight,
+        int dpi = 300, int rotateAngle = 0)
+    {
+        var pageItem = _model.Pages.FirstOrDefault(p => p.Id == pageId);
+        if (pageItem == null || !_model.Files.TryGetValue(pageItem.FileId, out var fileMetadata))
+            return null;
+
+        try
+        {
+            return await _jsRuntime.InvokeAsync<string>(
+                "cropRestrictedPdfPageToImage",
+                fileMetadata.FileData,
+                pageItem.OriginalPageIndex,
+                normX, normY, normWidth, normHeight,
+                rotateAngle,
+                dpi
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CropRestrictedPdfPageToImageAsync error: {ex.Message}");
+            return null;
+        }
+    }
 }
 

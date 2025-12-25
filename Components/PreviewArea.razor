@@ -15,6 +15,25 @@
     }
 </div>
 
+@if (SnapEnabledChanged.HasDelegate)
+{
+    <div class="absolute bottom-25 left-1/2 -translate-x-1/2 z-50">
+        <div class="flex items-center bg-black/60 text-white px-3 py-1 rounded-md shadow-lg">
+            <label class="text-sm font-medium mr-3 whitespace-nowrap">スナップ</label>
+
+            <!-- checkbox + peer を使った標準的な Tailwind スイッチ -->
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox"
+                       checked="@SnapEnabled"
+                       class="sr-only peer"
+                       @onchange="@(e => ToggleSnapLocal())" />
+                <div class="w-11 h-6 bg-gray-300 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform peer-checked:translate-x-5"></div>
+            </label>
+        </div>
+    </div>
+}
+
 <!-- 下部操作バー -->
 <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex bg-black/60 px-0 rounded-lg min-h-12 shadow-lg z-50"
     @onclick:stopPropagation>
@@ -67,6 +86,22 @@
     [Parameter] public bool IsDrawingMode { get; set; } = true;
     [Parameter] public int RotationCounter { get; set; } = 0;
     [Parameter] public bool AllowMultipleRects { get; set; } = false;
+    [Parameter] public bool SnapEnabled { get; set; } = false;
+    [Parameter] public EventCallback<bool> SnapEnabledChanged { get; set; }
+    // UI側で直接切り替えたい場合は親へ通知して双方向にする
+    private async Task ToggleSnapLocal()
+    {
+        var newVal = !SnapEnabled;
+        if (SnapEnabledChanged.HasDelegate)
+        {
+            await SnapEnabledChanged.InvokeAsync(newVal);
+        }
+        else
+        {
+            // 親がバインドしていない場合は JS に直接セット
+            try { await JSRuntime.InvokeVoidAsync("setTrimSnapEnabled", newVal); } catch { }
+        }
+    }
 
     private DisplayItem? CurrentItem => (CurrentIndex >= 0 && CurrentIndex < Items.Count) ? Items[CurrentIndex] : null;
     private int CurrentIndex => CurrentPageNumber - 1;

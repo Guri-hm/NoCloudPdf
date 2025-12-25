@@ -1,6 +1,9 @@
 @using NoCloudPdf.Models
 @inject IJSRuntime JSRuntime
 
+@{
+    PageItem? pageItem = Item.RawData as PageItem;
+}
 <div class="relative transition cursor-pointer  trim-thumbnail-card" data-thumb-index="@Index"
     @onclick="OnClick">
     <div class="flex flex-col items-center p-2 w-full max-w-[112px] @(IsSelected ? "ring-2 ring-blue-500 bg-blue-50/40" : "")">
@@ -53,7 +56,6 @@
                 {
                     <div class="w-full h-full bg-gray-200 rounded"></div>
                 }
-
                 @if (HasTrimRect)
                 {
                     <div class="absolute top-2 right-2 bg-blue-500 text-white px-2 py-0.5 rounded">
@@ -62,6 +64,10 @@
                 }
             </div>
         </div>
+            @if (pageItem != null && pageItem.IsPasswordProtected || pageItem != null && pageItem.IsOperationRestricted)
+            {
+                <UnlockIcon Class="absolute left-[5px] w-6 h-6 text-yellow-500" />
+            }
 
         <div class="w-full text-center">
             <div class="text-xs font-semibold truncate px-1 rounded" title="@Item?.FullFileName"
