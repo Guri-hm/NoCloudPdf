@@ -170,7 +170,7 @@ public class PdfDataService
     {
         try
         {
-            Console.WriteLine($"Adding or inserting PDF file: {fileName}, size: {fileData.Length} bytes");
+            // Console.WriteLine($"PDF file: {fileName}, size: {fileData.Length} bytes");
             // ファイルヘッダーの検証
             var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
             if (!header.StartsWith("%PDF-"))
