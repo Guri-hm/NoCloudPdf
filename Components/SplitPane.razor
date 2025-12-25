@@ -3,17 +3,23 @@
 @inject IJSRuntime JSRuntime
 
 <div id="@ContainerId" class="flex-1 flex overflow-hidden">
-    <div id="@LeftId" class="w-auto overflow-y-auto flex-none @LeftAreaClass"
-         style="--thumbnail-width: @(LeftWidthPx); width: var(--thumbnail-width);">
+    <!-- 左エリア: 固定幅 -->
+    <div id="@LeftId" 
+         class="overflow-y-auto  custom-scrollbar @LeftAreaClass"
+         style="width: @(LeftWidth)px; flex: none; min-width: 150px; max-width: 600px;">
         @Left
     </div>
 
-    <div id="@HandleId" class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500 flex-none"
-         style="touch-action: none;">
+    <!-- 仕切り線 -->
+    <div id="@HandleId" 
+         class="w-1 bg-gray-400 cursor-ew-resize hover:bg-blue-500"
+         style="flex: none; touch-action: none;">
     </div>
 
-    <div class="flex-1 min-w-0">
-        <div id="@RightContainerId" class="relative h-full overflow-auto @RightAreaClass">
+    <!-- 右エリア: 固定幅（JavaScript で設定） -->
+    <div class="overflow-auto"
+         style="flex: none; min-width: 260px;">
+        <div id="@RightContainerId" class="relative h-full @RightAreaClass">
             @Right
         </div>
     </div>
@@ -23,59 +29,85 @@
     [Parameter] public RenderFragment? Left { get; set; }
     [Parameter] public RenderFragment? Right { get; set; }
 
-    // two-way left width (px)
     [Parameter] public int LeftWidth { get; set; } = 300;
     [Parameter] public EventCallback<int> LeftWidthChanged { get; set; }
 
-    // optional CSS classes
     [Parameter] public string LeftAreaClass { get; set; } = "border-r border-gray-300 p-4";
     [Parameter] public string RightAreaClass { get; set; } = "flex flex-col gap-4";
 
-    // ids
     [Parameter] public string ContainerId { get; set; } = "split-container";
     [Parameter] public string LeftId { get; set; } = "thumbnail-area";
     [Parameter] public string HandleId { get; set; } = "splitter-handle";
     [Parameter] public string RightContainerId { get; set; } = "trim-preview-container";
 
-    private DotNetObjectReference<SplitPane>? _dotNetRef;
+    [Parameter] public bool EnableAutoResize { get; set; } = true;
 
-    private string LeftWidthPx => $"{Math.Max(0, LeftWidth)}px";
+    private DotNetObjectReference<SplitPane>? _dotNetRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
+            
             try
             {
-                await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef, HandleId, 1500);
+                await JSRuntime.InvokeVoidAsync("registerPanelResize", _dotNetRef, HandleId);
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"registerPanelResize failed: {ex.Message}");
+            }
+
+            // 初期表示時に左右を固定幅にする（JS側で右幅を計算して設定する）
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("applyThumbnailWidth", LeftWidth);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"applyThumbnailWidth failed: {ex.Message}");
+            }
+
+            if (EnableAutoResize)
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef, 350);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"registerWindowResize failed: {ex.Message}");
+                }
             }
         }
     }
 
-    // JSから最終確定幅を受け取る
     [JSInvokable("CommitPanelWidth")]
     public async Task CommitPanelWidth(int width)
     {
-        LeftWidth = Math.Max(0, width);
+        LeftWidth = Math.Max(150, Math.Min(600, width));
         await LeftWidthChanged.InvokeAsync(LeftWidth);
     }
 
-    [JSInvokable("OnPanelMouseMove")]
-    public Task OnPanelMouseMove(double clientX)
+    [JSInvokable("OnWindowResizedFromJs")]
+    public async Task OnWindowResizedFromJs(int availableWidth, int sidebarWidth)
     {
-        // optional: can be forwarded or ignored
-        return Task.CompletedTask;
-    }
+        try
+        {
+            var computed = (int)Math.Round(availableWidth * 0.25);
+            var newWidth = Math.Max(150, Math.Min(600, computed));
 
-    [JSInvokable("OnPanelMouseUp")]
-    public Task OnPanelMouseUp()
-    {
-        // optional: can be forwarded or ignored
-        return Task.CompletedTask;
+            if (newWidth != LeftWidth)
+            {
+                LeftWidth = newWidth;
+                await LeftWidthChanged.InvokeAsync(LeftWidth);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -85,6 +117,14 @@
             await JSRuntime.InvokeVoidAsync("unregisterPanelResize");
         }
         catch { }
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("unregisterWindowResize");
+        }
+        catch { }
+
         _dotNetRef?.Dispose();
+        _dotNetRef = null;
     }
 }

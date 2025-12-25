@@ -992,7 +992,7 @@ public class PdfDataService
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try
             {
-                // ★ PageData から直接サムネイルを生成（スタンプが反映される）
+                // PageData から直接サムネイルを生成（スタンプが反映される）
                 thumbnail = await _jsRuntime.InvokeAsync<string>(
                     "generatePdfThumbnailFromPageData",
                     cts.Token,

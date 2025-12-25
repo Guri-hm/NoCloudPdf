@@ -4,27 +4,32 @@
 @inject NoCloudPdf.Services.PdfDataService PdfDataService
 @implements IAsyncDisposable
 
-<div id="preview-container-@Index" class="relative p-4 mb-4 w-full flex justify-center">
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-2 py-1 rounded text-sm" data-no-scale>
+<div id="preview-container-@Index" class="relative w-full h-full flex items-start justify-center">
+    <!-- ファイル名表示 -->
+    @* <div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-2 py-1 rounded text-sm" data-no-scale>
         <div class="flex items-center gap-2 text-xs font-semibold px-2 py-0.5 rounded max-w-[80vw]"
              title="@Item?.FullFileName"
              style="background:@(string.IsNullOrWhiteSpace(Item?.ColorHsl) ? "rgba(0,0,0,0.7)" : Item.ColorHsl)">
             <span class="truncate">@Item?.DisplayName</span>
             <span class="flex-shrink-0">@(string.IsNullOrEmpty(Item?.PageInfo) ? "" : Item.PageInfo)</span>
         </div>
-    </div>
+    </div> *@
 
-    <div class="w-full">
-        <canvas id="@CanvasId" data-item-id="@(Item?.RawData is PageItem page ? page.Id : "")"@ref="canvasRef" class="block mx-auto"></canvas>
-    </div>
+    <!-- Canvas（中央配置） -->
+    <canvas id="@CanvasId" 
+            data-item-id="@(Item?.RawData is PageItem page ? page.Id : "")"
+            @ref="canvasRef" 
+            class="block" style="padding: 20px;"></canvas>
 
-    <div class="absolute mx-auto w-full md:w-1/2 inset-0 flex items-center justify-center bg-white/60 z-20" hidden="@(!isLoading)">
+    <!-- ローディング表示 -->
+    <div class="absolute inset-0 flex items-center justify-center bg-white/60 z-20" hidden="@(!isLoading)">
         <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
             <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
             <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
         </svg>
     </div>
 </div>
+
 
 @code {
     [Parameter] public DisplayItem Item { get; set; } = default!;
@@ -36,8 +41,6 @@
     private ElementReference canvasRef;
     private bool isLoading = true;
     private bool isCanvasDrawn = false;
-    private bool isTrimmingActive = false; 
-    private bool _observerRegistered = false;
     private string CanvasId => $"trim-preview-canvas-{Index}";
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
@@ -68,87 +71,19 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // ▼ Observer登録（初回のみ）
-        if (!_observerRegistered)
+        if (firstRender)
         {
             try
             {
-                _dotNetRef ??= DotNetObjectReference.Create(this);
-                var success = await JSRuntime.InvokeAsync<bool>(
-                    "observeTrimPreviewVisibility",
-                    $"preview-container-{Index}",
-                    _dotNetRef,
-                    "400px" // 表示領域の上下400pxを事前読み込み
-                );
-
-                if (success)
-                {
-                    _observerRegistered = true;
-                }
+                await InitializeCanvasAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Observer registration error idx={Index}: {ex.Message}");
+                Console.WriteLine($"InitializeCanvasAsync error idx={Index}: {ex.Message}");
             }
         }
     }
 
-    /// <summary>
-    /// JS側のIntersectionObserverから呼ばれる（可視状態変化時）
-    /// </summary>
-        [JSInvokable]
-    public async Task OnVisibilityChanged(bool isVisible)
-    {
-        try
-        {
-            // ▼ 可視になった
-            if (isVisible)
-            {
-                // まだ描画していない → 初期化（重い処理）
-                if (!isCanvasDrawn)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await InitializeCanvasAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"InitializeCanvasAsync failed idx={Index}: {ex.Message}");
-                        }
-                    });
-                }
-                else if (!isTrimmingActive)
-                {
-                    // 既に描画済みだが listener が無効 → listener だけ再登録（軽い処理）
-                    await InitializeTrimmingAsync();
-                    isTrimmingActive = true;
-                }
-            }
-            else
-            {
-                // ▼ 非可視になった
-                if (isTrimmingActive)
-                {
-                    // トリミング listener だけ解除（canvas は保持）
-                    try
-                    {
-                        await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId);
-                        isTrimmingActive = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Deactivate error idx={Index}: {ex.Message}");
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"OnVisibilityChanged error idx={Index}: {ex.Message}");
-        }
-    }
 
     private async Task InitializeCanvasAsync()
     {
@@ -159,16 +94,33 @@
             string? src = null;
             if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
             {
-                // GetPreviewImageAsync が内部で LRU キャッシュを管理
                 src = await PdfDataService.GetPreviewImageAsync(page.Id);
             }
 
             if (string.IsNullOrEmpty(src)) return;
 
+            var originalSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>("getPdfPageOriginalSize", page.PageData);
+
+            // Canvas に直接描画
             await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
 
-            const int CANVAS_READY_TIMEOUT_MS = 500;
-            var ready = await JSRuntime.InvokeAsync<bool>("waitForCanvasReady", CanvasId, CANVAS_READY_TIMEOUT_MS);
+            // Canvas に元PDFサイズを保存（data属性）
+            if (originalSize != null)
+            {
+                await JSRuntime.InvokeVoidAsync("eval", 
+                    $"document.getElementById('{CanvasId}').dataset.originalWidth = {originalSize["width"]}; " +
+                    $"document.getElementById('{CanvasId}').dataset.originalHeight = {originalSize["height"]};");
+            }
+
+            // 初期表示時に全体表示を適用（自動フィットモードは有効化しない）
+            try
+            {
+                double initialScale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", CanvasId, "fit-both");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Initial fit-both failed idx={Index}: {ex.Message}");
+            }
 
             if (isLoading)
             {
@@ -176,11 +128,9 @@
                 await InvokeAsync(StateHasChanged);
             }
 
-            // Canvas描画完了フラグを立てる
             isCanvasDrawn = true;
 
             await InitializeTrimmingAsync();
-            isTrimmingActive = true;
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -193,6 +143,7 @@
             }
         }
     }
+
 
     private async Task InitializeTrimmingAsync()
     {
@@ -322,7 +273,6 @@
     {
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         
-        try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", $"preview-container-{Index}"); } catch { }
         try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;

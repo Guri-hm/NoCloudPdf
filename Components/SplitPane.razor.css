@@ -1,0 +1,7 @@
+
+#thumbnail-area {
+    /* --thumbnail-width を flex-basis にして親からはみ出さないようにする */
+    flex: 0 0 var(--thumbnail-width);
+    max-width: 100%;
+    box-sizing: border-box;
+}

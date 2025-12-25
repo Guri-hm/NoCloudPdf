@@ -1,11 +1,7 @@
 // ========================================
-// グローバル状態管理: Observer と DotNetRef の保持
+// グローバル状態管理: DotNetRefの保持
 // ========================================
-window._trimPreview = window._trimPreview || {
-    previewCacheObservers: new Map(), // containerId -> { observer, dotNetRef }
-    visibilityObservers: new Map()    // elementId -> { observer, dotNetRef }
-};
-
+window._trimPreview = window._trimPreview || {};
 // ========================================
 // 安全な DotNet 呼び出しヘルパー
 // ========================================
@@ -73,7 +69,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         if (!canvasId) return false;
         const canvas = document.getElementById(canvasId);
         if (!canvas) return false;
-        const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
+        const host = canvas.parentElement || canvas.closest('.tp-preview-page') || document.body;
         
         window._simpleTrim = window._simpleTrim || {};
         if (!window._simpleTrim[canvasId]) window._simpleTrim[canvasId] = {};
@@ -90,8 +86,8 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     }
                     trimState.selectedRectIndex = -1;
 
-                    const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
-                    const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+                    const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
                     const rectsToRender = (trimState.currentRectsPx || []).map(r => ({
                         X: r.x / cssW, Y: r.y / cssH,
                         Width: r.w / cssW, Height: r.h / cssH
@@ -130,14 +126,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             host.appendChild(container);
         }
         
+        // Canvas の位置とサイズを取得（padding を考慮）
         const canvasRect = canvas.getBoundingClientRect();
         const offset = getOffsetRelativeTo(canvas, host);
         const relLeft = Math.round(offset.x);
         const relTop = Math.round(offset.y);
 
-        const cssW = Math.max(1, Math.round(canvas.clientWidth || canvasRect.width || 0));
-        const cssH = Math.max(1, Math.round(canvas.clientHeight || canvasRect.height || 0));
+        // Canvas の CSS サイズ（padding を含む）
+        const computedStyle = getComputedStyle(canvas);
+        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+        // CSS サイズ（style.width/height が設定されている場合はそれを優先）
+        const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || canvasRect.width || 0));
+        const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || canvasRect.height || 0));
         
+        // オーバーレイの位置とサイズを設定（padding を含む）
         container.style.left = relLeft + 'px';
         container.style.top = relTop + 'px';
         container.style.width = cssW + 'px';
@@ -155,17 +161,15 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             container.appendChild(svg);
         }
 
-        // ★ 修正：viewBox のみ更新
+        // viewBox更新
         svg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
 
-        // ★ 修正：Container 全体を一時的に非表示（visibility: hidden）
+        // 一時的に非表示にして子要素を削除
         const originalVisibility = container.style.visibility;
         container.style.visibility = 'hidden';
 
-        // 子要素のみ削除
         while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-        // ★ 修正：削除完了後、即座に表示を復元
         container.style.visibility = originalVisibility || 'visible';
 
         if (!Array.isArray(rects) || rects.length === 0) {
@@ -192,10 +196,14 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             const normW = Number(rect.Width ?? rect.width ?? 0);
             const normH = Number(rect.Height ?? rect.height ?? 0);
 
-            const rectX = Math.round(normX * cssW);
-            const rectY = Math.round(normY * cssH);
-            const rectW = Math.round(normW * cssW);
-            const rectH = Math.round(normH * cssH);
+            // padding の内側に矩形を描画
+            const innerW = cssW - paddingLeft - paddingRight;
+            const innerH = cssH - paddingTop - paddingBottom;
+
+            const rectX = Math.round(paddingLeft + normX * innerW);
+            const rectY = Math.round(paddingTop + normY * innerH);
+            const rectW = Math.round(normW * innerW);
+            const rectH = Math.round(normH * innerH);
 
             const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             g.setAttribute('data-rect-index', String(rectIndex));
@@ -303,11 +311,15 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
         if (!isDrawing) {
             trimState.overlayDom = container;
+            // padding の内側の座標系で保存
+            const innerW = cssW - paddingLeft - paddingRight;
+            const innerH = cssH - paddingTop - paddingBottom;
+            
             trimState.currentRectsPx = rects.map(r => ({
-                x: Number(r.X ?? r.x ?? 0) * cssW,
-                y: Number(r.Y ?? r.y ?? 0) * cssH,
-                w: Number(r.Width ?? r.width ?? 0) * cssW,
-                h: Number(r.Height ?? r.height ?? 0) * cssH
+                x: Number(r.X ?? r.x ?? 0) * innerW,
+                y: Number(r.Y ?? r.y ?? 0) * innerH,
+                w: Number(r.Width ?? r.width ?? 0) * innerW,
+                h: Number(r.Height ?? r.height ?? 0) * innerH
             }));
             trimState.currentRectPx = trimState.currentRectsPx.length > 0 
                 ? { ...trimState.currentRectsPx[trimState.currentRectsPx.length - 1] }
@@ -364,7 +376,6 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             const overlayContainer = document.getElementById(canvasId + '-overlay-svg');
             if (!overlayContainer) return;
 
-            // 補助線専用の SVG を探す（なければ作成）
             let guideSvg = overlayContainer.querySelector('.snap-guide-svg');
             if (!guideSvg) {
                 guideSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -375,27 +386,26 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 guideSvg.style.position = 'absolute';
                 guideSvg.style.left = '0';
                 guideSvg.style.top = '0';
-                guideSvg.style.zIndex = '44'; // 矩形より下、背景より上
+                guideSvg.style.zIndex = '44';
                 overlayContainer.appendChild(guideSvg);
             }
 
-            // viewBox を動的に設定
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
 
-            const cssW = Math.max(1, Math.round(canvas.clientWidth || 1));
-            const cssH = Math.max(1, Math.round(canvas.clientHeight || 1));
+            // padding を含む全体サイズで viewBox を設定
+            const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+            const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+            
             guideSvg.setAttribute('viewBox', `0 0 ${cssW} ${cssH}`);
             guideSvg.setAttribute('preserveAspectRatio', 'none');
 
-            // 既存の補助線をクリア
             while (guideSvg.firstChild) {
                 guideSvg.removeChild(guideSvg.firstChild);
             }
 
             if (!snapLines || snapLines.length === 0) return;
 
-            // 補助線を描画
             snapLines.forEach(line => {
                 const snapLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 
@@ -404,17 +414,17 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     snapLine.setAttribute('y1', '0');
                     snapLine.setAttribute('x2', String(line.position));
                     snapLine.setAttribute('y2', String(cssH));
-                } else { // horizontal
+                } else {
                     snapLine.setAttribute('x1', '0');
                     snapLine.setAttribute('y1', String(line.position));
                     snapLine.setAttribute('x2', String(cssW));
                     snapLine.setAttribute('y2', String(line.position));
                 }
 
-                snapLine.setAttribute('stroke', 'rgba(59,130,246,0.8)'); // 青色
+                snapLine.setAttribute('stroke', 'rgba(59,130,246,0.8)');
                 snapLine.setAttribute('stroke-width', '2');
-                snapLine.setAttribute('stroke-dasharray', '5 5'); // 破線
-                snapLine.setAttribute('vector-effect', 'non-scaling-stroke'); // ズームしても線幅を維持
+                snapLine.setAttribute('stroke-dasharray', '5 5');
+                snapLine.setAttribute('vector-effect', 'non-scaling-stroke');
                 snapLine.style.pointerEvents = 'none';
 
                 guideSvg.appendChild(snapLine);
@@ -540,7 +550,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
             cleanupTrimEntry(canvasId);
 
-            const host = canvas.parentElement || canvas.closest('.tp-preview-page') || canvas.closest('.preview-zoom-inner') || document.body;
+            const host = canvas.parentElement || canvas.closest('.tp-preview-page') || document.body;
             if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
 
             const overlayId = canvasId + '-overlay';
@@ -594,64 +604,77 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 e: 'ew-resize', w: 'ew-resize'
             };
 
-            // 座標変換: クライアント座標 → Canvas 内論理ピクセル
-            function toLocalPx(clientX, clientY) {
+            // 座標変換: クライアント座標 → Canvas 内論理ピクセル（padding を考慮）
+            function toLocalPx(canvas, clientX, clientY) {
                 try {
-                    const logicalW = (trimState.logicalWAtDown && trimState.active)
-                        ? trimState.logicalWAtDown
-                        : Math.max(1, Math.round(canvas.clientWidth || canvas.getBoundingClientRect().width || 1));
-                    const logicalH = (trimState.logicalHAtDown && trimState.active)
-                        ? trimState.logicalHAtDown
-                        : Math.max(1, Math.round(canvas.clientHeight || canvas.getBoundingClientRect().height || 1));
+                    // Canvas の CSS サイズ（style.width/height が設定されている場合はそれを優先）
+                    const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
 
+                    // Canvas の padding を取得
+                    const computedStyle = getComputedStyle(canvas);
+                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                    // padding を引いた内側のサイズ
+                    const innerW = cssW - paddingLeft - paddingRight;
+                    const innerH = cssH - paddingTop - paddingBottom;
+
+                    // Canvas の画面上の位置
                     const canvasRect = canvas.getBoundingClientRect();
-                    const scaleFromRects = (canvasRect.width && logicalW) ? (canvasRect.width / logicalW) : 1;
-                    const scale = window._previewZoomState?.lastZoom || scaleFromRects || 1;
 
-                    const offset = getOffsetRelativeTo(canvas, host);
-                    const hostRect = host.getBoundingClientRect();
-                    const canvasLeftInViewport = hostRect.left + offset.x * scale;
-                    const canvasTopInViewport = hostRect.top + offset.y * scale;
-
-                    const xInScaled = clientX - canvasLeftInViewport;
-                    const yInScaled = clientY - canvasTopInViewport;
+                    // クライアント座標を Canvas 内の座標に変換（padding を考慮）
+                    const x = ((clientX - canvasRect.left - paddingLeft) / innerW) * innerW;
+                    const y = ((clientY - canvasRect.top - paddingTop) / innerH) * innerH;
 
                     return {
-                        x: xInScaled / scale,
-                        y: yInScaled / scale,
-                        cssW: logicalW,
-                        cssH: logicalH
+                        x: Math.max(0, Math.min(innerW, x)),
+                        y: Math.max(0, Math.min(innerH, y)),
+                        cssW: innerW,
+                        cssH: innerH
                     };
                 } catch (e) {
-                    const b = canvas.getBoundingClientRect();
-                    const logicalW = Math.max(1, Math.round(canvas.clientWidth || b.width || 1));
-                    const logicalH = Math.max(1, Math.round(canvas.clientHeight || b.height || 1));
-                    const scale = window._previewZoomState?.lastZoom || 1;
-                    return {
-                        x: (clientX - b.left) / scale,
-                        y: (clientY - b.top) / scale,
-                        cssW: logicalW,
-                        cssH: logicalH
-                    };
+                    console.error('toLocalPx error', e);
+                    const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                    return { x: 0, y: 0, cssW, cssH };
                 }
             }
 
-            function rectPxToNormalized(rectPx) {
-                const logicalW = Math.max(1, Math.round(canvas.clientWidth || 1));
-                const logicalH = Math.max(1, Math.round(canvas.clientHeight || 1));
+            function rectPxToNormalized(rectPx, canvas) {
+                if (!canvas) {
+                    console.error('rectPxToNormalized: canvas is undefined');
+                    return { X: 0, Y: 0, Width: 0, Height: 0 };
+                }
+                const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+
+                // padding を考慮
+                const computedStyle = getComputedStyle(canvas);
+                const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                const innerW = cssW - paddingLeft - paddingRight;
+                const innerH = cssH - paddingTop - paddingBottom;
+
                 const left = Number(rectPx.x || 0);
                 const top = Number(rectPx.y || 0);
                 const right = left + Number(rectPx.w || 0);
                 const bottom = top + Number(rectPx.h || 0);
-                const leftC = clamp(left, 0, logicalW);
-                const topC = clamp(top, 0, logicalH);
-                const rightC = clamp(right, 0, logicalW);
-                const bottomC = clamp(bottom, 0, logicalH);
+                const leftC = clamp(left, 0, innerW);
+                const topC = clamp(top, 0, innerH);
+                const rightC = clamp(right, 0, innerW);
+                const bottomC = clamp(bottom, 0, innerH);
+                
                 return {
-                    X: leftC / logicalW,
-                    Y: topC / logicalH,
-                    Width: Math.max(0, rightC - leftC) / logicalW,
-                    Height: Math.max(0, bottomC - topC) / logicalH
+                    X: leftC / innerW,
+                    Y: topC / innerH,
+                    Width: Math.max(0, rightC - leftC) / innerW,
+                    Height: Math.max(0, bottomC - topC) / innerH
                 };
             }
 
@@ -665,7 +688,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     trimState.pendingMove = false;
                     if (!trimState.active) return;
 
-                    const loc = toLocalPx(trimState.lastMoveEv.clientX, trimState.lastMoveEv.clientY);
+                    const loc = toLocalPx(canvas, trimState.lastMoveEv.clientX, trimState.lastMoveEv.clientY);
                     const { cssW, cssH } = loc;
                     const prevRect = trimState.currentRectPx ? { ...trimState.currentRectPx } : null;
 
@@ -734,17 +757,23 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             }
                         }
 
+                        // paddingを考慮した座標系で補助線を描画
+                        const computedStyle = getComputedStyle(canvas);
+                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+
                         // スナップ適用（描画中）
                         const snappedLeft = snapValue(rawX, snapTargets.x, snapThreshold);
                         const snappedTop = snapValue(rawY, snapTargets.y, snapThreshold);
                         const snappedRight = snapValue(rawX + rawW, snapTargets.x, snapThreshold);
                         const snappedBottom = snapValue(rawY + rawH, snapTargets.y, snapThreshold);
 
-                        // 補助線を追加
-                        if (snappedLeft.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
-                        if (snappedTop.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
-                        if (snappedRight.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
-                        if (snappedBottom.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
+                        // 補助線の位置を padding を含む座標系に変換
+                        if (snappedLeft.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget + paddingLeft });
+                        if (snappedTop.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget + paddingTop });
+                        if (snappedRight.hasSnap) activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget + paddingLeft });
+                        if (snappedBottom.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget + paddingTop });
+
 
                         rawX = snappedLeft.snapped;
                         rawY = snappedTop.snapped;
@@ -779,6 +808,11 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         let nx = trimState.startRectPx.x + dx;
                         let ny = trimState.startRectPx.y + dy;
 
+                        // padding を取得
+                        const computedStyle = getComputedStyle(canvas);
+                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+
                         // スナップ適用（移動中）
                         const snappedLeft = snapValue(nx, snapTargets.x, snapThreshold);
                         const snappedTop = snapValue(ny, snapTargets.y, snapThreshold);
@@ -789,20 +823,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         const rightDist = Math.abs((nx + trimState.startRectPx.w) - snappedRight.snapped);
                         if (rightDist < leftDist && snappedRight.hasSnap) {
                             nx = snappedRight.snapped - trimState.startRectPx.w;
-                            activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'vertical', position: snappedRight.snapTarget + paddingLeft });
                         } else if (snappedLeft.hasSnap) {
                             nx = snappedLeft.snapped;
-                            activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'vertical', position: snappedLeft.snapTarget + paddingLeft });
                         }
 
                         const topDist = Math.abs(ny - snappedTop.snapped);
                         const bottomDist = Math.abs((ny + trimState.startRectPx.h) - snappedBottom.snapped);
                         if (bottomDist < topDist && snappedBottom.hasSnap) {
                             ny = snappedBottom.snapped - trimState.startRectPx.h;
-                            activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'horizontal', position: snappedBottom.snapTarget + paddingTop });
                         } else if (snappedTop.hasSnap) {
                             ny = snappedTop.snapped;
-                            activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget });
+                            // padding を加算
+                            activeSnapLines.push({ type: 'horizontal', position: snappedTop.snapTarget + paddingTop });
                         }
 
                         nx = Math.max(0, Math.min(cssW - trimState.startRectPx.w, nx));
@@ -815,13 +853,17 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                             h: Math.round(trimState.startRectPx.h)
                         };
                         trimState.didDrag = true;
-
                     } else if (trimState.mode === 'resize' && trimState.startRectPx) {
                         const dx = loc.x - trimState.startClientLocal.x;
                         const dy = loc.y - trimState.startClientLocal.y;
                         const { x: sx, y: sy, w: sw, h: sh } = trimState.startRectPx;
                         const ex = sx + sw, ey = sy + sh;
                         const hKey = trimState.resizeHandle;
+
+                        // padding を取得
+                        const computedStyle = getComputedStyle(canvas);
+                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
 
                         let propLeft = sx, propRight = ex, propTop = sy, propBottom = ey;
 
@@ -834,22 +876,26 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         if (['nw', 'w', 'sw'].includes(hKey)) {
                             const snapped = snapValue(propLeft, snapTargets.x, snapThreshold);
                             propLeft = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget + paddingLeft });
                         }
                         if (['ne', 'e', 'se'].includes(hKey)) {
                             const snapped = snapValue(propRight, snapTargets.x, snapThreshold);
                             propRight = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'vertical', position: snapped.snapTarget + paddingLeft });
                         }
                         if (['nw', 'n', 'ne'].includes(hKey)) {
                             const snapped = snapValue(propTop, snapTargets.y, snapThreshold);
                             propTop = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget + paddingTop });
                         }
                         if (['sw', 's', 'se'].includes(hKey)) {
                             const snapped = snapValue(propBottom, snapTargets.y, snapThreshold);
                             propBottom = snapped.snapped;
-                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget });
+                            // padding を加算
+                            if (snapped.hasSnap) activeSnapLines.push({ type: 'horizontal', position: snapped.snapTarget + paddingTop });
                         }
 
                         let newLeft = Math.min(propLeft, propRight);
@@ -926,7 +972,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 }
                             } else {
                                 // 単一矩形
-                                rectsToRender = [rectPxToNormalized(trimState.currentRectPx)];
+                                rectsToRender = [rectPxToNormalized(trimState.currentRectPx, canvas)];
                             }
 
                             // rectsToRender が空でない場合のみ描画
@@ -939,23 +985,35 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 });
             }
 
-            // 空白クリック（maybe-draw）処理を共通化 ---
+            // 空白クリック（maybe-draw）処理を共通化
             function startMaybeDraw() {
                 trimState.mode = 'maybe-draw';
 
                 let rectsToRender = [];
                 if (trimState.allowMultipleRects) {
                     trimState.selectedRectIndex = -1;
-                    const baseW = trimState.logicalWAtDown || Math.max(1, Math.round(canvas.clientWidth || 1));
-                    const baseH = trimState.logicalHAtDown || Math.max(1, Math.round(canvas.clientHeight || 1));
+                    const computedStyle = getComputedStyle(canvas);
+                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                    const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                    const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                    
+                    const innerW = cssW - paddingLeft - paddingRight;
+                    const innerH = cssH - paddingTop - paddingBottom;
+
                     rectsToRender = trimState.currentRectsPx.map(r => ({
-                        X: r.x / baseW, Y: r.y / baseH,
-                        Width: r.w / baseW, Height: r.h / baseH
+                        X: r.x / innerW,
+                        Y: r.y / innerH,
+                        Width: r.w / innerW,
+                        Height: r.h / innerH
                     }));
                 } else {
                     trimState.selected = false;
                     if (trimState.currentRectPx) {
-                        rectsToRender = [rectPxToNormalized(trimState.currentRectPx)];
+                        rectsToRender = [rectPxToNormalized(trimState.currentRectPx, canvas)];
                     }
                 }
                 if (rectsToRender.length > 0 && window.drawTrimOverlayAsSvg) {
@@ -986,7 +1044,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     trimState.logicalWAtDown = Math.max(1, Math.round(canvas.clientWidth || trimState.baseRectAtDown.width || 1));
                     trimState.logicalHAtDown = Math.max(1, Math.round(canvas.clientHeight || trimState.baseRectAtDown.height || 1));
 
-                    trimState.startClientLocal = toLocalPx(ev.clientX, ev.clientY);
+                    trimState.startClientLocal = toLocalPx(canvas, ev.clientX, ev.clientY);
 
                     if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId);
                     const t = ev.target || ev.srcElement;
@@ -1026,7 +1084,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 trimState.selectedRectIndex = targetRectIndex;
                                 trimState.startRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
                                 
-                                // 【修正】currentRectPx も同期（移動/リサイズ処理で参照されるため）
+                                // currentRectPx も同期（移動/リサイズ処理で参照されるため）
                                 trimState.currentRectPx = { ...trimState.currentRectsPx[targetRectIndex] };
 
                                 // 他の Canvas の矩形を非選択（selectionMode === 'single' の場合）
@@ -1040,12 +1098,25 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                     });
                                 }
 
+                                // 現在の Canvas サイズで正規化座標を計算
+                                const computedStyle = getComputedStyle(canvas);
+                                const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                                const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                                const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                                const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                                const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                                const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                                
+                                const innerW = cssW - paddingLeft - paddingRight;
+                                const innerH = cssH - paddingTop - paddingBottom;
+
                                 // 再描画（選択状態反映）
                                 const rectsToRender = trimState.currentRectsPx.map(r => ({
-                                    X: r.x / trimState.logicalWAtDown,
-                                    Y: r.y / trimState.logicalHAtDown,
-                                    Width: r.w / trimState.logicalWAtDown,
-                                    Height: r.h / trimState.logicalHAtDown
+                                    X: r.x / innerW,
+                                    Y: r.y / innerH,
+                                    Width: r.w / innerW,
+                                    Height: r.h / innerH
                                 }));
                                 window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
 
@@ -1065,7 +1136,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 trimState.selected = true;
 
                                 if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
-                                    window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx)]);
+                                    window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(trimState.currentRectPx, canvas)]);
                                 }
                             }
                         } else {
@@ -1078,7 +1149,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     }
 
                     // カーソル変更
-                    if (trimState.overlayDom) {
+                    if (trimState.overlayDom && trimState.overlayDom.style) {
                         if (trimState.resizeHandle) {
                             trimState.overlayDom.style.cursor = HANDLE_CURSOR_MAP[trimState.resizeHandle] || '';
                         } else if (trimState.mode === 'draw') {
@@ -1106,7 +1177,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                         trimState.logicalWAtDown = null;
                         trimState.logicalHAtDown = null;
 
-                        if (trimState.overlayDom) trimState.overlayDom.style.cursor = '';
+                        if (trimState.overlayDom && trimState.overlayDom.style) trimState.overlayDom.style.cursor = '';
 
                         if (trimState.mode === 'maybe-draw') {
                             trimState.mode = null;
@@ -1118,18 +1189,17 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
 
                         const raw = trimState.currentRectPx || { x: 0, y: 0, w: 0, h: 0 };
                         if (raw.w > 0 && raw.h > 0) {
-                            const norm = rectPxToNormalized(raw);
+                            const norm = rectPxToNormalized(raw, canvas);
 
                             if (trimState.allowMultipleRects) {
+
                                 // 複数矩形時：配列に追加
                                 if (trimState.mode === 'draw') {
-                                    // ▼ グリッド分割の適用（新規描画時のみ）
                                     const gridDiv = window._trimGridDivision || { cols: 1, rows: 1 };
                                     const cols = Math.max(1, gridDiv.cols);
                                     const rows = Math.max(1, gridDiv.rows);
 
                                     if (cols > 1 || rows > 1) {
-                                        // 描画した矩形を基準に分割
                                         const colWidth = raw.w / cols;
                                         const rowHeight = raw.h / rows;
 
@@ -1145,35 +1215,57 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                         }
                                         trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
                                         
-                                        // 分割結果を即座に再描画（視覚的フィードバック）
+                                        // padding を考慮した正規化座標変換
+                                        const computedStyle = getComputedStyle(canvas);
+                                        const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                                        const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                                        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                                        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                                        const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                                        const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                                        
+                                        const innerW = cssW - paddingLeft - paddingRight;
+                                        const innerH = cssH - paddingTop - paddingBottom;
+
                                         const rectsToRender = trimState.currentRectsPx.map(r => ({
-                                            X: r.x / (canvas.clientWidth || 1),
-                                            Y: r.y / (canvas.clientHeight || 1),
-                                            Width: r.w / (canvas.clientWidth || 1),
-                                            Height: r.h / (canvas.clientHeight || 1)
+                                            X: r.x / innerW,
+                                            Y: r.y / innerH,
+                                            Width: r.w / innerW,
+                                            Height: r.h / innerH
                                         }));
                                         if (window.drawTrimOverlayAsSvg) {
                                             window.drawTrimOverlayAsSvg(canvasId, rectsToRender);
                                         }
                                     } else { 
-                                        // 1×1矩形
                                         trimState.currentRectsPx.push(raw);
                                         trimState.selectedRectIndex = trimState.currentRectsPx.length - 1;
                                     }
 
                                 } else if (trimState.mode === 'move' || trimState.mode === 'resize') {
-                                    // 移動/リサイズ → 該当インデックスを更新
                                     if (trimState.selectedRectIndex >= 0 && trimState.selectedRectIndex < trimState.currentRectsPx.length) {
                                         trimState.currentRectsPx[trimState.selectedRectIndex] = raw;
                                     }
                                 }
 
-                                // 配列全体を .NET に通知
+                                // .NET への通知時も padding を考慮
+                                const computedStyle = getComputedStyle(canvas);
+                                const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                                const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                                const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                                const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
+                                const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
+                                const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                                
+                                const innerW = cssW - paddingLeft - paddingRight;
+                                const innerH = cssH - paddingTop - paddingBottom;
+
                                 const rectsToCommit = trimState.currentRectsPx.map(r => ({
-                                    X: r.x / (canvas.clientWidth || 1),
-                                    Y: r.y / (canvas.clientHeight || 1),
-                                    Width: r.w / (canvas.clientWidth || 1),
-                                    Height: r.h / (canvas.clientHeight || 1)
+                                    X: r.x / innerW,
+                                    Y: r.y / innerH,
+                                    Width: r.w / innerW,
+                                    Height: r.h / innerH
                                 }));
 
                                 if (trimState.dotNetRef?.invokeMethodAsync) {
@@ -1191,9 +1283,8 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                                 }
 
                                 if (trimState.didDrag) {
-                                    trimState.selected = false;
                                     if (trimState.overlayDom && window.drawTrimOverlayAsSvg) {
-                                        window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw)]);
+                                        window.drawTrimOverlayAsSvg(canvasId, [rectPxToNormalized(raw, canvas)]);
                                     }
                                 }
                             }
@@ -1329,6 +1420,10 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
                     canvas.style.height = ih + 'px';
                     canvas.style.display = 'block';
 
+                    // レンダリング後の CSS px サイズを保存
+                    canvas.dataset.renderedCssWidth = iw;
+                    canvas.dataset.renderedCssHeight = ih;
+
                     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                     ctx.clearRect(0, 0, iw, ih);
                     ctx.drawImage(img, 0, 0, iw, ih);
@@ -1378,163 +1473,6 @@ window.setTrimRectGridDivision = function(cols, rows) {
         return true;
     } catch (e) {
         console.error('setTrimRectGridDivision error', e);
-        return false;
-    }
-};
-
-// ========================================
-// スクロール監視: プレビューキャッシュの自動クリーンアップ
-// ========================================
-window.registerPreviewCacheCleanup = function(containerId, dotNetRef) {
-    try {
-        const container = document.getElementById(containerId);
-        if (!container) {
-            console.warn(`registerPreviewCacheCleanup: container not found: ${containerId}`);
-            return false;
-        }
-
-        // 既存の Observer があれば解除して置換
-        const existing = window._trimPreview.previewCacheObservers.get(containerId);
-        if (existing && existing.observer) {
-            try { existing.observer.disconnect(); } catch (e) {}
-        }
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const canvas = entry.target;
-                const itemId = canvas?.dataset?.itemId;
-
-                if (!entry.isIntersecting && itemId) {
-                    // 表示領域外になったらキャッシュを破棄（安全呼び出し）
-                    const store = window._trimPreview.previewCacheObservers.get(containerId);
-                    if (store && store.dotNetRef) {
-                        window._trimPreview.safeInvoke(store.dotNetRef, 'OnPreviewOutOfView', itemId);
-                    }
-                }
-            });
-        }, { rootMargin: '400px' });
-
-        container.querySelectorAll('canvas[data-item-id]').forEach(canvas => observer.observe(canvas));
-
-        // Observer と DotNetRef を保存
-        window._trimPreview.previewCacheObservers.set(containerId, { observer, dotNetRef });
-
-        return true;
-    } catch (e) {
-        console.error('registerPreviewCacheCleanup error', e);
-        return false;
-    }
-};
-
-// ========================================
-// プレビューキャッシュクリーンアップの解除
-// ========================================
-window.unregisterPreviewCacheCleanup = function(containerId) {
-    try {
-        const entry = window._trimPreview.previewCacheObservers.get(containerId);
-        if (entry) {
-            try { if (entry.observer) entry.observer.disconnect(); } catch (e) {}
-            entry.dotNetRef = null;
-            window._trimPreview.previewCacheObservers.delete(containerId);
-        }
-        return true;
-    } catch (e) {
-        console.error('unregisterPreviewCacheCleanup error', e);
-        return false;
-    }
-};
-
-// ========================================
-// TrimPreviewItem 可視監視（IntersectionObserver）
-// ========================================
-(function () {
-    // 既存の observerMap を window._trimPreview.visibilityObservers に統合
-    const observerMap = window._trimPreview.visibilityObservers;
-
-    window.observeTrimPreviewVisibility = function (elementId, dotNetRef, rootMargin = '400px') {
-        try {
-            const element = document.getElementById(elementId);
-            if (!element) {
-                console.warn(`observeTrimPreviewVisibility: element not found: ${elementId}`);
-                return false;
-            }
-
-            // 既存の Observer があれば解除
-            if (observerMap.has(elementId)) {
-                const existing = observerMap.get(elementId);
-                try { existing.observer.disconnect(); } catch (e) {}
-                observerMap.delete(elementId);
-            }
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    try {
-                        const store = observerMap.get(elementId);
-                        if (store && store.dotNetRef) {
-                            window._trimPreview.safeInvoke(store.dotNetRef, 'OnVisibilityChanged', entry.isIntersecting);
-                        }
-                    } catch (e) {
-                        console.error(`IntersectionObserver callback error for ${elementId}`, e);
-                    }
-                });
-            }, {
-                root: null,
-                rootMargin: rootMargin,
-                threshold: 0.01
-            });
-
-            observer.observe(element);
-            observerMap.set(elementId, { observer, dotNetRef });
-
-            return true;
-        } catch (e) {
-            console.error('observeTrimPreviewVisibility error', e);
-            return false;
-        }
-    };
-
-    window.unobserveTrimPreviewVisibility = function (elementId) {
-        try {
-            const entry = observerMap.get(elementId);
-            if (entry && entry.observer) {
-                try { entry.observer.disconnect(); } catch (e) {}
-                if (entry) entry.dotNetRef = null;
-                observerMap.delete(elementId);
-            }
-            return true;
-        } catch (e) {
-            console.error('unobserveTrimPreviewVisibility error', e);
-            return false;
-        }
-    };
-})();
-
-// ========================================
-// 一括解除: すべての Observer と DotNetRef をクリア
-// ========================================
-window.unregisterAllTrimPreview = function() {
-    try {
-        let count = 0;
-
-        // プレビューキャッシュ Observer
-        window._trimPreview.previewCacheObservers.forEach((v, k) => {
-            try { if (v.observer) v.observer.disconnect(); } catch (e) {}
-            if (v) v.dotNetRef = null;
-            count++;
-        });
-        window._trimPreview.previewCacheObservers.clear();
-
-        // 可視監視 Observer
-        window._trimPreview.visibilityObservers.forEach((v, k) => {
-            try { if (v.observer) v.observer.disconnect(); } catch (e) {}
-            if (v) v.dotNetRef = null;
-            count++;
-        });
-        window._trimPreview.visibilityObservers.clear();
-
-        return true;
-    } catch (e) {
-        console.error('unregisterAllTrimPreview error', e);
         return false;
     }
 };
@@ -1609,13 +1547,12 @@ window.trimPreviewArea = window.trimPreviewArea || {
     },
 
     /**
-     * 指定ページまでスムーズスクロール（Observer 一時停止機能付き）
+     * 指定ページまでスムーズスクロール
      */
     scrollToPage: function (pageIndex) {
         try {
             // コンテナを取得（preview-zoom-viewport を優先）
-            const container = document.querySelector('.preview-zoom-viewport') 
-                           || document.getElementById('trim-preview-container');
+            const container = document.getElementById('preview-zoom-viewport');
             
             if (!container) {
                 console.warn('scrollToPage: container not found');
@@ -1629,17 +1566,8 @@ window.trimPreviewArea = window.trimPreviewArea || {
                 return false;
             }
 
-            // ★ スクロール開始前に Observer を一時停止
-            if (typeof window.pauseVisiblePageObserver === 'function') {
-                window.pauseVisiblePageObserver();
-            }
-
-            // ★ スクロール完了後に Observer を再開 + 青枠を更新
+            // スクロール完了後に青枠を更新
             const onScrollEnd = () => {
-                // Observer を再開
-                if (typeof window.resumeVisiblePageObserver === 'function') {
-                    window.resumeVisiblePageObserver();
-                }
 
                 // スクロール完了後に青枠を更新
                 if (typeof window.selectThumbnailByIndex === 'function') {
@@ -1669,10 +1597,7 @@ window.trimPreviewArea = window.trimPreviewArea || {
             return true;
         } catch (e) {
             console.error('scrollToPage error', e);
-            // エラー時も Observer を再開
-            if (typeof window.resumeVisiblePageObserver === 'function') {
-                window.resumeVisiblePageObserver();
-            }
+
             return false;
         }
     }
@@ -1686,7 +1611,7 @@ window.selectThumbnailByIndex = function(selectedIndex) {
             return;
         }
 
-        // ★ すべてのサムネイルから selected クラスを削除（排他制御）
+        // すべてのサムネイルから selected クラスを削除（排他制御）
         container.querySelectorAll('.trim-thumbnail-card').forEach(card => {
             const innerDiv = card.querySelector('.flex.flex-col');
             if (innerDiv) {
@@ -1694,7 +1619,7 @@ window.selectThumbnailByIndex = function(selectedIndex) {
             }
         });
 
-        // ★ 指定されたインデックスのサムネイルにのみ selected クラスを追加
+        // 指定されたインデックスのサムネイルにのみ selected クラスを追加
         const targetCard = container.querySelector(`[data-thumb-index="${selectedIndex}"]`);
         if (targetCard) {
             const innerDiv = targetCard.querySelector('.flex.flex-col');

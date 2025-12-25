@@ -55,18 +55,21 @@
                             </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
-                    <label class="flex items-center gap-2 bg-white text-gray-800 px-2 py-1 rounded cursor-pointer select-none">
-                        <input type="checkbox" @bind="useRasterize" class="form-checkbox h-5 w-5 accent-blue-500" />
-                        ラスタ化
-                         <Tooltip Text="ラスタ化を有効にすると、トリミング時にPDFを画像として再描画します。テキスト選択や検索ができなくなり、画質が若干低下する可能性があります。">
-                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                    <label class="flex items-center gap-2 bg-white text-gray-800 px-3 py-1 rounded-lg h-10 cursor-pointer select-none">
+                        <input type="checkbox" @bind="useRasterize" class="form-checkbox h-4 w-4 text-blue-600" />
+                        <span class="ml-2 font-semibold whitespace-nowrap">ラスタ化</span>
+                        <Tooltip Text="ラスタ化を有効にすると、トリミング時にPDFを画像として再描画します。テキスト選択や検索ができなくなり、画質が若干低下する可能性があります。">
+                            <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
                         </Tooltip>
                     </label>
                 </div>
                 <ActionButtonGroup T="string" Actions="primaryActions" />
             </div>
         </div>
-        <SplitPane LeftWidth="@thumbnailAreaWidth" LeftWidthChanged="@(async w => { thumbnailAreaWidth = w; })">
+        <SplitPane 
+            LeftWidth="@thumbnailAreaWidth" 
+            LeftWidthChanged="@(w => { thumbnailAreaWidth = w; StateHasChanged(); })"
+            EnableAutoResize="true">
             <Left>
                 <div id="thumbnail-container" class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
                     @for (int i = 0; i < DisplayItems.Count; i++)
@@ -89,34 +92,12 @@
                 </div>
             </Left>
             <Right>
-                <div id="loading-indicator" class="absolute inset-0 z-[210] flex items-center justify-center bg-white pointer-events-none" style="display:none;">
-                    <svg class="w-12 h-12 text-blue-600 animate-spin" viewBox="0 0 50 50" aria-hidden="true" role="img">
-                        <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
-                        <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
-                    </svg>
-                </div>
-
-                <div class="preview-zoom-viewport w-full h-full">
-                    <div id="preview-zoom-inner" class="preview-zoom-inner" style="--preview-zoom: 1; transform: scale(var(--preview-zoom)); transform-origin: top center;">
-                        @if (DisplayItems.Any(item => item.RawData is PageItem pageItem && pageItem.IsLoading))
-                        {
-                            <div class="w-full flex justify-center my-2">
-                                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded font-bold text-sm flex items-center gap-2">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>
-                                    ファイルの読み込み中です。すべてのページの読み込みが完了するまで、タブの切り替えや画面遷移を行わないでください。
-                                </div>
-                            </div>
-                        }
-                        @foreach (var (item, index) in DisplayItems.Select((x, i) => (x, i)))
-                        {
-                            string? keyName = $"{item.Id}-{_rotationCounter}";
-                            <TrimPreviewItem @key="keyName"
-                                            Item="@item"
-                                            Index="@index"
-                                            IsDrawingMode="@isDrawingMode" />
-                        }
-                    </div>
-                </div>
+                <PreviewArea 
+                    Items="@DisplayItems"
+                    CurrentPageNumber="@displayedPageNumber"
+                    CurrentPageNumberChanged="@(p => displayedPageNumber = p)"
+                    IsDrawingMode="@isDrawingMode"
+                    RotationCounter="@_rotationCounter"/>
             </Right>
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
@@ -250,6 +231,29 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private void PrevPage() => displayedPageNumber = Math.Max(1, displayedPageNumber - 1);
+    private void NextPage() => displayedPageNumber = Math.Min(DisplayItems.Count, displayedPageNumber + 1);
+    private Task OnBottomPageInputChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e?.Value?.ToString(), out var v))
+        {
+            var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
+            displayedPageNumber = target;
+            var targetIndex = target - 1;
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task OnDialogError(string message)
+    {
+        // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
+        Console.WriteLine($"OnDialogError called: {message}");
+        isTrimRangeDialogOpen = false;
+        _ = MessageService.ShowAsync(message, MessageType.Error);
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
     private async Task ReloadPageItem(DisplayItem item)
     {
         // ページ単位の場合のみ対応
@@ -264,16 +268,6 @@
                 _ = MessageService.ShowAsync(errorMsg, MessageType.Error);
             }
         }
-    }
-
-    private async Task OnDialogError(string message)
-    {
-        // エラーメッセージを表示してダイアログを閉じる（必要に応じて別の処理に差し替え）
-        Console.WriteLine($"OnDialogError called: {message}");
-        isTrimRangeDialogOpen = false;
-        _ = MessageService.ShowAsync(message, MessageType.Error);
-        StateHasChanged();
-        await Task.CompletedTask;
     }
 
     // 表示中の現在ページ番号を変更
@@ -299,35 +293,15 @@
             var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
             displayedPageNumber = target;
             var targetIndex = target - 1;
-            try
-            {
-                // スクロール移動
-                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
-            }
-            catch { }
         }
         return Task.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
-        // 1) サービスのイベント購読解除
+        //  サービスのイベント解除
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         try { CompletionState.Reset(); } catch { }
-
-        // 2) JS 側の登録解除を確実に await（順序は逆順推奨）
-        
-        // 2-1) trim-preview.js の一括解除（新規追加した unregisterAllTrimPreview を呼ぶ）
-        try { await JSRuntime.InvokeVoidAsync("unregisterAllTrimPreview"); } catch { }
-
-        // 2-2) 個別の unregister（念のため重複呼び出し）
-        try { await JSRuntime.InvokeVoidAsync("unregisterPreviewCacheCleanup", "trim-preview-container"); } catch { }
-        _previewCacheCleanupRegistered = false;
-
-        try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
-        _visibleObserverLastCount = -1;
-
-        try { await JSRuntime.InvokeVoidAsync("unobserveTrimPreviewVisibility", "trim-preview-container"); } catch { }
 
         try
         {
@@ -339,31 +313,18 @@
         catch { }
         _dropAreaRegistered = false;
 
-        // 2-3) select-drop-area の解除（初期画面用）
         try { await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea"); } catch { }
 
-        // 2-4) trimPreviewArea の解除
         try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
 
-        // 2-5) window resize の解除
-        try
-        {
-            if (_windowResizeRegistered)
-            {
-                await JSRuntime.InvokeVoidAsync("unregisterWindowResize");
-            }
-        }
-        catch { }
-        _windowResizeRegistered = false;
-
-        // 3) 非同期タスクのキャンセル
+        // 非同期タスクのキャンセル
         try { passwordTcs?.TrySetCanceled(); } catch { }
         passwordTcs = null;
 
-        // 4) JS が参照をクリアする時間を少し与える（オプション：安全策）
+        // JS が参照をクリアする時間を少し与える（オプション：安全策）
         try { await Task.Delay(30); } catch { }
 
-        // 5) 最後に DotNetObjectReference を破棄
+        // 最後に DotNetObjectReference を破棄
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
     }
@@ -623,6 +584,30 @@
         },
         new ActionButtonItem
         {
+            Label = "高さに合わせる",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitHeightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "高さに合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewHeight),
+        },
+                new ActionButtonItem
+        {
+            Label = "全体表示",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitScreenIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "全体表示",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewBoth),
+        },
+        new ActionButtonItem
+        {
             Label = "実際のサイズ",
             Icon = builder =>
             {
@@ -787,69 +772,19 @@
 
     private bool _renderedMergedPages = false;
     private bool _dropAreaRegistered = false;
-    private bool previewZoomInitialized = false;
     private int displayedPageNumber = 1;
-    private int _visibleObserverLastCount = -1;
-    private bool _windowResizeRegistered = false;
-    private bool _previewCacheCleanupRegistered = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
-                _windowResizeRegistered = true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"registerWindowResize failed: {ex.Message}");
-            }
         }
 
         if (IsFilesLoaded && DisplayItems.Any())
-        {
-            // プレビューキャッシュの自動クリーンアップを登録（初回のみ）
-            if (!_previewCacheCleanupRegistered)
-            {
-                try
-                {
-                    await JSRuntime.InvokeVoidAsync("registerPreviewCacheCleanup", "trim-preview-container", _dotNetRef);
-                    _previewCacheCleanupRegistered = true;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Trim] registerPreviewCacheCleanup failed: {ex.Message}");
-                }
-            }
-            
-            // プレビュー画像を倍率1で初期表示
-            if (!previewZoomInitialized)
-            {
-                await ApplyPreviewZoomAsync();
-                previewZoomInitialized = true;
-            }
-            if (DisplayItems.Count != _visibleObserverLastCount)
-            {
-                try
-                {   
-                    await JSRuntime.InvokeVoidAsync("registerVisiblePageObserver", _dotNetRef, "trim-preview-container");
-                    _visibleObserverLastCount = DisplayItems.Count;
-                }
-                catch { _visibleObserverLastCount = -1; }
-            }
+        {            
             // サムネイル描画
             await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "thumbnail-container");
-        }
-        else
-        {
-            if (_visibleObserverLastCount != -1)
-            {
-                try { await JSRuntime.InvokeVoidAsync("unregisterVisiblePageObserver", "trim-preview-container"); } catch { }
-                _visibleObserverLastCount = -1;
-            }
         }
 
         // 初期画面のときのみ登録
@@ -883,30 +818,6 @@
             _renderedMergedPages = false;
         }
 
-    }
-
-    // 利用可能幅をjavascriptからうけとって幅を調節
-    [JSInvokable("OnWindowResizedFromJs")]
-    public Task OnWindowResizedFromJs(int availableWidth, int sidebarWidth)
-    {
-        try
-        {
-            if (isResizingPanel) return Task.CompletedTask;
-
-            var computed = (int)Math.Round(availableWidth * 0.25);
-
-            var clamped = Math.Max(200, Math.Min( Math.Min(600, computed), (int)(BrowserViewportWidth() - 260) ));
-
-            thumbnailAreaWidth = clamped;
-            StateHasChanged();
-
-            _ = JSRuntime.InvokeVoidAsync("applyThumbnailWidth", clamped);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
-        }
-        return Task.CompletedTask;
     }
 
     private async void DownloadMergedPdf()
@@ -959,36 +870,12 @@
 
     // リサイズ関連
     private int thumbnailAreaWidth = 300;
-    private bool isResizingPanel = false;
-    private double resizeStartX = 0;
-    private int resizeStartWidth = 0;
 
     private Task SelectPage(int index)
     {
-        // スクロール移動
-        _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", index);
-
-         // C# 側の状態も更新（次回レンダリング用）
         displayedPageNumber = index + 1;
-
+        StateHasChanged();
         return Task.CompletedTask;
-    }
-
-    [JSInvokable]
-    public void OnPanelMouseMove(double clientX)
-    {
-        if (isResizingPanel)
-        {
-            var delta = clientX - resizeStartX;
-            thumbnailAreaWidth = Math.Max(200, Math.Min(600, resizeStartWidth + (int)delta));
-            StateHasChanged();
-        }
-    }
-
-    [JSInvokable]
-    public void OnPanelMouseUp()
-    {
-        isResizingPanel = false;
     }
 
     private int BrowserViewportWidth()
@@ -1002,54 +889,93 @@
     private const double MinZoom = 0.25;
     private const double MaxZoom = 3.0;
 
-    private async Task ApplyPreviewZoomAsync()
+    private async Task ZoomIn()
     {
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"setPreviewZoom failed: {ex.Message}");
+        try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
 
-        }
-    }
+        // 現在の実際の倍率を取得してから計算
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        var currentScale = await JSRuntime.InvokeAsync<double>("getCurrentPreviewZoom", canvasId);
+        if (currentScale > 0) previewZoom = currentScale;
 
-    private Task ZoomIn()
-    {
         previewZoom = Math.Min(MaxZoom, previewZoom + ZoomStep);
-        _ = ApplyPreviewZoomAsync();
-        return Task.CompletedTask;
+        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
-    private Task ZoomOut()
+    private async Task ZoomOut()
     {
+        try { await JSRuntime.InvokeVoidAsync("clearAutoFitMode"); } catch { }
+
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        var currentScale = await JSRuntime.InvokeAsync<double>("getCurrentPreviewZoom", canvasId);
+        if (currentScale > 0) previewZoom = currentScale;
+
         previewZoom = Math.Max(MinZoom, previewZoom - ZoomStep);
-        _ = ApplyPreviewZoomAsync();
-        return Task.CompletedTask;
+        await JSRuntime.InvokeVoidAsync("setPreviewZoom", previewZoom);
     }
 
-    private Task FitPreviewWidth()
+    private async Task FitPreviewWidth()
     {
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
         try
         {
-            _ = JSRuntime.InvokeVoidAsync("computeAndApplyFitZoom");
+            // 横幅フィットモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "width");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-width");
+            previewZoom = scale;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"FitPreviewWidth failed: {ex.Message}");
-            // フォールバック: 直接倍率 1 を設定
-            previewZoom = 1.0;
-            _ = ApplyPreviewZoomAsync();
+            Console.WriteLine($"FitPreviewWidth error: {ex.Message}");
         }
-        return Task.CompletedTask;
     }
 
-    private Task SetPreviewToActualSize()
+    private async Task FitPreviewHeight()
     {
-        previewZoom = 1.0;
-        _ = ApplyPreviewZoomAsync();
-        return Task.CompletedTask;
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // 縦幅フィットモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "height");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-height");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewHeight error: {ex.Message}");
+        }
+    }
+
+    private async Task SetPreviewToActualSize()
+    {
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // 実際のサイズモードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "none");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "actual-size");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SetPreviewToActualSize error: {ex.Message}");
+        }
+    }
+
+    private async Task FitPreviewBoth()
+    {
+        var canvasId = $"trim-preview-canvas-{displayedPageNumber - 1}";
+        try
+        {
+            // 全体表示モードを有効化
+            await JSRuntime.InvokeVoidAsync("setAutoFitMode", "both");
+            var scale = await JSRuntime.InvokeAsync<double>("fitPreviewToViewport", canvasId, "fit-both");
+            previewZoom = scale;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"FitPreviewBoth error: {ex.Message}");
+        }
     }
 
     private bool useRasterize = false;
@@ -1061,12 +987,9 @@
 
         try
         {
-
-            // スナップショット（UI 再レンダリングで変わらないように）
             var displayList = DisplayItems.ToList();
             var pageCount = displayList.Count;
 
-            // 必要情報を先に集めて検証する
             var pageInfos = new List<(int Index, DisplayItem Item, PageItem Page, TrimRectInfo? Trim)>(pageCount);
 
             for (int i = 0; i < pageCount; i++)
@@ -1081,17 +1004,16 @@
                 pageInfos.Add((i, item, page, PdfDataService.GetTrimRect(i)));
             }
 
-            // 準備できていないページを検出（まとめて一度だけ判定）
             var notReady = pageInfos.Count(p => string.IsNullOrEmpty(p.Page.PageData) || p.Page.HasError);
             if (notReady > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
                 return;
             }
+            
             await MessageService.ShowLoadingAsync("トリミング中...");
             await Task.Yield();
 
-            // マージ用データを作成（トリムは JS 側で処理）
             var mergeData = new List<object>(pageCount);
 
             for (int idx = 0; idx < pageInfos.Count; idx++)
@@ -1111,7 +1033,6 @@
                 {
                     try
                     {
-                        // ラスタライズオプションに応じて関数を選択
                         var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
 
                         var rotate = page.RotateAngle % 360;
@@ -1130,6 +1051,13 @@
                             _ = MessageService.ShowAsync($"ページのトリミングに失敗しました: {info.Item.DisplayName}", MessageType.Error);
                             return;
                         }
+
+                        // トリミング後のサイズを確認
+                        try
+                        {
+                            var croppedSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>("getPdfPageOriginalSize", pageDataToUse);
+                        }
+                        catch { }
                     }
                     catch (Exception ex)
                     {
@@ -1141,7 +1069,6 @@
                 mergeData.Add(new
                 {
                     pageData = pageDataToUse,
-                    // ラスタ版は画像化で回転済み→0、ベクトル版は元の回転を保持
                     rotateAngle = useRasterize ? 0 : (page.RotateAngle % 360)
                 });
             }
