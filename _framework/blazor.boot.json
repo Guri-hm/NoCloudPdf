@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "NoCloudPdf",
   "resources": {
-    "hash": "sha256-NbLRmw8FzZMipvoBBJSogKKiEUxalmAUNbDBvR7Zpyw=",
+    "hash": "sha256-L6sEvTI/GGHYCuQITpEwBLauxL12oUGlm8LgYKUhABM=",
     "fingerprinting": {
       "Microsoft.AspNetCore.Components.hm64izpjmf.wasm": "Microsoft.AspNetCore.Components.wasm",
       "Microsoft.AspNetCore.Components.Web.86vin5kfym.wasm": "Microsoft.AspNetCore.Components.Web.wasm",
@@ -36,9 +36,9 @@
       "System.Text.RegularExpressions.wgr750tbf8.wasm": "System.Text.RegularExpressions.wasm",
       "System.Threading.1qjekjcyqa.wasm": "System.Threading.wasm",
       "System.Private.CoreLib.trhib6bqf7.wasm": "System.Private.CoreLib.wasm",
-      "NoCloudPdf.7zy3m0s6ml.wasm": "NoCloudPdf.wasm",
+      "NoCloudPdf.c98721twi5.wasm": "NoCloudPdf.wasm",
       "dotnet.native.akp2hu3pu1.js": "dotnet.native.js",
-      "dotnet.native.460om0zy03.wasm": "dotnet.native.wasm",
+      "dotnet.native.tlbx4w6idi.wasm": "dotnet.native.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.runtime.9o45ky8ejm.js": "dotnet.runtime.js",
       "icudt_CJK.tjcz0u77k5.dat": "icudt_CJK.dat",
@@ -52,7 +52,7 @@
       "dotnet.runtime.9o45ky8ejm.js": "sha256-6QIZYgG+ftoT9N1H1EEJeXIhD/qbKqEcnmawDskiwdI="
     },
     "wasmNative": {
-      "dotnet.native.460om0zy03.wasm": "sha256-JGMb8xuraHXKI8HeyKRcrCGCvJSkVQVXtWs3Ch7M054="
+      "dotnet.native.tlbx4w6idi.wasm": "sha256-/2KdUp2Kh8GVckwJCBs9RAbeKO6/dBuTQNqpmO5Phww="
     },
     "icu": {
       "icudt_CJK.tjcz0u77k5.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -93,7 +93,7 @@
       "System.Text.RegularExpressions.wgr750tbf8.wasm": "sha256-MMSZuVepNZXAXEU1H8WSsD9l/Nnicjd91s719JDN31M=",
       "System.Threading.1qjekjcyqa.wasm": "sha256-WVswpNrurTFiYyATVXqWgRmC2eF3YP+S0kXAWDoTwqo=",
       "System.Private.CoreLib.trhib6bqf7.wasm": "sha256-eR1KGAm/qbsjPr8tT3sOEEw+JoYnJO289WKkPQvdaYM=",
-      "NoCloudPdf.7zy3m0s6ml.wasm": "sha256-LRaUwHXjcTaiN0y20aYv4+3b13Lcl1DDzpbbJdeJgsw="
+      "NoCloudPdf.c98721twi5.wasm": "sha256-kNulRKBehqZiM+/ekvWG6Gb4h1Aw3fPlZdavLThHQEQ="
     },
     "assembly": {}
   },
