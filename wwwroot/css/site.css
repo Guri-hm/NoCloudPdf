@@ -745,6 +745,9 @@ input[type=number] {
   .left-2 {
     left: calc(var(--spacing) * 2);
   }
+  .left-\[5px\] {
+    left: 5px;
+  }
   .z-0 {
     z-index: 0;
   }
@@ -792,6 +795,9 @@ input[type=number] {
   }
   .z-\[100000\] {
     z-index: 100000;
+  }
+  .col-span-full {
+    grid-column: 1 / -1;
   }
   .container {
     width: 100%;
@@ -1068,6 +1074,9 @@ input[type=number] {
   }
   .w-30 {
     width: calc(var(--spacing) * 30);
+  }
+  .w-64 {
+    width: calc(var(--spacing) * 64);
   }
   .w-80 {
     width: calc(var(--spacing) * 80);

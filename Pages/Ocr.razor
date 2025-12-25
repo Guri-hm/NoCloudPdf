@@ -67,6 +67,15 @@
             EnableAutoResize="true">
             <Left>
                 <div id="thumbnail-container" class="grid gap-4 p-4" style="grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));">
+                    @if (DisplayItems.Any(item => item.RawData is PageItem pi && (pi.IsPasswordProtected || pi.IsOperationRestricted)))
+                    {
+                        <div class="col-span-full w-full flex justify-center my-2">
+                            <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-900 p-3 rounded font-bold text-sm flex items-center gap-2">
+                                <UnlockIcon Class="w-5 h-5 text-yellow-500" />
+                                制限付きのPDFページが含まれています。
+                            </div>
+                        </div>
+                    }
                     @for (int i = 0; i < DisplayItems.Count; i++)
                     {
                         var index = i;

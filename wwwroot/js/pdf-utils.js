@@ -639,6 +639,7 @@ window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
                     window._pdfCache.set(cacheKey, srcPdfDoc);
                 }
             } catch (loadErr) {
+                // 制限付きのPDFの場合，ここで画像化する
                 return await imageFallbackPdf(uint8Array, pageIndex, cacheKey);
             }
         }
