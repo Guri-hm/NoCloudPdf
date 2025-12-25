@@ -1049,6 +1049,30 @@
         },
         new ActionButtonItem
         {
+            Label = "高さに合わせる",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitHeightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "高さに合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewHeight),
+        },
+                new ActionButtonItem
+        {
+            Label = "全体表示",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitScreenIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "全体表示",
+            OnClick = EventCallback.Factory.Create(this, FitPreviewBoth),
+        },
+        new ActionButtonItem
+        {
             Label = "実際のサイズ",
             Icon = builder =>
             {
