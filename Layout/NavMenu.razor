@@ -41,6 +41,11 @@
                 <span class="text-[10px] mt-1 opacity-80">分割</span>
             </NavLink>
             <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+                href="edit">
+                <EditIcon Class="w-8 h-8" />
+                <span class="text-[10px] mt-1 opacity-80">編集</span>
+            </NavLink>
+            <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
                 href="layout">
                 <LayoutIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">レイアウト</span>
@@ -54,11 +59,6 @@
                 href="slice">
                 <SliceIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">スライス</span>
-            </NavLink>
-            <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
-                href="edit">
-                <EditIcon Class="w-8 h-8" />
-                <span class="text-[10px] mt-1 opacity-80">編集</span>
             </NavLink>
             <NavLink @onclick="CloseNavMenu"class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
                 href="ocr">

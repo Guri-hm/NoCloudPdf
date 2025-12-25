@@ -143,6 +143,17 @@
                 分割ページへ
             </a>
         </div>
+        <!-- 編集 -->
+        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
+            <EditIcon Class="w-8 h-8" />
+            <h3 class="text-lg font-bold text-purple-700 mb-2">編集</h3>
+            <p class="text-gray-700 text-center mb-4 text-sm">
+                テキストや図形の追加、<br />注釈の挿入などが可能です。
+            </p>
+            <a href="@($"{Nav.BaseUri}edit")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
+                編集ページへ
+            </a>
+        </div>
         
         <!-- レイアウト -->
         <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
@@ -180,17 +191,6 @@
             </a>
         </div>
         
-        <!-- 編集 -->
-        <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">
-            <EditIcon Class="w-8 h-8" />
-            <h3 class="text-lg font-bold text-purple-700 mb-2">編集</h3>
-            <p class="text-gray-700 text-center mb-4 text-sm">
-                テキストや図形の追加、<br />注釈の挿入などが可能です。
-            </p>
-            <a href="@($"{Nav.BaseUri}edit")" class="text-blue-600 underline font-bold hover:text-blue-800 transition">
-                編集ページへ
-            </a>
-        </div>
         
         <!-- 文字認識 -->
         <div class="flex flex-col items-center justify-center bg-white rounded-xl shadow p-6 mx-2 md:mx-0">

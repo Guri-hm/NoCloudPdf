@@ -274,11 +274,6 @@
             var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
             displayedPageNumber = target;
             var targetIndex = target - 1;
-            try
-            {
-                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
-            }
-            catch { }
         }
         return Task.CompletedTask;
     }
@@ -332,12 +327,6 @@
             var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
             displayedPageNumber = target;
             var targetIndex = target - 1;
-            try
-            {
-                // スクロール移動
-                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
-            }
-            catch { }
         }
         return Task.CompletedTask;
     }
@@ -675,7 +664,7 @@
         }
     };
 
-private List<ActionButtonItem> showOptionsModal => new()
+    private List<ActionButtonItem> showOptionsModal => new()
     {
         new ActionButtonItem
         {
@@ -859,22 +848,12 @@ private List<ActionButtonItem> showOptionsModal => new()
 
     private bool _dropAreaRegistered = false;
     private int displayedPageNumber = 1;
-    private bool _windowResizeRegistered = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("registerWindowResize", _dotNetRef);
-                _windowResizeRegistered = true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"registerWindowResize failed: {ex.Message}");
-            }
         }
 
         if (IsFilesLoaded && DisplayItems.Any())
@@ -901,30 +880,6 @@ private List<ActionButtonItem> showOptionsModal => new()
             _dropAreaRegistered = false;
         }
 
-    }
-
-    // 利用可能幅をjavascriptからうけとって幅を調節
-    [JSInvokable("OnWindowResizedFromJs")]
-    public Task OnWindowResizedFromJs(int availableWidth, int sidebarWidth)
-    {
-        try
-        {
-            if (isResizingPanel) return Task.CompletedTask;
-
-            var computed = (int)Math.Round(availableWidth * 0.25);
-
-            var clamped = Math.Max(200, Math.Min( Math.Min(600, computed), (int)(BrowserViewportWidth() - 260) ));
-
-            thumbnailAreaWidth = clamped;
-            StateHasChanged();
-
-            _ = JSRuntime.InvokeVoidAsync("applyThumbnailWidth", clamped);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"OnWindowResizedFromJs error: {ex.Message}");
-        }
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -975,14 +930,9 @@ private List<ActionButtonItem> showOptionsModal => new()
 
     // リサイズ関連
     private int thumbnailAreaWidth = 300;
-    private bool isResizingPanel = false;
 
     private Task SelectPage(int index)
     {
-        // 先にスクロール命令を投げる（非同期・待たない）
-        _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", index);
-
-        // 選択状態は後で反映（再描画は必要なら）
         displayedPageNumber = index + 1;
         StateHasChanged();
         return Task.CompletedTask;

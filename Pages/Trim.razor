@@ -240,11 +240,6 @@
             var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
             displayedPageNumber = target;
             var targetIndex = target - 1;
-            try
-            {
-                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
-            }
-            catch { }
         }
         return Task.CompletedTask;
     }
@@ -298,12 +293,6 @@
             var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
             displayedPageNumber = target;
             var targetIndex = target - 1;
-            try
-            {
-                // スクロール移動
-                _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", targetIndex);
-            }
-            catch { }
         }
         return Task.CompletedTask;
     }
@@ -884,12 +873,8 @@
 
     private Task SelectPage(int index)
     {
-        // スクロール移動
-        _ = JSRuntime.InvokeVoidAsync("trimPreviewArea.scrollToPage", index);
-
-         // C# 側の状態も更新（次回レンダリング用）
         displayedPageNumber = index + 1;
-
+        StateHasChanged();
         return Task.CompletedTask;
     }
 
