@@ -1124,17 +1124,29 @@
                     {
                         var rotate = page.RotateAngle % 360;
 
-                        // PDF の矩形を画像として切り出し（JS 関数を使用）
-                        var imageDataUrl = await JSRuntime.InvokeAsync<string>(
-                        "cropPdfPageToImage",
-                        page.PageData,
-                        rect.X,
-                        rect.Y,
-                        rect.Width,
-                        rect.Height,
-                        rotate,
-                        exportDpi
-                        );
+                        string imageDataUrl;
+
+                        // 制限付きPDFの場合は専用関数で直接切り出し
+                        if (page.IsOperationRestricted || page.IsPasswordProtected)
+                        {
+                            imageDataUrl = await PdfDataService.CropRestrictedPdfPageToImageAsync(
+                                page.Id,
+                                rect.X, rect.Y, rect.Width, rect.Height,
+                                exportDpi,
+                                rotate
+                            ) ?? "";
+                        }
+                        else
+                        {
+                            // 通常のページは既存の方法
+                            imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                                "cropPdfPageToImage",
+                                page.PageData,
+                                rect.X, rect.Y, rect.Width, rect.Height,
+                                rotate,
+                                exportDpi
+                            );
+                        }
                         
                         if (!string.IsNullOrEmpty(imageDataUrl))
                         {

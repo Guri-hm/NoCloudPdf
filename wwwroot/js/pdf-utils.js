@@ -605,6 +605,80 @@ async function imageFallbackPdf(uint8Array, pageIndex, cacheKey = null) {
     return uint8ArrayToBase64(newPdfBytes);
 }
 
+/**
+ * 制限付きPDF専用：元PDFから直接トリミング領域を高解像度で切り出し
+ */
+window.cropRestrictedPdfPageToImage = async function (
+    fileData,           // 元のFileData (byte[])
+    pageIndex,          // ページ番号
+    normX, normY, normWidth, normHeight,  // 正規化座標
+    rotateAngle = 0,
+    dpi = 300
+) {
+    try {
+        const uint8Array = toUint8Array(fileData);
+        const pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(pageIndex + 1);
+        
+        const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
+        const pageW = originalViewport.width;
+        const pageH = originalViewport.height;
+        
+        const quant = normalizeRotationAngle(rotateAngle);
+        const scale = dpi / 72;
+
+        const nx = Math.max(0, Math.min(1, Number(normX) || 0));
+        const ny = Math.max(0, Math.min(1, Number(normY) || 0));
+        const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
+        const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
+        
+        // トリミング範囲計算（cropPdfPageToImageと同じ）
+        const llx = nx * pageW;
+        const lly = pageH * (1 - ny - nh);
+        const urx = llx + (nw * pageW);
+        const ury = lly + (nh * pageH);
+
+        // 高解像度で全体をレンダリング
+        const viewport = page.getViewport({ scale: scale, rotation: quant });
+
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = Math.max(1, Math.round(viewport.width));
+        srcCanvas.height = Math.max(1, Math.round(viewport.height));
+        const srcCtx = srcCanvas.getContext('2d', { alpha: false });
+        
+        srcCtx.fillStyle = '#FFFFFF';
+        srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
+        
+        await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
+
+        // スケール計算
+        const scaleX = srcCanvas.width / pageW;
+        const scaleY = srcCanvas.height / pageH;
+        
+        const sx = Math.round(llx * scaleX);
+        const sy = Math.round((pageH - ury) * scaleY);
+        const sw = Math.max(1, Math.round((urx - llx) * scaleX));
+        const sh = Math.max(1, Math.round((ury - lly) * scaleY));
+
+        // トリミング領域を切り出し
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = sw;
+        cropCanvas.height = sh;
+        const cropCtx = cropCanvas.getContext('2d', { alpha: false });
+
+        cropCtx.fillStyle = '#FFFFFF';
+        cropCtx.fillRect(0, 0, sw, sh);
+
+        cropCtx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+        return cropCanvas.toDataURL('image/png');
+
+    } catch (error) {
+        console.error('[cropRestrictedPdfPageToImage] error:', error);
+        throw error;
+    }
+};
+
 // ========================================
 // 空白ページ作成
 // ========================================
