@@ -17,6 +17,7 @@ h1:focus {
 article {
     /* 灰色(adobe readerの背景色) */
     background-color: #f8f8f8;
+    height: 100%;
 }
 
 button:not([disabled]),
@@ -253,51 +254,7 @@ input[type=number] {
 .touch-drag-handle:active {
     cursor: grabbing;
 }
-
 /* 終了:sortable.js内で一時的に追加削除されるスタイル */
-
-/* 描画・パン */
-/* プレビュー全体のスケーリング（カスタムプロパティで制御） */
-.preview-zoom-inner {
-    width: 100%;               /* 重要: 親幅に収める */
-    box-sizing: border-box;
-    transform: scale(var(--preview-zoom, 1));
-    transform-origin: 0 0;
-}
-/* ビューポート側の振る舞い（横スクロールを内側に閉じる） */
-.preview-zoom-viewport {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    cursor: default;
-}
-/* svgオーバレイ上は基本がccosshairなのでここで一時上書き */
-.preview-zoom-viewport.pan-active,
-.preview-zoom-viewport.pan-active svg{
-    cursor: grab;
-}
-.preview-zoom-viewport:not(.pan-active) svg rect{
-    cursor: move;
-}
-.preview-zoom-viewport:not(.pan-active) canvas,
-.preview-zoom-viewport:not(.pan-active) svg {
-    cursor: crosshair;
-}
-
-.preview-zoom-viewport.pan-active.panning,
-.preview-zoom-viewport.panning,
-.preview-zoom-viewport.pan-active.panning svg, 
-.preview-zoom-viewport.pan-active.panning svg rect {
-    cursor: grabbing !important;
-    user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
-}
-#thumbnail-area {
-    /* --thumbnail-width を flex-basis にして親からはみ出さないようにする */
-    flex: 0 0 var(--thumbnail-width);
-    max-width: 100%;
-    box-sizing: border-box;
-}
 
 /* 上部バーを左右列に分割（Bootstrapのcolイメージ） */
 .topbar-columns {
@@ -362,7 +319,58 @@ input[type=number] {
     .topbar-actions-wrap { gap: 0.4rem; }
 }
 
-/* 終了：描画・パン */
+.custom-scrollbar{
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent; /* つまみ: 灰色半透明、トラック: 透明 */
+}
 
+/* Chrome/Safari/Edge: カスタムスクロールバー */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px; /* 縦スクロールバーの幅 */
+    height: 8px; /* 横スクロールバーの高さ */
+}
 
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent; /* トラック（背景）は透明 */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5); /* つまみ: 灰色半透明 */
+    border-radius: 4px; /* 角を丸く */
+    border: 2px solid transparent; /* 内側に余白 */
+    background-clip: padding-box; /* 余白部分を透明に */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(107, 114, 128, 0.8); /* ホバー時: 濃いグレー */
+}
+
+/* razor.cssに書くと認識されない */
+#preview-zoom-viewport {
+    overflow: scroll;
+    position: relative;
+    cursor: default;
+}
+#preview-zoom-viewport.pan-active,
+#preview-zoom-viewport.pan-active svg {
+    cursor: grab;
+}
+#preview-zoom-viewport:not(.pan-active) svg rect {
+    cursor: move;
+}
+#preview-zoom-viewport:not(.pan-active) canvas,
+#preview-zoom-viewport:not(.pan-active) svg {
+    cursor: crosshair;
+}
+#preview-zoom-viewport.pan-active.panning,
+#preview-zoom-viewport.panning,
+#preview-zoom-viewport.pan-active.panning svg,
+#preview-zoom-viewport.pan-active.panning svg rect {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
 @import "tailwindcss";
