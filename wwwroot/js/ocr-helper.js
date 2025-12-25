@@ -18,7 +18,6 @@ window.ocrHelper = {
             script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
             script.async = true;
             script.onload = () => {
-                console.log('[OCR] Tesseract.js loaded');
                 this.isLibraryLoaded = true;
                 resolve(true);
             };
@@ -41,18 +40,16 @@ window.ocrHelper = {
 
             // 言語が変更された場合は、既存のworkerを終了して再初期化
             if (this.worker && this.currentLanguage !== lang) {
-                console.log(`[OCR] Language changed from ${this.currentLanguage} to ${lang}, reinitializing...`);
                 await this.worker.terminate();
                 this.worker = null;
                 this.currentLanguage = null;
             }
 
             if (!this.worker) {
-                console.log('[OCR] Initializing worker with language:', lang);
                 this.worker = await Tesseract.createWorker(lang, 1, {
                     logger: m => {
                         if (m.status === 'recognizing text') {
-                            console.log(`[OCR] Progress: ${(m.progress * 100).toFixed(1)}%`);
+                            // progress は内部でのみ処理する（デバッグ出力は削除）
                         }
                     }
                 });
@@ -98,12 +95,6 @@ window.ocrHelper = {
                     ctx.rotate(rad);
                     ctx.drawImage(img, -img.width / 2, -img.height / 2);
                     
-                    console.log('[OCR] Image rotated:', {
-                        originalSize: `${img.width}x${img.height}`,
-                        rotatedSize: `${canvas.width}x${canvas.height}`,
-                        angle: angle.toFixed(2)
-                    });
-                    
                     resolve(canvas.toDataURL('image/png'));
                 } catch (error) {
                     console.error('[OCR] Rotation error:', error);
@@ -137,13 +128,6 @@ window.ocrHelper = {
                 readingOrder = ReadingOrder
             } = options;
 
-            console.log('[OCR] Recognition options:', {
-                language: this.currentLanguage,
-                psmMode,
-                autoRotate,
-                readingOrder
-            });
-
             let processedImage = imageDataUrl;
 
             // Tesseractパラメータの設定
@@ -161,10 +145,7 @@ window.ocrHelper = {
 
             await this.worker.setParameters(params);
 
-            console.log('[OCR] Starting recognition...');
             const result = await this.worker.recognize(processedImage);
-            console.log('[OCR] Recognition complete. Text length:', result.data.text.length);
-            console.log('[OCR] Confidence:', result.data.confidence);
 
             // 右から左の場合、行内のテキストを反転
             let finalText = result.data.text;
@@ -185,7 +166,6 @@ window.ocrHelper = {
                 });
 
                 finalText = finalLines.map(line => line.text).join('\n');
-                console.log('[OCR] Text reversed (RTL mode)');
             }
 
             return {
@@ -201,7 +181,6 @@ window.ocrHelper = {
 
     async terminate() {
         if (this.worker) {
-            console.log('[OCR] Terminating worker');
             await this.worker.terminate();
             this.worker = null;
             this.currentLanguage = null;
