@@ -1,16 +1,17 @@
 <div class="space-y-6">
     <!-- 書き出し解像度 -->
     <div class="flex flex-col gap-2">
-        <label class="text-sm font-semibold text-gray-700">画質 (DPI)</label>
+        <label class="text-sm font-semibold text-gray-700">画質 (DPI)
+        <Tooltip Text="高すぎる設定はノイズ増加で精度が低下する可能性があります。">
+            <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer ml-1" />
+        </Tooltip>
+        </label>
         <select @bind="ExportDpi" @bind:after="NotifyExportDpiChanged" class="px-3 py-2 border border-gray-300 rounded bg-white text-gray-900">
             <option value="150">150 (低画質・高速)</option>
             <option value="200">200 (推奨)</option>
             <option value="300">300 (高画質)</option>
             <option value="400">400 (最高画質・低速)</option>
         </select>
-        <Tooltip Text="高すぎる設定はノイズ増加で精度が低下する可能性があります。">
-            <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer ml-1" />
-        </Tooltip>
     </div>
 
     <div class="border-t border-gray-200"></div>
