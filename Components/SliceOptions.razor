@@ -17,10 +17,14 @@
         
         <!-- 1:1固定 -->
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" 
-                   @bind="UseAspectRatioLock"
-                   @bind:after="NotifyAspectRatioLockChanged"
-                   class="form-checkbox h-5 w-5 accent-blue-500" />
+            <div class="relative">
+                <input type="checkbox"
+                       @bind="UseAspectRatioLock"
+                       @bind:after="NotifyAspectRatioLockChanged"
+                       class="sr-only peer" />
+                <div class="w-11 h-6 bg-gray-200 rounded-full transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-300"></div>
+                <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform peer-checked:translate-x-5"></div>
+            </div>
             <span>1:1固定（正方形）</span>
             <Tooltip Text="新しい矩形を正方形（1:1）に固定します。">
                 <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />
@@ -59,10 +63,14 @@
 
         <!-- スナップ -->
         <label class="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" 
-                   @bind="UseSnapToGrid"
-                   @bind:after="NotifySnapToGridChanged"
-                   class="form-checkbox h-5 w-5 accent-blue-500" />
+            <div class="relative">
+                <input type="checkbox"
+                       @bind="UseSnapToGrid"
+                       @bind:after="NotifySnapToGridChanged"
+                       class="sr-only peer" />
+                <div class="w-11 h-6 bg-gray-200 rounded-full transition-colors peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-300"></div>
+                <div class="absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transform transition-transform peer-checked:translate-x-5"></div>
+            </div>
             <span>スナップ（吸着）</span>
             <Tooltip Text="既存の矩形の位置に合わせて、新しい矩形を自動的にスナップ（吸着）させます。">
                 <InfoIcon Class="w-5 h-5 text-blue-400 cursor-pointer" />

@@ -92,7 +92,10 @@
                         CurrentPageNumberChanged="@(p => displayedPageNumber = p)"
                         IsDrawingMode="@isDrawingMode"
                         RotationCounter="@_rotationCounter"
-                        AllowMultipleRects="@(true)" />
+                        AllowMultipleRects="@(true)" 
+                        SnapEnabled="@useSnapToGrid"
+                        SnapEnabledChanged="@(async (bool v) => { useSnapToGrid = v; await OnSnapToGridChanged(); })" 
+                        />
             </Right>
         </SplitPane>
         <div class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-white border-t border-gray-300 p-4">
