@@ -405,34 +405,7 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         isPreviewLoading = true;
         try
         {
-            if (CurrentDisplayMode == DisplayMode.File)
-            {
-                var fileMeta = DisplayItems[fileIndex].RawData as FileMetadata;
-                if (fileMeta == null)
-                {
-                    previewImageUrl = null;
-                    return;
-                }
-                // Idが「ファイル名+_file」になっているのでRawDataからIdを取得
-                var fileId = fileMeta.FileId;
-
-                var model = PdfDataService.GetModel();
-                var filePages = model.Pages.Where(p => p.FileId == fileId).OrderBy(p => p.OriginalPageIndex).ToList();
-                if (pageIndex >= 0 && pageIndex < filePages.Count)
-                {
-                    var page = filePages[pageIndex];
-                    previewImageUrl = await PdfDataService.GetPreviewImageAsync(fileId, page.OriginalPageIndex);
-                }
-                else
-                {
-                    previewImageUrl = null;
-                }
-            }
-            else
-            {
-                // ページ単位表示時は従来通り
-                previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
-            }
+            previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
         }
         catch
         {

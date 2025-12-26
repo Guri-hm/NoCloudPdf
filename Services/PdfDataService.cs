@@ -118,11 +118,12 @@ public class PdfDataService
                 : firstPage.ColorHsl;
 
             // ページ単位表示の時と同じIDはKey設定時にエラーが発生
-            var uniqueId = $"{firstPage.Id}_file";
+            // var uniqueId = $"{firstPage.Id}_file";
 
             var item = new DisplayItem
             {
-                Id = uniqueId,
+                // Id = uniqueId,
+                Id = firstPage.Id, // 代表ページのIdを使う
                 DisplayName = TruncateFileName(fileName),
                 FullFileName = fileName,
                 Thumbnail = thumbnail,
@@ -1311,30 +1312,40 @@ public class PdfDataService
     {
         if (isFile)
         {
-            var file = _model.Files.ContainsKey(id) ? _model.Files[id] : null;
-            if (file == null) return;
+            // 代表ページのIdからファイル単位の範囲を取得
+            var startIdx = _model.Pages.FindIndex(p => p.Id == id);
+            if (startIdx == -1) return;
 
-            var pagesToCopy = _model.Pages.Where(p => p.FileId == id).ToList();
+            var fileId = _model.Pages[startIdx].FileId;
+            // 同じFileIdの連続範囲を取得
+            var pagesToCopy = new List<PageItem>();
+            for (int i = startIdx; i < _model.Pages.Count && _model.Pages[i].FileId == fileId; i++)
+            {
+                pagesToCopy.Add(_model.Pages[i]);
+            }
+
             var newFileId = Guid.NewGuid().ToString();
 
             // FileMetadataも複製して追加
-            var newFileMetadata = new FileMetadata
+            if (_model.Files.TryGetValue(fileId, out var originalFile))
             {
-                FileId = newFileId,
-                FileName = file.FileName,
-                FileData = file.FileData,
-                PageCount = file.PageCount,
-                CoverThumbnail = file.CoverThumbnail,
-                IsFullyLoaded = file.IsFullyLoaded,
-                CreatedAt = DateTime.Now
-            };
-            _model.Files[newFileId] = newFileMetadata;
+                var newFileMetadata = new FileMetadata
+                {
+                    FileId = newFileId,
+                    FileName = originalFile.FileName,
+                    FileData = originalFile.FileData,
+                    PageCount = originalFile.PageCount,
+                    CoverThumbnail = originalFile.CoverThumbnail,
+                    IsFullyLoaded = originalFile.IsFullyLoaded,
+                    CreatedAt = DateTime.Now
+                };
+                _model.Files[newFileId] = newFileMetadata;
+            }
 
             // ファイル単位の挿入位置を計算
             // insertIndexは「ファイルの次の位置」なので、ページリストのインデックスに変換
-            var fileGroups = _model.Pages.GroupBy(p => p.FileId).ToList();
-            int fileGroupIndex = fileGroups.FindIndex(g => g.Key == id);
             int pageInsertIndex = 0;
+            var fileGroups = _model.Pages.GroupBy(p => p.FileId).ToList();
             for (int i = 0; i < fileGroups.Count; i++)
             {
                 if (i == insertIndex)
@@ -1397,7 +1408,6 @@ public class PdfDataService
         {
             if (index < 0 || index >= _model.Pages.Count)
             {
-                Console.WriteLine($"Invalid index for rotation: {index}");
                 return false;
             }
 
@@ -1417,19 +1427,23 @@ public class PdfDataService
         }
     }
 
-    public bool RotateFile(string fileId, int angle)
+    public bool RotateFile(string displayItemId, int angle)
     {
-        var pageIndexes = _model.Pages
-            .Select((p, idx) => new { Page = p, Index = idx })
-            .Where(x => x.Page.FileId == fileId)
-            .Select(x => x.Index)
-            .ToList();
-
-        bool allSuccess = true;
-        foreach (var idx in pageIndexes)
+        // DisplayItem.Id（先頭PageItem.Id）から束の範囲を取得
+        var startIdx = _model.Pages.FindIndex(p => p.Id == displayItemId);
+        if (startIdx == -1)
         {
-            var success = RotateItem(idx, angle);
-            if (!success) allSuccess = false;
+            return false;
+        }
+
+        var fileId = _model.Pages[startIdx].FileId;
+
+        // 同じFileIdの連続範囲に回転を適用
+        bool allSuccess = true;
+        for (int i = startIdx; i < _model.Pages.Count && _model.Pages[i].FileId == fileId; i++)
+        {
+            if (!RotateItem(i, angle))
+                allSuccess = false;
         }
         return allSuccess;
     }

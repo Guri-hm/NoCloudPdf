@@ -401,18 +401,23 @@
         {
             if (CurrentDisplayMode == DisplayMode.File)
             {
-                var fileMeta = DisplayItems[fileIndex].RawData as FileMetadata;
-                if (fileMeta == null)
+                var model = PdfDataService.GetModel();
+                var startIdx = model.Pages.FindIndex(p => p.Id == DisplayItems[fileIndex].Id);
+                var pageItem = model.Pages[startIdx];
+                if (pageItem == null)
                 {
                     previewImageUrl = null;
                     return;
                 }
-                // Idが「ファイル名+_file」になっているのでRawDataからIdを取得
-                var fileId = fileMeta.FileId;
+                var fileId = pageItem.FileId;
 
-                var model = PdfDataService.GetModel();
-                var filePages = model.Pages.Where(p => p.FileId == fileId).ToList();
-
+                // IdとすべてのPageItemのなかでのインデックスから紐づくページを取得
+                var filePages = model.Pages
+                    .Skip(startIdx)
+                    .TakeWhile(p => p.FileId == fileId)   
+                     // 同一 fileId が続く範囲のみ取得
+                    .ToList();
+                
                 if (pageIndex >= 0 && pageIndex < filePages.Count)
                 {
                     var page = filePages[pageIndex];
@@ -677,15 +682,14 @@
     }
     private async Task DuplicateItem(int index)
     {
+        var displayItem = DisplayItems[index];
         if (CurrentDisplayMode == DisplayMode.File)
         {
-            var fileItem = DisplayItems[index];
-            await PdfDataService.DuplicateItemAsync(fileItem.Id, true, index + 1);
+            await PdfDataService.DuplicateItemAsync(displayItem.Id, true, index + 1);
         }
         else if (CurrentDisplayMode == DisplayMode.Page)
         {
-            var pageItem = DisplayItems[index];
-            await PdfDataService.DuplicateItemAsync(pageItem.Id, false, index + 1);
+            await PdfDataService.DuplicateItemAsync(displayItem.Id, false, index + 1);
         }
     }
 
