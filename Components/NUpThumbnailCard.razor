@@ -9,7 +9,17 @@
 <div class="n-up-thumbnail-card" data-index="@Index">
     <div class="group rounded relative" style="@GetContainerStyle(angle)">
         <div class="relative w-full h-full flex items-center justify-center"
-             @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
+            @onclick="() => OnShowPreview.InvokeAsync((Index, 0))">
+            @{
+                string rotateClass = angle switch
+                {
+                    0 => "rotate-0",
+                    90 => "rotate-90",
+                    180 => "rotate-180",
+                    270 => "rotate-270",
+                    _ => "rotate-0"
+                };
+            }
             @if (Item.IsLoading)
             {
                 <div class="page-loading w-full h-full"></div>
@@ -47,14 +57,15 @@
             }
             else if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
-                
-                <canvas id="thumb-@Item.Id"
-                        data-thumbnail="@Item.Thumbnail"
-                        data-item-id="@Item.Id"
-                        data-rotate-angle="@angle"
-                        class="w-full h-full object-contain border-dashed border border-gray-200 cursor-pointer"
-                        draggable="false"
-                        tabindex="-1" />
+                <img id="thumb-@Item.Id"
+                    src="@Item.Thumbnail"
+                    alt="@Item.DisplayName"
+                    class="w-full h-full object-contain border-dashed border border-gray-200 cursor-pointer @rotateClass"
+                    draggable="false"
+                    tabindex="-1"
+                    data-item-id="@Item.Id"
+                    data-rotate-angle="@angle"
+                    />
             }
 
             @if (pageItem != null && (pageItem.IsPasswordProtected || pageItem.IsOperationRestricted))

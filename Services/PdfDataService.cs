@@ -228,6 +228,8 @@ public class PdfDataService
                 return false;
             }
 
+            RegisterBlobUrl(renderResult.thumbnail);
+
             var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
             if (pageCount <= 0)
             {
@@ -484,7 +486,9 @@ public class PdfDataService
                         {
                             var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
                                 "generatePdfThumbnailFromFileMetaData", fileMetadata.FileData, pageItem.OriginalPageIndex);
+                            RegisterBlobUrl(renderResult.thumbnail);
                             pageItem.Thumbnail = renderResult.thumbnail;
+                            
                             pageItem.HasThumbnailError = renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail);
                             pageItem.IsLoading = false;
                             await BufferedNotifyChangeAsync();
@@ -837,6 +841,7 @@ public class PdfDataService
             {
                 pageData = await _jsRuntime.InvokeAsync<string>("createBlankPage");
                 thumbnail = await _jsRuntime.InvokeAsync<string>("generatePdfThumbnailFromPageData", pageData);
+                RegisterBlobUrl(thumbnail);
                 thumbError = string.IsNullOrEmpty(thumbnail);
                 dataError = string.IsNullOrEmpty(pageData);
             }
@@ -895,6 +900,7 @@ public class PdfDataService
                         {
                             var renderResult = await _jsRuntime.InvokeAsync<RenderResult>("generatePdfThumbnailFromFileMetaData", cts.Token, fileMetadata.FileData, pageIndex);
                             thumbnail = renderResult.thumbnail;
+                            RegisterBlobUrl(thumbnail);
                             thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
 
                             pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
@@ -999,6 +1005,7 @@ public class PdfDataService
                     cts.Token,
                     pageItem.PageData
                 );
+                RegisterBlobUrl(thumbnail);
                 thumbError = string.IsNullOrEmpty(thumbnail);
             }
             catch (OperationCanceledException)
@@ -1231,12 +1238,16 @@ public class PdfDataService
         {
             // 空白ページのPDFデータを生成
             var blankPageData = await _jsRuntime.InvokeAsync<string>("createBlankPage");
-            var blankThumbnail = await _jsRuntime.InvokeAsync<string>("generatePdfThumbnailFromPageData", blankPageData);
 
-            if (string.IsNullOrEmpty(blankPageData) || string.IsNullOrEmpty(blankThumbnail))
+            if (string.IsNullOrWhiteSpace(blankPageData))
+                return false;
+
+            string blankThumbnail = await _jsRuntime.InvokeAsync<string>("generatePdfThumbnailFromPageData", blankPageData);
+            if (string.IsNullOrEmpty(blankThumbnail))
             {
                 return false;
             }
+            RegisterBlobUrl(blankThumbnail);
 
             var fileId = $"blank_page_{DateTime.Now.Ticks}";
             var fileName = $"空白ページ";
@@ -1448,17 +1459,38 @@ public class PdfDataService
         return allSuccess;
     }
 
+    // BlobURL管理用のセットを追加
+    private readonly HashSet<string> _blobUrls = new();
+
+    private void RegisterBlobUrl(string? url)
+    {
+        if (!string.IsNullOrEmpty(url) && url.StartsWith("blob:"))
+        {
+            _blobUrls.Add(url);
+        }
+    }
+    
     /// <summary>
     /// データをクリア
     /// </summary>
     public void Clear()
     {
+        // BlobURLを解放
+        foreach (var url in _blobUrls)
+        {
+            try
+            {
+                _ = _jsRuntime.InvokeVoidAsync("URL.revokeObjectURL", url);
+            }
+            catch { }
+        }
+        _blobUrls.Clear();
         _model.Pages.Clear();
         _model.Files.Clear();
         SplitInfo = new SplitInfo();
         // 表示単位はクリアしない
         // _model.CurrentMode = DisplayMode.File;
-        
+
         // プレビューキャッシュクリア
         ClearAllPreviewCache();
 
@@ -1469,7 +1501,7 @@ public class PdfDataService
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibCacheClear");
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibFileRestrictedClear");
         }
-        catch{}
+        catch { }
 
         CancelBufferedNotify();
     }

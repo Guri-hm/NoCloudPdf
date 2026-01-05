@@ -45,12 +45,13 @@
                 }
                 else if (!string.IsNullOrEmpty(Item.Thumbnail))
                 {
-                    <canvas id="trim-thumb-@Item.Id"
-                            data-thumbnail="@Item.Thumbnail"
-                            data-item-id="@Item.Id"
-                            class="w-full h-full block object-contain border border-gray-200 @rotateClass"
-                            width="96" height="128"
-                            style="transform: @transform;"></canvas>
+                    <img id="trim-thumb-@Item.Id"
+                    src="@Item.Thumbnail"
+                    alt="@Item.DisplayName"
+                    class="w-full h-full block object-contain border border-gray-200 @rotateClass"
+                    width="96" height="128"
+                    style="transform: @transform;"
+                    data-item-id="@Item.Id" />
                 }
                 else
                 {
