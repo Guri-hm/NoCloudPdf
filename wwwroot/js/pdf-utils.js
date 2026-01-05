@@ -449,13 +449,17 @@ window.renderFirstPDFPage = async function (fileData, password) {
             );
             
             const canvas = await Promise.race([renderPromise, timeoutPromise]);
-            thumbnail = canvas.toDataURL('image/png');
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+            if (!blob) throw new Error('toBlob returned null');
+            thumbnail = URL.createObjectURL(blob);
         } catch (renderError) {
             console.error('Thumbnail rendering failed:', renderError);
             try {
                 const fallbackScale = targetWidth / 2 / viewport.width;
                 const canvas = await renderPageToCanvas(page, fallbackScale, 0);
-                thumbnail = canvas.toDataURL('image/png');
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+                if (!blob) throw new Error('toBlob returned null');
+                thumbnail = URL.createObjectURL(blob);
             } catch (fallbackError) {
                 console.error('Fallback thumbnail rendering also failed:', fallbackError);
                 thumbnail = "";
@@ -523,10 +527,14 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         
         const page = await pdf.getPage(pageIndex + 1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
-        const thumbnail = canvas.toDataURL('image/png');
+        // const thumbnail = canvas.toDataURL('image/png');
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+        if (!blob) throw new Error('toBlob returned null');
+
+        const blobUrl = URL.createObjectURL(blob);
 
         return {
-            thumbnail,
+            thumbnail:blobUrl,
             isError: false,
             isPasswordProtected: false,
             securityInfo: ""
