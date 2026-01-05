@@ -767,7 +767,7 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
         verbosity: 0 
     });
     const page = await pdf.getPage(1);
-    const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.normal, rotateAngle || 0);
+    const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.preview, rotateAngle || 0);
     return canvas.toDataURL('image/jpeg', 0.85);
 };
 
