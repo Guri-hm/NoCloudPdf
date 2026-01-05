@@ -1680,32 +1680,6 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
     }
 };
 
-// 表示領域監視による遅延描画
-window.drawVisibleCanvases = function(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const canvas = entry.target;
-                const itemId = canvas.dataset.itemId;
-                const thumbUrl = canvas.dataset.thumbnail;
-                
-                if (thumbUrl && !canvas.dataset.drawn) {
-                    window.drawImageToCanvas(canvas.id, thumbUrl);
-                    canvas.dataset.drawn = 'true';
-                    observer.unobserve(canvas);
-                }
-            }
-        });
-    }, { rootMargin: '200px' }); // 200px手前から読み込み開始
-
-    container.querySelectorAll('canvas[data-thumbnail]').forEach(canvas => {
-        observer.observe(canvas);
-    });
-};
-
 /**
  * Nアップ PDF 生成（元ページサイズに基づく出力サイズ計算）
  */
@@ -2144,36 +2118,6 @@ async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeigh
         return null;
     }
 }
-
-/**
- * Nアップ用：回転対応の canvas 描画
- */
-window.drawNUpCanvases = async function (containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) {
-        console.warn('[drawNUpCanvases] Container not found:', containerId);
-        return;
-    }
-
-    // セレクタを修正：thumbnail-loaded がついていても再描画する
-    const canvases = container.querySelectorAll('canvas[data-thumbnail]');
-
-    for (const canvas of canvases) {
-        const base64 = canvas.getAttribute('data-thumbnail');
-        const rotateAngle = parseInt(canvas.getAttribute('data-rotate-angle') || '0', 10);
-        
-        if (base64) {
-            try {
-                // thumbnail-loaded クラスを削除してから再描画
-                canvas.classList.remove('thumbnail-loaded');
-                await drawThumbnailToCanvasWithRotation(canvas, base64, rotateAngle);
-                canvas.classList.add('thumbnail-loaded');
-            } catch (error) {
-                console.error('[drawNUpCanvases] Failed to draw thumbnail:', error, canvas.id);
-            }
-        }
-    }
-};
 
 /**
  * Canvas に回転を適用して画像を描画
