@@ -107,9 +107,7 @@
             // Canvas に元PDFサイズを保存（data属性）
             if (originalSize != null)
             {
-                await JSRuntime.InvokeVoidAsync("eval", 
-                    $"document.getElementById('{CanvasId}').dataset.originalWidth = {originalSize["width"]}; " +
-                    $"document.getElementById('{CanvasId}').dataset.originalHeight = {originalSize["height"]};");
+                await JSRuntime.InvokeVoidAsync("setCanvasOriginalSize", CanvasId, originalSize["width"], originalSize["height"]);
             }
 
             // 初期表示時に全体表示を適用（自動フィットモードは有効化しない）
