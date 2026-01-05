@@ -77,7 +77,7 @@
                 </div>
             }
             <!-- サムネイル -->
-            <div class="w-24 h-32 flex items-center justify-center md:w-24 md:h-32 w-10 h-14 mr-2 md:mr-0 scale-90 md:scale-100 transition-transform duration-200"
+            <div class="w-24 h-32 flex items-center justify-center md:w-24 md:h-32 mr-2 md:mr-0 scale-90 md:scale-100 transition-transform duration-200"
                 @onclick="HandleThumbnailClick">
                 @{
                     var isMultiPage = Mode == DisplayMode.File && Item.PageInfo?.Contains("ページ") == true;
@@ -133,7 +133,7 @@
                     <img id="thumb-@Item.Id"
                     src="@Item.Thumbnail"
                     alt="@Item.DisplayName"
-                    class="w-full h-full object-contain border border-gray-200 @rotateClass @(Mode == DisplayMode.Page ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
+                    class="max-w-full max-h-full object-contain border border-gray-200 @rotateClass @(Mode == DisplayMode.Page ? "thumbnail-loaded" : "") @(isMultiPage ? "thumbnail-stack" : "")"
                     draggable="false"
                     tabindex="-1"
                     style="transform: @transform;" />
