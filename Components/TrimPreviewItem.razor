@@ -94,7 +94,7 @@
             string? src = null;
             if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
             {
-                src = await PdfDataService.GetPreviewImageAsync(page.Id);
+                src = await PdfDataService.GetPreviewImageAsync(page.Id, null, "preview");
             }
 
             if (string.IsNullOrEmpty(src)) return;

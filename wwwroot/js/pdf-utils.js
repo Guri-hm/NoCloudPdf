@@ -758,7 +758,7 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
 // ========================================
 // プレビュー画像生成
 // ========================================
-window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
+window.generatePreviewImage = async function (pdfBase64, rotateAngle, scaleKey = "normal") {
     const uint8Array = base64ToUint8Array(pdfBase64);
     
     // 埋め込み画像が大きいと制限にかかるため，maxImageSize を明示的に -1 に設定（ない場合は自動で無制限になるが，ここでは明示的にする）
@@ -767,7 +767,20 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
         verbosity: 0 
     });
     const page = await pdf.getPage(1);
-    const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.preview, rotateAngle || 0);
+
+    const scales = pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales ? pdfConfig.pdfSettings.scales : null;
+    const normal = scales && scales.normal ? scales.normal : 1.0;
+
+    let previewScale;
+    if (scales && typeof scales[scaleKey] !== "undefined") {
+        previewScale = scales[scaleKey];
+    } else if (scales && typeof scales.preview !== "undefined") {
+        previewScale = scales.preview;
+    } else {
+        previewScale = normal;
+    }
+
+    const canvas = await renderPageToCanvas(page, previewScale, rotateAngle || 0);
     return canvas.toDataURL('image/jpeg', 0.85);
 };
 

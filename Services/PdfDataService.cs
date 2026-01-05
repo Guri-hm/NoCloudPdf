@@ -1502,7 +1502,7 @@ public class PdfDataService
         await Task.CompletedTask;
     }
 
-    public async Task<string?> GetPreviewImageAsync(string id, int? pageIndex = null)
+    public async Task<string?> GetPreviewImageAsync(string id, int? pageIndex = null, string scaleKey = "normal")
     {
         PageItem? pageItem;
 
@@ -1535,7 +1535,7 @@ public class PdfDataService
         try
         {
             var previewImage = await _jsRuntime.InvokeAsync<string>(
-            "generatePreviewImage", pageItem.PageData, pageItem.RotateAngle);
+            "generatePreviewImage", pageItem.PageData, pageItem.RotateAngle,scaleKey);
 
             if (string.IsNullOrEmpty(previewImage))
                 return null;
