@@ -1939,11 +1939,6 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
             {
                 await JSRuntime.InvokeVoidAsync("drawNUpCanvases", "sortable-container");
             }
-            else
-            {
-                // 通常モード・タイルモード時は既存の drawVisibleCanvases を使用
-                await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
-            }
         }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）

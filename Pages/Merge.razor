@@ -1017,10 +1017,6 @@ fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7
             // drop-areaが消えたらフラグを戻す（必要ならJSでunregisterも）
             _dropAreaRegistered = false;
         }
-        if (IsFilesLoaded && DisplayItems.Any())
-        {
-            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
-        }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
         if (IsFilesLoaded && DisplayItems.Any())

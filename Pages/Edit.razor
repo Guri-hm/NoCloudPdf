@@ -1142,10 +1142,6 @@ private List<object> CreateStampsForCoordinateTransform(
             // drop-areaが消えたらフラグを戻す（必要ならJSでunregisterも）
             _dropAreaRegistered = false;
         }
-        if (IsFilesLoaded && DisplayItems.Any())
-        {
-            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "sortable-container");
-        }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
         if (IsFilesLoaded && DisplayItems.Any())

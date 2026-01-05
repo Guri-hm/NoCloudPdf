@@ -47,14 +47,15 @@
             }
             else if (!string.IsNullOrEmpty(Item.Thumbnail))
             {
-                
-                <canvas id="thumb-@Item.Id"
-                        data-thumbnail="@Item.Thumbnail"
-                        data-item-id="@Item.Id"
-                        data-rotate-angle="@angle"
-                        class="w-full h-full object-contain border-dashed border border-gray-200 cursor-pointer"
-                        draggable="false"
-                        tabindex="-1" />
+                <img id="thumb-@Item.Id"
+                    src="@Item.Thumbnail"
+                    alt="@Item.DisplayName"
+                    class="w-full h-full object-contain border-dashed border border-gray-200 cursor-pointer"
+                    draggable="false"
+                    tabindex="-1"
+                    data-item-id="@Item.Id"
+                    data-rotate-angle="@angle"
+                    />
             }
 
             @if (pageItem != null && (pageItem.IsPasswordProtected || pageItem.IsOperationRestricted))

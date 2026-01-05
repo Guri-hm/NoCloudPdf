@@ -1536,13 +1536,6 @@
             _dotNetRef = DotNetObjectReference.Create(this);
         }
 
-        if (IsFilesLoaded && DisplayItems.Any())
-        {
-            // サムネイル描画
-            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "thumbnail-container");
-
-        }
-
         if (!IsFilesLoaded && !CompletionState.ShowResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);

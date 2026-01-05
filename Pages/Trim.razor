@@ -790,12 +790,6 @@
             _dotNetRef = DotNetObjectReference.Create(this);
         }
 
-        if (IsFilesLoaded && DisplayItems.Any())
-        {            
-            // サムネイル描画
-            await JSRuntime.InvokeVoidAsync("drawVisibleCanvases", "thumbnail-container");
-        }
-
         // 初期画面のときのみ登録
         if (!IsFilesLoaded && !CompletionState.ShowResult)
         {
