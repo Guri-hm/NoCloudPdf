@@ -461,4 +461,15 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
     }
 };
 
-// ...existing code...
+window.setCanvasOriginalSize = function (canvasId, width, height) {
+    try {
+        const el = document.getElementById(canvasId);
+        if (!el) return false;
+        el.dataset.originalWidth = String(width);
+        el.dataset.originalHeight = String(height);
+        return true;
+    } catch (e) {
+        console.error('setCanvasOriginalSize error', e);
+        return false;
+    }
+};
