@@ -449,13 +449,17 @@ window.renderFirstPDFPage = async function (fileData, password) {
             );
             
             const canvas = await Promise.race([renderPromise, timeoutPromise]);
-            thumbnail = canvas.toDataURL('image/png');
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+            if (!blob) throw new Error('toBlob returned null');
+            thumbnail = URL.createObjectURL(blob);
         } catch (renderError) {
             console.error('Thumbnail rendering failed:', renderError);
             try {
                 const fallbackScale = targetWidth / 2 / viewport.width;
                 const canvas = await renderPageToCanvas(page, fallbackScale, 0);
-                thumbnail = canvas.toDataURL('image/png');
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+                if (!blob) throw new Error('toBlob returned null');
+                thumbnail = URL.createObjectURL(blob);
             } catch (fallbackError) {
                 console.error('Fallback thumbnail rendering also failed:', fallbackError);
                 thumbnail = "";
@@ -523,10 +527,14 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         
         const page = await pdf.getPage(pageIndex + 1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
-        const thumbnail = canvas.toDataURL('image/png');
+        // const thumbnail = canvas.toDataURL('image/png');
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+        if (!blob) throw new Error('toBlob returned null');
+
+        const blobUrl = URL.createObjectURL(blob);
 
         return {
-            thumbnail,
+            thumbnail:blobUrl,
             isError: false,
             isPasswordProtected: false,
             securityInfo: ""
@@ -758,7 +766,7 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
 // ========================================
 // プレビュー画像生成
 // ========================================
-window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
+window.generatePreviewImage = async function (pdfBase64, rotateAngle, scaleKey = "normal") {
     const uint8Array = base64ToUint8Array(pdfBase64);
     
     // 埋め込み画像が大きいと制限にかかるため，maxImageSize を明示的に -1 に設定（ない場合は自動で無制限になるが，ここでは明示的にする）
@@ -767,7 +775,20 @@ window.generatePreviewImage = async function (pdfBase64, rotateAngle) {
         verbosity: 0 
     });
     const page = await pdf.getPage(1);
-    const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.normal, rotateAngle || 0);
+
+    const scales = pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales ? pdfConfig.pdfSettings.scales : null;
+    const normal = scales && scales.normal ? scales.normal : 1.0;
+
+    let previewScale;
+    if (scales && typeof scales[scaleKey] !== "undefined") {
+        previewScale = scales[scaleKey];
+    } else if (scales && typeof scales.preview !== "undefined") {
+        previewScale = scales.preview;
+    } else {
+        previewScale = normal;
+    }
+
+    const canvas = await renderPageToCanvas(page, previewScale, rotateAngle || 0);
     return canvas.toDataURL('image/jpeg', 0.85);
 };
 
