@@ -1541,13 +1541,6 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             
             // 再レンダリングをトリガー
             StateHasChanged();
-            
-            // Nアップモード時は OnAfterRenderAsync で canvas を再描画
-            if (IsNUpMode)
-            {
-                await Task.Delay(100); // DOM更新を待つ
-                await JSRuntime.InvokeVoidAsync("drawNUpCanvases", "sortable-container");
-            }
         }
         catch (Exception ex)
         {
@@ -1931,14 +1924,6 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         {
             // drop-areaが消えたらフラグを戻す（必要ならJSでunregisterも）
             _dropAreaRegistered = false;
-        }
-
-        if (IsFilesLoaded && DisplayItems.Any())
-        {
-            if (IsNUpMode)
-            {
-                await JSRuntime.InvokeVoidAsync("drawNUpCanvases", "sortable-container");
-            }
         }
 
         // 毎回ドラッグ&ドロップとソート機能を再初期化（DOM更新時に必要）
