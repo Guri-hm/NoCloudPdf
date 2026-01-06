@@ -191,23 +191,23 @@
                 @foreach (var info in resultPdfInfos)
                 {
                     <div class="flex flex-row items-center bg-white rounded shadow p-4 my-2 w-full max-w-lg">
-                        <div class="relative w-24 h-auto ml-4 @(info.ThumbnailLoading ? "page-loading" : "")">
-                            <canvas id="thumb_@info.Id"
-                                width="64"
-                                height="80"
-                                class="w-full h-auto object-contain  border border-gray-300 @(info.PageCount > 1 && !info.ThumbnailLoading ? "thumbnail-stack" : "")"></canvas>
+                        <div class="relative w-24 h-auto ml-4">
                             @if (info.ThumbnailLoading)
                             {
-                                <div class="w-full h-auto absolute inset-0 flex items-center justify-center z-10">
-                                    <span class="text-gray-500 text-xs">読み込み中...</span>
+                                <div class="page-loading w-24 h-32"></div>
+                            }
+                            else if (info.ThumbnailError || string.IsNullOrEmpty(info.ThumbnailUrl))
+                            {
+                                <div class="w-24 h-32 flex flex-col items-center justify-center border border-gray-300">
+                                    <ErrorThumbnailIcon class="mb-1 w-8 h-8" />
+                                    <div class="text-red-700 font-bold text-xs">表示失敗</div>
                                 </div>
                             }
-                            else if (info.ThumbnailError)
+                            else
                             {
-                                <div class="w-full h-auto absolute inset-0 flex flex-col items-center justify-center z-10 overflow-visible">
-                                    <ErrorThumbnailIcon class="mb-1 w-8 h-8" />
-                                    <div class="text-red-700 font-bold text-xs mb-1">表示に失敗しました</div>
-                                </div>
+                                <img src="@info.ThumbnailUrl" 
+                                    alt="@info.Name"
+                                    class="w-full h-auto object-contain border border-gray-300 @(info.PageCount > 1 ? "thumbnail-stack" : "")" />
                             }
                         </div>
                         <div class="flex flex-col flex-1 items-center">
@@ -557,6 +557,7 @@
         public string Name { get; set; } = "";
         public string Size { get; set; } = "";
         public int PageCount { get; set; }
+        public string ThumbnailUrl { get; set; } = "";
         public bool ThumbnailLoaded { get; set; } = false;
         public bool ThumbnailError { get; set; } = false;
         public bool ThumbnailLoading { get; set; } = true;
@@ -631,12 +632,18 @@
                 {
                     var name = $"split_{groupIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
                     var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+
+                    var thumbnailUrl = await JSRuntime.InvokeAsync<string>("generatePdfThumbnailUrl", url);
                     resultPdfInfos.Add(new ResultPdfInfo
                     {
                         Url = url,
                         Name = name,
                         Size = size,
-                        PageCount = group.Count
+                        PageCount = group.Count,
+                        ThumbnailUrl = thumbnailUrl,
+                        ThumbnailLoading = false,
+                        ThumbnailLoaded = !string.IsNullOrEmpty(thumbnailUrl),
+                        ThumbnailError = string.IsNullOrEmpty(thumbnailUrl)
                     });
                 }
                 else
@@ -722,12 +729,17 @@
                     {
                         var name = $"extract_{pageIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
                         var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                        var thumbnailUrl = await JSRuntime.InvokeAsync<string>("generatePdfThumbnailUrl", url);
                         resultPdfInfos.Add(new ResultPdfInfo
                         {
                             Url = url,
                             Name = name,
                             Size = size,
-                            PageCount = 1
+                            PageCount = 1,
+                            ThumbnailUrl = thumbnailUrl,
+                            ThumbnailLoading = false,
+                            ThumbnailLoaded = !string.IsNullOrEmpty(thumbnailUrl),
+                            ThumbnailError = string.IsNullOrEmpty(thumbnailUrl)
                         });
                     }
                     pageIndex++;
@@ -750,12 +762,18 @@
                 {
                     var name = $"extract_merged_{DateTime.Now:yyyyMMddHHmm}.pdf";
                     var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                    var thumbnailUrl = await JSRuntime.InvokeAsync<string>("generatePdfThumbnailUrl", url);
+                    
                     resultPdfInfos.Add(new ResultPdfInfo
                     {
                         Url = url,
                         Name = name,
                         Size = size,
-                        PageCount = selectedPages.Count
+                        PageCount = selectedPages.Count,
+                        ThumbnailUrl = thumbnailUrl,
+                        ThumbnailLoading = false,
+                        ThumbnailLoaded = !string.IsNullOrEmpty(thumbnailUrl),
+                        ThumbnailError = string.IsNullOrEmpty(thumbnailUrl)
                     });
                 }
             }
@@ -1303,50 +1321,6 @@ IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 
                 }
             });
         }
-
-        if (CompletionState.ShowResult && resultPdfInfos.Any())
-        {
-            foreach (var info in resultPdfInfos)
-            {
-                var canvasId = $"thumb_{info.Id}";
-                if (info.ThumbnailLoading)
-                {
-                    try
-                    {
-                        var success = await RenderThumbnailWithRetry(info.Url, canvasId);
-                        info.ThumbnailLoaded = success;
-                        info.ThumbnailError = !success;
-                    }
-                    catch
-                    {
-                        info.ThumbnailLoaded = false;
-                        info.ThumbnailError = true;
-                    }
-                    finally
-                    {
-                        info.ThumbnailLoading = false;
-                        StateHasChanged();
-                    }
-                }
-            }
-        }
-    }
-
-    private async Task<bool> RenderThumbnailWithRetry(string url, string canvasId, int maxRetry = 5)
-    {
-        for (int i = 0; i < maxRetry; i++)
-        {
-            var exists = await JSRuntime.InvokeAsync<bool>("checkCanvasExists", canvasId);
-            if (exists)
-            {
-                await JSRuntime.InvokeVoidAsync("renderPdfThumbnailToCanvas", url, canvasId);
-                
-                return true;
-            }
-            await Task.Delay(100);
-        }
-        Console.WriteLine($"[WARN] canvas not found after retry: {canvasId}");
-        return false;
     }
 
     private async void DownloadResultPdfs()

@@ -2212,3 +2212,24 @@ window.fetchBlobAsBytes = async function(blobUrl) {
         throw error;
     }
 };
+
+/**
+ * PDF の Blob URL からサムネイル Blob URL を生成
+ */
+window.generatePdfThumbnailUrl = async function (pdfBlobUrl) {
+    try {
+        const response = await fetch(pdfBlobUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        const pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(1);
+        const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
+        
+        return await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
+    } catch (error) {
+        console.error('generatePdfThumbnailUrl error:', error);
+        return "";
+    }
+};
+
