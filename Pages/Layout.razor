@@ -352,7 +352,7 @@
                 <InfoPanel Title="完了" FileName="@resultZipName" FileSize="@resultZipSize" PageCount="@resultTotalPageCount">
                     <SplitButton
                         PrimaryLabel="ダウンロード"
-                        OnPrimaryClick="DownloadResultPdfs"
+                        OnPrimaryClick="DownloadMergedResultPdf"
                         MenuItems="@resultDownloadMenuItems" />
                    <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4 gap-1"
@@ -377,7 +377,7 @@
                     <div class="text-gray-600 text-sm">総ページ数: @resultTotalPageCount</div>
                     <SplitButton
                         PrimaryLabel="ダウンロード"
-                        OnPrimaryClick="DownloadResultPdfs"
+                        OnPrimaryClick="DownloadMergedResultPdf"
                         MenuItems="@resultDownloadMenuItems" />
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-2"
@@ -1342,7 +1342,12 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
     {
         new SplitButton.MenuActionItem
         {
-            Label = "PDFでダウンロード",
+            Label = "単一のPDFでダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadMergedResultPdf)
+        },
+        new SplitButton.MenuActionItem
+        {
+            Label = "個別のPDFでダウンロード",
             OnClick = EventCallback.Factory.Create(this, DownloadResultPdfs)
         },
         new SplitButton.MenuActionItem
@@ -1986,6 +1991,66 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         Console.WriteLine($"[WARN] canvas not found after retry: {canvasId}");
         return false;
     }
+
+    private async void DownloadMergedResultPdf()
+    {
+        if (resultPdfInfos == null || resultPdfInfos.Count == 0)
+            return;
+
+        try
+        {
+            await MessageService.ShowLoadingAsync("PDFを結合中...");
+
+            // 各結果PDFをMergePageDataに変換
+            var mergeData = new List<MergePageDto>();
+            
+            foreach (var pdfInfo in resultPdfInfos)
+            {
+                // Blob URLからバイナリデータを取得
+                var pdfBytes = await JSRuntime.InvokeAsync<byte[]>("fetchBlobAsBytes", pdfInfo.Url);
+                var base64Data = Convert.ToBase64String(pdfBytes);
+                
+                mergeData.Add(new MergePageDto
+                {
+                    FileId = pdfInfo.Id,
+                    FileName = pdfInfo.Name,
+                    PageData = base64Data,
+                    IsPdf = true,
+                    RotateAngle = 0
+                });
+            }
+
+            // mergePDFPages を使用して結合
+            var mergedUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+
+            if (!string.IsNullOrEmpty(mergedUrl))
+            {
+                var fileName = IsNUpMode 
+                    ? $"nup_{LayoutNumber}_merged_{DateTime.Now:yyyyMMddHHmmss}.pdf"
+                    : $"tile_{LayoutNumber}_merged_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+
+                await JSRuntime.InvokeVoidAsync(
+                    "downloadFileFromUrl",
+                    mergedUrl,
+                    fileName,
+                    "application/pdf"
+                );
+            }
+            else
+            {
+                _ = MessageService.ShowAsync("PDFの結合に失敗しました。", MessageType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DownloadMergedResultPdf error: {ex.Message}");
+            _ = MessageService.ShowAsync($"PDFの結合・ダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
+    }    
 
     private async void DownloadResultPdfs()
     {

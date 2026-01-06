@@ -2201,3 +2201,14 @@ window.revokeObjectUrl = function (url) {
     }
     return false;
 }
+
+window.fetchBlobAsBytes = async function(blobUrl) {
+    try {
+        const response = await fetch(blobUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        return new Uint8Array(arrayBuffer);
+    } catch (error) {
+        console.error('fetchBlobAsBytes error:', error);
+        throw error;
+    }
+};
