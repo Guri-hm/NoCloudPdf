@@ -315,23 +315,23 @@
                 @foreach (var info in resultPdfInfos)
                 {
                     <div class="flex flex-row items-center bg-white rounded shadow p-4 my-2 w-full max-w-lg">
-                        <div class="relative w-24 h-auto ml-4 @(info.ThumbnailLoading ? "page-loading" : "")">
-                            <canvas id="thumb_@info.Id"
-                                width="64"
-                                height="80"
-                                class="w-full h-auto object-contain  border border-gray-300 @(info.PageCount > 1 && !info.ThumbnailLoading ? "thumbnail-stack" : "")"></canvas>
+                        <div class="relative w-24 h-auto ml-4">
                             @if (info.ThumbnailLoading)
                             {
-                                <div class="w-full h-auto absolute inset-0 flex items-center justify-center z-10">
-                                    <span class="text-gray-500 text-xs">読み込み中...</span>
+                                <div class="page-loading w-24 h-32"></div>
+                            }
+                            else if (info.ThumbnailError || string.IsNullOrEmpty(info.ThumbnailUrl))
+                            {
+                                <div class="w-24 h-32 flex flex-col items-center justify-center border border-gray-300">
+                                    <ErrorThumbnailIcon class="mb-1 w-8 h-8" />
+                                    <div class="text-red-700 font-bold text-xs">表示失敗</div>
                                 </div>
                             }
-                            else if (info.ThumbnailError)
+                            else
                             {
-                                <div class="w-full h-auto absolute inset-0 flex flex-col items-center justify-center z-10 overflow-visible">
-                                    <ErrorThumbnailIcon class="mb-1 w-8 h-8" />
-                                    <div class="text-red-700 font-bold text-xs mb-1">表示に失敗しました</div>
-                                </div>
+                                <img src="@info.ThumbnailUrl" 
+                                     alt="@info.Name"
+                                     class="w-full h-auto object-contain border border-gray-300 @(info.PageCount > 1 ? "thumbnail-stack" : "")" />
                             }
                         </div>
                         <div class="flex flex-col flex-1 items-center">
@@ -352,7 +352,7 @@
                 <InfoPanel Title="完了" FileName="@resultZipName" FileSize="@resultZipSize" PageCount="@resultTotalPageCount">
                     <SplitButton
                         PrimaryLabel="ダウンロード"
-                        OnPrimaryClick="DownloadResultPdfs"
+                        OnPrimaryClick="DownloadMergedResultPdf"
                         MenuItems="@resultDownloadMenuItems" />
                    <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4 gap-1"
@@ -377,7 +377,7 @@
                     <div class="text-gray-600 text-sm">総ページ数: @resultTotalPageCount</div>
                     <SplitButton
                         PrimaryLabel="ダウンロード"
-                        OnPrimaryClick="DownloadResultPdfs"
+                        OnPrimaryClick="DownloadMergedResultPdf"
                         MenuItems="@resultDownloadMenuItems" />
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-2"
@@ -721,12 +721,17 @@ private async Task ProcessNUp()
                 {
                     var name = $"nup_{LayoutNumber}_{groupIndex + 1}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
                     var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                    var thumbnailUrl = await JSRuntime.InvokeAsync<string>("generatePdfThumbnailUrl", url);
                     resultPdfInfos.Add(new ResultPdfInfo
                     {
                         Url = url,
                         Name = name,
                         Size = size,
-                        PageCount = 1
+                        PageCount = 1,
+                        ThumbnailUrl = thumbnailUrl,
+                        ThumbnailLoading = false,
+                        ThumbnailLoaded = !string.IsNullOrEmpty(thumbnailUrl),
+                        ThumbnailError = string.IsNullOrEmpty(thumbnailUrl)
                     });
                 }
                 else
@@ -1211,12 +1216,18 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
                             totalTileCount++;
                             var name = $"tile_p{pageIndex + 1}_t{tileIndex + 1}_{DateTime.Now:yyyyMMddHHmmss}.pdf";
                             var size = await JSRuntime.InvokeAsync<string>("getPdfFileSize", url);
+                            var thumbnailUrl = await JSRuntime.InvokeAsync<string>("generatePdfThumbnailUrl", url);
+                            
                             resultPdfInfos.Add(new ResultPdfInfo
                             {
                                 Url = url,
                                 Name = name,
                                 Size = size,
-                                PageCount = 1
+                                PageCount = 1,
+                                ThumbnailUrl = thumbnailUrl,
+                                ThumbnailLoading = false,
+                                ThumbnailLoaded = !string.IsNullOrEmpty(thumbnailUrl),
+                                ThumbnailError = string.IsNullOrEmpty(thumbnailUrl)
                             });
                         }
                     }
@@ -1342,7 +1353,12 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
     {
         new SplitButton.MenuActionItem
         {
-            Label = "PDFでダウンロード",
+            Label = "単一のPDFでダウンロード",
+            OnClick = EventCallback.Factory.Create(this, DownloadMergedResultPdf)
+        },
+        new SplitButton.MenuActionItem
+        {
+            Label = "個別のPDFでダウンロード",
             OnClick = EventCallback.Factory.Create(this, DownloadResultPdfs)
         },
         new SplitButton.MenuActionItem
@@ -1449,6 +1465,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         public string Name { get; set; } = "";
         public string Size { get; set; } = "";
         public int PageCount { get; set; }
+        public string ThumbnailUrl { get; set; } = ""; 
         public bool ThumbnailLoaded { get; set; } = false;
         public bool ThumbnailError { get; set; } = false;
         public bool ThumbnailLoading { get; set; } = true;
@@ -1531,24 +1548,23 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         }
     }
 
-    private async Task RotatePage(int index, int angle = 90)
-{
-    if (index >= 0 && index < DisplayItems.Count)
+    private Task RotatePage(int index, int angle = 90)
     {
-        try
+        if (index >= 0 && index < DisplayItems.Count)
         {
-            PdfDataService.RotateItem(index, angle);
-            
-            // 再レンダリングをトリガー
-            StateHasChanged();
+            try
+            {
+                PdfDataService.RotateItem(index, angle);
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rotating item {index}: {ex.Message}");
+                _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error rotating item {index}: {ex.Message}");
-            _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
-        }
+        return Task.CompletedTask;
     }
-}
 
     private Task RotateFile(string fileId)
     {
@@ -1943,50 +1959,67 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
             });
         }
 
-        if (CompletionState.ShowResult && resultPdfInfos.Any())
-        {
-            foreach (var info in resultPdfInfos)
-            {
-                var canvasId = $"thumb_{info.Id}";
-                if (info.ThumbnailLoading)
-                {
-                    try
-                    {
-                        var success = await RenderThumbnailWithRetry(info.Url, canvasId);
-                        info.ThumbnailLoaded = success;
-                        info.ThumbnailError = !success;
-                    }
-                    catch
-                    {
-                        info.ThumbnailLoaded = false;
-                        info.ThumbnailError = true;
-                    }
-                    finally
-                    {
-                        info.ThumbnailLoading = false;
-                        StateHasChanged();
-                    }
-                }
-            }
-        }
     }
 
-    private async Task<bool> RenderThumbnailWithRetry(string url, string canvasId, int maxRetry = 5)
+    private async void DownloadMergedResultPdf()
     {
-        for (int i = 0; i < maxRetry; i++)
+        if (resultPdfInfos == null || resultPdfInfos.Count == 0)
+            return;
+
+        try
         {
-            var exists = await JSRuntime.InvokeAsync<bool>("checkCanvasExists", canvasId);
-            if (exists)
+            await MessageService.ShowLoadingAsync("PDFを結合中...");
+
+            // 各結果PDFをMergePageDataに変換
+            var mergeData = new List<MergePageDto>();
+            
+            foreach (var pdfInfo in resultPdfInfos)
             {
-                await JSRuntime.InvokeVoidAsync("renderPdfThumbnailToCanvas", url, canvasId);
+                // Blob URLからバイナリデータを取得
+                var pdfBytes = await JSRuntime.InvokeAsync<byte[]>("fetchBlobAsBytes", pdfInfo.Url);
+                var base64Data = Convert.ToBase64String(pdfBytes);
                 
-                return true;
+                mergeData.Add(new MergePageDto
+                {
+                    FileId = pdfInfo.Id,
+                    FileName = pdfInfo.Name,
+                    PageData = base64Data,
+                    IsPdf = true,
+                    RotateAngle = 0
+                });
             }
-            await Task.Delay(100);
+
+            // mergePDFPages を使用して結合
+            var mergedUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+
+            if (!string.IsNullOrEmpty(mergedUrl))
+            {
+                var fileName = IsNUpMode 
+                    ? $"nup_{LayoutNumber}_merged_{DateTime.Now:yyyyMMddHHmmss}.pdf"
+                    : $"tile_{LayoutNumber}_merged_{DateTime.Now:yyyyMMddHHmmss}.pdf";
+
+                await JSRuntime.InvokeVoidAsync(
+                    "downloadFileFromUrl",
+                    mergedUrl,
+                    fileName,
+                    "application/pdf"
+                );
+            }
+            else
+            {
+                _ = MessageService.ShowAsync("PDFの結合に失敗しました。", MessageType.Error);
+            }
         }
-        Console.WriteLine($"[WARN] canvas not found after retry: {canvasId}");
-        return false;
-    }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DownloadMergedResultPdf error: {ex.Message}");
+            _ = MessageService.ShowAsync($"PDFの結合・ダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
+    }    
 
     private async void DownloadResultPdfs()
     {

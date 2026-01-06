@@ -130,29 +130,6 @@ function normalizeRotationAngle(rotateAngle) {
 }
 
 /**
- * 正規化座標を実際のピクセル座標に変換（クランプ付き）
- */
-function normalizedToPixel(normValue, maxValue, isSize = false) {
-    const pixel = Math.round(normValue * maxValue);
-    if (isSize) {
-        return Math.max(1, Math.min(maxValue, pixel));
-    }
-    return Math.max(0, Math.min(maxValue, pixel));
-}
-
-/**
- * トリミング領域の座標計算（回転適用後のキャンバス座標）
- */
-function calculateCropRegion(normX, normY, normWidth, normHeight, canvasWidth, canvasHeight) {
-    const sx = normalizedToPixel(normX, canvasWidth);
-    const sy = normalizedToPixel(normY, canvasHeight);
-    const sw = normalizedToPixel(normWidth, canvasWidth - sx, true);
-    const sh = normalizedToPixel(normHeight, canvasHeight - sy, true);
-    
-    return { sx, sy, sw, sh };
-}
-
-/**
  * 共通エラーハンドラー
  */
 function handlePdfError(error, context) {
@@ -449,17 +426,14 @@ window.renderFirstPDFPage = async function (fileData, password) {
             );
             
             const canvas = await Promise.race([renderPromise, timeoutPromise]);
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-            if (!blob) throw new Error('toBlob returned null');
-            thumbnail = URL.createObjectURL(blob);
+            thumbnail = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
         } catch (renderError) {
             console.error('Thumbnail rendering failed:', renderError);
             try {
                 const fallbackScale = targetWidth / 2 / viewport.width;
                 const canvas = await renderPageToCanvas(page, fallbackScale, 0);
-                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-                if (!blob) throw new Error('toBlob returned null');
-                thumbnail = URL.createObjectURL(blob);
+                const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
+                thumbnail = blobUrl;
             } catch (fallbackError) {
                 console.error('Fallback thumbnail rendering also failed:', fallbackError);
                 thumbnail = "";
@@ -527,11 +501,7 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         
         const page = await pdf.getPage(pageIndex + 1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
-        // const thumbnail = canvas.toDataURL('image/png');
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-        if (!blob) throw new Error('toBlob returned null');
-
-        const blobUrl = URL.createObjectURL(blob);
+        const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
 
         return {
             thumbnail:blobUrl,
@@ -1685,42 +1655,34 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
  */
 window.createNUpPdf = async function (pages, nup, direction, orientation, showDividers = false) {
     try {
-        const { PDFDocument, rgb, degrees, PDFName, PDFArray, PDFNumber } = PDFLib;
+        const { PDFDocument, rgb, degrees, PDFName } = PDFLib;
         
-        // 各ページを個別の PDF として保持（後で埋め込み）
         const pagePdfs = [];
         
         for (let i = 0; i < pages.length; i++) {
             const pageData = pages[i];
+            
             try {
-                
                 const pdfBytes = base64ToUint8Array(pageData.pageData);
                 
                 const tempPdf = await PDFDocument.load(pdfBytes);
                 const tempPage = tempPdf.getPage(0);
                 
+                const { width, height } = tempPage.getSize();
+                
                 // Contents ストリームの存在確認
                 const pageDict = tempPage.node;
                 const contents = pageDict.lookup(PDFName.of('Contents'));
                 
-                // Contents が存在しない場合は空のページを作成（コンテンツ付き）
                 if (!contents) {
-                    console.warn(`[createNUpPdf] Page ${i + 1} has no Contents, creating blank page with content`);
-                    const { width, height } = tempPage.getSize();
+                    console.warn(`[createNUpPdf] Page ${i + 1} has no Contents, creating blank page`);
                     const blankPdf = await PDFDocument.create();
                     const blankPage = blankPdf.addPage([width, height]);
-                    
-                    // 最小限のコンテンツを描画して Contents ストリームを生成
-                    // 白い矩形を描画（視覚的には空白だが、Contents は存在する）
                     blankPage.drawRectangle({
-                        x: 0,
-                        y: 0,
-                        width: width,
-                        height: height,
-                        color: rgb(1, 1, 1), // 白色
+                        x: 0, y: 0, width, height,
+                        color: rgb(1, 1, 1),
                         opacity: 1
                     });
-                    
                     pagePdfs.push({
                         pdf: blankPdf,
                         rotateAngle: pageData.rotateAngle || 0,
@@ -1739,17 +1701,14 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
             }
         }
         
-        // グリッド計算
         const { rows, cols } = getNUpGrid(nup, orientation);
         
-        // 元ページの平均サイズを計算
         const validPages = pagePdfs.filter(p => p !== null);
         if (validPages.length === 0) {
             throw new Error('No valid pages to process');
         }
         
-        let totalWidth = 0;
-        let totalHeight = 0;
+        let totalWidth = 0, totalHeight = 0;
         validPages.forEach(item => {
             const page = item.pdf.getPage(0);
             const { width, height } = page.getSize();
@@ -1759,70 +1718,96 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
         
         const avgWidth = totalWidth / validPages.length;
         const avgHeight = totalHeight / validPages.length;
-        
-        // Nアップ後の出力ページサイズを計算
         const pageWidth = avgWidth * cols;
         const pageHeight = avgHeight * rows;
         const cellWidth = pageWidth / cols;
         const cellHeight = pageHeight / rows;
         
-        // 並び順を決定
         const orderedIndices = getPageOrder(pagePdfs.length, rows, cols, direction);
         
-        // 出力 PDF を作成
         const outputPdf = await PDFDocument.create();
         const outputPage = outputPdf.addPage([pageWidth, pageHeight]);
         
-        // 背景を白で塗りつぶし
         outputPage.drawRectangle({
-            x: 0,
-            y: 0,
-            width: pageWidth,
-            height: pageHeight,
+            x: 0, y: 0,
+            width: pageWidth, height: pageHeight,
             color: rgb(1, 1, 1)
         });
-        
+
         for (let i = 0; i < orderedIndices.length; i++) {
             const pageIndex = orderedIndices[i];
             if (pageIndex >= pagePdfs.length || pagePdfs[pageIndex] === null) {
+                console.warn(`[createNUpPdf] Skipping invalid page at index ${pageIndex}`);
                 continue;
             }
             
             const item = pagePdfs[pageIndex];
             
             try {
-                // embedPdf で埋め込み
                 const [embeddedPage] = await outputPdf.embedPdf(item.pdf, [0]);
-                
                 const { width, height } = embeddedPage;
                 
-                // 配置位置計算
                 const { x, y } = getCellPosition(i, rows, cols, cellWidth, cellHeight, direction);
                 
-                // スケール計算（セルに収まるように）
-                const scaleX = cellWidth / width;
-                const scaleY = cellHeight / height;
+                const rotateAngle = item.rotateAngle || 0;
+                const normalizedAngle = ((rotateAngle % 360) + 360) % 360;
+                const isRotated = (normalizedAngle === 90 || normalizedAngle === 270);
+                
+                // 回転後の実効サイズ（セル内に収めるための計算用）
+                const effectiveWidth = isRotated ? height : width;
+                const effectiveHeight = isRotated ? width : height;
+                
+                // セル内に収まるスケールを計算
+                const scaleX = cellWidth / effectiveWidth;
+                const scaleY = cellHeight / effectiveHeight;
                 const scale = Math.min(scaleX, scaleY);
                 
-                // 中央寄せ
-                const offsetX = (cellWidth - width * scale) / 2;
-                const offsetY = (cellHeight - height * scale) / 2;
+                // 実際の描画サイズ（回転前の元サイズ × scale）
+                const drawWidth = width * scale;
+                const drawHeight = height * scale;
                 
+                // セル内での中央寄せオフセット（回転後のサイズで計算）
+                const rotatedDrawWidth = isRotated ? drawHeight : drawWidth;
+                const rotatedDrawHeight = isRotated ? drawWidth : drawHeight;
+                
+                const offsetX = (cellWidth - rotatedDrawWidth) / 2;
+                const offsetY = (cellHeight - rotatedDrawHeight) / 2;
+                
+                // 回転の基点調整（PDFLib は左下基点で回転）
+                let finalX = x + offsetX;
+                let finalY = y + offsetY;
+                
+                if (normalizedAngle === 90) {
+                    // 90度回転時の正しい配置
+                    // 回転後にセル中央に来るよう、回転前の左下位置を計算
+                    finalX = x + offsetX + rotatedDrawWidth;  // 回転後の幅分だけ右に移動
+                    finalY = y + offsetY;                      // Y座標はそのまま
+                } else if (normalizedAngle === 180) {
+                    // 180度回転
+                    finalX = x + offsetX + drawWidth;
+                    finalY = y + offsetY + drawHeight;
+                } else if (normalizedAngle === 270) {
+                    // 270度回転
+                    finalX = x + offsetX;
+                    finalY = y + offsetY + rotatedDrawHeight;
+                }
+
                 outputPage.drawPage(embeddedPage, {
-                    x: x + offsetX,
-                    y: y + offsetY,
-                    width: width * scale,
-                    height: height * scale
+                    x: finalX,
+                    y: finalY,
+                    width: drawWidth,    // 元のサイズ × scale
+                    height: drawHeight,  // 元のサイズ × scale
+                    rotate: degrees(normalizedAngle)
                 });
+                
             } catch (embedError) {
                 console.error(`[createNUpPdf] Error embedding page ${pageIndex + 1}:`, embedError);
+                console.error(`  - Stack:`, embedError.stack);
                 throw embedError;
             }
         }
         
-        // 仕切り線を描画
         if (showDividers) {
-            // 縦線
             for (let c = 1; c < cols; c++) {
                 const lineX = c * cellWidth;
                 outputPage.drawLine({
@@ -1833,8 +1818,6 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
                     opacity: 0.5
                 });
             }
-            
-            // 横線
             for (let r = 1; r < rows; r++) {
                 const lineY = r * cellHeight;
                 outputPage.drawLine({
@@ -1850,7 +1833,9 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
         const pdfBytes = await outputPdf.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
+        
         return url;
+        
     } catch (error) {
         console.error('[createNUpPdf] Fatal error:', error);
         console.error('[createNUpPdf] Stack trace:', error.stack);
@@ -2194,3 +2179,57 @@ window.setCanvasSize = function(canvasId, width, height) {
         return false;
     }
 };
+
+async function canvasToBlobAsync(canvas, type = 'image/jpeg', quality = 0.8) {
+    return await new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+
+async function canvasToBlobUrl(canvas, type = 'image/jpeg', quality = 0.8) {
+    const blob = await canvasToBlobAsync(canvas, type, quality);
+    if (!blob) throw new Error('toBlob returned null');
+    return URL.createObjectURL(blob);
+}
+
+window.revokeObjectUrl = function (url) {
+    try {
+        if (url && typeof url === 'string' && url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+            return true;
+        }
+    } catch (e) {
+        console.error('revokeObjectUrl error', e);
+    }
+    return false;
+}
+
+window.fetchBlobAsBytes = async function(blobUrl) {
+    try {
+        const response = await fetch(blobUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        return new Uint8Array(arrayBuffer);
+    } catch (error) {
+        console.error('fetchBlobAsBytes error:', error);
+        throw error;
+    }
+};
+
+/**
+ * PDF の Blob URL からサムネイル Blob URL を生成
+ */
+window.generatePdfThumbnailUrl = async function (pdfBlobUrl) {
+    try {
+        const response = await fetch(pdfBlobUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        const pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(1);
+        const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
+        
+        return await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
+    } catch (error) {
+        console.error('generatePdfThumbnailUrl error:', error);
+        return "";
+    }
+};
+
