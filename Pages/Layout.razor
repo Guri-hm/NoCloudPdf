@@ -1531,24 +1531,23 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         }
     }
 
-    private async Task RotatePage(int index, int angle = 90)
-{
-    if (index >= 0 && index < DisplayItems.Count)
+    private Task RotatePage(int index, int angle = 90)
     {
-        try
+        if (index >= 0 && index < DisplayItems.Count)
         {
-            PdfDataService.RotateItem(index, angle);
-            
-            // 再レンダリングをトリガー
-            StateHasChanged();
+            try
+            {
+                PdfDataService.RotateItem(index, angle);
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rotating item {index}: {ex.Message}");
+                _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error rotating item {index}: {ex.Message}");
-            _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
-        }
+        return Task.CompletedTask;
     }
-}
 
     private Task RotateFile(string fileId)
     {
