@@ -130,29 +130,6 @@ function normalizeRotationAngle(rotateAngle) {
 }
 
 /**
- * 正規化座標を実際のピクセル座標に変換（クランプ付き）
- */
-function normalizedToPixel(normValue, maxValue, isSize = false) {
-    const pixel = Math.round(normValue * maxValue);
-    if (isSize) {
-        return Math.max(1, Math.min(maxValue, pixel));
-    }
-    return Math.max(0, Math.min(maxValue, pixel));
-}
-
-/**
- * トリミング領域の座標計算（回転適用後のキャンバス座標）
- */
-function calculateCropRegion(normX, normY, normWidth, normHeight, canvasWidth, canvasHeight) {
-    const sx = normalizedToPixel(normX, canvasWidth);
-    const sy = normalizedToPixel(normY, canvasHeight);
-    const sw = normalizedToPixel(normWidth, canvasWidth - sx, true);
-    const sh = normalizedToPixel(normHeight, canvasHeight - sy, true);
-    
-    return { sx, sy, sw, sh };
-}
-
-/**
  * 共通エラーハンドラー
  */
 function handlePdfError(error, context) {
@@ -449,17 +426,14 @@ window.renderFirstPDFPage = async function (fileData, password) {
             );
             
             const canvas = await Promise.race([renderPromise, timeoutPromise]);
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-            if (!blob) throw new Error('toBlob returned null');
-            thumbnail = URL.createObjectURL(blob);
+            thumbnail = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
         } catch (renderError) {
             console.error('Thumbnail rendering failed:', renderError);
             try {
                 const fallbackScale = targetWidth / 2 / viewport.width;
                 const canvas = await renderPageToCanvas(page, fallbackScale, 0);
-                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-                if (!blob) throw new Error('toBlob returned null');
-                thumbnail = URL.createObjectURL(blob);
+                const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
+                thumbnail = blobUrl;
             } catch (fallbackError) {
                 console.error('Fallback thumbnail rendering also failed:', fallbackError);
                 thumbnail = "";
@@ -527,11 +501,7 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         
         const page = await pdf.getPage(pageIndex + 1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
-        // const thumbnail = canvas.toDataURL('image/png');
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-        if (!blob) throw new Error('toBlob returned null');
-
-        const blobUrl = URL.createObjectURL(blob);
+        const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
 
         return {
             thumbnail:blobUrl,
@@ -2209,3 +2179,25 @@ window.setCanvasSize = function(canvasId, width, height) {
         return false;
     }
 };
+
+async function canvasToBlobAsync(canvas, type = 'image/jpeg', quality = 0.8) {
+    return await new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+
+async function canvasToBlobUrl(canvas, type = 'image/jpeg', quality = 0.8) {
+    const blob = await canvasToBlobAsync(canvas, type, quality);
+    if (!blob) throw new Error('toBlob returned null');
+    return URL.createObjectURL(blob);
+}
+
+window.revokeObjectUrl = function (url) {
+    try {
+        if (url && typeof url === 'string' && url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+            return true;
+        }
+    } catch (e) {
+        console.error('revokeObjectUrl error', e);
+    }
+    return false;
+}
