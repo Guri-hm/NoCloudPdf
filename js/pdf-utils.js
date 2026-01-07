@@ -718,7 +718,7 @@ window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
 };
 
 // ========================================
-// 単一PDFページサムネイル生成
+// 単一PDFページサムネイル生成(EditPage向け)
 // ========================================
 window.generatePdfThumbnailFromPageData = async function (pdfData) {
     try {
@@ -836,124 +836,6 @@ window.checkCanvasExists = function (canvasId) {
     return !!document.getElementById(canvasId);
 };
 
-// ========================================
-// PDFサムネイルをCanvasに描画
-// ========================================
-window.renderPdfThumbnailToCanvas = async function (pdfUrl, canvasId) {
-    if (!window.pdfjsLib) {
-        throw new Error("pdfjsLib is not loaded.");
-    }
-    
-    if (window._pdfCache.isRendering(canvasId)) {
-        console.warn("render in progress, skipping:", canvasId);
-        return false;
-    }
-
-    window._pdfCache.setRendering(canvasId, true);
-    try {
-        const response = await fetch(pdfUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        const pdf = await loadPdfDocument(uint8Array);
-        const page = await pdf.getPage(1);
-
-        const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.thumbnail });
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) {
-            console.warn("canvas not found:", canvasId);
-            return false;
-        }
-        
-        const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
-        return true;
-    } catch (e) {
-        console.error("renderPdfThumbnailToCanvas error", e, pdfUrl, canvasId);
-        return false;
-    } finally {
-        window._pdfCache.setRendering(canvasId, false);
-    }
-};
-
-// ========================================
-// 画像をCanvasに描画
-// ========================================
-window.drawImageToCanvas = function (canvasId, imageUrl, useDevicePixelRatio = true) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    const img = new window.Image();
-    img.crossOrigin = 'anonymous';
-
-    img.onload = function () {
-        try {
-            // 親要素の内寸を使って canvas を親いっぱいにする（親の border に合わせるため）
-            const parent = canvas.parentElement || document.body;
-            const parentStyle = window.getComputedStyle(parent);
-            const padL = parseFloat(parentStyle.paddingLeft) || 0;
-            const padR = parseFloat(parentStyle.paddingRight) || 0;
-            const padT = parseFloat(parentStyle.paddingTop) || 0;
-            const padB = parseFloat(parentStyle.paddingBottom) || 0;
-
-            const availW = Math.max(1, parent.clientWidth - padL - padR);
-            const availH = Math.max(1, parent.clientHeight - padT - padB);
-
-            // CSS 表示サイズを決めてキャンバスを合わせる（親内に収めつつ画像のアスペクト比を保持）
-            const imgW = Math.max(1, img.width || 1);
-            const imgH = Math.max(1, img.height || 1);
-            const imgRatio = imgW / imgH;
-            const availRatio = availW / availH;
-
-            let cssW, cssH;
-            if (imgRatio > availRatio) {
-                cssW = availW;
-                cssH = Math.max(1, Math.round(availW / imgRatio));
-            } else {
-                cssH = availH;
-                cssW = Math.max(1, Math.round(availH * imgRatio));
-            }
-
-            // 表示サイズをキャンバスに反映（CSS サイズとピクセルバッファ）
-            const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
-            canvas.style.width = cssW + 'px';
-            canvas.style.height = cssH + 'px';
-            canvas.width = Math.max(1, Math.round(cssW * dpr));
-            canvas.height = Math.max(1, Math.round(cssH * dpr));
-
-            // 描画は CSS ピクセル座標で行う
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-
-            ctx.clearRect(0, 0, cssW, cssH);
-
-            // contain モードで縮小して中央に描画（切らさない）
-            const scale = Math.min(cssW / imgW, cssH / imgH);
-            const drawW = imgW * scale;
-            const drawH = imgH * scale;
-            const offsetX = Math.round((cssW - drawW) / 2);
-            const offsetY = Math.round((cssH - drawH) / 2);
-
-            // ソース全体を目的位置へリサイズ描画
-            ctx.drawImage(img, 0, 0, imgW, imgH, offsetX, offsetY, drawW, drawH);
-
-        } catch (e) {
-            console.debug('drawImageToCanvas error', e);
-        }
-    };
-
-    img.onerror = function (e) {
-        console.debug('drawImageToCanvas image load error', e, imageUrl);
-    };
-
-    img.src = imageUrl;
-};
 // ========================================
 // PDF ロック解除
 // ========================================
@@ -2102,49 +1984,6 @@ async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeigh
         console.error('createRasterizedTile error:', error);
         return null;
     }
-}
-
-/**
- * Canvas に回転を適用して画像を描画
- */
-async function drawThumbnailToCanvasWithRotation(canvas, base64Data, rotateAngle = 0) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = function () {
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                reject(new Error('Canvas context not available'));
-                return;
-            }
-
-            // 回転角度に応じて canvas サイズを調整
-            const isRotated = (rotateAngle === 90 || rotateAngle === 270);
-            const canvasWidth = isRotated ? img.height : img.width;
-            const canvasHeight = isRotated ? img.width : img.height;
-
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-
-            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-            ctx.save();
-
-            // 回転の中心を設定
-            ctx.translate(canvasWidth / 2, canvasHeight / 2);
-            ctx.rotate((rotateAngle * Math.PI) / 180);
-            ctx.translate(-img.width / 2, -img.height / 2);
-
-            // 画像を描画
-            ctx.drawImage(img, 0, 0, img.width, img.height);
-            ctx.restore();
-
-            resolve();
-        };
-        img.onerror = function (err) {
-            console.error('[drawThumbnailToCanvasWithRotation] Image load error:', err);
-            reject(new Error('Failed to load image'));
-        };
-        img.src = base64Data.startsWith('data:') ? base64Data : `data:image/png;base64,${base64Data}`;
-    });
 }
 
 /**
