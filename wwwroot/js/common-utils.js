@@ -13,3 +13,9 @@ window.fadeInOnScroll = {
         observer.observe(el);
     }
 };
+
+window.scrollToSection = function scrollToSection(element) {
+    if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+    }
+}
