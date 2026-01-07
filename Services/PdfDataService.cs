@@ -1479,8 +1479,8 @@ public class PdfDataService
         foreach (var url in _blobUrls)
         {
             try
-            {
-                _ = _jsRuntime.InvokeVoidAsync("URL.revokeObjectURL", url);
+            { 
+                _ = _jsRuntime.InvokeVoidAsync("revokeObjectUrl", url);
             }
             catch { }
         }
