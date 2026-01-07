@@ -288,7 +288,7 @@
         </button>);
         buttons.Add(@<button type="button" class="text-red-500 hover:text-red-700 p-1 mx-1 md:mx-0 md:my-0" title="削除"
             @onclick="() => OnRemove.InvokeAsync(Index)" @onpointerdown:stopPropagation>
-            <i class="fa-solid fa-trash"></i>
+            <DeleteIcon/>
         </button>);
 
         return buttons;
