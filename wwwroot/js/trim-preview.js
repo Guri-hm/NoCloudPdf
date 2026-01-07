@@ -61,6 +61,23 @@ function getOffsetRelativeTo(element, ancestor) {
     return { x, y };
 }
 
+function ensureDeleteIconSymbol() {
+    try {
+        if (document.getElementById('svg-icon-defs')) return;
+        const svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgDefs.setAttribute('id', 'svg-icon-defs');
+        svgDefs.setAttribute('aria-hidden', 'true');
+        svgDefs.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;');
+        // DeleteIcon コンポーネントの path をそのまま symbol に貼る
+        svgDefs.innerHTML = `
+            <symbol id="icon-delete" viewBox="0 -960 960 960">
+                <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/>
+            </symbol>
+        `;
+        document.body.appendChild(svgDefs);
+    } catch (e) { console.error('ensureDeleteIconSymbol error', e); }
+}
+
 // ========================================
 // SVGオーバーレイ描画: トリム矩形の表示
 // ========================================
@@ -271,30 +288,55 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 deleteX = Math.min(cssW - 12, Math.max(12, deleteX));
                 deleteY = Math.min(cssH - 12, Math.max(12, deleteY));
 
+                ensureDeleteIconSymbol();
+
+                const BTN_SIZE = 30; // ボタン外形サイズ（ピクセル）
+                const OFFSET_LEFT = 8; // 矩形右側からの余白
+                const MARGIN = 4; // コンテナ端からの最小マージン
+
+                // 左上座標（bgRect の 0,0 がボタン左上になるように決定）
+                let btnLeft = rectX + rectW + OFFSET_LEFT;
+                let btnTop = rectY; // 上辺を矩形上辺に合わせる
+
+                // コンテナ内に収める（ボタン全体が見えるように）
+                btnLeft = Math.min(cssW - BTN_SIZE - MARGIN, Math.max(MARGIN, btnLeft));
+                btnTop = Math.min(cssH - BTN_SIZE - MARGIN, Math.max(MARGIN, btnTop));
+
                 const deleteBtn = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                 deleteBtn.style.pointerEvents = 'auto';
+                deleteBtn.setAttribute('transform', `translate(${Math.round(btnLeft)}, ${Math.round(btnTop)})`);
+                deleteBtn.setAttribute('data-close', 'true');
+                deleteBtn.setAttribute('data-rect-index', String(rectIndex));
+                deleteBtn.setAttribute('role', 'button');
+                deleteBtn.setAttribute('aria-label', '削除');
 
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', String(deleteX));
-                circle.setAttribute('cy', String(deleteY));
-                circle.setAttribute('r', '10');
-                circle.setAttribute('fill', 'rgba(0,0,0,0.6)');
-                circle.setAttribute('data-close', 'true');
-                circle.setAttribute('data-rect-index', String(rectIndex));
-                circle.style.cursor = 'pointer';
-                deleteBtn.appendChild(circle);
+                // 角丸の背景（丸から四角に変更）
+                const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                bgRect.setAttribute('x', '0');
+                bgRect.setAttribute('y', '0');
+                bgRect.setAttribute('width', String(BTN_SIZE));
+                bgRect.setAttribute('height', String(BTN_SIZE));
+                bgRect.setAttribute('rx', '4'); // 角丸
+                bgRect.setAttribute('ry', '4');
+                bgRect.setAttribute('fill', 'rgba(0,0,0,0.6)');
+                bgRect.style.cursor = 'pointer';
+                deleteBtn.appendChild(bgRect);
 
-                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', String(deleteX));
-                text.setAttribute('y', String(deleteY + 4));
-                text.setAttribute('fill', '#fff');
-                text.setAttribute('font-size', '12');
-                text.setAttribute('text-anchor', 'middle');
-                text.setAttribute('data-close', 'true');
-                text.setAttribute('data-rect-index', String(rectIndex));
-                text.style.pointerEvents = 'none';
-                text.textContent = '×';
-                deleteBtn.appendChild(text);
+                // symbol を参照する use 要素（白いアイコン）
+                const useEl = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                // modern browsers accept 'href' on use; provide both for compatibility
+                useEl.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '#icon-delete');
+                useEl.setAttribute('href', '#icon-delete');
+                // アイコンをボタン内に余白をとって配置
+                const ICON_PAD = 3;
+                const iconSize = BTN_SIZE - ICON_PAD * 2;
+                useEl.setAttribute('x', String(ICON_PAD));
+                useEl.setAttribute('y', String(ICON_PAD - 1)); // symbol の viewBox が縦方向で負になっているため微調整
+                useEl.setAttribute('width', String(iconSize));
+                useEl.setAttribute('height', String(iconSize));
+                useEl.setAttribute('fill', '#fff');
+                useEl.style.pointerEvents = 'none';
+                deleteBtn.appendChild(useEl);
 
                 deleteBtn.addEventListener('pointerdown', function (ev) {
                     try {

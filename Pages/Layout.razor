@@ -1,5 +1,5 @@
 ﻿@page "/layout"
-@implements IDisposable
+@implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject PdfDataService PdfDataService
 @inject MessageService MessageService
@@ -449,19 +449,21 @@
         InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        PdfDataService.OnChange -= OnServiceChanged;
-        CompletionState.Reset();
-        _dotNetRef?.Dispose();
-
-        if (_dropAreaRegistered)
-        {
-            JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
-            _dropAreaRegistered = false;
-        }
-
-        passwordTcs?.TrySetCanceled();
+        await PageDisposeHelper.DisposePageAsync(
+            jsRuntime: JSRuntime,
+            dotNetRef: _dotNetRef,
+            dropAreaRegistered: _dropAreaRegistered,
+            onChangeHandler: OnServiceChanged,
+            pdfDataService: PdfDataService,
+            passwordTcs: passwordTcs,
+            completionState: CompletionState
+        );
+        
+        // フィールドをクリア
+        _dotNetRef = null;
+        _dropAreaRegistered = false;
         passwordTcs = null;
     }
 

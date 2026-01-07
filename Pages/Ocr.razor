@@ -504,36 +504,26 @@
     }
     public async ValueTask DisposeAsync()
     {
-        try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
-        try { CompletionState.Reset(); } catch { }
-
-        try
-        {
-            if (_dropAreaRegistered)
+        await PageDisposeHelper.DisposePageAsync(
+            jsRuntime: JSRuntime,
+            dotNetRef: _dotNetRef,
+            dropAreaRegistered: _dropAreaRegistered,
+            onChangeHandler: OnServiceChanged,
+            pdfDataService: PdfDataService,
+            passwordTcs: passwordTcs,
+            completionState: CompletionState,
+            additionalCleanup: async () =>
             {
-                await JSRuntime.InvokeVoidAsync("unregisterDropArea", "drop-area");
+                // OCR 固有のクリーンアップ
+                await PageDisposeHelper.UnregisterTrimPreviewAreaAsync(JSRuntime);
+                try { await JSRuntime.InvokeVoidAsync("ocrHelper.terminate"); }
+                catch { /* 無視 */ }
             }
-        }
-        catch { }
-        _dropAreaRegistered = false;
-
-        try { await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea"); } catch { }
-
-        try { await JSRuntime.InvokeVoidAsync("trimPreviewArea.unregister"); } catch { }
-
-        // OCR エンジンのクリーンアップ
-        try { await JSRuntime.InvokeVoidAsync("ocrHelper.terminate"); } catch (Exception ex) { Console.WriteLine($"OCR cleanup error: {ex.Message}"); }
-
-        // 非同期タスクのキャンセル
-        try { passwordTcs?.TrySetCanceled(); } catch { }
-        passwordTcs = null;
-
-        // JS が参照をクリアする時間を少し与える（オプション：安全策）
-        try { await Task.Delay(30); } catch { }
-
-        // 最後に DotNetObjectReference を破棄
-        try { _dotNetRef?.Dispose(); } catch { }
+        );
+        
         _dotNetRef = null;
+        _dropAreaRegistered = false;
+        passwordTcs = null;
     }
 
     // ========================================
