@@ -30,37 +30,37 @@
    <div class="fixed top-[56px] left-0 w-full md:static md:w-auto md:flex-1 md:overflow-y-auto z-70 sidebar transition-opacity duration-[500ms] navmenu-sidebar-bg ease-in-out md:opacity-100 md:pointer-events-auto md:block @(collapseNavMenu ? "opacity-0 pointer-events-none" : "opacity-100") max-w-[100vw]">
         <nav id="nav-main"
             class="w-full mt-4 flex flex-row flex-wrap justify-start gap-4 px-4 pb-4 md:flex-col md:flex-wrap md:gap-y-2 md:gap-x-0 md:px-2 md:max-h-[calc(100vh-120px)]">
-            <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("merge")"
                 href="merge">
                 <MergeIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">結合</span>
             </NavLink>
-            <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("split")"
                 href="split">
                 <SplitIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">分割</span>
             </NavLink>
-            <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("edit")"
                 href="edit">
                 <EditIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">編集</span>
             </NavLink>
-            <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("layout")"
                 href="layout">
                 <LayoutIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">レイアウト</span>
             </NavLink>
-            <NavLink @onclick="CloseNavMenu" class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("trim")"
                 href="trim">
                 <TrimIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">トリミング</span>
             </NavLink>
-            <NavLink @onclick="CloseNavMenu"class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("slice")"
                 href="slice">
                 <SliceIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">スライス</span>
             </NavLink>
-            <NavLink @onclick="CloseNavMenu"class="flex flex-col items-center py-2 text-white hover:bg-gray-700/70 rounded-lg transition flex-none min-w-[72px] md:w-16"
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("ocr")"
                 href="ocr">
                 <OcrIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">文字認識</span>
@@ -105,6 +105,19 @@
         if (uri.EndsWith("/ocr")) return "文字認識";
         if (uri.EndsWith("/") || uri.EndsWith("")) return "NoCloudPDF";
         return "";
+    }
+
+    private string GetNavLinkClass(string page)
+    {
+        var uri = Navigation.Uri.ToLower();
+        var isActive = uri.EndsWith($"/{page}");
+        
+        var baseClass = "flex flex-col items-center py-2 rounded-lg transition flex-none min-w-[72px] md:w-16 text-white";
+        var activeClass = isActive 
+            ? "bg-[#5c2d91]" 
+            : "hover:bg-gray-700/70";
+        
+        return $"{baseClass} {activeClass}";
     }
 
     public void Dispose()

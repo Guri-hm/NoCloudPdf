@@ -1566,6 +1566,9 @@ input[type=number] {
   .border-t-transparent {
     border-top-color: transparent;
   }
+  .bg-\[\#5c2d91\] {
+    background-color: #5c2d91;
+  }
   .bg-amber-50 {
     background-color: var(--color-amber-50);
   }
