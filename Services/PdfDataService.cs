@@ -804,7 +804,7 @@ public class PdfDataService
                 insertPosition = position;
             }
 
-            await _jsRuntime.InvokeVoidAsync("openInsertFileDialog", "fileInput");
+            await _jsRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
             setInsertPosition(insertPosition);
             return true;
         }
@@ -1663,8 +1663,19 @@ public class PdfDataService
         try
         {
             var fileId = $"{fileName}_{DateTime.Now.Ticks}";
-            string base64 = Convert.ToBase64String(fileData);
-            string ext = Path.GetExtension(fileName).ToLowerInvariant();
+
+            // マジックバイトで実際の形式を検出
+            var detectedExt = DetectImageExtension(fileData);
+            var declaredExt = Path.GetExtension(fileName).ToLowerInvariant();
+            
+            // 2. 不一致時の処理（方針:自動修正）
+            if (detectedExt != null && !string.IsNullOrEmpty(declaredExt) && detectedExt != declaredExt)
+            {
+                // 自動で検出した形式を使用（UX重視）
+                Console.WriteLine($"Warning: {fileName} declared as {declaredExt} but detected as {detectedExt}");
+                declaredExt = detectedExt;
+            }
+            var ext = detectedExt ?? declaredExt;
 
             // サムネイル用データURL生成
             string mime = ext switch
@@ -1677,8 +1688,9 @@ public class PdfDataService
                 ".svg" => "image/svg+xml",
                 _ => "application/octet-stream"
             };
+            
+            string base64 = Convert.ToBase64String(fileData);
             string dataUrl = $"data:{mime};base64,{base64}";
-
             // 画像をPDF化
             string pdfBase64 = await _jsRuntime.InvokeAsync<string>("embedImageAsPdf", base64, ext);
 
@@ -1727,6 +1739,26 @@ public class PdfDataService
         }
     }
 
+    private static string? DetectImageExtension(byte[] data)
+    {
+        if (data == null || data.Length < 12) return null;
+
+        if (data.Length >= 2 && data[0] == 0xFF && data[1] == 0xD8) return ".jpg";
+        if (data.Length >= 8 &&
+            data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47 &&
+            data[4] == 0x0D && data[5] == 0x0A && data[6] == 0x1A && data[7] == 0x0A) return ".png";
+        if (data.Length >= 6 && data[0] == (byte)'G' && data[1] == (byte)'I' && data[2] == (byte)'F') return ".gif";
+        if (data.Length >= 2 && data[0] == (byte)'B' && data[1] == (byte)'M') return ".bmp";
+        if (data.Length >= 12 &&
+            data[0] == (byte)'R' && data[1] == (byte)'I' && data[2] == (byte)'F' && data[3] == (byte)'F' &&
+            data[8] == (byte)'W' && data[9] == (byte)'E' && data[10] == (byte)'B' && data[11] == (byte)'P') return ".webp";
+
+        var headerText = Encoding.UTF8.GetString(data, 0, Math.Min(data.Length, 256)).TrimStart();
+        if (headerText.StartsWith("<svg") || headerText.StartsWith("<?xml") || headerText.Contains("<svg")) return ".svg";
+
+        return null;
+    }
+    
     public void ToggleSplitBefore(int pageIndex)
     {
         if (pageIndex < 0 || pageIndex >= _model.Pages.Count) return;
