@@ -20,16 +20,16 @@
         <!-- ズームコントロール -->
         @if (ShowControls)
         {
-            <div class="absolute bottom-2 right-2 flex gap-1 bg-black/70 rounded px-2 py-1">
+            <div class="absolute bottom-2 right-2 flex gap-1 items-center bg-black/70 rounded px-2 py-1">
                 <button class="text-white hover:text-blue-300 transition p-1" @onclick="ZoomOut" @onclick:stopPropagation="true" title="縮小">
-                    <i class="fa-solid fa-search-minus"></i>
+                    <ZoomOutIcon/>
                 </button>
-                <span class="text-white text-xs font-mono min-w-[3rem] text-center leading-6">@((zoom * 100).ToString("F0"))%</span>
+                <span class="text-white text-xs text-center">@((zoom * 100).ToString("F0"))%</span>
                 <button class="text-white hover:text-blue-300 transition p-1" @onclick="ZoomIn" @onclick:stopPropagation="true" title="拡大">
-                    <i class="fa-solid fa-search-plus"></i>
+                    <ZoomInIcon/>
                 </button>
                 <button class="text-white hover:text-blue-300 transition p-1" @onclick="ResetZoom" @onclick:stopPropagation="true" title="リセット">
-                    <i class="fa-solid fa-undo"></i>
+                    <RotateLeftSimpleIcon/>
                 </button>
             </div>
         }
