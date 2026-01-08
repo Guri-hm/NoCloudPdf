@@ -414,7 +414,7 @@
             
             <!-- 情報パネル（PCのみ表示） -->
             <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
-                <InfoPanel Title="完了" FileName="@mergedFileName" FileSize="@mergedFileSize" PageCount="@mergedPageCount">
+                <InfoPanel Title="完了" FileName="@mergedFileName" FileSize="@mergedFileSize">
                     <button
                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center transition"
                         @onclick="DownloadAllOcrResultsAsText">
@@ -431,7 +431,50 @@
             </div>
         </div>
         
-        <!-- 以下省略 -->
+        <!-- 下部スライドアップメニュー（タブレット以下のサイズのみ） -->
+        <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
+            <div
+                class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <span>完了</span>
+                    </div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
+                    <button
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="DownloadAllOcrResultsAsText">
+                        すべてテキストでダウンロード
+                    </button>
+                    <button
+                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="StartNew">
+                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        新規作成
+                    </button>
+                </div>
+                <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <!-- 展開ボタン -->
+            @if (!isMenuOpen)
+            {
+                <button
+                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
+                    @onclick="() => isMenuOpen = true">
+                    <i class="fa-solid fa-check-circle text-green-600 text-2xl"></i>
+                    <span>完了</span>
+                    <ChevronUpIcon/>
+                </button>
+            }
+        </div>
+        <!-- メニュー展開時はPDFのスクロールを禁止 -->
+        @if (isMenuOpen)
+        {
+            <div class="fixed inset-0 bg-black/30 z-[199] touch-none" @onclick="() => isMenuOpen = false"></div>
+        }
     </div>
 }
 <!-- ローディング中 -->
@@ -536,9 +579,9 @@
     private bool IsFilesLoaded => DisplayItems.Any();
 
     private DotNetObjectReference<Ocr>? _dotNetRef;
+    private bool isMenuOpen = false;
     private string mergedFileName = "";
     private string mergedFileSize = "";
-    private int mergedPageCount = 0;
     private bool isDrawingMode = true;
     private int thumbnailAreaWidth = 300;
     private int _rotationCounter = 0;
@@ -789,7 +832,6 @@
             
             mergedFileName = $"ocr_results_{DateTime.Now:yyyyMMddHHmm}.txt";
             mergedFileSize = FormatFileSize(ocrResults.Sum(r => System.Text.Encoding.UTF8.GetByteCount(r.Text)));
-            mergedPageCount = ocrResults.Count;
             
             currentState = OcrWorkflowState.Completed;
             CompletionState.SetShowResult(true);
@@ -1245,7 +1287,6 @@
         ocrPreviewItems.Clear();
         mergedFileName = "";
         mergedFileSize = "";
-        mergedPageCount = 0;
         currentState = OcrWorkflowState.Editing;
         StateHasChanged();
     }
