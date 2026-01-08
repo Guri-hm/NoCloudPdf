@@ -240,17 +240,18 @@
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = (item.RotationAngle + 90) % 360 - 180; StateHasChanged(); }"
                                             title="左90度回転">
-                                        <i class="fa-solid fa-rotate-left"></i>
+                                        <RotateLeftSimpleIcon/>
                                     </button>
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = (item.RotationAngle - 90 + 360) % 360 - 180; StateHasChanged(); }"
                                             title="右90度回転">
-                                        <i class="fa-solid fa-rotate-right"></i>
+
+                                        <RotateRightSimpleIcon/>
                                     </button>
                                     <button class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = 0; StateHasChanged(); }"
                                             title="リセット">
-                                        <i class="fa-solid fa-undo mr-1"></i>0°
+                                        <RotateLeftSimpleIcon Class="inline-block mr-1"/>0°
                                     </button>
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = 180; StateHasChanged(); }"

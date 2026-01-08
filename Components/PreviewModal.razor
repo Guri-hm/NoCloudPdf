@@ -43,13 +43,12 @@
                     @onclick="() => OnMovePreview.InvokeAsync(1)" disabled="@IsNextDisabled">
                     <i class="text-white fa-solid fa-chevron-right"></i>
                 </button>
-                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="OnRotateLeft">
-                    <i class="text-white fa-solid fa-rotate-left"></i>
+                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white" @onclick="OnRotateLeft"  title="左回転">
+                    <RotateLeftIcon/>
                 </button>
-                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
-                    @onclick="OnRotateRight">
-                    <i class="text-white fa-solid fa-rotate-right"></i>
+                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white"
+                    @onclick="OnRotateRight" title="右回転">
+                    <RotateRightIcon/>
                 </button>
                 <button
                     class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg text-white"
