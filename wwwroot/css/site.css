@@ -1929,6 +1929,9 @@ input[type=number] {
   .text-\[30px\] {
     font-size: 30px;
   }
+  .text-\[35px\] {
+    font-size: 35px;
+  }
   .text-\[80px\] {
     font-size: 80px;
   }

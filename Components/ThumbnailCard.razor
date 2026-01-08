@@ -61,7 +61,7 @@
         <!-- ドラッグハンドル -->
         <span class="touch-drag-handle touch-none select-none [-webkit-tap-highlight-color:transparent]  cursor-grab flex items-center justify-center cursor-grab text-gray-400 hover:text-blue-500 mx-3 md:hidden"
             style="touch-action: none;">
-            <i class="fa-solid fa-grip-vertical text-xl"></i>
+            <GripVerticalIcon class="text-xl" />
         </span>
         <!-- サムネイル＋ページ情報 -->
         <div class="flex flex-row md:flex-col flex-1 items-center md:items-stretch relative @(OperationMode == OperationMode.Extract && Item.IsSelectedForExtract ? "ring-4 ring-blue-400 bg-blue-100/60" : "")">
@@ -161,7 +161,7 @@
                 @if (OperationMode == OperationMode.Edit)
                 {
                     <span class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <i class="fa-solid fa-pen-to-square text-orange-500 opacity-50 text-[30px]"></i>
+                        <PenToSquareIcon Class="text-[35px] text-orange-500 opacity-50" />
                     </span>
                 }
             </div>
@@ -265,7 +265,7 @@
         {
             buttons.Add(@<button type="button" class="text-orange-500 hover:text-orange-700 p-1 mx-1 md:mx-0 md:my-0" title="このページを編集"
                 @onclick="NavigateToPageEdit" @onpointerdown:stopPropagation>
-                <i class="fa-solid fa-pen-to-square"></i>
+                <PenToSquareIcon />
             </button>);
             buttons.Add(@<button type="button" class="text-pink-500 hover:text-pink-700 p-1 mx-1 md:mx-0 md:my-0" title="編集をリセット"
                 @onclick="() => OnReloadPageItem.InvokeAsync(Item)" @onpointerdown:stopPropagation>
