@@ -1209,20 +1209,30 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
     }
 
     private List<ToggleButtonItem<string>> toggleItems = new()
-{
-new ToggleButtonItem<string>
-{
-Value = "Split",
-Label = "分割",
-IconSvg = @"<i class=""fa-solid fa-scissors""></i>"
-},
-new ToggleButtonItem<string>
-{
-Value = "Extract",
-Label = "抽出",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path fill='currentColor' fill-rule='evenodd' d='M14 4h5v6h-5zm-1-1h7v8h-7zm7 10h-7v8h7zm-10 1H5v6h5zm-5-1H4v8h7v-8zm6-10H4v8h7z' clip-rule='evenodd'></path></svg>"
-}
-};
+    {
+        new ToggleButtonItem<string>
+        {
+        Value = "Split",
+        Label = "分割",
+        IconFragment = builder =>
+        {
+            builder.OpenComponent(0, typeof(ScissorsIcon));
+            builder.AddAttribute(1, "Class", "w-6 h-6");
+            builder.CloseComponent();
+        }
+        },
+        new ToggleButtonItem<string>
+        {
+        Value = "Extract",
+        Label = "抽出",
+        IconFragment = builder =>
+        {
+            builder.OpenComponent(0, typeof(ExtractIcon));
+            builder.AddAttribute(1, "Class", "w-6 h-6");
+            builder.CloseComponent();
+        }
+        }
+    };
 
     private string CurrentModeString => IsSplitMode ? "Split" : "Extract";
 
