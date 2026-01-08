@@ -148,9 +148,9 @@
                 <div class="flex items-center gap-2">
                     <button class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 md:px-6 rounded transition"
                             @onclick="ExecuteOcrFromPreview">
-                        <i class="fa-solid fa-play"></i>
                         <span class="hidden md:inline">OCR実行 (@ocrPreviewItems.Count(p => p.IsSelected) 件)</span>
                         <span class="md:hidden">実行 (@ocrPreviewItems.Count(p => p.IsSelected))</span>
+                        <ArrowRightIcon/>
                     </button>
                 </div>
             </div>
