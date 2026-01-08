@@ -37,11 +37,19 @@
             <span class="break-keep flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "")">
                 @action.Label
             </span>
-            @if (action.IconPosition == "right" && !string.IsNullOrEmpty(action.IconHtml))
+
+            @if (string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "right")
             {
-                <span>
-                    @((MarkupString)action.IconHtml)
-                </span>
+                if (action.Icon != null)
+                {
+                    @action.Icon
+                }
+                else if (!string.IsNullOrEmpty(action.IconHtml))
+                {
+                    <span>
+                        @((MarkupString)action.IconHtml)
+                    </span>
+                }
             }
         </button>
     }

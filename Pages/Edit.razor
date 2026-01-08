@@ -326,12 +326,17 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         new ActionButtonItem
         {
             Label = "完了",
-            IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowRightIcon));
+                builder.CloseComponent();
+            },
             Title = "完了",
             OnClick = EventCallback.Factory.Create(this, MergePDFs),
-            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-[44px]",
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex",
             IconPosition = "right",
             TextColor = "text-white"
+            
         }
     };
 
@@ -783,7 +788,11 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         new ActionButtonItem
         {
             Label = "編集に戻る",
-            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.CloseComponent();
+            },
             Title = "編集に戻る",
             OnClick = EventCallback.Factory.Create(this, BackToEdit),
         }
