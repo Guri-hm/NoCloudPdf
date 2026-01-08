@@ -68,10 +68,9 @@ function ensureDeleteIconSymbol() {
         svgDefs.setAttribute('id', 'svg-icon-defs');
         svgDefs.setAttribute('aria-hidden', 'true');
         svgDefs.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;');
-        // DeleteIcon コンポーネントの path をそのまま symbol に貼る
         svgDefs.innerHTML = `
-            <symbol id="icon-delete" viewBox="0 -960 960 960">
-                <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/>
+            <symbol id="icon-delete" viewBox="0 0 640 640">
+                <path d="M232.7 69.9L224 96L128 96C110.3 96 96 110.3 96 128C96 145.7 110.3 160 128 160L512 160C529.7 160 544 145.7 544 128C544 110.3 529.7 96 512 96L416 96L407.3 69.9C402.9 56.8 390.7 48 376.9 48L263.1 48C249.3 48 237.1 56.8 232.7 69.9zM512 208L128 208L149.1 531.1C150.7 556.4 171.7 576 197 576L443 576C468.3 576 489.3 556.4 490.9 531.1L512 208z"/>
             </symbol>
         `;
         document.body.appendChild(svgDefs);
@@ -331,7 +330,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 const ICON_PAD = 3;
                 const iconSize = BTN_SIZE - ICON_PAD * 2;
                 useEl.setAttribute('x', String(ICON_PAD));
-                useEl.setAttribute('y', String(ICON_PAD - 1)); // symbol の viewBox が縦方向で負になっているため微調整
+                useEl.setAttribute('y', String(ICON_PAD));
                 useEl.setAttribute('width', String(iconSize));
                 useEl.setAttribute('height', String(iconSize));
                 useEl.setAttribute('fill', '#fff');

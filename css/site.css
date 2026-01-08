@@ -1156,9 +1156,6 @@ input[type=number] {
   .min-w-0 {
     min-width: calc(var(--spacing) * 0);
   }
-  .min-w-\[3rem\] {
-    min-width: 3rem;
-  }
   .min-w-\[72px\] {
     min-width: 72px;
   }
@@ -1932,12 +1929,11 @@ input[type=number] {
   .text-\[30px\] {
     font-size: 30px;
   }
+  .text-\[35px\] {
+    font-size: 35px;
+  }
   .text-\[80px\] {
     font-size: 80px;
-  }
-  .leading-6 {
-    --tw-leading: calc(var(--spacing) * 6);
-    line-height: calc(var(--spacing) * 6);
   }
   .leading-none {
     --tw-leading: 1;
