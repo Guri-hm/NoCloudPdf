@@ -167,7 +167,7 @@
                             <button
                                 class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded text-sm w-full"
                                 @onclick="() => DownloadSingleImage(image)">
-                                <i class="fa-solid fa-download"></i> ダウンロード
+                                <DownloadIcon Class="mr-2 inline-block" />ダウンロード
                             </button>
                         </div>
                     }
@@ -179,13 +179,13 @@
                     <button
                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center"
                         @onclick="DownloadAllImagesAsZip">
-                        <i class="fa-solid fa-download"></i>
+                        <DownloadIcon Class="mr-2 inline-block" />
                         すべてZIPでダウンロード
                     </button>
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
-                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        <ResetIcon class="mr-2 inline-block align-middle w-[1em] h-[1em]" />
                         新規作成
                     </button>
                 </InfoPanel>
@@ -205,12 +205,12 @@
                     <button
                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full"
                         @onclick="DownloadAllImagesAsZip">
-                        <i class="fa-solid fa-download"></i> すべてZIPでダウンロード
+                        <DownloadIcon Class="mr-2 inline-block" />すべてZIPでダウンロード
                     </button>
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
-                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        <ResetIcon class="mr-2 inline-block align-middle w-[1em] h-[1em]" />
                         新規作成
                     </button>
                 </div>
