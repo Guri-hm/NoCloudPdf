@@ -23,9 +23,9 @@
             @onclick:stopPropagation>
             <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
                 <button
-                    class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg"
+                    class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg text-white"
                     @onclick="() => OnMovePreview.InvokeAsync(-1)" disabled="@IsPrevDisabled">
-                    <i class="text-white fa-solid fa-chevron-left"></i>
+                    <ChevronLeftIcon Class="w-5 h-5" />
                 </button>
                 @if (PageCount > 1)
                 {
@@ -39,21 +39,21 @@
                         }
                     </div>
                 }
-                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white"
                     @onclick="() => OnMovePreview.InvokeAsync(1)" disabled="@IsNextDisabled">
-                    <i class="text-white fa-solid fa-chevron-right"></i>
+                    <ChevronRightIcon Class="w-5 h-5" />
                 </button>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white" @onclick="OnRotateLeft"  title="左回転">
-                    <RotateLeftIcon/>
+                    <RotateLeftIcon Class="w-5 h-5" />
                 </button>
                 <button class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white"
                     @onclick="OnRotateRight" title="右回転">
-                    <RotateRightIcon/>
+                    <RotateRightIcon Class="w-5 h-5" />
                 </button>
                 <button
                     class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-r-lg text-white"
                     @onclick="OnRemove" title="削除">
-                    <DeleteIcon/>
+                    <DeleteIcon Class="w-5 h-5" />
                 </button>
             </div>
         </div>
