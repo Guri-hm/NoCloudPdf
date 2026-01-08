@@ -30,7 +30,6 @@ NoCloudPDFは、プライバシーを重視したブラウザベースのPDF操�
 - **Frontend**: Blazor WebAssembly
 - **UI Framework**: Tailwind CSS
 - **PDF処理**: PDF.js
-- **Icons**: Font Awesome
 - **Language**: C# (.NET 9)
 
 ## 🖥️ 対応環境
