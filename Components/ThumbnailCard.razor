@@ -280,7 +280,7 @@
         </button>);
         buttons.Add(@<button type="button" class="text-green-500 hover:text-green-700 p-1 mx-1 md:mx-0 md:my-0" title="複製"
             @onclick="() => OnDuplicate.InvokeAsync(Index)" @onpointerdown:stopPropagation>
-            <i class="fa-solid fa-copy"></i>
+            <CopyIcon />
         </button>);
         buttons.Add(@<button type="button" class="text-blue-500 hover:text-blue-700 p-1 mx-1 md:mx-0 md:my-0" title="回転"
             @onclick="() => OnRotate.InvokeAsync(Index)" @onpointerdown:stopPropagation>

@@ -370,7 +370,7 @@
                                         <button
                                             class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs flex items-center gap-1 shadow-md transition"
                                             @onclick="() => CopyToClipboard(result.Text)">
-                                            <i class="fa-solid fa-copy"></i>
+                                            <CopyIcon />
                                             コピー
                                         </button>
                                     </div>
@@ -399,7 +399,7 @@
                                                         class="flex-shrink-0 text-blue-600 hover:text-blue-800 transition"
                                                         @onclick="() => CopyToClipboard(line.Text)"
                                                         title="コピー">
-                                                        <i class="fa-solid fa-copy"></i>
+                                                        <CopyIcon />
                                                     </button>
                                                 </div>
                                             }
