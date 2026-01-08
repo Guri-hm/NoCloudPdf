@@ -53,7 +53,7 @@
                     <DropdownButton T="string" MenuId="sortMenu" MenuItems="sortMenuItems">
                         <Trigger>
                             <DropdownTriggerButton>
-                                <i class="fa-solid fa-arrow-down-a-z"></i>
+                                <AtoZIcon Class="w-6 h-6" />
                                 <span class="hidden xl:inline">並び替え</span>
                             </DropdownTriggerButton>
                         </Trigger>
@@ -92,7 +92,7 @@
             {
                 <div class="w-full flex justify-center my-2">
                     <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded font-bold text-sm flex items-center gap-2">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <TriangleExclamationIcon />
                         ファイルの読み込み中です。すべてのページの読み込みが完了するまで、タブの切り替えや画面遷移を行わないでください。
                     </div>
                 </div>
@@ -111,7 +111,7 @@
                 <div class="w-full flex justify-center my-2">
                     <button class="px-4 py-2 border-2 border-yellow-400 text-yellow-700 bg-white rounded hover:bg-yellow-50 transition font-bold"
                         @onclick="ReloadAllThumbnailsAsync">
-                        <i class="fa-solid fa-rotate-left mr-2"></i>
+                        <RefreshIcon />
                         画像エラーを一括で再読み込み
                     </button>
                 </div>
@@ -233,7 +233,7 @@
                    <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4 gap-1"
                         @onclick="StartNew">
-                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        <ResetIcon class="mr-2 inline-block align-middle w-[1em] h-[1em]" />
                         新規作成
                     </button>
                 </InfoPanel>
@@ -245,7 +245,7 @@
                 class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
                 <div class="flex flex-col items-center gap-4">
                     <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
-                        <i class="fa-solid fa-check-circle"></i>
+                        <CheckCircleIcon />
                         <span>完了</span>
                     </div>
                     <div class="text-gray-800 font-semibold truncate w-full text-center">@resultZipName</div>
@@ -258,12 +258,12 @@
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-2"
                         @onclick="StartNew">
-                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        <ResetIcon class="mr-2 inline-block align-middle w-[1em] h-[1em]" />
                         新規作成
                     </button>
                 </div>
                 <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
-                    <i class="fa-solid fa-xmark"></i>
+                    <CloseIcon/>
                 </button>
             </div>
             <!-- 展開ボタン -->
@@ -272,9 +272,9 @@
                 <button
                     class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
                     @onclick="() => isMenuOpen = true">
-                    <i class="fa-solid fa-check-circle text-green-600 text-2xl"></i>
-                    <span>完了</span>
-                    <i class="fa-solid fa-chevron-up ml-2"></i>
+                    <CheckCircleIcon Class="text-green-600 text-2xl"/>
+                    <span class="text-green-600">完了</span>
+                    <ChevronUpIcon/>
                 </button>
             }
         </div>
@@ -390,10 +390,14 @@
         new ActionButtonItem
         {
             Label = GetPrimaryActionLabel(),
-            IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowRightIcon));
+                builder.CloseComponent();
+            },
             Title = GetPrimaryActionLabel(),
             OnClick = EventCallback.Factory.Create(this, ProcessPdfs),
-            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex",
             IconPosition = "right",
             TextColor = "text-white"
         }
@@ -420,7 +424,11 @@
         new ActionButtonItem
         {
             Label = "編集に戻る",
-            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.CloseComponent();
+            },
             Title = "編集に戻る",
             OnClick = EventCallback.Factory.Create(this, BackToEdit),
         }
@@ -1209,20 +1217,30 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
     }
 
     private List<ToggleButtonItem<string>> toggleItems = new()
-{
-new ToggleButtonItem<string>
-{
-Value = "Split",
-Label = "分割",
-IconSvg = @"<i class=""fa-solid fa-scissors""></i>"
-},
-new ToggleButtonItem<string>
-{
-Value = "Extract",
-Label = "抽出",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path fill='currentColor' fill-rule='evenodd' d='M14 4h5v6h-5zm-1-1h7v8h-7zm7 10h-7v8h7zm-10 1H5v6h5zm-5-1H4v8h7v-8zm6-10H4v8h7z' clip-rule='evenodd'></path></svg>"
-}
-};
+    {
+        new ToggleButtonItem<string>
+        {
+        Value = "Split",
+        Label = "分割",
+        IconFragment = builder =>
+        {
+            builder.OpenComponent(0, typeof(ScissorsIcon));
+            builder.AddAttribute(1, "Class", "w-6 h-6");
+            builder.CloseComponent();
+        }
+        },
+        new ToggleButtonItem<string>
+        {
+        Value = "Extract",
+        Label = "抽出",
+        IconFragment = builder =>
+        {
+            builder.OpenComponent(0, typeof(ExtractIcon));
+            builder.AddAttribute(1, "Class", "w-6 h-6");
+            builder.CloseComponent();
+        }
+        }
+    };
 
     private string CurrentModeString => IsSplitMode ? "Split" : "Extract";
 

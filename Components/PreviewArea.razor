@@ -39,9 +39,9 @@
     @onclick:stopPropagation>
     <div class="flex w-full items-stretch divide-x divide-gray-400 rounded-lg">
         <button @onclick="PrevPage" disabled="@(CurrentPageNumber <= 1)"
-                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg disabled:opacity-50"
+                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition rounded-l-lg disabled:opacity-50 text-white"
                 title="前のページ">
-            <i class="text-white fa-solid fa-chevron-left"></i>
+                <ChevronLeftIcon Class="w-5 h-5" />
         </button>
         
         <div class="flex-1 px-2 flex items-center justify-center text-white font-bold whitespace-nowrap">
@@ -52,17 +52,17 @@
         </div>
         
         <button @onclick="NextPage" disabled="@(CurrentPageNumber >= TotalPages)"
-                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition"
+                class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white"
                 title="次のページ">
-            <i class="text-white fa-solid fa-chevron-right"></i>
+            <ChevronRightIcon Class="w-5 h-5" />
         </button>
         
-        <button @onclick="ZoomOut" class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition" title="縮小">
-            <ZoomOutIcon Class="w-5 h-5 text-white" />
+        <button @onclick="ZoomOut" class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white" title="縮小">
+            <ZoomOutIcon Class="w-5 h-5" />
         </button>
         
-        <button @onclick="ZoomIn" class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition" title="拡大">
-            <ZoomInIcon Class="w-5 h-5 text-white" />
+        <button @onclick="ZoomIn" class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition text-white" title="拡大">
+            <ZoomInIcon Class="w-5 h-5" />
         </button>
         
         <button @onclick="FitWidth" class="icon-btn flex-1 flex items-center justify-center py-4 px-4 hover:bg-gray-700 transition" title="幅に合わせる">

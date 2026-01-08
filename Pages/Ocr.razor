@@ -148,9 +148,9 @@
                 <div class="flex items-center gap-2">
                     <button class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 md:px-6 rounded transition"
                             @onclick="ExecuteOcrFromPreview">
-                        <i class="fa-solid fa-play"></i>
                         <span class="hidden md:inline">OCR実行 (@ocrPreviewItems.Count(p => p.IsSelected) 件)</span>
                         <span class="md:hidden">実行 (@ocrPreviewItems.Count(p => p.IsSelected))</span>
+                        <ArrowRightIcon/>
                     </button>
                 </div>
             </div>
@@ -183,7 +183,7 @@
             </div>
             <!-- DPI表示（変更不可） -->
             <div class="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded border border-blue-200">
-                <i class="fa-solid fa-image text-blue-600"></i>
+                <ImageIcon Class="text-blue-600"/>
                 <span class="text-sm font-medium text-blue-800">画質: @exportDpi DPI</span>
                 <Tooltip Text="DPIは編集画面で設定できます。変更するには編集画面に戻ってください。">
                     <InfoIcon Class="w-4 h-4 text-blue-600 cursor-pointer" />
@@ -240,17 +240,18 @@
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = (item.RotationAngle + 90) % 360 - 180; StateHasChanged(); }"
                                             title="左90度回転">
-                                        <i class="fa-solid fa-rotate-left"></i>
+                                        <RotateLeftSimpleIcon/>
                                     </button>
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = (item.RotationAngle - 90 + 360) % 360 - 180; StateHasChanged(); }"
                                             title="右90度回転">
-                                        <i class="fa-solid fa-rotate-right"></i>
+
+                                        <RotateRightSimpleIcon/>
                                     </button>
                                     <button class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = 0; StateHasChanged(); }"
                                             title="リセット">
-                                        <i class="fa-solid fa-undo mr-1"></i>0°
+                                        <RotateLeftSimpleIcon Class="inline-block mr-1"/>0°
                                     </button>
                                     <button class="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs transition"
                                             @onclick="() => { item.RotationAngle = 180; StateHasChanged(); }"
@@ -369,7 +370,7 @@
                                         <button
                                             class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs flex items-center gap-1 shadow-md transition"
                                             @onclick="() => CopyToClipboard(result.Text)">
-                                            <i class="fa-solid fa-copy"></i>
+                                            <CopyIcon />
                                             コピー
                                         </button>
                                     </div>
@@ -385,7 +386,6 @@
                                 {
                                     <details class="mt-3">
                                         <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800 select-none">
-                                            <i class="fa-solid fa-chevron-down mr-1"></i>
                                             行ごとの詳細を表示 (@result.Lines.Count 行)
                                         </summary>
                                         <div class="mt-2 space-y-2 max-h-48 overflow-auto border border-gray-200 rounded p-2 bg-gray-50">
@@ -398,7 +398,7 @@
                                                         class="flex-shrink-0 text-blue-600 hover:text-blue-800 transition"
                                                         @onclick="() => CopyToClipboard(line.Text)"
                                                         title="コピー">
-                                                        <i class="fa-solid fa-copy"></i>
+                                                        <CopyIcon />
                                                     </button>
                                                 </div>
                                             }
@@ -413,24 +413,67 @@
             
             <!-- 情報パネル（PCのみ表示） -->
             <div class="hidden md:flex flex-col w-full max-w-xs bg-white border-l border-gray-200 shadow-lg h-full p-6 justify-center items-center">
-                <InfoPanel Title="完了" FileName="@mergedFileName" FileSize="@mergedFileSize" PageCount="@mergedPageCount">
+                <InfoPanel Title="完了" FileName="@mergedFileName" FileSize="@mergedFileSize">
                     <button
                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center transition"
                         @onclick="DownloadAllOcrResultsAsText">
-                        <i class="fa-solid fa-download mr-2"></i>
+                        <DownloadIcon Class="mr-2"/>
                         すべてテキストでダウンロード
                     </button>
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4 transition"
                         @onclick="StartNew">
-                        <ResetIcon class="inline-block align-middle w-[1em] h-[1em]" />
+                        <ResetIcon class="mr-2 inline-block align-middle w-[1em] h-[1em]" />
                         新規作成
                     </button>
                 </InfoPanel>
             </div>
         </div>
         
-        <!-- 以下省略 -->
+        <!-- 下部スライドアップメニュー（タブレット以下のサイズのみ） -->
+        <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
+            <div
+                class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="flex items-center gap-2 text-green-600 text-2xl font-bold">
+                        <CheckCircleIcon />
+                        <span>完了</span>
+                    </div>
+                    <div class="text-gray-800 font-semibold truncate w-full text-center">@mergedFileName</div>
+                    <div class="text-gray-600 text-sm">サイズ: @mergedFileSize</div>
+                    <button
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="DownloadAllOcrResultsAsText">
+                        すべてテキストでダウンロード
+                    </button>
+                    <button
+                        class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
+                        @onclick="StartNew">
+                        <ResetIcon class="mr-2 inline-block align-middle w-[1em] h-[1em]" />
+                        新規作成
+                    </button>
+                </div>
+                <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
+                    <CloseIcon/>
+                </button>
+            </div>
+            <!-- 展開ボタン -->
+            @if (!isMenuOpen)
+            {
+                <button
+                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
+                    @onclick="() => isMenuOpen = true">
+                    <CheckCircleIcon Class="text-green-600 text-2xl"/>
+                    <span class="text-green-600">完了</span>
+                    <ChevronUpIcon/>
+                </button>
+            }
+        </div>
+        <!-- メニュー展開時はPDFのスクロールを禁止 -->
+        @if (isMenuOpen)
+        {
+            <div class="fixed inset-0 bg-black/30 z-[199] touch-none" @onclick="() => isMenuOpen = false"></div>
+        }
     </div>
 }
 <!-- ローディング中 -->
@@ -535,9 +578,9 @@
     private bool IsFilesLoaded => DisplayItems.Any();
 
     private DotNetObjectReference<Ocr>? _dotNetRef;
+    private bool isMenuOpen = false;
     private string mergedFileName = "";
     private string mergedFileSize = "";
-    private int mergedPageCount = 0;
     private bool isDrawingMode = true;
     private int thumbnailAreaWidth = 300;
     private int _rotationCounter = 0;
@@ -788,7 +831,6 @@
             
             mergedFileName = $"ocr_results_{DateTime.Now:yyyyMMddHHmm}.txt";
             mergedFileSize = FormatFileSize(ocrResults.Sum(r => System.Text.Encoding.UTF8.GetByteCount(r.Text)));
-            mergedPageCount = ocrResults.Count;
             
             currentState = OcrWorkflowState.Completed;
             CompletionState.SetShowResult(true);
@@ -953,10 +995,14 @@
         new ActionButtonItem
         {
             Label = "完了",
-            IconHtml = "<i class='fa-solid fa-arrow-right text-xl'></i>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowRightIcon));
+                builder.CloseComponent();
+            },
             Title = "完了",
             OnClick = EventCallback.Factory.Create(this, ShowOcrPreview),
-            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex h-10",
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex",
             IconPosition = "right",
             TextColor = "text-white"
         }
@@ -984,7 +1030,11 @@
         new ActionButtonItem
         {
             Label = "編集に戻る",
-            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.CloseComponent();
+            },
             Title = "編集に戻る",
             OnClick = EventCallback.Factory.Create(this, BackToEdit),
         }
@@ -996,7 +1046,11 @@
         new ActionButtonItem
         {
             Label = "プレビューに戻る",
-            IconHtml = "<i class='fa-solid fa-arrow-left'></i>",
+            Icon = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.CloseComponent();
+            },
             Title = "プレビューに戻る",
             OnClick = EventCallback.Factory.Create(this, BackToPreview),
         }
@@ -1244,7 +1298,6 @@
         ocrPreviewItems.Clear();
         mergedFileName = "";
         mergedFileSize = "";
-        mergedPageCount = 0;
         currentState = OcrWorkflowState.Editing;
         StateHasChanged();
     }

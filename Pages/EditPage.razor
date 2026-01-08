@@ -22,7 +22,7 @@
     <div class="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-4">
             <button @onclick="NavigateBack" class="text-gray-600 hover:text-gray-800">
-                <i class="fa-solid fa-arrow-left text-xl"></i>
+                <ArrowLeftIcon/>
             </button>
             <h1 class="text-lg font-semibold">ページ編集</h1>
             @if (!string.IsNullOrEmpty(fileName))
@@ -42,11 +42,11 @@
         <!-- ズーム -->
         <div class="flex items-center gap-2 flex-shrink-0">
             <button @onclick="ZoomOut" class="p-2 hover:bg-gray-200 rounded">
-                <i class="fa-solid fa-minus"></i>
+                <ZoomOutIcon/>
             </button>
-            <span class="text-sm font-medium w-16 text-center">@((int)(zoomLevel * 100))%</span>
+            <span class="text-sm font-medium text-center">@((int)(zoomLevel * 100))%</span>
             <button @onclick="ZoomIn" class="p-2 hover:bg-gray-200 rounded">
-                <i class="fa-solid fa-plus"></i>
+                <ZoomInIcon/>
             </button>
             <button @onclick="FitToScreen" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">
                 画面に合わせる
@@ -59,15 +59,15 @@
         <div class="flex items-center gap-2 flex-shrink-0">
             <button @onclick="() => SetTool(EditTool.Select)"
                 class="p-2 rounded @(currentTool == EditTool.Select ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <i class="fa-solid fa-mouse-pointer"></i>
+                <ArrowPointerIcon/>
             </button>
             <button @onclick="() => SetTool(EditTool.Text)"
                 class="p-2 rounded @(currentTool == EditTool.Text ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <i class="fa-solid fa-font"></i>
+                <FontIcon/>
             </button>
             <button @onclick="() => SetTool(EditTool.Image)"
                 class="p-2 rounded @(currentTool == EditTool.Image ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <i class="fa-solid fa-image"></i>
+                <ImageIcon/>
             </button>
         </div>
 
@@ -168,7 +168,7 @@
                         title="太字"
                         aria-pressed="@IsBoldActive"
                         class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
-                        <i class="fa-solid fa-bold"></i>
+                        <BoldIcon/>
                     </button>
                     <input type="color"
                         class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
@@ -287,13 +287,13 @@
                                             {
                                                 <button class="edit-btn absolute top-[-20px] right-[35px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
                                                     @onclick="() => StartTextEdit(element)" @onclick:stopPropagation title="テキスト編集">
-                                                    <i class="fa-solid fa-pen"></i>
+                                                    <PenIcon/>
                                                 </button>
                                             }
                                         }
                                         <button class="delete-btn absolute top-[-20px] right-[10px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
                                             @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                            <i class="fa-solid fa-times"></i>
+                                            <CloseIcon/>
                                         </button>
                                     </div>
                                 }
@@ -330,7 +330,7 @@
                                 {
                                     <button class="delete-btn absolute top-[-20px] right-[-20px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
                                             @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                        <i class="fa-solid fa-times"></i>
+                                            <CloseIcon/>
                                     </button>
                                 }
                             </div>
