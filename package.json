@@ -3,8 +3,11 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "autoprefixer": "^10.4.21",
+    "minimist": "^1.2.8",
     "postcss": "^8.5.6",
     "postcss-cli": "^11.0.1",
+    "svg-path-bounds": "^1.0.2",
+    "svgpath": "^2.6.0",
     "tailwindcss": "^4.1.11",
     "terser": "^5.43.1",
     "vite": "^7.1.3"
