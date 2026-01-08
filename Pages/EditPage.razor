@@ -293,7 +293,7 @@
                                         }
                                         <button class="delete-btn absolute top-[-20px] right-[10px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
                                             @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                            <i class="fa-solid fa-times"></i>
+                                            <CloseIcon/>
                                         </button>
                                     </div>
                                 }
@@ -330,7 +330,7 @@
                                 {
                                     <button class="delete-btn absolute top-[-20px] right-[-20px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
                                             @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                        <i class="fa-solid fa-times"></i>
+                                            <CloseIcon/>
                                     </button>
                                 }
                             </div>
