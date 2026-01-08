@@ -50,15 +50,12 @@
                     <DropdownButton T="string" MenuId="sortMenu" MenuItems="sortMenuItems">
                         <Trigger>
                             <DropdownTriggerButton>
-                                <i class="fa-solid fa-arrow-down-a-z"></i>
+                                <AtoZIcon Class="w-6 h-6" />
                                 <span class="hidden xl:inline">並び替え</span>
                             </DropdownTriggerButton>
                         </Trigger>
                     </DropdownButton>
-                    @* <button class="ml-2 px-3 py-1 bg-pink-600 text-white rounded hover:bg-pink-700"
-                            @onclick="() => PdfDataService.SwapPages(0)">
-                        0と1を入れ替え
-                    </button> *@
+
                 </div>
 
                 <ActionButtonGroup T="string" Actions="primaryActions" />
