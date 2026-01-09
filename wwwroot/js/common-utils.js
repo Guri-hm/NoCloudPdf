@@ -19,3 +19,28 @@ window.scrollToSection = function scrollToSection(element) {
         element.scrollIntoView({ behavior: "smooth" });
     }
 }
+
+window.imageViewerUtils = {
+    addWheelListener: function(elementId, dotNetRef) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+
+        const handler = (e) => {
+            // 画像エリア上でホイール操作があったらズーム処理し、デフォルト動作を抑止
+            e.preventDefault();
+            dotNetRef.invokeMethodAsync('HandleWheelFromJs', e.deltaY);
+        };
+
+        // passive: false で登録することで preventDefault が有効になる
+        el.addEventListener('wheel', handler, { passive: false });
+        el._wheelHandler = handler;
+    },
+
+    removeWheelListener: function(elementId) {
+        const el = document.getElementById(elementId);
+        if (el && el._wheelHandler) {
+            el.removeEventListener('wheel', el._wheelHandler);
+            delete el._wheelHandler;
+        }
+    }
+};

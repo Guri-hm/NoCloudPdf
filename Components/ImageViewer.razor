@@ -1,4 +1,5 @@
 @inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
 
 <div class="relative bg-gray-100 overflow-hidden" style="height: @Height">
     <div class="absolute inset-0 flex items-center justify-center"
@@ -7,9 +8,7 @@
          @onmousedown="StartPan"
          @onmousemove="DoPan"
          @onmouseup="EndPan"
-         @onmouseleave="EndPan"
-         @onwheel="HandleWheel"
-         @onwheel:preventDefault="true">
+         @onmouseleave="EndPan">
         
         <img src="@ImageSrc"
              alt="@AltText"
@@ -17,7 +16,6 @@
              style="@GetImageStyle()"
              draggable="false" />
         
-        <!-- ズームコントロール -->
         @if (ShowControls)
         {
             <div class="absolute bottom-2 right-2 flex gap-1 items-center bg-black/70 rounded px-2 py-1">
@@ -70,6 +68,26 @@
     private const double MinZoom = 0.5;
     private const double MaxZoom = 3.0;
 
+    private DotNetObjectReference<ImageViewer>? _dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("imageViewerUtils.addWheelListener", containerId, _dotNetRef);
+        }
+    }
+
+    [JSInvokable]
+    public void HandleWheelFromJs(double deltaY)
+    {
+        if (deltaY < 0)
+            ZoomIn();
+        else
+            ZoomOut();
+    }
+
     private void ZoomIn()
     {
         zoom = Math.Min(MaxZoom, zoom + ZoomStep);
@@ -79,7 +97,6 @@
     private void ZoomOut()
     {
         zoom = Math.Max(MinZoom, zoom - ZoomStep);
-        // ズームアウト時にパン位置を調整（画像が小さくなったら中央に戻す）
         if (zoom <= 1.0)
         {
             panX = 0;
@@ -96,21 +113,9 @@
         StateHasChanged();
     }
 
-    private void HandleWheel(WheelEventArgs e)
-    {
-        // Ctrl + ホイールでズーム
-        if (e.CtrlKey)
-        {
-            if (e.DeltaY < 0)
-                ZoomIn();
-            else
-                ZoomOut();
-        }
-    }
-
     private void StartPan(MouseEventArgs e)
     {
-        if (zoom <= 1.0) return; // ズームしていない場合はパン不要
+        if (zoom <= 1.0) return;
         
         isPanning = true;
         panStartX = e.ClientX;
@@ -141,21 +146,16 @@
     {
         var transforms = new List<string>();
         
-        // CSS transformは右から左に適用されるため、逆順に記述
-        
-        // 3. パンを先に記述（実際には最初に適用される）
         if (Math.Abs(panX) > 0.1 || Math.Abs(panY) > 0.1)
         {
             transforms.Add($"translate({panX}px, {panY}px)");
         }
         
-        // 2. ズームを記述
         if (zoom != 1.0)
         {
             transforms.Add($"scale({zoom})");
         }
         
-        // 1. 回転を最後に記述（実際には最後に適用される）
         if (Math.Abs(RotationAngle) > 0.1)
         {
             transforms.Add($"rotate({RotationAngle}deg)");
@@ -183,6 +183,15 @@
         {
             IsSelected = value;
             await IsSelectedChanged.InvokeAsync(value);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_dotNetRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("imageViewerUtils.removeWheelListener", containerId);
+            _dotNetRef.Dispose();
         }
     }
 }
