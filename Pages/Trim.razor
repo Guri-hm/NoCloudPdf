@@ -638,6 +638,12 @@
         },
         new ActionButtonItem
         {
+            Title = "縮小",
+            OnClick = EventCallback.Factory.Create(this, ZoomIn),
+            Label = "縮小"
+        },
+        new ActionButtonItem
+        {
             IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ZoomInIcon));

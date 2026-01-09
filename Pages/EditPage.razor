@@ -31,18 +31,9 @@
                 {
                     <span class="text-sm">@fileName - ページ @(PageIndex + 1)</span>
                 }
-                @* <ActionButtonGroup T="string" Actions="zoomActions" /> *@
+                <ActionButtonGroup T="string" Actions="zoomActions" />
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <button @onclick="ZoomOut" class="p-2 hover:bg-gray-200 rounded">
-                        <ZoomOutIcon/>
-                    </button>
-                    <span class="text-sm font-medium text-center">@((int)(zoomLevel * 100))%</span>
-                    <button @onclick="ZoomIn" class="p-2 hover:bg-gray-200 rounded">
-                        <ZoomInIcon/>
-                    </button>
-                    <button @onclick="FitToScreen" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">
-                        画面に合わせる
-                    </button>
+
                     <div class="h-6 w-px bg-gray-300"></div>
 
                     <div class="flex items-center gap-2 flex-shrink-0">
@@ -392,6 +383,39 @@
             ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex",
             IconPosition = "right",
             TextColor = "text-white"
+        }
+    };
+    
+    private List<ActionButtonItem> zoomActions => new()
+    {
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomOutIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "縮小",
+            OnClick = EventCallback.Factory.Create(this, ZoomOut),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Title = "倍率",
+            Label = $"{(int)(zoomLevel * 100)}%"
+        },
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomInIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "拡大",
+            OnClick = EventCallback.Factory.Create(this, ZoomIn),
+            IconPosition = "left"
         }
     };
 
