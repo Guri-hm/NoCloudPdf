@@ -1761,7 +1761,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         public double dpr { get; set; }
     }
 
-    // PDF再描画用メソッドを追加
+    // PDF再描画用メソッド
     private async Task RedrawPdfPage(bool applyFit = false)
     {
         var allPages = PdfDataService.GetModel().Pages;
