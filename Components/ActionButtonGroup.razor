@@ -22,9 +22,9 @@
 
             @if (string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "left")
             {
-                if (action.Icon != null)
+                if (action.IconFragment != null)
                 {
-                    @action.Icon
+                    @action.IconFragment
                 }
                 else if (!string.IsNullOrEmpty(action.IconHtml))
                 {
@@ -40,9 +40,9 @@
 
             @if (string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "right")
             {
-                if (action.Icon != null)
+                if (action.IconFragment != null)
                 {
-                    @action.Icon
+                    @action.IconFragment
                 }
                 else if (!string.IsNullOrEmpty(action.IconHtml))
                 {

@@ -11,14 +11,11 @@
     <div class="relative w-full max-w-lg max-h-[80vh] bg-white rounded-lg shadow-lg overflow-auto z-[100000]">
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-800">
-            <BookRibbonIcon class="inline-block align-middle w-[1em] h-[1em]" />
+            <BookRibbonIcon class="inline-block align-middle" />
             しおりで分割しますか？
             </h3>
             <button class="text-gray-500 hover:text-gray-700 p-1" title="閉じる" @onclick="OnCancel" aria-label="閉じる">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <CloseIcon class="w-5 h-5" />
             </button>
         </div>
 

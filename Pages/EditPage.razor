@@ -141,28 +141,6 @@
                     <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます">
                             <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                     </Tooltip>
-                    @* <button
-                        class="@(IsFitActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")"
-                        @onclick="() => uiFitTextToArea = !uiFitTextToArea" @onmousedown="() => ignoreTextBlur = true"
-                        title="テキストにフィット：オンでエリアに合わせ自動調整（折返しなし）"
-                        aria-pressed="@IsFitActive" aria-label="テキストにフィット切替">
-                        @if (IsFitActive)
-                        {
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        }
-                        else
-                        {
-                            <svg class="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        }
-                    </button> *@
                     <button
                         @onclick="ToggleBold"
                         title="太字"

@@ -8,9 +8,9 @@
         </button>
         @if (IsLoading)
         {
-            <div class="flex flex-col items-center justify-center">
-                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-                <span class="text-white">プレビュー画像を生成中...</span>
+            <div class="bg-white rounded-lg shadow-xl flex flex-col items-center justify-center gap-4 p-6">
+                <LoadingSpinnerIcon Class="w-16 h-16" />
+                <span class="text-gray-700 font-medium">プレビュー画像を生成中...</span>
             </div>
         }
         else if (!string.IsNullOrEmpty(ImageUrl))

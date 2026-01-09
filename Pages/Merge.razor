@@ -38,7 +38,7 @@
                     <DropdownButton T="string" MenuId="addMenu" MenuItems="addMenuItems">
                         <Trigger>
                             <DropdownTriggerButton>
-                                <AddIcon />
+                                <AddIcon Class="w-6 h-6" />
                                 <span class="hidden xl:inline">
                                     追加
                                 </span>
@@ -325,7 +325,7 @@
         new ActionButtonItem
         {
             Label = "結合",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ArrowRightIcon));
                 builder.CloseComponent();
@@ -806,9 +806,12 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         new ActionButtonItem
         {
         Label = "逆順",
-        IconHtml = @"<svg width='20' height='20' viewBox='0 0 21 21' fill='none' class=inline-block align-middle'><g
-        stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'><path d='M4.5 8.5l-4 4 4 4' /><path d='M12.5
-        12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
+        IconFragment = builder =>
+        {
+            builder.OpenComponent(0, typeof(LeftRightIcon));
+            builder.AddAttribute(1, "Class", "w-5 h-5"); 
+            builder.CloseComponent();
+        },
         Title = "逆順",
         OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         }
@@ -818,10 +821,10 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
     {
         new ActionButtonItem
         {
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ResetIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5"); // 必要に応じてサイズ調整
+                builder.AddAttribute(1, "Class", "w-5 h-5"); 
                 builder.CloseComponent();
             },
             Title = "最初からやり直す",
@@ -835,7 +838,7 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         new ActionButtonItem
         {
             Label = "編集に戻る",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ArrowLeftIcon));
                 builder.CloseComponent();
@@ -850,7 +853,7 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         new ActionButtonItem
         {
             Label = "左",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(RotateLeftIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
@@ -863,7 +866,7 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         new ActionButtonItem
         {
             Label = "右",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(RotateRightIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
@@ -949,25 +952,32 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         }
     }
 
+
     private List<ToggleButtonItem<string>> toggleItems = new()
-{
-new ToggleButtonItem<string>
-{
-Value = "File",
-Label = "ファイル",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='currentColor' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path
-fill-rule='evenodd' d='M2 2.002h14v2h2l4 4v14H8v-2H2zm1 17h5v-2H5v-1h3v-2H5v-1h3v-2H5v-1h3v-6h7v-1H3zm6
-0v2h12v-12h-4v-4H9zm9-11V5.417l2.586 2.585zm-7 4h8v1h-8zm8 3h-8v1h8zm-2 3h-6v1h6z'></path></svg>"
-},
-new ToggleButtonItem<string>
-{
-Value = "Page",
-Label = "ページ",
-IconSvg = @"<svg xmlns='http://www.w3.org/2000/svg' fill='currentColor' viewBox='0 0 24 24' class='w-5 h-5 mr-1'><path
-fill-rule='evenodd' d='M5 3h5v7H5zm-1 8V2h7v9zm10-8h5v7h-5zm-1 8V2h7v9zm-3 3H5v7h5zm-6-1v9h7v-9zm10 1h5v7h-5zm-1
-8v-9h7v9z' clip-rule='evenodd'></path></svg>"
-}
-};
+    {
+        new ToggleButtonItem<string>
+        {
+            Value = "File",
+            Label = "ファイル",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FileIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5"); 
+                builder.CloseComponent();
+            },
+        },
+        new ToggleButtonItem<string>
+        {
+            Value = "Page",
+            Label = "ページ",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(PageIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5"); 
+                builder.CloseComponent();
+            },
+        }
+    };
 
     private string CurrentDisplayModeString => CurrentDisplayMode == DisplayMode.File ? "File" : "Page";
 

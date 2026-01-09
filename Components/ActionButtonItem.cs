@@ -5,7 +5,7 @@ namespace NoCloudPdf.Components
     public class ActionButtonItem
     {
         public string Label { get; set; } = "";
-        public RenderFragment? Icon { get; set; }// コンポーネントやSVGなど
+        public RenderFragment? IconFragment { get; set; }// コンポーネントやSVGなど
         public string IconHtml { get; set; } = "";// HTML文字列
         public string Title { get; set; } = "";
         public EventCallback OnClick { get; set; }

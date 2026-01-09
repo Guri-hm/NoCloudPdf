@@ -8,7 +8,7 @@ const argv = minimist(process.argv.slice(2));
 
 function readInput() {
   if (argv.file) {
-    return fs.readFileSync(path.resolve(argv.file), "utf8").trim();
+    return fs.readFileSync(path.resolve(argv.file), "utf8");
   }
   if (argv.d) {
     return argv.d;
@@ -17,8 +17,18 @@ function readInput() {
   process.exit(2);
 }
 
+let d = null;
+
 try {
-  const d = readInput();
+  // read raw input
+  d = readInput();
+
+  // sanitize: remove CR, normalize whitespace, remove common invisible chars
+  d = d.replace(/\r/g, "")
+       .replace(/[\u200B\u200C\u200D\uFEFF]/g, "") // zero-width etc
+       .replace(/\s+/g, " ")
+       .trim();
+
   const [xmin, ymin, xmax, ymax] = bounds(d);
   const width = Math.max(0, xmax - xmin);
   const height = Math.max(0, ymax - ymin);
@@ -42,5 +52,10 @@ try {
   }
 } catch (e) {
   console.error("error:", e && e.message ? e.message : e);
+  // debug output to inspect problematic input
+  console.error("input (json):", JSON.stringify(d));
+  try {
+    console.error("input (hex):", Buffer.from(d || "", "utf8").toString("hex"));
+  } catch (_) {}
   process.exit(1);
 }

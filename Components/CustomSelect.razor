@@ -11,9 +11,9 @@
         }
         @if (SelectedItem != null)
         {
-            @if (SelectedItem.Icon != null)
+            @if (SelectedItem.IconFragment != null)
             {
-                @SelectedItem.Icon
+                @SelectedItem.IconFragment
             }
             <span>@SelectedItem.Label</span>
         }
@@ -30,9 +30,9 @@
                 <button type="button"
                         class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 whitespace-nowrap flex items-center gap-2 @(EqualityComparer<TValue>.Default.Equals(item.Value, Value) ? "bg-blue-100" : "") first:rounded-t-lg last:rounded-b-lg"
                         @onclick="() => OnItemClick(item)">
-                    @if (item.Icon != null)
+                    @if (item.IconFragment != null)
                     {
-                        @item.Icon
+                        @item.IconFragment
                     }
                     <span>@item.Label</span>
                 </button>
