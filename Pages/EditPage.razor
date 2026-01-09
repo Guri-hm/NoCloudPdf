@@ -1648,7 +1648,11 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
                 if (cachedPageSource == null)
                 {
-                    cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JSRuntime.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
+                    cachedPageSource = new PageSourceInfo { 
+                        origW = pageWidth, 
+                        origH = pageHeight, 
+                        dpr = await JSRuntime.InvokeAsync<double>("getDevicePixelRatio")
+                    };
                 }
 
                 // 回転角度を考慮して幅・高さを入れ替え
@@ -1740,10 +1744,12 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
         if (pageItem == null) return;
 
-        // getElementRectなどの値を確実に取得できるように待機
-        await InvokeAsync(StateHasChanged);
-        await JSRuntime.InvokeVoidAsync("waitForNextFrame");
-
+        if (applyFit)
+        {
+            // 初回表示時は待機させてfitScaleの正確に取得（異常値だと描画が真っ白になる）
+            await InvokeAsync(StateHasChanged);
+            await JSRuntime.InvokeVoidAsync("waitForNextFrame");
+        }
         var src = cachedPageSource;
         if (src == null)
         {
@@ -1770,7 +1776,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         {
             zoomLevel = Math.Max(0.1, Math.Min(fitScale, 5.0));
         }
-
         var rotateAngle = pageItem.RotateAngle;
 
         await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel, rotateAngle);

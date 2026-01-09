@@ -1,5 +1,9 @@
 let renderTask = null;
 
+window.getDevicePixelRatio = function() {
+    return window.devicePixelRatio || 1;
+};
+
 window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
     try {
         if (!pageData) return null;
@@ -8,7 +12,7 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
         const m = /^data:.*;base64,(.*)$/.exec(pageData);
         if (m && m[1]) raw = m[1];
 
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = window.getDevicePixelRatio();
 
         // try PDF
         try {
@@ -75,7 +79,7 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rota
         const page = await pdf.getPage(1);
 
         // 回転・ズームを反映したviewport
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = window.getDevicePixelRatio();
         const effectiveDpr = zoomLevel < 1 ? 1 : dpr;
         const targetScale = zoomLevel * effectiveDpr;
         const viewport = page.getViewport({ scale: targetScale, rotation: rotateAngle });

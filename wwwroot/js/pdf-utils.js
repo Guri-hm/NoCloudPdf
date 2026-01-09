@@ -152,11 +152,13 @@ function handlePdfError(error, context) {
 
 /**
  * 日本語判定
+ * \u3000-\u30FF: ひらがな・カタカナ（全角のみ）
+ * \u4E00-\u9FFF: 漢字
+ * \uFF01-\uFF9F: 半角記号・英数字・半角カタカナ
  */
 function containsJapanese(text) {
-    return /[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF60]/.test(text || "");
+    return /[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF9F]/.test(text || "");
 }
-
 // ========================================
 // フォント管理クラス
 // ========================================
