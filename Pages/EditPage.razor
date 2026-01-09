@@ -17,162 +17,155 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
 
 </HeadContent>
-<div class="edit-page-container h-screen flex flex-col">
+<div class="min-h-screen flex flex-col">
     <!-- ヘッダー -->
-    <div class="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <button @onclick="NavigateBack" class="text-gray-600 hover:text-gray-800">
-                <ArrowLeftIcon/>
-            </button>
-            <h1 class="text-lg font-semibold">ページ編集</h1>
-            @if (!string.IsNullOrEmpty(fileName))
-            {
-                <span class="text-sm text-gray-500">@fileName - ページ @(PageIndex + 1)</span>
-            }
-        </div>
-        <div class="flex items-center gap-3">
-            <button @onclick="SaveChanges" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                保存
-            </button>
-        </div>
-    </div>
+    <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
+        <div class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+            <div class="flex flex-wrap gap-2 items-center">
+                <ActionButtonGroup T="string" Actions="backToActions" />
 
-    <!-- ツールバー -->
-    <div class="bg-gray-50 border-b px-4 py-2 flex flex-wrap items-center gap-4">
-        <!-- ズーム -->
-        <div class="flex items-center gap-2 flex-shrink-0">
-            <button @onclick="ZoomOut" class="p-2 hover:bg-gray-200 rounded">
-                <ZoomOutIcon/>
-            </button>
-            <span class="text-sm font-medium text-center">@((int)(zoomLevel * 100))%</span>
-            <button @onclick="ZoomIn" class="p-2 hover:bg-gray-200 rounded">
-                <ZoomInIcon/>
-            </button>
-            <button @onclick="FitToScreen" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">
-                画面に合わせる
-            </button>
-        </div>
+                <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
 
-        <div class="h-6 w-px bg-gray-300"></div>
-
-        <!-- ツール選択 -->
-        <div class="flex items-center gap-2 flex-shrink-0">
-            <button @onclick="() => SetTool(EditTool.Select)"
-                class="p-2 rounded @(currentTool == EditTool.Select ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <ArrowPointerIcon/>
-            </button>
-            <button @onclick="() => SetTool(EditTool.Text)"
-                class="p-2 rounded @(currentTool == EditTool.Text ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <FontIcon/>
-            </button>
-            <button @onclick="() => SetTool(EditTool.Image)"
-                class="p-2 rounded @(currentTool == EditTool.Image ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <ImageIcon/>
-            </button>
-        </div>
-
-        @if (currentTool == EditTool.Text)
-        {
-            <div class="h-6 w-px bg-gray-300"></div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                        @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
-                        <option value="10">10px</option>
-                        <option value="11">11px</option>
-                        <option value="12">12px</option>
-                        <option value="13">13px</option>
-                        <option value="14">14px</option>
-                        <option value="15">15px</option>
-                        <option value="16">16px</option>
-                        <option value="18">18px</option>
-                        <option value="20">20px</option>
-                        <option value="22">22px</option>
-                        <option value="24">24px</option>
-                        <option value="28">28px</option>
-                        <option value="32">32px</option>
-                        <option value="36">36px</option>
-                        <option value="40">40px</option>
-                        <option value="48">48px</option>
-                        <option value="56">56px</option>
-                        <option value="64">64px</option>
-                    </select>
-                    <input type="number" min="6" max="128" step="1"
-                        class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                        @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
-                    <span class="text-xs text-gray-500">px</span>
-
-                    <input type="number" min="0" max="300" step="1"
-                    class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
-                    @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
-                    <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
-
-                    <select id="font-family-select"
-                        class="text-sm border rounded px-2 py-1 w-30 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@fontFamily"
-                        @onchange="OnFontFamilyChanged" @onmousedown="() => ignoreTextBlur = true">
-                        @* 編集中の要素 or 選択中の要素を取得 *@
-                        @{
-                            var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
-                            var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
-                            var targetElement = editingElement ?? selectedElement;
-                        }
-                        @if (targetElement != null && ContainsJapanese(targetElement.Text))
-                        {
-                            <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                            <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                        }
-                        else
-                        {
-                            <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                            <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                            <option value="sans-serif" title="ブラウザ既定のゴシック系（主に英数字）">システム ゴシック（英数字向け）</option>
-                            <option value="serif" title="ブラウザ既定の明朝系（主に英数字）">システム 明朝（英数字向け）</option>
-                            <option value="monospace" title="等幅フォント（コードや表記揃えに）">等幅（Monospace）</option>
-                            <option value="Arial, Helvetica, sans-serif" title="英字メインの欧文フォント">Arial（英字向け）</option>
-                            <option value="Times New Roman, serif" title="欧文の明朝系フォント">Times New Roman（英字向け）</option>
-                            <option value="Meiryo, sans-serif" title="メイリオ（Windows 日本語ゴシック）">Meiryo（Windows）</option>
-                            <option value="Yu Gothic, sans-serif" title="游ゴシック（Windows 日本語ゴシック）">游ゴシック（Windows）</option>
-                        }
-                    </select>
-                    <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます">
-                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
-                    </Tooltip>
-                    <button
-                        @onclick="ToggleBold"
-                        title="太字"
-                        aria-pressed="@IsBoldActive"
-                        class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
-                        <BoldIcon/>
+                <h1 class="hidden md:inline text-lg font-bold">ページ編集</h1>
+                @if (!string.IsNullOrEmpty(fileName))
+                {
+                    <span class="text-sm">@fileName - ページ @(PageIndex + 1)</span>
+                }
+                @* <ActionButtonGroup T="string" Actions="zoomActions" /> *@
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <button @onclick="ZoomOut" class="p-2 hover:bg-gray-200 rounded">
+                        <ZoomOutIcon/>
                     </button>
-                    <input type="color"
-                        class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@CurrentTextColor"
-                        @oninput="OnTextColorInput"
-                        @onfocus="() => ignoreNextPageClick = true"
-                        @onblur="OnColorPickerBlur"
-                        @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
+                    <span class="text-sm font-medium text-center">@((int)(zoomLevel * 100))%</span>
+                    <button @onclick="ZoomIn" class="p-2 hover:bg-gray-200 rounded">
+                        <ZoomInIcon/>
+                    </button>
+                    <button @onclick="FitToScreen" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">
+                        画面に合わせる
+                    </button>
+                    <div class="h-6 w-px bg-gray-300"></div>
+
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button @onclick="() => SetTool(EditTool.Select)"
+                            class="p-2 rounded @(currentTool == EditTool.Select ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
+                            <ArrowPointerIcon/>
+                        </button>
+                        <button @onclick="() => SetTool(EditTool.Text)"
+                            class="p-2 rounded @(currentTool == EditTool.Text ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
+                            <FontIcon/>
+                        </button>
+                        <button @onclick="() => SetTool(EditTool.Image)"
+                            class="p-2 rounded @(currentTool == EditTool.Image ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
+                            <ImageIcon/>
+                        </button>
+                    </div>
+
+                    @if (currentTool == EditTool.Text)
+                    {
+                        <div class="h-6 w-px bg-gray-300"></div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
+                                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
+                                    <option value="10">10px</option>
+                                    <option value="11">11px</option>
+                                    <option value="12">12px</option>
+                                    <option value="13">13px</option>
+                                    <option value="14">14px</option>
+                                    <option value="15">15px</option>
+                                    <option value="16">16px</option>
+                                    <option value="18">18px</option>
+                                    <option value="20">20px</option>
+                                    <option value="22">22px</option>
+                                    <option value="24">24px</option>
+                                    <option value="28">28px</option>
+                                    <option value="32">32px</option>
+                                    <option value="36">36px</option>
+                                    <option value="40">40px</option>
+                                    <option value="48">48px</option>
+                                    <option value="56">56px</option>
+                                    <option value="64">64px</option>
+                                </select>
+                                <input type="number" min="6" max="128" step="1"
+                                    class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
+                                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
+                                <span class="text-xs text-gray-500">px</span>
+
+                                <input type="number" min="0" max="300" step="1"
+                                class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
+                                @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
+                                <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
+
+                                <select id="font-family-select"
+                                    class="text-sm border rounded px-2 py-1 w-30 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    value="@fontFamily"
+                                    @onchange="OnFontFamilyChanged" @onmousedown="() => ignoreTextBlur = true">
+                                    @* 編集中の要素 or 選択中の要素を取得 *@
+                                    @{
+                                        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+                                        var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
+                                        var targetElement = editingElement ?? selectedElement;
+                                    }
+                                    @if (targetElement != null && ContainsJapanese(targetElement.Text))
+                                    {
+                                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
+                                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
+                                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
+                                        <option value="sans-serif" title="ブラウザ既定のゴシック系（主に英数字）">システム ゴシック（英数字向け）</option>
+                                        <option value="serif" title="ブラウザ既定の明朝系（主に英数字）">システム 明朝（英数字向け）</option>
+                                        <option value="monospace" title="等幅フォント（コードや表記揃えに）">等幅（Monospace）</option>
+                                        <option value="Arial, Helvetica, sans-serif" title="英字メインの欧文フォント">Arial（英字向け）</option>
+                                        <option value="Times New Roman, serif" title="欧文の明朝系フォント">Times New Roman（英字向け）</option>
+                                        <option value="Meiryo, sans-serif" title="メイリオ（Windows 日本語ゴシック）">Meiryo（Windows）</option>
+                                        <option value="Yu Gothic, sans-serif" title="游ゴシック（Windows 日本語ゴシック）">游ゴシック（Windows）</option>
+                                    }
+                                </select>
+                                <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます">
+                                        <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                                </Tooltip>
+                                <button
+                                    @onclick="ToggleBold"
+                                    title="太字"
+                                    aria-pressed="@IsBoldActive"
+                                    class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
+                                    <BoldIcon/>
+                                </button>
+                                <input type="color"
+                                    class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    value="@CurrentTextColor"
+                                    @oninput="OnTextColorInput"
+                                    @onfocus="() => ignoreNextPageClick = true"
+                                    @onblur="OnColorPickerBlur"
+                                    @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
+                            </div>
+                        </div>
+                    }
+                    @if (currentTool == EditTool.Image)
+                    {
+                        <label class="flex items-center gap-1 text-sm flex-shrink-0">
+                            <input type="checkbox" @bind="keepAspectRatio" />
+                            アスペクト比固定
+                        </label>
+                        <label class="cursor-pointer px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
+                            画像を追加
+                            <InputFile OnChange="OnImageSelected" multiple class="hidden" />
+                        </label>
+                    }
                 </div>
             </div>
-        }
-        @if (currentTool == EditTool.Image)
-        {
-            <label class="flex items-center gap-1 text-sm flex-shrink-0">
-                <input type="checkbox" @bind="keepAspectRatio" />
-                アスペクト比固定
-            </label>
-            <label class="cursor-pointer px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
-                画像を追加
-                <InputFile OnChange="OnImageSelected" multiple class="hidden" />
-            </label>
-        }
+            <ActionButtonGroup T="string" Actions="primaryActions" />
+        </div>
     </div>
-
+        
     <!-- メインエディタエリア -->
-    <div class="edit-canvas-container h-full w-[100vw] md:w-[calc(100vw-70px)] min-w-0 overflow-auto flex justify-center items-start
+    <div class="edit-canvas-container h-full w-full min-w-0 overflow-auto flex justify-center items-start
     @(currentTool == EditTool.Text ? " cursor-text" : "")"
     @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp" @onmousemove="OnElementMouseMove">
                 <!-- PDF ページ -->
@@ -373,6 +366,34 @@
 
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
+
+    private List<ActionButtonItem> backToActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "戻る",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.CloseComponent();
+            },
+            Title = "戻る",
+            OnClick = EventCallback.Factory.Create(this, NavigateBack),
+        }
+    };
+
+    private List<ActionButtonItem> primaryActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "保存",
+            Title = "保存",
+            OnClick = EventCallback.Factory.Create(this, SaveChanges),
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex",
+            IconPosition = "right",
+            TextColor = "text-white"
+        }
+    };
 
     private string fontFamily = "NotoSansJP, sans-serif";
 
