@@ -1072,7 +1072,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(NUpIcon));
-                builder.AddAttribute(1, "Class", "text-black w-5 h-5");
+                builder.AddAttribute(1, "Class", "w-6 h-6");
                 builder.CloseComponent();
             }
         },
@@ -1083,7 +1083,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(TileIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.AddAttribute(1, "Class", "w-6 h-6");
                 builder.CloseComponent();
             }
         }

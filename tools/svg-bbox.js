@@ -13,8 +13,23 @@ function readInput() {
   if (argv.d) {
     return argv.d;
   }
+  // --decimals Nをつけると小数点以下N桁に丸める
   console.error('Usage: node tools/svg-bbox.js --d "<path d>" OR --file path/to/d.txt');
   process.exit(2);
+}
+
+function roundNumbersInPath(d, decimals) {
+  if (decimals == null) return d;
+  const dec = Math.max(0, Math.floor(Number(decimals) || 0));
+  return d.replace(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi, (num) => {
+    // leave integers as-is to avoid unnecessary .0
+    if (!num.includes('.') && !num.toLowerCase().includes('e')) return num;
+    const n = Number(num);
+    if (!isFinite(n)) return num;
+    let s = n.toFixed(dec);
+    s = s.replace(/\.?0+$/,''); // trim trailing zeros
+    return s;
+  });
 }
 
 let d = null;
@@ -36,12 +51,20 @@ try {
   // translate path so top-left becomes (0,0) ; transform not used in output path
   const translated = svgpath(d).translate(-xmin, -ymin).abs().toString();
 
+  // optional rounding
+  const decimals = argv.decimals ?? argv.dec ?? null;
+  const translatedRounded = decimals != null ? roundNumbersInPath(translated, decimals) : null;
+
   const result = {
     xmin, ymin, xmax, ymax,
     width, height,
     viewBox: `0 0 ${width} ${height}`,
     translatedPath: translated
   };
+
+  if (translatedRounded != null) {
+    result.translatedPathRounded = translatedRounded;
+  }
 
   const out = JSON.stringify(result, null, 2);
   if (argv.out) {
