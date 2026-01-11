@@ -156,12 +156,12 @@
     </div>
         
     <!-- メインエディタエリア -->
-    <div class="edit-canvas-container h-full w-full min-w-0 overflow-auto flex justify-center items-start
+    <div id="edit-canvas-container" class="edit-canvas-container h-full w-full min-w-0 overflow-auto flex justify-center items-start custom-scrollbar
     @(currentTool == EditTool.Text ? " cursor-text" : "")"
     @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp" @onmousemove="OnElementMouseMove">
                 <!-- PDF ページ -->
                 <div class="pdf-page bg-white shadow-lg relative"
-                    style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; transform: scale(1); transform-origin: center center;"
+                    style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; margin: 20px; transform: scale(1); transform-origin: center center;"
                     @onclick="OnPageClick">
                     <canvas id="pdf-canvas-@canvasUniqueId"
                             width="@(pageWidth)"
@@ -355,6 +355,14 @@
     private bool ignoreNextPageClick = false;
     private bool ignoreTextBlur = false;
 
+    // コンテナサイズのキャッシュ（ウィンドウリサイズ時に更新）
+    private double containerWidth = 0;
+    private double containerHeight = 0;
+    
+    // PDFページの余白（左右・上下）
+    private const double PAGE_MARGIN_X = 20;
+    private const double PAGE_MARGIN_Y = 20;
+
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
 
@@ -388,6 +396,30 @@
     
     private List<ActionButtonItem> zoomActions => new()
     {
+        new ActionButtonItem
+        {
+            Label = "幅に合わせる",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitWidthIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "幅に合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitToWidth),
+        },
+        new ActionButtonItem
+        {
+            Label = "高さに合わせる",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitHeightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "高さに合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitToHeight),
+        },
         new ActionButtonItem
         {
             IconFragment = builder =>
@@ -1654,6 +1686,12 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 _dotNetRef = DotNetObjectReference.Create(this);
                 await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
                 await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
+                await JSRuntime.InvokeVoidAsync("registerEditPageResize", _dotNetRef);
+                Console.WriteLine("JS イベント登録完了");
+                // 初期コンテナサイズを取得
+                var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
+                containerWidth = size.width;
+                containerHeight = size.height;
 
                 var allPages = PdfDataService.GetModel().Pages;
                 var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
@@ -1709,8 +1747,17 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
     {
         await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
         await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
+        await JSRuntime.InvokeVoidAsync("unregisterEditPageResize");
         _dotNetRef?.Dispose();
+    }
 
+    [JSInvokable]
+    public async Task OnWindowResized(double width, double height)
+    {
+        containerWidth = width;
+        containerHeight = height;
+        // 必要に応じて再描画
+        await InvokeAsync(StateHasChanged);
     }
 
     private async void NavigateBack()
@@ -1742,6 +1789,89 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         offsetX = 0;
         offsetY = 0;
         await RedrawPdfPage(applyFit: true);
+    }
+
+    private async void FitToWidth()
+    {
+        offsetX = 0;
+        offsetY = 0;
+        
+        var src = cachedPageSource;
+        if (src == null)
+        {
+            src = new PageSourceInfo
+            {
+                origW = pageWidth,
+                origH = pageHeight,
+                dpr = 1.0
+            };
+        }
+
+        // 利用可能な幅に合わせてズームレベルを計算（余白を考慮）
+        var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
+        var logicalW = Math.Max(1, src.origW);
+        
+        zoomLevel = Math.Max(0.1, Math.Min(availW / logicalW, 5.0));
+        await RedrawPdfPage();
+    }
+
+    private async void FitToHeight()
+    {
+        offsetX = 0;
+        offsetY = 0;
+        
+        var src = cachedPageSource;
+        if (src == null)
+        {
+            src = new PageSourceInfo
+            {
+                origW = pageWidth,
+                origH = pageHeight,
+                dpr = 1.0
+            };
+        }
+
+        // 利用可能な高さに合わせてズームレベルを計算（余白を考慮）
+        var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
+        var logicalH = Math.Max(1, src.origH);
+        
+        zoomLevel = Math.Max(0.1, Math.Min(availH / logicalH, 5.0));
+        await RedrawPdfPage();
+    }
+
+    private async void FitToBoth()
+    {
+        offsetX = 0;
+        offsetY = 0;
+        
+        var src = cachedPageSource;
+        if (src == null)
+        {
+            src = new PageSourceInfo
+            {
+                origW = pageWidth,
+                origH = pageHeight,
+                dpr = 1.0
+            };
+        }
+
+        // 縦横両方に合わせる（大きい方の倍率を使用、余白を考慮）
+        var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
+        var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
+        var logicalW = Math.Max(1, src.origW);
+        var logicalH = Math.Max(1, src.origH);
+        
+        // 両方いっぱいに表示（はみ出しても良い）
+        zoomLevel = Math.Max(0.1, Math.Min(Math.Max(availW / logicalW, availH / logicalH), 5.0));
+        await RedrawPdfPage();
+    }
+
+    private async void SetToActualSize()
+    {
+        offsetX = 0;
+        offsetY = 0;
+        zoomLevel = 1.0; // 100% = 実際のPDFサイズ
+        await RedrawPdfPage();
     }
     private class RectDto
     {

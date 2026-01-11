@@ -173,6 +173,90 @@ window.getElementRect = function (selector) {
     return { left: r.left, top: r.top, width: r.width, height: r.height };
 };
 
+window.getViewportSize = function () {
+    return {
+        width: window.innerWidth,
+        height: window.innerHeight
+    };
+};
+
+/**
+ * edit-canvas-containerのサイズを計算して固定
+ * ヘッダーとサイドバーを除いた画面領域のサイズに固定する
+ */
+window.updateEditContainerSize = function() {
+    const container = document.getElementById('edit-canvas-container');
+    if (!container) return { width: 0, height: 0 };
+    
+    // ビューポートサイズ
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    
+    // ヘッダーのサイズを取得
+    const header = document.querySelector('.sticky.top-0');
+    const headerHeight = header ? header.offsetHeight : 0;
+    
+    // Sidebarの幅を計算（mdサイズ以上の場合のみ）
+    const TW_BREAKPOINTS_MD = 768;
+    const isMobileHeaderSidebar = viewportWidth < TW_BREAKPOINTS_MD;
+    const sidebarEl = document.querySelector('.sidebar');
+    const sidebarW = (sidebarEl && !isMobileHeaderSidebar) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
+    
+    // コンテナのサイズを計算（ビューポート - ヘッダー - サイドバー）
+    const containerHeight = Math.max(1, viewportHeight - headerHeight);
+    const containerWidth = Math.max(1, viewportWidth - sidebarW);
+    
+    // サイズを明示的に固定
+    container.style.height = containerHeight + 'px';
+    container.style.width = containerWidth + 'px';
+    
+    return { width: containerWidth, height: containerHeight };
+};
+
+/**
+ * EditPage用ウィンドウリサイズハンドラ
+ */
+window.registerEditPageResize = function(dotNetRef) {
+    if (!dotNetRef) return;
+    
+    window._editPageResize = window._editPageResize || {};
+    window._editPageResize.dotNetRef = dotNetRef;
+    
+    let resizeTimer = null;
+    const onResize = function() {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            try {
+                // コンテナサイズを更新
+                const size = window.updateEditContainerSize();
+                
+                // .NET側に通知
+                if (window._editPageResize.dotNetRef && window._editPageResize.dotNetRef.invokeMethodAsync) {
+                    window._editPageResize.dotNetRef.invokeMethodAsync('OnWindowResized', size.width, size.height).catch(() => {});
+                }
+            } catch (e) {
+                console.error('EditPage resize error', e);
+            }
+        }, 150);
+    };
+    
+    window._editPageResize.handler = onResize;
+    window.addEventListener('resize', onResize, { passive: true });
+    
+    // 初回実行
+    try {
+        window.updateEditContainerSize();
+    } catch (e) {}
+};
+
+window.unregisterEditPageResize = function() {
+    if (window._editPageResize && window._editPageResize.handler) {
+        window.removeEventListener('resize', window._editPageResize.handler);
+        window._editPageResize.handler = null;
+        window._editPageResize.dotNetRef = null;
+    }
+};
+
 window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));
 };
