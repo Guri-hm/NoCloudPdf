@@ -17,9 +17,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
 
 </HeadContent>
-<div class="min-h-screen flex flex-col">
+<div class="min-h-screen flex flex-col h-screen overflow-hidden">
     <!-- ヘッダー -->
-    <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
+    <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50 flex-shrink-0">
         <div class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
             <div class="flex flex-wrap gap-2 items-center">
                 <ActionButtonGroup T="string" Actions="backToActions" />
@@ -31,25 +31,13 @@
                 {
                     <span class="text-sm">@fileName - ページ @(PageIndex + 1)</span>
                 }
+
+                <ToggleButtonGroup T="EditTool" 
+                    Items="toolToggleItems" 
+                    ActiveValue="currentTool"
+                    OnClick="OnToolChanged" />
                 <ActionButtonGroup T="string" Actions="zoomActions" />
                 <div class="flex items-center gap-2 flex-shrink-0">
-
-                    <div class="h-6 w-px bg-gray-300"></div>
-
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <button @onclick="() => SetTool(EditTool.Select)"
-                            class="p-2 rounded @(currentTool == EditTool.Select ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                            <ArrowPointerIcon/>
-                        </button>
-                        <button @onclick="() => SetTool(EditTool.Text)"
-                            class="p-2 rounded @(currentTool == EditTool.Text ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                            <FontIcon/>
-                        </button>
-                        <button @onclick="() => SetTool(EditTool.Image)"
-                            class="p-2 rounded @(currentTool == EditTool.Image ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                            <ImageIcon/>
-                        </button>
-                    </div>
 
                     @if (currentTool == EditTool.Text)
                     {
@@ -156,9 +144,9 @@
     </div>
         
     <!-- メインエディタエリア -->
-    <div id="edit-canvas-container" class="edit-canvas-container h-full w-full min-w-0 overflow-auto flex justify-center items-start custom-scrollbar
+    <div id="edit-canvas-container" class="flex-1 w-full min-w-0 overflow-auto flex justify-center items-start custom-scrollbar
     @(currentTool == EditTool.Text ? " cursor-text" : "")"
-    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp" @onmousemove="OnElementMouseMove">
+    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp">
                 <!-- PDF ページ -->
                 <div class="pdf-page bg-white shadow-lg relative"
                     style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; margin: 20px; transform: scale(1); transform-origin: center center;"
@@ -366,6 +354,49 @@
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
 
+    private List<ToggleButtonItem<EditTool>> toolToggleItems = new()
+    {
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Select,
+            Label = "選択",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowPointerIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Text,
+            Label = "テキスト",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FontIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Image,
+            Label = "画像",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ImageIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
+        }
+    };
+
+    private Task OnToolChanged(EditTool tool)
+    {
+        SetTool(tool);
+        return Task.CompletedTask;
+    }
+
     private List<ActionButtonItem> backToActions => new()
     {
         new ActionButtonItem
@@ -419,6 +450,18 @@
             },
             Title = "高さに合わせる",
             OnClick = EventCallback.Factory.Create(this, FitToHeight),
+        },
+        new ActionButtonItem
+        {
+            Label = "実際のサイズ",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ViewRealSizeIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "実際のサイズ",
+            OnClick = EventCallback.Factory.Create(this, SetToActualSize),
         },
         new ActionButtonItem
         {
@@ -769,17 +812,38 @@
         return cachedCanvasRect;
     }
     
-        private async void OnElementMouseMove(MouseEventArgs e)
+    private void OnElementMouseMove(MouseEventArgs e)
     {
+        // 何もしていない場合は即座にリターン（StateHasChangedを呼ばない）
+        if (resizingTextId == null && draggingElementId == null && draggingImageId == null && resizingImageId == null)
+        {
+            return; // 同期メソッドなので自動レンダリングされない
+        }
+
         // フレームレート制限（60FPS以下にする）
         DateTime now = DateTime.UtcNow;
         if ((now - lastMouseMoveTime).TotalMilliseconds < MouseMoveThrottleMs)
         {
-            return; // スキップ
+            return;
         }
         lastMouseMoveTime = now;
 
+        // 実際の処理は非同期で実行（await不要）
+        _ = OnElementMouseMoveAsync(e);
+
+    }
+
+    // 実際の処理を行う非同期メソッド
+    private async Task OnElementMouseMoveAsync(MouseEventArgs e)
+    {
+
         bool changed = false;
+
+        // テキストリサイズ中のみ処理（ドラッグ中でなければ何もしない）
+        if (resizingTextId == null && draggingElementId == null && draggingImageId == null && resizingImageId == null)
+        {
+            return; 
+        }
 
         // テキストリサイズ中
         if (resizingTextId != null && resizingTextHandle != null)
@@ -1030,6 +1094,7 @@
         }
         anchorFontSize = element.FontSize;
         draggingElementId = null;
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
     }
 
     // マウスアップ時にリサイズを終了
@@ -1067,7 +1132,7 @@
         return positions[handle] + "position:absolute;width:8px;height:8px;z-index:10;";
     }
 
-    private void OnElementMouseDown(MouseEventArgs e, EditElement element)
+    private async void OnElementMouseDown(MouseEventArgs e, EditElement element)
     {
         if (element.Type != ElementType.Text || !selectedElementIds.Contains(element.Id)) return;
         draggingElementId = element.Id;
@@ -1075,6 +1140,7 @@
         dragStartMouseY = e.ClientY;
         dragStartElementX = element.X;
         dragStartElementY = element.Y;
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
     }
 
     private async void OnFontSizeChanged(ChangeEventArgs e)
@@ -1154,7 +1220,7 @@
 
     private bool keepAspectRatio = true;
 
-    private void OnImageMouseDown(MouseEventArgs e, EditElement element)
+    private async void OnImageMouseDown(MouseEventArgs e, EditElement element)
     {
         if ((currentTool != EditTool.Image && currentTool != EditTool.Select) || !selectedElementIds.Contains(element.Id)) return;
         draggingImageId = element.Id;
@@ -1162,6 +1228,7 @@
         dragStartMouseY = e.ClientY;
         dragStartImageX = element.X;
         dragStartImageY = element.Y;
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
     }
 
     private void OnImageMouseMove(MouseEventArgs e)
@@ -1352,6 +1419,8 @@
         draggingImageId = null;
         resizingImageId = null;
         resizingHandle = null;
+        resizingTextId = null;
+        resizingTextHandle = null;
         StateHasChanged();
     }
 
@@ -1677,6 +1746,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        Console.WriteLine("Rendered EditPage component");
         if (firstRender)
         {
             try{
@@ -1684,10 +1754,10 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 await MessageService.ShowLoadingAsync("読み込み中...");
 
                 _dotNetRef = DotNetObjectReference.Create(this);
-                await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
-                await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
+                //await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
+                //await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
+                await JSRuntime.InvokeVoidAsync("registerEditPageMouseHandlers", _dotNetRef);
                 await JSRuntime.InvokeVoidAsync("registerEditPageResize", _dotNetRef);
-                Console.WriteLine("JS イベント登録完了");
                 // 初期コンテナサイズを取得
                 var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
                 containerWidth = size.width;
@@ -1732,6 +1802,10 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
                 // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
                 await RedrawPdfPage(applyFit: true);
+
+                StateHasChanged();
+
+                Console.WriteLine("Initial RedrawPdfPage executed");
             }catch(Exception ex)
             {
                 Console.WriteLine($"初期化エラー: {ex.Message}");
@@ -1745,8 +1819,9 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
     public async ValueTask DisposeAsync()
     {
-        await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
-        await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
+        //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
+        //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
+        await JSRuntime.InvokeVoidAsync("unregisterEditPageMouseHandlers");
         await JSRuntime.InvokeVoidAsync("unregisterEditPageResize");
         _dotNetRef?.Dispose();
     }
@@ -1776,12 +1851,14 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
     {
         zoomLevel = Math.Min(zoomLevel * 1.2, 5.0);
         await RedrawPdfPage();
+        Console.WriteLine($"ZoomIn: zoomLevel={zoomLevel}");
     }
 
     private async void ZoomOut()
     {
         zoomLevel = Math.Max(zoomLevel / 1.2, 0.1);
         await RedrawPdfPage();
+        Console.WriteLine($"ZoomOut: zoomLevel={zoomLevel}");
     }
 
     private async void FitToScreen()
@@ -1789,6 +1866,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         offsetX = 0;
         offsetY = 0;
         await RedrawPdfPage(applyFit: true);
+        Console.WriteLine("FitToScreen executed");
     }
 
     private async void FitToWidth()
@@ -1811,7 +1889,9 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
         var logicalW = Math.Max(1, src.origW);
         
-        zoomLevel = Math.Max(0.1, Math.Min(availW / logicalW, 5.0));
+        // 小数点第3位で丸める
+        zoomLevel = Math.Round(Math.Max(0.1, Math.Min(availW / logicalW, 5.0)), 3);
+        Console.WriteLine($"FitToWidth: availW={availW}, logicalW={logicalW}, zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
 
@@ -1835,7 +1915,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
         var logicalH = Math.Max(1, src.origH);
         
-        zoomLevel = Math.Max(0.1, Math.Min(availH / logicalH, 5.0));
+        zoomLevel = Math.Round(Math.Max(0.1, Math.Min(availH / logicalH, 5.0)), 3);
+        Console.WriteLine($"FitToHeight: availH={availH}, logicalH={logicalH}, zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
 
@@ -1862,7 +1943,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         var logicalH = Math.Max(1, src.origH);
         
         // 両方いっぱいに表示（はみ出しても良い）
-        zoomLevel = Math.Max(0.1, Math.Min(Math.Max(availW / logicalW, availH / logicalH), 5.0));
+        zoomLevel = Math.Round(Math.Max(0.1, Math.Min(Math.Max(availW / logicalW, availH / logicalH), 5.0)), 3);
+        Console.WriteLine($"FitToBoth: availW={availW}, availH={availH}, logicalW={logicalW}, logicalH={logicalH}, zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
 
@@ -1871,6 +1953,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         offsetX = 0;
         offsetY = 0;
         zoomLevel = 1.0; // 100% = 実際のPDFサイズ
+        Console.WriteLine($"SetToActualSize: zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
     private class RectDto
@@ -1916,9 +1999,11 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
 
         // 編集領域コンテナの可用サイズを取得
-        var containerRect = await JSRuntime.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
-        var availW = Math.Max(1, containerRect.width);
-        var availH = Math.Max(1, containerRect.height);
+        //var containerRect = await JSRuntime.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
+        //var availW = Math.Max(1, containerRect.width);
+        //var availH = Math.Max(1, containerRect.height);
+        var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
+        var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
 
         // origW/origH を基準にフィット（これで横長なら横幅いっぱい、縦長なら縦幅いっぱい）
         var logicalW = Math.Max(1, src.origW);
@@ -1928,7 +2013,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
         if (applyFit)
         {
-            zoomLevel = Math.Max(0.1, Math.Min(fitScale, 5.0));
+            zoomLevel = 1.0;
         }
         var rotateAngle = pageItem.RotateAngle;
 

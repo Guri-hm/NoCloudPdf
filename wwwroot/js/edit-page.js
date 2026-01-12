@@ -188,29 +188,11 @@ window.updateEditContainerSize = function() {
     const container = document.getElementById('edit-canvas-container');
     if (!container) return { width: 0, height: 0 };
     
-    // ビューポートサイズ
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-    
-    // ヘッダーのサイズを取得
-    const header = document.querySelector('.sticky.top-0');
-    const headerHeight = header ? header.offsetHeight : 0;
-    
-    // Sidebarの幅を計算（mdサイズ以上の場合のみ）
-    const TW_BREAKPOINTS_MD = 768;
-    const isMobileHeaderSidebar = viewportWidth < TW_BREAKPOINTS_MD;
-    const sidebarEl = document.querySelector('.sidebar');
-    const sidebarW = (sidebarEl && !isMobileHeaderSidebar) ? Math.round(sidebarEl.getBoundingClientRect().width) : 0;
-    
-    // コンテナのサイズを計算（ビューポート - ヘッダー - サイドバー）
-    const containerHeight = Math.max(1, viewportHeight - headerHeight);
-    const containerWidth = Math.max(1, viewportWidth - sidebarW);
-    
-    // サイズを明示的に固定
-    container.style.height = containerHeight + 'px';
-    container.style.width = containerWidth + 'px';
-    
-    return { width: containerWidth, height: containerHeight };
+    const rect = container.getBoundingClientRect();
+    return { 
+        width: Math.max(1, rect.width), 
+        height: Math.max(1, rect.height) 
+    };
 };
 
 /**
@@ -338,4 +320,72 @@ window.getImageSizeFromBase64 = function (base64) {
         };
         img.src = base64;
     });
+};
+
+/**
+ * EditPage用のマウスムーブハンドラを登録
+ * リサイズ/ドラッグ中のみBlazor側に通知
+ */
+window.registerEditPageMouseHandlers = function(dotNetRef) {
+    if (!dotNetRef) return;
+    
+    window._editPageMouse = window._editPageMouse || {};
+    window._editPageMouse.dotNetRef = dotNetRef;
+    window._editPageMouse.isActive = false; // リサイズ/ドラッグ中フラグ
+    
+    let lastMoveTime = 0;
+    const throttleMs = 16; // 60FPS
+    
+    const onMouseMove = function(e) {
+        // リサイズ/ドラッグ中でなければ何もしない
+        if (!window._editPageMouse.isActive) return;
+        
+        // スロットル処理
+        const now = Date.now();
+        if (now - lastMoveTime < throttleMs) return;
+        lastMoveTime = now;
+        
+        // Blazor側に通知
+        if (window._editPageMouse.dotNetRef && window._editPageMouse.dotNetRef.invokeMethodAsync) {
+            window._editPageMouse.dotNetRef.invokeMethodAsync('OnGlobalMouseMove', {
+                clientX: e.clientX,
+                clientY: e.clientY
+            }).catch(() => {});
+        }
+    };
+    
+    const onMouseUp = function(e) {
+        window._editPageMouse.isActive = false;
+        
+        if (window._editPageMouse.dotNetRef && window._editPageMouse.dotNetRef.invokeMethodAsync) {
+            window._editPageMouse.dotNetRef.invokeMethodAsync('OnGlobalMouseUp').catch(() => {});
+        }
+    };
+    
+    window._editPageMouse.moveHandler = onMouseMove;
+    window._editPageMouse.upHandler = onMouseUp;
+    
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+    window.addEventListener('mouseup', onMouseUp);
+};
+
+/**
+ * リサイズ/ドラッグ開始を通知（JavaScript側のフラグを立てる）
+ */
+window.setEditPageMouseActive = function(active) {
+    if (window._editPageMouse) {
+        window._editPageMouse.isActive = !!active;
+    }
+};
+
+window.unregisterEditPageMouseHandlers = function() {
+    if (window._editPageMouse) {
+        if (window._editPageMouse.moveHandler) {
+            window.removeEventListener('mousemove', window._editPageMouse.moveHandler);
+        }
+        if (window._editPageMouse.upHandler) {
+            window.removeEventListener('mouseup', window._editPageMouse.upHandler);
+        }
+        window._editPageMouse = null;
+    }
 };
