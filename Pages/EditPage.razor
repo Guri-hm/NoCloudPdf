@@ -1757,7 +1757,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 //await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
                 //await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
                 await JSRuntime.InvokeVoidAsync("registerEditPageMouseHandlers", _dotNetRef);
-                await JSRuntime.InvokeVoidAsync("registerEditPageResize", _dotNetRef);
+                //await JSRuntime.InvokeVoidAsync("registerEditPageResize", _dotNetRef);
                 // 初期コンテナサイズを取得
                 var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
                 containerWidth = size.width;
@@ -1822,7 +1822,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
         //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
         await JSRuntime.InvokeVoidAsync("unregisterEditPageMouseHandlers");
-        await JSRuntime.InvokeVoidAsync("unregisterEditPageResize");
+        //await JSRuntime.InvokeVoidAsync("unregisterEditPageResize");
         _dotNetRef?.Dispose();
     }
 
@@ -1891,7 +1891,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         
         // 小数点第3位で丸める
         zoomLevel = Math.Round(Math.Max(0.1, Math.Min(availW / logicalW, 5.0)), 3);
-        Console.WriteLine($"FitToWidth: availW={availW}, logicalW={logicalW}, zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
 
@@ -1916,7 +1915,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         var logicalH = Math.Max(1, src.origH);
         
         zoomLevel = Math.Round(Math.Max(0.1, Math.Min(availH / logicalH, 5.0)), 3);
-        Console.WriteLine($"FitToHeight: availH={availH}, logicalH={logicalH}, zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
 
@@ -1999,9 +1997,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
 
         // 編集領域コンテナの可用サイズを取得
-        //var containerRect = await JSRuntime.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
-        //var availW = Math.Max(1, containerRect.width);
-        //var availH = Math.Max(1, containerRect.height);
         var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
         var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
 

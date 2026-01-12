@@ -198,46 +198,46 @@ window.updateEditContainerSize = function() {
 /**
  * EditPage用ウィンドウリサイズハンドラ
  */
-window.registerEditPageResize = function(dotNetRef) {
-    if (!dotNetRef) return;
+// window.registerEditPageResize = function(dotNetRef) {
+//     if (!dotNetRef) return;
     
-    window._editPageResize = window._editPageResize || {};
-    window._editPageResize.dotNetRef = dotNetRef;
+//     window._editPageResize = window._editPageResize || {};
+//     window._editPageResize.dotNetRef = dotNetRef;
     
-    let resizeTimer = null;
-    const onResize = function() {
-        if (resizeTimer) clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-            try {
-                // コンテナサイズを更新
-                const size = window.updateEditContainerSize();
+//     let resizeTimer = null;
+//     const onResize = function() {
+//         if (resizeTimer) clearTimeout(resizeTimer);
+//         resizeTimer = setTimeout(() => {
+//             try {
+//                 // コンテナサイズを更新
+//                 const size = window.updateEditContainerSize();
                 
-                // .NET側に通知
-                if (window._editPageResize.dotNetRef && window._editPageResize.dotNetRef.invokeMethodAsync) {
-                    window._editPageResize.dotNetRef.invokeMethodAsync('OnWindowResized', size.width, size.height).catch(() => {});
-                }
-            } catch (e) {
-                console.error('EditPage resize error', e);
-            }
-        }, 150);
-    };
+//                 // .NET側に通知
+//                 if (window._editPageResize.dotNetRef && window._editPageResize.dotNetRef.invokeMethodAsync) {
+//                     window._editPageResize.dotNetRef.invokeMethodAsync('OnWindowResized', size.width, size.height).catch(() => {});
+//                 }
+//             } catch (e) {
+//                 console.error('EditPage resize error', e);
+//             }
+//         }, 150);
+//     };
     
-    window._editPageResize.handler = onResize;
-    window.addEventListener('resize', onResize, { passive: true });
+//     window._editPageResize.handler = onResize;
+//     window.addEventListener('resize', onResize, { passive: true });
     
-    // 初回実行
-    try {
-        window.updateEditContainerSize();
-    } catch (e) {}
-};
+//     // 初回実行
+//     try {
+//         window.updateEditContainerSize();
+//     } catch (e) {}
+// };
 
-window.unregisterEditPageResize = function() {
-    if (window._editPageResize && window._editPageResize.handler) {
-        window.removeEventListener('resize', window._editPageResize.handler);
-        window._editPageResize.handler = null;
-        window._editPageResize.dotNetRef = null;
-    }
-};
+// window.unregisterEditPageResize = function() {
+//     if (window._editPageResize && window._editPageResize.handler) {
+//         window.removeEventListener('resize', window._editPageResize.handler);
+//         window._editPageResize.handler = null;
+//         window._editPageResize.dotNetRef = null;
+//     }
+// };
 
 window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));
