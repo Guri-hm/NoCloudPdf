@@ -46,7 +46,9 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
+                                    @onchange="OnFontSizeChanged" 
+                                    @onclick:stopPropagation
+                                    @onmousedown:stopPropagation>
                                     <option value="10">10px</option>
                                     <option value="11">11px</option>
                                     <option value="12">12px</option>
@@ -69,13 +71,15 @@
                                 <input type="number" min="6" max="128" step="1"
                                     class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                                    @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
+                                    @onchange="OnFontSizeChanged" @onclick:stopPropagation
+    @onmousedown:stopPropagation placeholder="手入力" />
                                 <span class="text-xs text-gray-500">px</span>
 
                                 <input type="number" min="0" max="300" step="1"
                                 class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                                 value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
-                                @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
+                                @onchange="OnLineHeightChanged" @onclick:stopPropagation
+    @onmousedown:stopPropagation />
                                 <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
 
                                 <select id="font-family-select"
@@ -110,7 +114,8 @@
                                         <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                                 </Tooltip>
                                 <button
-                                    @onclick="ToggleBold"
+                                    @onclick="ToggleBold" 
+                                    @onclick:stopPropagation
                                     title="太字"
                                     aria-pressed="@IsBoldActive"
                                     class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
@@ -122,7 +127,8 @@
                                     @oninput="OnTextColorInput"
                                     @onfocus="() => ignoreNextPageClick = true"
                                     @onblur="OnColorPickerBlur"
-                                    @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
+                                    @onclick:stopPropagation
+                                    @onmousedown:stopPropagation/>
                             </div>
                         </div>
                     }
@@ -164,7 +170,7 @@
                         {
                             <div class="edit-element text-element absolute cursor-move select-none
                                 @(element.IsEditing
-                                    ? "border-2 border-blue-600 bg-blue-50"
+                                    ? "border-3 border-blue-600 bg-blue-50"
                                     : (selectedElementIds.Contains(element.Id)
                                         ? "border-2 border-blue-600"
                                         : "border-2 border-transparent"))"
@@ -225,26 +231,31 @@
                                     <div class="element-handles absolute inset-[-4px] pointer-events-none">
                                         @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
                                         {
-                                            <div class="handle handle-@handle absolute bg-blue-600 border border-white pointer-events-auto"
+                                            <div class="handle handle-@handle absolute border border-white pointer-events-auto z-[10]"
                                                 style="@GetHandleStyle(handle, element)"
                                                 @onmousedown="@(e => OnTextResizeMouseDown(e, element, handle))"
                                                 @onmousedown:stopPropagation>
                                             </div>
                                         }
-                                        @if (!element.IsEditing)
-                                        {
+
+                                        <div class="absolute top-0 left-[calc(100%+4px)] flex flex-col gap-1 rounded-md p-1 pointer-events-auto z-20" style="background-color:rgba(0, 0, 0, 0.6);">
                                             @if (currentTool == EditTool.Text)
                                             {
-                                                <button class="edit-btn absolute top-[-20px] right-[35px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
-                                                    @onclick="() => StartTextEdit(element)" @onclick:stopPropagation title="テキスト編集">
-                                                    <PenIcon/>
+                                                <button class="w-6 h-6 bg-transparent text-white border-none rounded cursor-pointer flex items-center justify-center hover:bg-gray-600 transition-colors"
+                                                    @onclick="() => StartTextEdit(element)" 
+                                                    @onclick:stopPropagation 
+                                                    title="テキスト編集">
+                                                    <PenIcon Class="w-4 h-4"/>
                                                 </button>
                                             }
-                                        }
-                                        <button class="delete-btn absolute top-[-20px] right-[10px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
-                                            @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                            <CloseIcon/>
-                                        </button>
+                                            <button class="w-6 h-6 bg-transparent text-white border-none rounded cursor-pointer flex items-center justify-center hover:bg-red-600 transition-colors"
+                                                @onclick="() => DeleteElement(element.Id)" 
+                                                @onclick:stopPropagation 
+                                                title="削除">
+                                                <DeleteIcon Class="w-4 h-4"/>
+                                            </button>
+                                        </div>
+
                                     </div>
                                 }
                             </div>
@@ -1112,8 +1123,6 @@
         StateHasChanged();
     }
 
-    // ...existing code...
-
     private string GetHandleStyle(string handle, EditElement element)
     {
         var w = element.Width * zoomLevel;
@@ -1129,7 +1138,7 @@
             ["sw"] = $"bottom:-4px;left:-4px;cursor:sw-resize;",
             ["w"]  = $"top:{h/2-4}px;left:-4px;cursor:w-resize;"
         };
-        return positions[handle] + "position:absolute;width:8px;height:8px;z-index:10;";
+        return positions[handle];
     }
 
     private async void OnElementMouseDown(MouseEventArgs e, EditElement element)
@@ -1805,7 +1814,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
                 StateHasChanged();
 
-                Console.WriteLine("Initial RedrawPdfPage executed");
             }catch(Exception ex)
             {
                 Console.WriteLine($"初期化エラー: {ex.Message}");
@@ -2062,8 +2070,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
 
         // JSでクリックターゲットのタグ名を取得
-        var tagName = await JSRuntime.InvokeAsync<string>("getTagNameFromEvent", e);
-        if (tagName == "INPUT" || tagName == "BUTTON") return;
+        //var tagName = await JSRuntime.InvokeAsync<string>("getTagNameFromEvent", e);
+        //if (tagName == "INPUT" || tagName == "BUTTON") return;
 
         // すでにテキスト編集中の要素があれば追加しない
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
@@ -2093,16 +2101,17 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             $"#pdf-canvas-{canvasUniqueId}",
             e.ClientX,
             e.ClientY,
-            offsetX,
-            offsetY,
             zoomLevel
             );
+
+            // テキストボックス追加位置をカーソルの上端に合わせる
+            var adjustedY = coords.y - fontSize;
 
             var element = new EditElement
             {
                 Type = ElementType.Text,
                 X = coords.x,
-                Y = coords.y,
+                Y = adjustedY,
                 Text = "入力...",
                 FontSize = fontSize,
                 Color = textColor,
@@ -2112,6 +2121,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             };
             editElements.Add(element);
 
+            // 実行しないと新規作成したテキストボックスが表示されない
             StateHasChanged();
             await InvokeAsync(StateHasChanged);
             await Task.Yield();

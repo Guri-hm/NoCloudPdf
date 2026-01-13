@@ -115,16 +115,15 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rota
     }
 };
 
-window.getTagNameFromEvent = function (e) {
-    // e.target.tagName を返す
-    return e && e.target && e.target.tagName ? e.target.tagName : "";
-};
+// window.getTagNameFromEvent = function (e) {
+//     // e.target.tagName を返す
+//     return e && e.target && e.target.tagName ? e.target.tagName : "";
+// };
 
-window.getCanvasCoords = function (canvasSelector, clientX, clientY, offsetX, offsetY, zoomLevel) {
+window.getCanvasCoords = function (canvasSelector, clientX, clientY, zoomLevel) {
     const canvas = document.querySelector(canvasSelector);
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    // offsetX/offsetYはtransformで既に反映済みなので引かない！
     const x = (clientX - rect.left) / zoomLevel;
     const y = (clientY - rect.top) / zoomLevel;
     return { x, y };
@@ -370,7 +369,7 @@ window.registerEditPageMouseHandlers = function(dotNetRef) {
 };
 
 /**
- * リサイズ/ドラッグ開始を通知（JavaScript側のフラグを立てる）
+ * リサイズ/ドラッグ開始を通知
  */
 window.setEditPageMouseActive = function(active) {
     if (window._editPageMouse) {

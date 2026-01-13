@@ -704,9 +704,6 @@ input[type=number] {
   .right-\[-20px\] {
     right: -20px;
   }
-  .right-\[10px\] {
-    right: 10px;
-  }
   .right-\[35px\] {
     right: 35px;
   }
@@ -746,6 +743,9 @@ input[type=number] {
   .left-\[5px\] {
     left: 5px;
   }
+  .left-\[calc\(100\%\+4px\)\] {
+    left: calc(100% + 4px);
+  }
   .z-0 {
     z-index: 0;
   }
@@ -766,6 +766,9 @@ input[type=number] {
   }
   .z-70 {
     z-index: 70;
+  }
+  .z-\[10\] {
+    z-index: 10;
   }
   .z-\[100\] {
     z-index: 100;
@@ -1424,6 +1427,10 @@ input[type=number] {
   .border-2 {
     border-style: var(--tw-border-style);
     border-width: 2px;
+  }
+  .border-3 {
+    border-style: var(--tw-border-style);
+    border-width: 3px;
   }
   .border-e {
     border-inline-end-style: var(--tw-border-style);
@@ -2419,6 +2426,13 @@ input[type=number] {
     &:hover {
       @media (hover: hover) {
         background-color: var(--color-gray-300);
+      }
+    }
+  }
+  .hover\:bg-gray-600 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-gray-600);
       }
     }
   }

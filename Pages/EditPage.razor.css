@@ -20,3 +20,9 @@
         left: 0;
     }
 }
+
+.handle{
+    background-color: rgba(59, 130, 246, 0.95);
+    width: 12px;
+    height: 12px;
+}
