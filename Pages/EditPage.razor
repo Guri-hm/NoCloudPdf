@@ -226,37 +226,18 @@
                                         @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
                                 }
+                                @* テキストエリア選択状態（ハンドル付で表示） *@
                                 @if (selectedElementIds.Contains(element.Id) && !element.IsEditing)
                                 {
-                                    <div class="element-handles absolute inset-[-4px] pointer-events-none">
-                                        @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
-                                        {
-                                            <div class="handle handle-@handle absolute border border-white pointer-events-auto z-[10]"
-                                                style="@GetHandleStyle(handle, element)"
-                                                @onmousedown="@(e => OnTextResizeMouseDown(e, element, handle))"
-                                                @onmousedown:stopPropagation>
-                                            </div>
-                                        }
-
-                                        <div class="absolute top-0 left-[calc(100%+4px)] flex flex-col gap-1 rounded-md p-1 pointer-events-auto z-20" style="background-color:rgba(0, 0, 0, 0.6);">
-                                            @if (currentTool == EditTool.Text)
-                                            {
-                                                <button class="w-6 h-6 bg-transparent text-white border-none rounded cursor-pointer flex items-center justify-center hover:bg-gray-600 transition-colors"
-                                                    @onclick="() => StartTextEdit(element)" 
-                                                    @onclick:stopPropagation 
-                                                    title="テキスト編集">
-                                                    <PenIcon Class="w-4 h-4"/>
-                                                </button>
-                                            }
-                                            <button class="w-6 h-6 bg-transparent text-white border-none rounded cursor-pointer flex items-center justify-center hover:bg-red-600 transition-colors"
-                                                @onclick="() => DeleteElement(element.Id)" 
-                                                @onclick:stopPropagation 
-                                                title="削除">
-                                                <DeleteIcon Class="w-4 h-4"/>
-                                            </button>
-                                        </div>
-
-                                    </div>
+                                    <TextElementControls 
+                                    IsVisible="true"
+                                    ShowEditButton="currentTool == EditTool.Text"
+                                    ElementWidth="element.Width"
+                                    ElementHeight="element.Height"
+                                    ZoomLevel="zoomLevel"
+                                    OnResizeStart="@((args) => OnTextResizeMouseDown(args.Item1, element, args.Item2))"
+                                    OnEdit="@(() => StartTextEdit(element))"
+                                    OnDelete="@(() => DeleteElement(element.Id))" />
                                 }
                             </div>
                         }
@@ -823,26 +804,26 @@
         return cachedCanvasRect;
     }
     
-    private void OnElementMouseMove(MouseEventArgs e)
-    {
-        // 何もしていない場合は即座にリターン（StateHasChangedを呼ばない）
-        if (resizingTextId == null && draggingElementId == null && draggingImageId == null && resizingImageId == null)
-        {
-            return; // 同期メソッドなので自動レンダリングされない
-        }
-
-        // フレームレート制限（60FPS以下にする）
-        DateTime now = DateTime.UtcNow;
-        if ((now - lastMouseMoveTime).TotalMilliseconds < MouseMoveThrottleMs)
-        {
-            return;
-        }
-        lastMouseMoveTime = now;
-
-        // 実際の処理は非同期で実行（await不要）
-        _ = OnElementMouseMoveAsync(e);
-
-    }
+//    private void OnElementMouseMove(MouseEventArgs e)
+//    {
+//        // 何もしていない場合は即座にリターン（StateHasChangedを呼ばない）
+//        if (resizingTextId == null && draggingElementId == null && draggingImageId == null && resizingImageId == null)
+//        {
+//            return; // 同期メソッドなので自動レンダリングされない
+//        }
+//
+//        // フレームレート制限（60FPS以下にする）
+//        DateTime now = DateTime.UtcNow;
+//        if ((now - lastMouseMoveTime).TotalMilliseconds < MouseMoveThrottleMs)
+//        {
+//            return;
+//        }
+//        lastMouseMoveTime = now;
+//
+//        // 実際の処理は非同期で実行（await不要）
+//        _ = OnElementMouseMoveAsync(e);
+//
+//    }
 
     // 実際の処理を行う非同期メソッド
     private async Task OnElementMouseMoveAsync(MouseEventArgs e)
@@ -1874,7 +1855,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         offsetX = 0;
         offsetY = 0;
         await RedrawPdfPage(applyFit: true);
-        Console.WriteLine("FitToScreen executed");
     }
 
     private async void FitToWidth()
@@ -1950,7 +1930,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         
         // 両方いっぱいに表示（はみ出しても良い）
         zoomLevel = Math.Round(Math.Max(0.1, Math.Min(Math.Max(availW / logicalW, availH / logicalH), 5.0)), 3);
-        Console.WriteLine($"FitToBoth: availW={availW}, availH={availH}, logicalW={logicalW}, logicalH={logicalH}, zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
 
@@ -1959,7 +1938,6 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         offsetX = 0;
         offsetY = 0;
         zoomLevel = 1.0; // 100% = 実際のPDFサイズ
-        Console.WriteLine($"SetToActualSize: zoomLevel={zoomLevel}");
         await RedrawPdfPage();
     }
     private class RectDto
@@ -2121,7 +2099,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             };
             editElements.Add(element);
 
-            // 実行しないと新規作成したテキストボックスが表示されない
+            // 実行しないと新規作成したテキストボックスが文字列が初期状態で選択されない
             StateHasChanged();
             await InvokeAsync(StateHasChanged);
             await Task.Yield();
