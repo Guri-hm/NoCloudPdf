@@ -2,14 +2,15 @@
 
 @if (IsVisible)
 {
-    <div class="element-handles" style="--element-width: @(ElementWidth * ZoomLevel)px; --element-height: @(ElementHeight * ZoomLevel)px;">
+    <div class="element-handles" 
+         style="--element-width: @(ElementWidth * ZoomLevel)px; --element-height: @(ElementHeight * ZoomLevel)px;"
+         @onmousedown:stopPropagation
+         @onclick:stopPropagation>
         @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
         {
             <div class="handle handle-@handle"
                 @onmousedown="@(e => OnResizeMouseDown(e, handle))"
-                @onmousedown:stopPropagation
-                @onclick:stopPropagation>
-                @* onclick:stopPropagationを入れて親コンポーネントのOnPageClickへの伝播を止める *@
+                @onmousedown:stopPropagation>
             </div>
         }
 

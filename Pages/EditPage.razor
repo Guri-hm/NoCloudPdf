@@ -334,6 +334,7 @@
 
     private bool ignoreNextPageClick = false;
     private bool ignoreTextBlur = false;
+    private bool isResizingOrDragging = false;
 
     // コンテナサイズのキャッシュ（ウィンドウリサイズ時に更新）
     private double containerWidth = 0;
@@ -1031,6 +1032,7 @@
 
     private async void OnTextResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
     {
+        isResizingOrDragging = true; 
         resizingTextId = element.Id;
         resizingTextHandle = handle;
         dragStartTextMouseX = e.ClientX;
@@ -1125,6 +1127,7 @@
     private async void OnElementMouseDown(MouseEventArgs e, EditElement element)
     {
         if (element.Type != ElementType.Text || !selectedElementIds.Contains(element.Id)) return;
+        isResizingOrDragging = true;
         draggingElementId = element.Id;
         dragStartMouseX = e.ClientX;
         dragStartMouseY = e.ClientY;
@@ -1181,6 +1184,7 @@
 
     private async void StartTextEdit(EditElement element)
     {
+        Console.WriteLine($"StartTextEdit: element.Id={element.Id}");
         foreach (var el in editElements)
             el.IsEditing = false;
 
@@ -1213,6 +1217,7 @@
     private async void OnImageMouseDown(MouseEventArgs e, EditElement element)
     {
         if ((currentTool != EditTool.Image && currentTool != EditTool.Select) || !selectedElementIds.Contains(element.Id)) return;
+        isResizingOrDragging = true;
         draggingImageId = element.Id;
         dragStartMouseX = e.ClientX;
         dragStartMouseY = e.ClientY;
@@ -1255,6 +1260,7 @@
 
     private void OnImageResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
     {
+        isResizingOrDragging = true;
         resizingImageId = element.Id;
         resizingHandle = handle;
         dragStartMouseX = e.ClientX;
@@ -1411,6 +1417,7 @@
         resizingHandle = null;
         resizingTextId = null;
         resizingTextHandle = null;
+        // isResizingOrDragging はここではリセットしない
         StateHasChanged();
     }
 
@@ -1719,7 +1726,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Console.WriteLine("Rendered EditPage component");
+        //Console.WriteLine("Rendered EditPage component");
         if (firstRender)
         {
             try{
@@ -1987,6 +1994,7 @@
     private void SetTool(EditTool tool)
     {
         currentTool = tool;
+        Console.WriteLine($"SetTool: {tool}");
         selectedElementIds.Clear();
     }
 
@@ -2023,6 +2031,15 @@
     }
     private async Task OnPageClick(MouseEventArgs e)
     {
+        Console.WriteLine("OnPageClick");
+
+        // リサイズ/ドラッグ中はページクリックを無視
+        if (isResizingOrDragging)
+        {
+            isResizingOrDragging = false;
+            return;
+        }
+
         // カラーピッカーが開いている場合は何もしない
         if (ignoreNextPageClick)
         {
@@ -2038,6 +2055,7 @@
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
+            Console.WriteLine($"Editing element found: {editingElement.Id}");
             // ここで全てのIsEditingをfalseにしておく
             foreach (var el in editElements)
                 el.IsEditing = false;
@@ -2100,6 +2118,7 @@
         }
         else
         {
+            Console.WriteLine("Clearing selected elements at end of OnPageClick");
             selectedElementIds.Clear();
             ResetFontToDefault();
         }
@@ -2119,6 +2138,7 @@
         }
         else
         {
+            Console.WriteLine($"SelectElement: Clearing selected elements and selecting {elementId}");
             selectedElementIds.Clear();
             selectedElementIds.Add(elementId);
         }
