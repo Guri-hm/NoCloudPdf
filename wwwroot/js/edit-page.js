@@ -346,7 +346,8 @@ window.registerEditPageMouseHandlers = function(dotNetRef) {
         
         // Blazor側に通知
         if (window._editPageMouse.dotNetRef && window._editPageMouse.dotNetRef.invokeMethodAsync) {
-            window._editPageMouse.dotNetRef.invokeMethodAsync('onMouseMove', {
+            // console.log(`onMouseMove: clientX=${e.clientX}, clientY=${e.clientY}`);
+            window._editPageMouse.dotNetRef.invokeMethodAsync('OnMouseMove', {
                 clientX: e.clientX,
                 clientY: e.clientY
             }).catch(() => {});

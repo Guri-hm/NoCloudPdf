@@ -1447,216 +1447,186 @@
     }
 
     [JSInvokable]
-public async Task OnMouseMove(MouseMoveArgs e)
-{
-    bool changed = false;
-
-    // --- テキストリサイズをグローバルで処理（OnElementMouseMove と同等） ---
-    if (resizingTextId != null && resizingTextHandle != null)
+    public async Task OnMouseMove(MouseMoveArgs e)
     {
-        var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
-        if (element != null)
+        bool changed = false;
+
+        // --- テキストリサイズをグローバルで処理（OnElementMouseMove と同等） ---
+        if (resizingTextId != null && resizingTextHandle != null)
         {
-            // canvas rect を取得（キャッシュ利用）
-            var canvasRect = await GetCanvasRect();
-            var mouseCanvasX = (e.ClientX - canvasRect.left) / zoomLevel;
-            var mouseCanvasY = (e.ClientY - canvasRect.top) / zoomLevel;
-
-            var dx = mouseCanvasX - dragStartTextMouseCanvasX;
-            var dy = mouseCanvasY - dragStartTextMouseCanvasY;
-
-            double newX = dragStartTextElementX;
-            double newY = dragStartTextElementY;
-            double newWidth = dragStartTextElementWidth;
-            double newHeight = dragStartTextElementHeight;
-            int newFontSize = dragStartTextFontSize;
-
-            switch (resizingTextHandle)
+            var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
+            if (element != null)
             {
-                case "nw":
-                    newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                    newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthNW = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthNW / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    }
-                    break;
-                case "ne":
-                    newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                    newX = dragStartTextElementX;
-                    newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthNE = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthNE / zoomLevel) + (newFontSize * 0.5);
-                    }
-                    break;
-                case "sw":
-                    newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                    newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSW = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthSW / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    }
-                    break;
-                case "se":
-                    newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                    newX = dragStartTextElementX;
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSE = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthSE / zoomLevel) + (newFontSize * 0.5);
-                    }
-                    break;
-                case "n":
-                    newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                    newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthN = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthN / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
-                    }
-                    else
-                    {
-                        newWidth = dragStartTextElementWidth;
-                        newX = dragStartTextElementX;
-                    }
-                    break;
-                case "s":
-                    newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthS = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthS / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
-                    }
-                    else
-                    {
-                        newWidth = dragStartTextElementWidth;
-                        newX = dragStartTextElementX;
-                    }
-                    break;
-                case "w":
-                    newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                    newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = element.FontSize;
-                    }
-                    break;
-                case "e":
-                    newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                    newX = dragStartTextElementX;
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = element.FontSize;
-                    }
-                    break;
-            }
+                // canvas rect を取得（キャッシュ利用）
+                var canvasRect = await GetCanvasRect();
+                var mouseCanvasX = (e.ClientX - canvasRect.left) / zoomLevel;
+                var mouseCanvasY = (e.ClientY - canvasRect.top) / zoomLevel;
 
-            newWidth = Math.Max(newWidth, 6);
-            newHeight = Math.Max(newHeight, 6);
+                var dx = mouseCanvasX - dragStartTextMouseCanvasX;
+                var dy = mouseCanvasY - dragStartTextMouseCanvasY;
 
-            element.X = Math.Round(newX, 3);
-            element.Y = Math.Round(newY, 3);
-            element.Width = Math.Round(newWidth, 3);
-            element.Height = Math.Round(newHeight, 3);
-            if (element.FitTextToArea)
-            {
-                element.FontSize = newFontSize;
-                fontSize = newFontSize;
+                double newX = dragStartTextElementX;
+                double newY = dragStartTextElementY;
+                double newWidth = dragStartTextElementWidth;
+                double newHeight = dragStartTextElementHeight;
+                int newFontSize = dragStartTextFontSize;
+
+                switch (resizingTextHandle)
+                {
+                    case "nw":
+                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
+                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        }
+                        break;
+                    case "ne":
+                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
+                        newX = dragStartTextElementX;
+                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                        }
+                        break;
+                    case "sw":
+                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
+                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        }
+                        break;
+                    case "se":
+                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
+                        newX = dragStartTextElementX;
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                        }
+                        break;
+                    case "n":
+                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
+                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
+                        }
+                        else
+                        {
+                            newWidth = dragStartTextElementWidth;
+                            newX = dragStartTextElementX;
+                        }
+                        break;
+                    case "s":
+                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
+                        }
+                        else
+                        {
+                            newWidth = dragStartTextElementWidth;
+                            newX = dragStartTextElementX;
+                        }
+                        break;
+                    case "w":
+                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
+                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = element.FontSize;
+                        }
+                        break;
+                    case "e":
+                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
+                        newX = dragStartTextElementX;
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = element.FontSize;
+                        }
+                        break;
+                }
+
+                newWidth = Math.Max(newWidth, 6);
+                newHeight = Math.Max(newHeight, 6);
+
+                element.X = Math.Round(newX, 3);
+                element.Y = Math.Round(newY, 3);
+                element.Width = Math.Round(newWidth, 3);
+                element.Height = Math.Round(newHeight, 3);
+                if (element.FitTextToArea)
+                {
+                    element.FontSize = newFontSize;
+                    fontSize = newFontSize;
+                }
+                changed = true;
             }
+        }
+
+        // --- 既存の画像リサイズ / ドラッグ処理（そのまま） ---
+        // 画像リサイズ
+        if (resizingImageId != null && resizingHandle != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            ResizeImageElement(element, resizingHandle, dx, dy);
             changed = true;
         }
-    }
+        // 画像ドラッグ
+        else if (draggingImageId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartImageX + dx;
+            element.Y = dragStartImageY + dy;
+            changed = true;
+        }
+        // テキスト要素のドラッグ
+        else if (draggingElementId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartElementX + dx;
+            element.Y = dragStartElementY + dy;
+            changed = true;
+        }
 
-    // --- 既存の画像リサイズ / ドラッグ処理（そのまま） ---
-    // 画像リサイズ
-    if (resizingImageId != null && resizingHandle != null)
-    {
-        var element = editElements.FirstOrDefault(el => el.Id == resizingImageId);
-        if (element == null) return;
-        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
-        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
-        ResizeImageElement(element, resizingHandle, dx, dy);
-        changed = true;
+        if (changed) StateHasChanged();
     }
-    // 画像ドラッグ
-    else if (draggingImageId != null)
-    {
-        var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
-        if (element == null) return;
-        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
-        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
-        element.X = dragStartImageX + dx;
-        element.Y = dragStartImageY + dy;
-        changed = true;
-    }
-    // テキスト要素のドラッグ
-    else if (draggingElementId != null)
-    {
-        var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
-        if (element == null) return;
-        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
-        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
-        element.X = dragStartElementX + dx;
-        element.Y = dragStartElementY + dy;
-        changed = true;
-    }
-
-    if (changed) StateHasChanged();
-}
 
     [JSInvokable]
     public async Task OnImageBase64Loaded(string base64, double width, double height)
