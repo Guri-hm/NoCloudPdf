@@ -346,7 +346,7 @@ window.registerEditPageMouseHandlers = function(dotNetRef) {
         
         // Blazor側に通知
         if (window._editPageMouse.dotNetRef && window._editPageMouse.dotNetRef.invokeMethodAsync) {
-            window._editPageMouse.dotNetRef.invokeMethodAsync('OnGlobalMouseMove', {
+            window._editPageMouse.dotNetRef.invokeMethodAsync('onMouseMove', {
                 clientX: e.clientX,
                 clientY: e.clientY
             }).catch(() => {});
@@ -357,7 +357,7 @@ window.registerEditPageMouseHandlers = function(dotNetRef) {
         window._editPageMouse.isActive = false;
         
         if (window._editPageMouse.dotNetRef && window._editPageMouse.dotNetRef.invokeMethodAsync) {
-            window._editPageMouse.dotNetRef.invokeMethodAsync('OnGlobalMouseUp').catch(() => {});
+            window._editPageMouse.dotNetRef.invokeMethodAsync('OnMouseUp').catch(() => {});
         }
     };
     
