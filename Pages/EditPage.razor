@@ -1127,7 +1127,6 @@
     private async void OnElementMouseDown(MouseEventArgs e, EditElement element)
     {
         if (element.Type != ElementType.Text || !selectedElementIds.Contains(element.Id)) return;
-        isResizingOrDragging = true;
         draggingElementId = element.Id;
         dragStartMouseX = e.ClientX;
         dragStartMouseY = e.ClientY;
@@ -1217,7 +1216,6 @@
     private async void OnImageMouseDown(MouseEventArgs e, EditElement element)
     {
         if ((currentTool != EditTool.Image && currentTool != EditTool.Select) || !selectedElementIds.Contains(element.Id)) return;
-        isResizingOrDragging = true;
         draggingImageId = element.Id;
         dragStartMouseX = e.ClientX;
         dragStartMouseY = e.ClientY;
@@ -1458,7 +1456,7 @@
     {
         bool changed = false;
 
-        // --- テキストリサイズをグローバルで処理（OnElementMouseMove と同等） ---
+        // --- テキストリサイズ
         if (resizingTextId != null && resizingTextHandle != null)
         {
             var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
@@ -1598,7 +1596,6 @@
             }
         }
 
-        // --- 既存の画像リサイズ / ドラッグ処理（そのまま） ---
         // 画像リサイズ
         if (resizingImageId != null && resizingHandle != null)
         {
@@ -1609,6 +1606,7 @@
             ResizeImageElement(element, resizingHandle, dx, dy);
             changed = true;
         }
+
         // 画像ドラッグ
         else if (draggingImageId != null)
         {
@@ -1620,7 +1618,8 @@
             element.Y = dragStartImageY + dy;
             changed = true;
         }
-        // テキスト要素のドラッグ
+
+        // テキスト要素ドラッグ
         else if (draggingElementId != null)
         {
             var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
@@ -1630,6 +1629,7 @@
             element.X = dragStartElementX + dx;
             element.Y = dragStartElementY + dy;
             changed = true;
+            Console.WriteLine($"Text element dragged: {element.Id}, New position: ({element.X}, {element.Y})");
         }
 
         if (changed) StateHasChanged();
@@ -2036,6 +2036,7 @@
         // リサイズ/ドラッグ中はページクリックを無視
         if (isResizingOrDragging)
         {
+            Console.WriteLine("OnPageClick: Ignored due to resizing/dragging");
             isResizingOrDragging = false;
             return;
         }
@@ -2043,6 +2044,7 @@
         // カラーピッカーが開いている場合は何もしない
         if (ignoreNextPageClick)
         {
+            Console.WriteLine("OnPageClick: Ignored due to ignoreNextPageClick");
             ignoreNextPageClick = false;
             return;
         }
@@ -2075,6 +2077,7 @@
         // テキストボックス新規追加
         if (currentTool == EditTool.Text)
         {
+            Console.WriteLine("OnPageClick: Text tool active");
             // JSで正確なキャンバス座標を取得
             var coords = await JSRuntime.InvokeAsync<CanvasCoords>(
             "getCanvasCoords",
