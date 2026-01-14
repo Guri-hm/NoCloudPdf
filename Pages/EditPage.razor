@@ -1433,6 +1433,19 @@
         public double height { get; set; }
     }
 
+    private async Task<(int fontSize, double width)> CalcFontSizeAndWidthAsync(EditElement element, double targetHeight)
+    {
+        var fs = Math.Max(6, (int)Math.Round(targetHeight));
+        var maxLineWidth = await JSRuntime.InvokeAsync<double>(
+            "measureMaxLineWidth",
+            element.Text,
+            fs * zoomLevel,
+            element.FontFamily
+        );
+        var w = (maxLineWidth / zoomLevel) + (fs * 0.5);
+        return (fs, w);
+    }
+
     [JSInvokable]
 public async Task OnMouseMove(MouseMoveArgs e)
 {
