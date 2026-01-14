@@ -136,34 +136,34 @@ window.clearFileInput = function (element) {
     if (element) element.value = "";
 };
 
-window.registerGlobalMouseUp = function (dotNetHelper) {
-    window._blazorMouseUpHandler = function (e) {
-        dotNetHelper.invokeMethodAsync('OnGlobalMouseUp');
-    };
-    window.addEventListener('mouseup', window._blazorMouseUpHandler);
-};
-window.unregisterGlobalMouseUp = function () {
-    if (window._blazorMouseUpHandler) {
-        window.removeEventListener('mouseup', window._blazorMouseUpHandler);
-        window._blazorMouseUpHandler = null;
-    }
-};
+// window.registerGlobalMouseUp = function (dotNetHelper) {
+//     window._blazorMouseUpHandler = function (e) {
+//         dotNetHelper.invokeMethodAsync('OnGlobalMouseUp');
+//     };
+//     window.addEventListener('mouseup', window._blazorMouseUpHandler);
+// };
+// window.unregisterGlobalMouseUp = function () {
+//     if (window._blazorMouseUpHandler) {
+//         window.removeEventListener('mouseup', window._blazorMouseUpHandler);
+//         window._blazorMouseUpHandler = null;
+//     }
+// };
 
-window.registerGlobalMouseMove = function (dotNetRef) {
-    window._globalMouseMoveHandler = function (e) {
-        dotNetRef.invokeMethodAsync('OnGlobalMouseMove', {
-            clientX: e.clientX,
-            clientY: e.clientY
-        });
-    };
-    window.addEventListener('mousemove', window._globalMouseMoveHandler);
-};
-window.unregisterGlobalMouseMove = function () {
-    if (window._globalMouseMoveHandler) {
-        window.removeEventListener('mousemove', window._globalMouseMoveHandler);
-        window._globalMouseMoveHandler = null;
-    }
-};
+// window.registerGlobalMouseMove = function (dotNetRef) {
+//     window._globalMouseMoveHandler = function (e) {
+//         dotNetRef.invokeMethodAsync('OnGlobalMouseMove', {
+//             clientX: e.clientX,
+//             clientY: e.clientY
+//         });
+//     };
+//     window.addEventListener('mousemove', window._globalMouseMoveHandler);
+// };
+// window.unregisterGlobalMouseMove = function () {
+//     if (window._globalMouseMoveHandler) {
+//         window.removeEventListener('mousemove', window._globalMouseMoveHandler);
+//         window._globalMouseMoveHandler = null;
+//     }
+// };
 
 window.getElementRect = function (selector) {
     const el = document.querySelector(selector);
