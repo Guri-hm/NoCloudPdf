@@ -7,7 +7,9 @@
         {
             <div class="handle handle-@handle"
                 @onmousedown="@(e => OnResizeMouseDown(e, handle))"
-                @onmousedown:stopPropagation>
+                @onmousedown:stopPropagation
+                @onclick:stopPropagation>
+                @* onclick:stopPropagationを入れて親コンポーネントのOnPageClickへの伝播を止める *@
             </div>
         }
 

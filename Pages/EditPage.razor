@@ -2048,6 +2048,7 @@
         // 選択中が1つ以上なら、選択解除だけして終了
         if (selectedElementIds.Count > 0)
         {
+            Console.WriteLine("Clearing selected elements");
             selectedElementIds.Clear();
             ResetFontToDefault();
             return;
