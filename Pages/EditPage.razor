@@ -37,49 +37,36 @@
                     ActiveValue="currentTool"
                     OnClick="OnToolChanged" />
                 <ActionButtonGroup T="string" Actions="zoomActions" />
-                <div class="flex flex-wrap items-center gap-2 w-full">
-<!-- 横並び -->
-<SelectBox 
-    Label="フォントサイズ"
-    IsHorizontal="true"
-    Value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize.ToString() ?? fontSize.ToString())"
-    ValueChanged="@OnFontSizeChangedFromSelect"
-    Options="@fontSizeOptions"
-    SelectClass="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400" 
-    IconFragment="@(builder => {
-        builder.OpenComponent(0, typeof(ArrowDownIcon));
-        builder.CloseComponent();
-    })"/>
-
 
                     @if (currentTool == EditTool.Text)
                     {
                         <div class="flex items-center gap-2 flex-shrink-0">
                             <div class="flex flex-wrap items-center gap-2">
-                                <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                                    @onchange="OnFontSizeChanged" 
-                                    @onclick:stopPropagation
-                                    @onmousedown:stopPropagation>
-                                    <option value="10">10px</option>
-                                    <option value="11">11px</option>
-                                    <option value="12">12px</option>
-                                    <option value="13">13px</option>
-                                    <option value="14">14px</option>
-                                    <option value="15">15px</option>
-                                    <option value="16">16px</option>
-                                    <option value="18">18px</option>
-                                    <option value="20">20px</option>
-                                    <option value="22">22px</option>
-                                    <option value="24">24px</option>
-                                    <option value="28">28px</option>
-                                    <option value="32">32px</option>
-                                    <option value="36">36px</option>
-                                    <option value="40">40px</option>
-                                    <option value="48">48px</option>
-                                    <option value="56">56px</option>
-                                    <option value="64">64px</option>
-                                </select>
+
+                                @{
+                                    var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+                                    var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
+                                    var targetElement = editingElement ?? selectedElement;
+                                    var fontFamilyOptions = GetFontFamilyOptions(targetElement);
+                                }
+                                <SelectBox 
+                                    Id="font-family-select"
+                                    Label="フォント"
+                                    IsHorizontal="true"
+                                    Value="@fontFamily"
+                                    ValueChanged="@OnFontFamilyChangedFromSelect"
+                                    Options="@fontFamilyOptions"
+                                    LabelClass="text-white"
+                                    SelectClass="text-sm border rounded px-2 py-1 w-30 focus:ring-2 focus:ring-blue-200 focus:border-blue-400" 
+                                    />
+                                <SelectBox 
+                                    Label=""
+                                    IsHorizontal="true"
+                                    Value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize.ToString() ?? fontSize.ToString())"
+                                    ValueChanged="@OnFontSizeChangedFromSelect"
+                                    Options="@fontSizeOptions"
+                                    SelectClass="h-8 text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400" 
+                                    />
                                 <input type="number" min="6" max="128" step="1"
                                     class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                                     value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
@@ -93,35 +80,6 @@
                                 @onchange="OnLineHeightChanged" @onclick:stopPropagation
     @onmousedown:stopPropagation />
                                 <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
-
-                                <select id="font-family-select"
-                                    class="text-sm border rounded px-2 py-1 w-30 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                                    value="@fontFamily"
-                                    @onchange="OnFontFamilyChanged" @onmousedown="() => ignoreTextBlur = true">
-                                    @* 編集中の要素 or 選択中の要素を取得 *@
-                                    @{
-                                        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
-                                        var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
-                                        var targetElement = editingElement ?? selectedElement;
-                                    }
-                                    @if (targetElement != null && ContainsJapanese(targetElement.Text))
-                                    {
-                                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                                    }
-                                    else
-                                    {
-                                        <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                                        <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                                        <option value="sans-serif" title="ブラウザ既定のゴシック系（主に英数字）">システム ゴシック（英数字向け）</option>
-                                        <option value="serif" title="ブラウザ既定の明朝系（主に英数字）">システム 明朝（英数字向け）</option>
-                                        <option value="monospace" title="等幅フォント（コードや表記揃えに）">等幅（Monospace）</option>
-                                        <option value="Arial, Helvetica, sans-serif" title="英字メインの欧文フォント">Arial（英字向け）</option>
-                                        <option value="Times New Roman, serif" title="欧文の明朝系フォント">Times New Roman（英字向け）</option>
-                                        <option value="Meiryo, sans-serif" title="メイリオ（Windows 日本語ゴシック）">Meiryo（Windows）</option>
-                                        <option value="Yu Gothic, sans-serif" title="游ゴシック（Windows 日本語ゴシック）">游ゴシック（Windows）</option>
-                                    }
-                                </select>
                                 <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます">
                                         <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                                 </Tooltip>
@@ -155,7 +113,6 @@
                             <InputFile OnChange="OnImageSelected" multiple class="hidden" />
                         </label>
                     }
-                </div>
             </div>
             <ActionButtonGroup T="string" Actions="primaryActions" />
         </div>
@@ -352,14 +309,23 @@
     private List<SelectOption> fontSizeOptions = new()
     {
         new SelectOption { Value = "10", Text = "10px" },
+        new SelectOption { Value = "11", Text = "11px" },
         new SelectOption { Value = "12", Text = "12px" },
+        new SelectOption { Value = "13", Text = "13px" },
         new SelectOption { Value = "14", Text = "14px" },
+        new SelectOption { Value = "15", Text = "15px" },
         new SelectOption { Value = "16", Text = "16px" },
         new SelectOption { Value = "18", Text = "18px" },
         new SelectOption { Value = "20", Text = "20px" },
+        new SelectOption { Value = "22", Text = "22px" },
         new SelectOption { Value = "24", Text = "24px" },
+        new SelectOption { Value = "28", Text = "28px" },
         new SelectOption { Value = "32", Text = "32px" },
-        new SelectOption { Value = "48", Text = "48px" }
+        new SelectOption { Value = "36", Text = "36px" },
+        new SelectOption { Value = "40", Text = "40px" },
+        new SelectOption { Value = "48", Text = "48px" },
+        new SelectOption { Value = "56", Text = "56px" },
+        new SelectOption { Value = "64", Text = "64px" }
     };
 
     private async Task OnFontSizeChangedFromSelect(string value)
@@ -368,6 +334,37 @@
         {
             await OnFontSizeChanged(new ChangeEventArgs { Value = size });
         }
+    }
+
+    private void OnFontFamilyChangedFromSelect(string value)
+    {
+        OnFontFamilyChanged(new ChangeEventArgs { Value = value });
+        ignoreTextBlur = true;
+    }
+
+    private List<SelectOption> GetFontFamilyOptions(EditElement? targetElement)
+    {
+        if (targetElement != null && ContainsJapanese(targetElement.Text))
+        {
+            return new List<SelectOption>
+            {
+                new SelectOption { Value = FontFamilyNotoSans, Text = "Noto Sans(ゴシック) — 日本語対応" },
+                new SelectOption { Value = FontFamilyNotoSerif, Text = "Noto Serif(明朝) — 日本語対応" }
+            };
+        }
+
+        return new List<SelectOption>
+        {
+            new SelectOption { Value = FontFamilyNotoSans, Text = "Noto Sans(ゴシック) — 日本語対応" },
+            new SelectOption { Value = FontFamilyNotoSerif, Text = "Noto Serif(明朝) — 日本語対応" },
+            new SelectOption { Value = "sans-serif", Text = "システム ゴシック(英数字向け)" },
+            new SelectOption { Value = "serif", Text = "システム 明朝(英数字向け)" },
+            new SelectOption { Value = "monospace", Text = "等幅(Monospace)" },
+            new SelectOption { Value = "Arial, Helvetica, sans-serif", Text = "Arial(英字向け)" },
+            new SelectOption { Value = "Times New Roman, serif", Text = "Times New Roman(英字向け)" },
+            new SelectOption { Value = "Meiryo, sans-serif", Text = "Meiryo(Windows)" },
+            new SelectOption { Value = "Yu Gothic, sans-serif", Text = "游ゴシック(Windows)" }
+        };
     }
 
     // 選択された要素のIDリスト
