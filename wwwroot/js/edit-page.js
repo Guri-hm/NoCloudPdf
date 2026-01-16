@@ -277,28 +277,20 @@ window.autoResizeTextarea = function (ref) {
         return new Promise((resolve) => {
             requestAnimationFrame(() => {
                 try {
+                    // 一旦高さをautoにしてscrollHeightを正確に取得
                     el.style.height = "auto";
                     void el.getBoundingClientRect();
+                    
                     const cs = window.getComputedStyle(el);
-                    
-                    // フォントサイズまたは行高を取得
                     const fontSize = parseFloat(cs.fontSize) || 16;
-                    let lineHeight = parseFloat(cs.lineHeight);
                     
-                    // line-heightが"normal"などの場合はfontSizeを使用
-                    if (isNaN(lineHeight) || lineHeight === 0) {
-                        lineHeight = fontSize;
-                    }
-                    
-                    // 行数を計算
-                    const text = el.value || '';
-                    const lineCount = Math.max(1, text.split('\n').length);
+                    // scrollHeightで実際のコンテンツ高さを取得（折り返しを含む）
+                    const scrollH = el.scrollHeight;
                     
                     // UX向上のため、わずかな余白を追加（フォントサイズの5%）
                     const extraPadding = Math.ceil(fontSize * 0.05);
                     
-                    // 高さ = 行数 × 行高 + 余白
-                    const textareaH = Math.ceil(lineCount * lineHeight) + extraPadding;
+                    const textareaH = scrollH + extraPadding;
                     
                     el.style.height = textareaH + "px";
                     el.style.overflow = "hidden";
@@ -326,6 +318,7 @@ window.autoResizeTextarea = function (ref) {
         return 0;
     }
 };
+
 // 画像のBase64からサイズ取得
 window.getImageSizeFromBase64 = function (base64) {
     return new Promise(resolve => {

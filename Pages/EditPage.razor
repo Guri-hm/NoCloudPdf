@@ -163,7 +163,17 @@
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
                                         class="border-none outline-none bg-transparent resize-none overflow-hidden w-full h-auto"
-                                        style="min-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; font-size: @(element.FontSize * zoomLevel)px; line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal"); @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; overflow: hidden;")"
+                                        style="min-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; 
+                                            font-size: @(element.FontSize * zoomLevel)px; 
+                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; 
+                                            padding: 0; 
+                                            margin: 0; 
+                                            box-sizing: border-box; 
+                                            display: block; 
+                                            color: @element.Color; 
+                                            font-weight: @(element.IsBold ? "bold" : "normal"); 
+                                            font-family: @(element.FontFamily);
+                                            @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word;")"
                                         wrap="@(element.FitTextToArea ? "off" : "soft")"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
@@ -177,13 +187,14 @@
                                         @ondblclick="() => StartTextEdit(element)"
                                         @onclick:stopPropagation
                                         @ondblclick:stopPropagation
-                                        class="w-full h-full p-0 m-0 box-border align-middle border-none block"
+                                        class="w-full h-full p-0 m-0 box-border block"
                                         style="
                                             font-size: @(element.FontSize * zoomLevel)px;
                                             line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px;
                                             color: @element.Color;
                                             font-weight: @(element.IsBold ? "bold" : "normal");
-                                            @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: normal; overflow-wrap: anywhere; word-break: break-word;")"
+                                            font-family: @(element.FontFamily);
+                                            @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word;")"
                                     >
                                         @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
