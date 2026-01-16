@@ -92,7 +92,7 @@
                                     <BoldIcon/>
                                 </button>
                                 <input type="color"
-                                    class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    class="w-8 h-8"
                                     value="@CurrentTextColor"
                                     @oninput="OnTextColorInput"
                                     @onfocus="() => ignoreNextPageClick = true"
@@ -602,15 +602,13 @@
             );
             element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); // 余白分はfontSizeに比例
         }
-        else{
 
-        }
         await Task.Yield();
 
-        var scrollH = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-        if (scrollH > 0)
+        var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+        if (totalParentPx > 0)
         {
-            element.Height = Math.Max(6, scrollH / zoomLevel);
+            element.Height = Math.Max(6, totalParentPx / zoomLevel);
         }
         StateHasChanged(); 
     }
@@ -2143,16 +2141,17 @@
             zoomLevel
             );
 
-            // テキストボックス追加位置をカーソルの上端に合わせる
-            var adjustedY = coords.y - fontSize;
+            // 初期高さは1行分 + わずかな余白（fontSize * 1.05）
+            var initialHeight = fontSize * 1.05;
 
             var element = new EditElement
             {
                 Type = ElementType.Text,
                 X = coords.x,
-                Y = adjustedY,
+                Y = coords.y - fontSize, // カーソル上端に合わせる,
                 Text = "入力...",
                 FontSize = fontSize,
+                Height = initialHeight,
                 Color = textColor,
                 IsEditing = true,
                 FontFamily = DefaultFontFamily,
@@ -2169,7 +2168,12 @@
             {
                 await textInputRef.FocusAsync();
                 await JSRuntime.InvokeVoidAsync("selectAllTextarea", textInputRef);
-                await JSRuntime.InvokeVoidAsync("autoResizeTextarea", textInputRef);
+                var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+                if (totalParentPx > 0)
+                {
+                    element.Height = Math.Max(6, totalParentPx / zoomLevel);
+                    StateHasChanged();
+                }
             }
             catch
             {
@@ -2234,17 +2238,10 @@
         element.IsEditing = false;
         fontFamily = ResolveFontForText(element.Text, element.FontFamily);
 
-        // blur による直後の page click で新規追加されないようにする
+        // blur直後のクリックを1回だけ無視
         ignoreNextPageClick = true;
 
-        // 念のため短時間後に自動解除（例: 300ms）。不要なら削除可。
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(300);
-            ignoreNextPageClick = false;
-            await InvokeAsync(StateHasChanged);
-        });
-
+        Console.WriteLine($"FinishTextEdit: Element {element.Id} text set to: {element.Text}");
         StateHasChanged();
     }
 

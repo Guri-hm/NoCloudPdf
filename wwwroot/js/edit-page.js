@@ -271,7 +271,7 @@ window.autoResizeTextarea = function (ref) {
         const el = resolveEl(ref);
         if (!el || !el.style) {
             console.debug("autoResizeTextarea: element not found:", ref);
-            return 0; // 常に数値を返す
+            return 0;
         }
 
         return new Promise((resolve) => {
@@ -280,13 +280,30 @@ window.autoResizeTextarea = function (ref) {
                     el.style.height = "auto";
                     void el.getBoundingClientRect();
                     const cs = window.getComputedStyle(el);
-                    const lineH = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) || 16;
-                    const contentH = Math.max(el.scrollHeight || 0, lineH);
-                    const textareaH = Math.ceil(contentH + 2);
+                    
+                    // フォントサイズまたは行高を取得
+                    const fontSize = parseFloat(cs.fontSize) || 16;
+                    let lineHeight = parseFloat(cs.lineHeight);
+                    
+                    // line-heightが"normal"などの場合はfontSizeを使用
+                    if (isNaN(lineHeight) || lineHeight === 0) {
+                        lineHeight = fontSize;
+                    }
+                    
+                    // 行数を計算
+                    const text = el.value || '';
+                    const lineCount = Math.max(1, text.split('\n').length);
+                    
+                    // UX向上のため、わずかな余白を追加（フォントサイズの5%）
+                    const extraPadding = Math.ceil(fontSize * 0.05);
+                    
+                    // 高さ = 行数 × 行高 + 余白
+                    const textareaH = Math.ceil(lineCount * lineHeight) + extraPadding;
+                    
                     el.style.height = textareaH + "px";
                     el.style.overflow = "hidden";
 
-                    // 親の枠（border）を加算して返す（存在しなければ 0 区分）
+                    // 親の枠（border）を加算
                     let parentBorderV = 0;
                     try {
                         const parent = el.closest && el.closest(".edit-element");
@@ -309,7 +326,6 @@ window.autoResizeTextarea = function (ref) {
         return 0;
     }
 };
-
 // 画像のBase64からサイズ取得
 window.getImageSizeFromBase64 = function (base64) {
     return new Promise(resolve => {
