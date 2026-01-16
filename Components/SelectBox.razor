@@ -1,7 +1,7 @@
 @using Microsoft.AspNetCore.Components
 @using NoCloudPdf.Models
 
-<div class="@(IsHorizontal ? "flex items-center gap-3" : "space-y-2")">
+<div class="@(IsHorizontal ? "flex items-center gap-1" : "space-y-2")">
     @if (!string.IsNullOrEmpty(Label))
     {
         <label class="@LabelClass" for="@_id">
@@ -12,7 +12,7 @@
         <select
             id="@_id"
             name="@(Name ?? _id)"       
-            class="@SelectClass appearance-none"
+            class="@SelectClass appearance-none pl-2 pr-8 py-1"
             style="@GetSelectStyle()"
             value="@Value"
             @onchange="OnValueChanged"
