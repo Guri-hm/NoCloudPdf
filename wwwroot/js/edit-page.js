@@ -389,3 +389,37 @@ window.unregisterEditPageMouseHandlers = function() {
         window._editPageMouse = null;
     }
 };
+
+// キーボードイベントハンドラの登録
+window.registerEditPageKeyHandler = function(dotNetRef) {
+    if (!dotNetRef) return;
+    
+    window._editPageKey = window._editPageKey || {};
+    window._editPageKey.dotNetRef = dotNetRef;
+    
+    const onKeyDown = function(e) {
+        // input, textarea, select 要素内でのキー入力は無視
+        const tagName = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+            return;
+        }
+        
+        // Delete または Backspace キー
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault(); // ブラウザの戻る動作を防止
+            if (window._editPageKey.dotNetRef && window._editPageKey.dotNetRef.invokeMethodAsync) {
+                window._editPageKey.dotNetRef.invokeMethodAsync('OnKeyDown', e.key).catch(() => {});
+            }
+        }
+    };
+    
+    window._editPageKey.keyDownHandler = onKeyDown;
+    document.addEventListener('keydown', onKeyDown);
+};
+
+window.unregisterEditPageKeyHandler = function() {
+    if (window._editPageKey && window._editPageKey.keyDownHandler) {
+        document.removeEventListener('keydown', window._editPageKey.keyDownHandler);
+        window._editPageKey = null;
+    }
+};

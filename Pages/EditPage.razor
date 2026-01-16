@@ -1772,6 +1772,8 @@
                 //await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
                 //await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
                 await JSRuntime.InvokeVoidAsync("registerEditPageMouseHandlers", _dotNetRef);
+                await JSRuntime.InvokeVoidAsync("registerEditPageKeyHandler", _dotNetRef);
+
                 //await JSRuntime.InvokeVoidAsync("registerEditPageResize", _dotNetRef);
                 // 初期コンテナサイズを取得
                 var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
@@ -1831,23 +1833,42 @@
         }
     }
 
+    [JSInvokable]
+    public void OnKeyDown(string key)
+    {
+        // テキスト編集中は何もしない（textarea のキー入力を優先）
+        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editingElement != null) return;
+
+        // Deleteキーで選択中の要素を削除
+        if (key == "Delete" && selectedElementIds.Count > 0)
+        {
+            foreach (var id in selectedElementIds.ToList())
+            {
+                DeleteElement(id);
+            }
+            StateHasChanged();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
         //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
         await JSRuntime.InvokeVoidAsync("unregisterEditPageMouseHandlers");
+        await JSRuntime.InvokeVoidAsync("unregisterEditPageKeyHandler");
         //await JSRuntime.InvokeVoidAsync("unregisterEditPageResize");
         _dotNetRef?.Dispose();
     }
 
-    [JSInvokable]
-    public async Task OnWindowResized(double width, double height)
-    {
-        containerWidth = width;
-        containerHeight = height;
-        // 必要に応じて再描画
-        await InvokeAsync(StateHasChanged);
-    }
+    //[JSInvokable]
+    //public async Task OnWindowResized(double width, double height)
+    //{
+    //    containerWidth = width;
+    //    containerHeight = height;
+    //    // 必要に応じて再描画
+    //    await InvokeAsync(StateHasChanged);
+    //}
 
     private async void NavigateBack()
     {
