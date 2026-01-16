@@ -306,6 +306,8 @@
     private const double PAGE_MARGIN_X = 20;
     private const double PAGE_MARGIN_Y = 20;
 
+    private bool _isBoldDefault = false;
+
     private List<SelectOption> fontSizeOptions = new()
     {
         new SelectOption { Value = "10", Text = "10px" },
@@ -542,7 +544,7 @@
             var editing = editElements.FirstOrDefault(el => el.IsEditing && el.Type == ElementType.Text);
             if (editing != null) return editing.IsBold;
             var selectedTextElems = editElements.Where(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Text).ToList();
-            if (!selectedTextElems.Any()) return false;
+            if (!selectedTextElems.Any()) return _isBoldDefault; // 未選択時はデフォルト値を返す
             return selectedTextElems.All(e => e.IsBold);
         }
     }
@@ -721,16 +723,25 @@
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
+            // 編集中の要素がある場合
             editingElement.IsBold = !editingElement.IsBold;
             StateHasChanged();
         }
         else if (selectedElementIds.Count > 0)
         {
+            // 選択中の要素がある場合
             foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
                 el.IsBold = !el.IsBold;
             StateHasChanged();
         }
+        else
+        {
+            // 未選択時はデフォルト値を切り替え
+            _isBoldDefault = !_isBoldDefault;
+            StateHasChanged();
+        }
     }
+
     private void OnColorPickerBlur(FocusEventArgs e)
     {
         ignoreNextPageClick = true;
@@ -772,6 +783,7 @@
     {
         _fontSize = DefaultFontSize;
         fontFamily = DefaultFontFamily;
+        _isBoldDefault = false;
         StateHasChanged();
     }
     private int fontSize
@@ -2123,7 +2135,8 @@
                 Color = textColor,
                 IsEditing = true,
                 FontFamily = DefaultFontFamily,
-                FitTextToArea = uiFitTextToArea
+                FitTextToArea = uiFitTextToArea,
+                IsBold = _isBoldDefault
             };
             editElements.Add(element);
 
@@ -2181,6 +2194,7 @@
             {
                 _fontSize = selected.FontSize;
                 uiFitTextToArea = selected.FitTextToArea;
+                _isBoldDefault = selected.IsBold;
             }
         }
 
