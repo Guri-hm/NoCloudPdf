@@ -1849,8 +1849,8 @@
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null) return;
 
-        // Deleteキーで選択中の要素を削除
-        if (key == "Delete" && selectedElementIds.Count > 0)
+        // キーで選択中の要素を削除
+        if ((key == "Delete" || key == "Backspace") && selectedElementIds.Count > 0)
         {
             foreach (var id in selectedElementIds.ToList())
             {
