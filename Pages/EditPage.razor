@@ -62,21 +62,22 @@
                                 <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます">
                                         <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                                 </Tooltip>
-                                <SelectBox 
+                                <EditableSelectBox 
                                     Label=""
                                     IsHorizontal="true"
                                     Value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize.ToString() ?? fontSize.ToString())"
                                     ValueChanged="@OnFontSizeChangedFromSelect"
                                     Options="@fontSizeOptions"
-                                    SelectClass="h-8 text-sm border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400" 
+                                    InputType="EditableSelectBox.EditableInputType.Number"
+                                    MinValue="6"
+                                    MaxValue="128"
+                                    StepValue="1"
+                                    Placeholder="px"
+                                    InputClass="h-8 text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    DropdownMaxHeightClass="max-h-48"
+                                    DropdownWidthClass="w-full bg-white"
                                     />
-                                <input type="number" min="6" max="128" step="1"
-                                    class="h-8 text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                                    @onchange="OnFontSizeChanged" @onclick:stopPropagation
-    @onmousedown:stopPropagation placeholder="手入力" />
                                 <span class="text-xs text-white">px</span>
-
                                 <input type="number" min="0" max="300" step="1"
                                 class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
                                 value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
