@@ -608,16 +608,18 @@
     {
         var newText = e.Value?.ToString() ?? "";
 
-        if (element.Text == newText) return;
-
+        // テキストが変わっていない場合もスキップしない（削除時も処理するため）
         element.Text = newText;
 
         // 日本語が含まれていたらNotoSansJPに強制
         if (ContainsJapanese(element.Text))
         {
             var resolved = ResolveFontForText(element.Text, element.FontFamily ?? fontFamily);
-            element.FontFamily = resolved;
-            fontFamily = resolved;
+            if (element.FontFamily != resolved)
+            {
+                element.FontFamily = resolved;
+                fontFamily = resolved;
+            }
         }
 
         if (element.FitTextToArea)
@@ -629,22 +631,26 @@
                 element.FontSize * zoomLevel,
                 element.FontFamily
             );
-            // 余白分はfontSizeに比例
-            element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); 
+            element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5);
         }
 
-        var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-        if (textareaHeightPx > 0)
+        // 高さを常に再計算（削除時も縮小するため）
+        try
         {
-            var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
-            var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
-            
-            // 高さが変わった場合のみ StateHasChanged
-            if (Math.Abs(element.Height - newHeight) > 0.1)
+            var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+            if (textareaHeightPx > 0)
             {
+                var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
+                var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
+                
+                // 高さを常に更新（削除時も反映）
                 element.Height = newHeight;
                 StateHasChanged();
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnTextAreaInput error: {ex.Message}");
         }
     }
     private bool ContainsJapanese(string text)

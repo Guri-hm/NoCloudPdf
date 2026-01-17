@@ -278,7 +278,7 @@ window.autoResizeTextarea = function (ref) {
             requestAnimationFrame(() => {
                 try {
                     // 高さを一旦リセット（重要：削除時に縮小するため）
-                    el.style.height = "auto";
+                    el.style.height = "1px"; // ← "auto" より確実
                     void el.getBoundingClientRect(); // 強制リフロー
                     
                     const cs = window.getComputedStyle(el);
@@ -296,6 +296,7 @@ window.autoResizeTextarea = function (ref) {
                     el.style.height = textareaH + "px";
                     el.style.overflow = "hidden";
 
+                    console.log(`autoResizeTextarea: scrollH=${scrollH}, lines=${lines}, textareaH=${textareaH}`); // ← デバッグ用
                     resolve(textareaH); // border を含めない
                 } catch (err) {
                     console.error("autoResizeTextarea inner error", err);
