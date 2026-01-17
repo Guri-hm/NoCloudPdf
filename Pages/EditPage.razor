@@ -151,22 +151,24 @@
                                     height: @(element.Height * zoomLevel)px;
                                     font-size: @(element.FontSize * zoomLevel)px;
                                     color: @element.Color;
-                                    font-family: @(element.FontFamily);"
+                                    font-family: @(element.FontFamily);
+                                    box-sizing: content-box;"
                                 @onmousedown="(e) => OnElementMouseDown(e, element)"
-                                @onmouseup="OnElementMouseUp"
-                                >
-                                @if (element.IsEditing)
-                                {
+                                @onmouseup="OnElementMouseUp">
+                                
+                                <!-- 内側のコンテナ（border-box で統一） -->
+                                <div class="w-full h-full" style="box-sizing: border-box; position: relative;">
+                                    <!-- textarea（編集モード） -->
                                     <textarea
                                         id="text-area-@element.Id"
                                         name="text-area-@element.Id"
-                                        @bind="element.Text"
+                                        value="@element.Text"
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
-                                        class="border-none outline-none bg-transparent resize-none overflow-hidden w-full h-auto"
-                                        style="min-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; 
+                                        class="border-none outline-none bg-transparent resize-none overflow-hidden w-full h-full absolute inset-0 @(element.IsEditing ? "" : "hidden")"
+                                        style="
                                             font-size: @(element.FontSize * zoomLevel)px; 
-                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; 
+                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2) * zoomLevel)px; 
                                             padding: 0; 
                                             margin: 0; 
                                             box-sizing: border-box; 
@@ -174,44 +176,55 @@
                                             color: @element.Color; 
                                             font-weight: @(element.IsBold ? "bold" : "normal"); 
                                             font-family: @(element.FontFamily);
-                                            @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word;")"
+                                            word-wrap: break-word; 
+                                            word-break: break-word; 
+                                            overflow-wrap: break-word;
+                                            white-space: @(element.FitTextToArea ? "nowrap" : "pre-wrap");"
                                         wrap="@(element.FitTextToArea ? "off" : "soft")"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
                                         @onmousedown:stopPropagation
                                     />
-                                }
-                                else
-                                {
+                                    
+                                    <!-- span（表示モード） -->
                                     <span
                                         @onclick="() => { if (!element.IsEditing) SelectElement(element.Id); }"
                                         @ondblclick="() => StartTextEdit(element)"
                                         @onclick:stopPropagation
                                         @ondblclick:stopPropagation
-                                        class="w-full h-full p-0 m-0 box-border block"
+                                        class="w-full h-full block absolute inset-0 @(element.IsEditing ? "hidden" : "")"
                                         style="
                                             font-size: @(element.FontSize * zoomLevel)px;
-                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px;
+                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2) * zoomLevel)px;
                                             color: @element.Color;
                                             font-weight: @(element.IsBold ? "bold" : "normal");
                                             font-family: @(element.FontFamily);
-                                            @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; word-wrap: break-word; word-break: break-word; overflow-wrap: break-word;")"
+                                            padding: 0;
+                                            margin: 0;
+                                            box-sizing: border-box;
+                                            word-wrap: break-word;
+                                            word-break: break-word;
+                                            overflow-wrap: break-word;
+                                            white-space: @(element.FitTextToArea ? "nowrap" : "pre-wrap");"
                                     >
                                         @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
-                                }
+                                </div>
+                                
                                 @* テキストエリア選択状態（ハンドル付で表示） *@
                                 @if (selectedElementIds.Contains(element.Id) && !element.IsEditing)
                                 {
                                     <TextElementControls 
-                                    IsVisible="true"
-                                    ShowEditButton="currentTool == EditTool.Text"
-                                    ElementWidth="element.Width"
-                                    ElementHeight="element.Height"
-                                    ZoomLevel="zoomLevel"
-                                    OnResizeStart="@((args) => OnTextResizeMouseDown(args.Item1, element, args.Item2))"
-                                    OnEdit="@(() => StartTextEdit(element))"
-                                    OnDelete="@(() => DeleteElement(element.Id))" />
+                                        IsVisible="true"
+                                        ShowEditButton="currentTool == EditTool.Text"
+                                        ElementWidth="element.Width"
+                                        ElementHeight="element.Height"
+                                        ZoomLevel="zoomLevel"
+                                        FontSize="element.FontSize"
+                                        LineHeight="element.LineHeight"
+                                        OnResizeStart="@((args) => OnTextResizeMouseDown(args.Item1, element, args.Item2))"
+                                        OnEdit="@(() => StartTextEdit(element))"
+                                        OnDelete="@(() => DeleteElement(element.Id))" />
                                 }
                             </div>
                         }
@@ -593,7 +606,11 @@
     }
     private async Task OnTextAreaInput(ChangeEventArgs e, EditElement element)
     {
-        element.Text = e.Value?.ToString() ?? "";
+        var newText = e.Value?.ToString() ?? "";
+
+        if (element.Text == newText) return;
+
+        element.Text = newText;
 
         // 日本語が含まれていたらNotoSansJPに強制
         if (ContainsJapanese(element.Text))
@@ -612,17 +629,23 @@
                 element.FontSize * zoomLevel,
                 element.FontFamily
             );
-            element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); // 余白分はfontSizeに比例
+            // 余白分はfontSizeに比例
+            element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); 
         }
 
-        await Task.Yield();
-
-        var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-        if (totalParentPx > 0)
+        var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+        if (textareaHeightPx > 0)
         {
-            element.Height = Math.Max(6, totalParentPx / zoomLevel);
+            var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
+            var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
+            
+            // 高さが変わった場合のみ StateHasChanged
+            if (Math.Abs(element.Height - newHeight) > 0.1)
+            {
+                element.Height = newHeight;
+                StateHasChanged();
+            }
         }
-        StateHasChanged(); 
     }
     private bool ContainsJapanese(string text)
     {
@@ -1238,21 +1261,33 @@
 
         fontFamily = element.FontFamily;
         _fontSize = element.FontSize;
-
         uiFitTextToArea = element.FitTextToArea;
 
         StateHasChanged();
-        await Task.Yield(); // レンダリング待ち
+        await Task.Yield();
 
         try
         {
             await textInputRef.FocusAsync();
-            var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-            if (totalParentPx > 0) element.Height = Math.Max(6, totalParentPx / zoomLevel);
+            await JSRuntime.InvokeVoidAsync("selectAllTextarea", textInputRef);
+            
+            // 初回の高さ調整（削除時も機能するように修正）
+            var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+            if (textareaHeightPx > 0)
+            {
+                var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
+                var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
+                
+                if (Math.Abs(element.Height - newHeight) > 0.1)
+                {
+                    element.Height = newHeight;
+                    StateHasChanged();
+                }
+            }
         }
         catch
         {
-            // フォーカス失敗は無視
+            Console.WriteLine($"StartTextEdit error: {ex.Message}");
         }
     }
 

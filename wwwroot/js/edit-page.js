@@ -277,36 +277,26 @@ window.autoResizeTextarea = function (ref) {
         return new Promise((resolve) => {
             requestAnimationFrame(() => {
                 try {
-                    // 一旦高さをautoにしてscrollHeightを正確に取得
+                    // 高さを一旦リセット（重要：削除時に縮小するため）
                     el.style.height = "auto";
-                    void el.getBoundingClientRect();
+                    void el.getBoundingClientRect(); // 強制リフロー
                     
                     const cs = window.getComputedStyle(el);
                     const fontSize = parseFloat(cs.fontSize) || 16;
+                    const lineHeight = parseFloat(cs.lineHeight) || fontSize * 1.2;
                     
-                    // scrollHeightで実際のコンテンツ高さを取得（折り返しを含む）
+                    // scrollHeight で実際の高さを取得
                     const scrollH = el.scrollHeight;
                     
-                    // UX向上のため、わずかな余白を追加（フォントサイズの5%）
-                    const extraPadding = Math.ceil(fontSize * 0.05);
+                    // 行数を計算（削除時も正確に計算）
+                    const lines = Math.max(1, Math.ceil(scrollH / lineHeight));
+                    const textareaH = lines * lineHeight;
                     
-                    const textareaH = scrollH + extraPadding;
-                    
+                    // 高さを設定
                     el.style.height = textareaH + "px";
                     el.style.overflow = "hidden";
 
-                    // 親の枠（border）を加算
-                    let parentBorderV = 0;
-                    try {
-                        const parent = el.closest && el.closest(".edit-element");
-                        if (parent) {
-                            const pcs = window.getComputedStyle(parent);
-                            parentBorderV = (parseFloat(pcs.borderTopWidth) || 0) + (parseFloat(pcs.borderBottomWidth) || 0);
-                        }
-                    } catch (e) { /* ignore */ }
-
-                    const totalParentPx = textareaH + parentBorderV;
-                    resolve(totalParentPx || 0);
+                    resolve(textareaH); // border を含めない
                 } catch (err) {
                     console.error("autoResizeTextarea inner error", err);
                     resolve(0);
