@@ -1,22 +1,6 @@
 .edit-page-layout {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-}
-
-@media (min-width: 768px) {
-    .edit-page-layout {
-        left: 88px;
-    }
-}
-
-@media (max-width: 767px) {
-    .edit-page-layout {
-        left: 0;
-    }
+    height: 100%;
+    overflow: hidden; /* EditPage 内でスクロールを制御 */
 }
