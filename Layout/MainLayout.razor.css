@@ -10,12 +10,20 @@ main {
     min-width: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden; /* 共通化 */
 }
 
 .content {
     flex: 1;
-    min-height: 0; /* フレックスアイテムのはみ出し防止 */
+    min-height: 0;
+    height: 100%; /* 共通化 */
+    overflow-y: auto; /* デフォルトでスクロール可能 */
 }
+
+/* EditPageのみ例外処理（グローバルに適用） */
+/* .content:has(.edit-page-layout) {
+    overflow: hidden;
+} */
 
 .sidebar {
     background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
@@ -23,24 +31,11 @@ main {
 
 @media (max-width: 767px) {
     .page {
-        /* モバイル時は sidebar（ヘッダー）が固定高さ 56px を占有 */
-        display: flex;
-        flex-direction: column;
         height: 100vh;
     }
 
     .sidebar {
-        flex: 0 0 auto; /* ヘッダー高さは内容に応じて自動（実質 56px） */
-    }
-
-    main {
-        flex: 1;
-        min-height: 0;
-        overflow: hidden; /* EditPage が独自にスクロール管理 */
-    }
-
-    .content {
-        height: 100%; /* main の残り高さをすべて使う */
+        flex: 0 0 auto;
     }
 }
 
@@ -57,14 +52,5 @@ main {
         top: 0;
         height: 100vh;
         overflow-y: auto;
-    }
-
-    main {
-        min-width: 0;
-        overflow: hidden;
-    }
-
-    .content {
-        height: 100%; /* Grid セル内で 100% */
     }
 }
