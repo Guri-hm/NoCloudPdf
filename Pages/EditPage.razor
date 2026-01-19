@@ -1323,7 +1323,7 @@
         resizingHandle = null;
     }
 
-    private void OnImageResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
+    private async void OnImageResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
     {
         isResizingOrDragging = true;
         resizingImageId = element.Id;
@@ -1334,6 +1334,7 @@
         dragStartImageY = element.Y;
         dragStartImageWidth = element.Width;
         dragStartImageHeight = element.Height;
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
     }
 
     private void ResizeImageElement(EditElement element, string handle, double dx, double dy)
@@ -1355,116 +1356,298 @@
                 case "n":
                     {
                         double rawHeight = dragStartImageHeight - dy;
-                        newHeight = Math.Max(rawHeight, minSize);
-                        double actualDy = dragStartImageHeight - newHeight;
+                        // 反転対応：高さが負になったら下方向に反転
+                        if (rawHeight < 0)
+                        {
+                            newHeight = Math.Abs(rawHeight);
+                            newY = dragStartImageY + dragStartImageHeight; // 基点を下端に移動
+                        }
+                        else
+                        {
+                            newHeight = Math.Max(rawHeight, minSize);
+                            newY = dragStartImageY + (dragStartImageHeight - newHeight);
+                        }
                         newWidth = Math.Max(newHeight * aspect, minSize);
-                        newY = dragStartImageY + actualDy;
                     }
                     break;
                 case "s":
                     {
                         double rawHeight = dragStartImageHeight + dy;
-                        newHeight = Math.Max(rawHeight, minSize);
+                        if (rawHeight < 0)
+                        {
+                            newHeight = Math.Abs(rawHeight);
+                            newY = dragStartImageY - newHeight; // 基点を上端に移動
+                        }
+                        else
+                        {
+                            newHeight = Math.Max(rawHeight, minSize);
+                            newY = dragStartImageY;
+                        }
                         newWidth = Math.Max(newHeight * aspect, minSize);
                     }
                     break;
                 case "e":
                     {
                         double rawWidth = dragStartImageWidth + dx;
-                        newWidth = Math.Max(rawWidth, minSize);
+                        if (rawWidth < 0)
+                        {
+                            newWidth = Math.Abs(rawWidth);
+                            newX = dragStartImageX - newWidth;
+                        }
+                        else
+                        {
+                            newWidth = Math.Max(rawWidth, minSize);
+                            newX = dragStartImageX;
+                        }
                         newHeight = Math.Max(newWidth / aspect, minSize);
                     }
                     break;
                 case "w":
                     {
                         double rawWidth = dragStartImageWidth - dx;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        double actualDx = dragStartImageWidth - newWidth;
+                        if (rawWidth < 0)
+                        {
+                            newWidth = Math.Abs(rawWidth);
+                            newX = dragStartImageX + dragStartImageWidth; // 基点を右端に移動
+                        }
+                        else
+                        {
+                            newWidth = Math.Max(rawWidth, minSize);
+                            newX = dragStartImageX + (dragStartImageWidth - newWidth);
+                        }
                         newHeight = Math.Max(newWidth / aspect, minSize);
-                        newX = dragStartImageX + actualDx;
                     }
                     break;
                 case "nw":
                     {
-                        // dx,dyのうち絶対値が大きい方を優先
                         double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
                         double rawWidth = dragStartImageWidth - delta;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        double actualDelta = dragStartImageWidth - newWidth;
-                        newX = dragStartImageX + actualDelta;
-                        newY = dragStartImageY + (dragStartImageHeight - newHeight);
+                        if (rawWidth < 0)
+                        {
+                            newWidth = Math.Abs(rawWidth);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX + dragStartImageWidth; // 右下が基点
+                            newY = dragStartImageY + dragStartImageHeight - newHeight;
+                        }
+                        else
+                        {
+                            newWidth = Math.Max(rawWidth, minSize);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX + (dragStartImageWidth - newWidth);
+                            newY = dragStartImageY + (dragStartImageHeight - newHeight);
+                        }
                     }
                     break;
                 case "ne":
                     {
-                        double delta = Math.Abs(dx) > Math.Abs(dy) ? -dx : dy;
                         double rawWidth = dragStartImageWidth + dx;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        newY = dragStartImageY + (dragStartImageHeight - newHeight);
+                        if (rawWidth < 0)
+                        {
+                            newWidth = Math.Abs(rawWidth);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX - newWidth; // 左下が基点
+                            newY = dragStartImageY + dragStartImageHeight - newHeight;
+                        }
+                        else
+                        {
+                            newWidth = Math.Max(rawWidth, minSize);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX;
+                            newY = dragStartImageY + (dragStartImageHeight - newHeight);
+                        }
                     }
                     break;
                 case "se":
                     {
                         double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
                         double rawWidth = dragStartImageWidth + delta;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
+                        if (rawWidth < 0)
+                        {
+                            newWidth = Math.Abs(rawWidth);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX - newWidth; // 左上が基点
+                            newY = dragStartImageY - newHeight;
+                        }
+                        else
+                        {
+                            newWidth = Math.Max(rawWidth, minSize);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX;
+                            newY = dragStartImageY;
+                        }
                     }
                     break;
                 case "sw":
                     {
-                        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : -dy;
                         double rawWidth = dragStartImageWidth - dx;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        double actualDx = dragStartImageWidth - newWidth;
-                        newX = dragStartImageX + actualDx;
+                        if (rawWidth < 0)
+                        {
+                            newWidth = Math.Abs(rawWidth);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX + dragStartImageWidth; // 右上が基点
+                            newY = dragStartImageY - newHeight;
+                        }
+                        else
+                        {
+                            newWidth = Math.Max(rawWidth, minSize);
+                            newHeight = Math.Max(newWidth / aspect, minSize);
+                            newX = dragStartImageX + (dragStartImageWidth - newWidth);
+                            newY = dragStartImageY;
+                        }
                     }
                     break;
             }
         }
         else
         {
-            // アスペクト比無視（今のままでOK）
+            // アスペクト比無視時も同様に反転対応
             switch (handle)
             {
                 case "nw":
-                    newX = dragStartImageX + dx;
-                    newY = dragStartImageY + dy;
-                    newWidth = Math.Max(dragStartImageWidth - dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight - dy, minSize);
+                    newWidth = dragStartImageWidth - dx;
+                    newHeight = dragStartImageHeight - dy;
+                    if (newWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth;
+                        newWidth = Math.Abs(newWidth);
+                    }
+                    else
+                    {
+                        newX = dragStartImageX + dx;
+                    }
+                    if (newHeight < 0)
+                    {
+                        newY = dragStartImageY + dragStartImageHeight;
+                        newHeight = Math.Abs(newHeight);
+                    }
+                    else
+                    {
+                        newY = dragStartImageY + dy;
+                    }
                     break;
                 case "n":
-                    newY = dragStartImageY + dy;
-                    newHeight = Math.Max(dragStartImageHeight - dy, minSize);
+                    newHeight = dragStartImageHeight - dy;
+                    newWidth = dragStartImageWidth;
+                    if (newHeight < 0)
+                    {
+                        newY = dragStartImageY + dragStartImageHeight;
+                        newHeight = Math.Abs(newHeight);
+                    }
+                    else
+                    {
+                        newY = dragStartImageY + dy;
+                    }
                     break;
                 case "ne":
-                    newY = dragStartImageY + dy;
-                    newWidth = Math.Max(dragStartImageWidth + dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight - dy, minSize);
+                    newWidth = dragStartImageWidth + dx;
+                    newHeight = dragStartImageHeight - dy;
+                    if (newWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth + dx;
+                        newWidth = Math.Abs(newWidth);
+                    }
+                    else
+                    {
+                        newX = dragStartImageX;
+                    }
+                    if (newHeight < 0)
+                    {
+                        newY = dragStartImageY + dragStartImageHeight;
+                        newHeight = Math.Abs(newHeight);
+                    }
+                    else
+                    {
+                        newY = dragStartImageY + dy;
+                    }
                     break;
                 case "e":
-                    newWidth = Math.Max(dragStartImageWidth + dx, minSize);
+                    newWidth = dragStartImageWidth + dx;
+                    newHeight = dragStartImageHeight;
+                    if (newWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth + dx;
+                        newWidth = Math.Abs(newWidth);
+                    }
+                    else
+                    {
+                        newX = dragStartImageX;
+                    }
                     break;
                 case "se":
-                    newWidth = Math.Max(dragStartImageWidth + dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight + dy, minSize);
+                    newWidth = dragStartImageWidth + dx;
+                    newHeight = dragStartImageHeight + dy;
+                    if (newWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth + dx;
+                        newWidth = Math.Abs(newWidth);
+                    }
+                    else
+                    {
+                        newX = dragStartImageX;
+                    }
+                    if (newHeight < 0)
+                    {
+                        newY = dragStartImageY + dragStartImageHeight + dy;
+                        newHeight = Math.Abs(newHeight);
+                    }
+                    else
+                    {
+                        newY = dragStartImageY;
+                    }
                     break;
                 case "s":
-                    newHeight = Math.Max(dragStartImageHeight + dy, minSize);
+                    newHeight = dragStartImageHeight + dy;
+                    newWidth = dragStartImageWidth;
+                    if (newHeight < 0)
+                    {
+                        newY = dragStartImageY + dragStartImageHeight + dy;
+                        newHeight = Math.Abs(newHeight);
+                    }
+                    else
+                    {
+                        newY = dragStartImageY;
+                    }
                     break;
                 case "sw":
-                    newX = dragStartImageX + dx;
-                    newWidth = Math.Max(dragStartImageWidth - dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight + dy, minSize);
+                    newWidth = dragStartImageWidth - dx;
+                    newHeight = dragStartImageHeight + dy;
+                    if (newWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth;
+                        newWidth = Math.Abs(newWidth);
+                    }
+                    else
+                    {
+                        newX = dragStartImageX + dx;
+                    }
+                    if (newHeight < 0)
+                    {
+                        newY = dragStartImageY + dragStartImageHeight + dy;
+                        newHeight = Math.Abs(newHeight);
+                    }
+                    else
+                    {
+                        newY = dragStartImageY;
+                    }
                     break;
                 case "w":
-                    newX = dragStartImageX + dx;
-                    newWidth = Math.Max(dragStartImageWidth - dx, minSize);
+                    newWidth = dragStartImageWidth - dx;
+                    newHeight = dragStartImageHeight;
+                    if (newWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth;
+                        newWidth = Math.Abs(newWidth);
+                    }
+                    else
+                    {
+                        newX = dragStartImageX + dx;
+                    }
                     break;
             }
+            
+            // 最小サイズ確保
+            newWidth = Math.Max(Math.Abs(newWidth), minSize);
+            newHeight = Math.Max(Math.Abs(newHeight), minSize);
         }
 
         element.X = newX;
