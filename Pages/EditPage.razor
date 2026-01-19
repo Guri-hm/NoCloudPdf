@@ -104,51 +104,20 @@
                     @if (currentTool == EditTool.Image)
                     {
                         <div class="flex flex-wrap items-center gap-2 w-full">
-                            <label class="cursor-pointer bg-white hover:bg-gray-100 text-black px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 rounded-lg 
-                            ">
+                            <label class="cursor-pointer bg-white hover:bg-gray-100 text-black px-4 py-1 font-bold focus:outline-none transition flex items-center rounded-lg h-10">
                                 画像を追加
                                 <InputFile OnChange="OnImageSelected" multiple class="hidden" />
                             </label>
-                            <label class="flex items-center gap-1 text-sm
-                            ">
-                                <input @bind="keepAspectRatio"  type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <label class="flex items-center gap-1 text-sm">
+                                <input @bind="keepAspectRatio" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
                                 アスペクト比固定
                             </label>
 
                             @if (selectedElementIds.Any(id => editElements.Any(el => el.Id == id && el.Type == ElementType.Image)))
                             {
-                                <div class="flex items-center gap-1 ml-2">
-                                    <button class="flex items-center gap-1 bg-white hover:bg-gray-100 text-black px-3 py-1 rounded border border-gray-300"
-                                            @onclick="RotateSelectedImageLeft"
-                                            @onclick:stopPropagation
-                                            title="左回転">
-                                        <RotateLeftIcon Class="w-5 h-5" />
-                                        <span class="text-sm">左回転</span>
-                                    </button>
-                                    <button class="flex items-center gap-1 bg-white hover:bg-gray-100 text-black px-3 py-1 rounded border border-gray-300"
-                                            @onclick="RotateSelectedImageRight"
-                                            @onclick:stopPropagation
-                                            title="右回転">
-                                        <RotateRightIcon Class="w-5 h-5" />
-                                        <span class="text-sm">右回転</span>
-                                    </button>
-                                    <button class="flex items-center gap-1 bg-white hover:bg-gray-100 text-black px-3 py-1 rounded border border-gray-300"
-                                            @onclick="FlipSelectedImageHorizontal"
-                                            @onclick:stopPropagation
-                                            title="左右反転">
-                                        <FlipHorizontalIcon Class="w-5 h-5" />
-                                        <span class="text-sm">左右反転</span>
-                                    </button>
-                                    <button class="flex items-center gap-1 bg-white hover:bg-gray-100 text-black px-3 py-1 rounded border border-gray-300"
-                                            @onclick="FlipSelectedImageVertical"
-                                            @onclick:stopPropagation
-                                            title="上下反転">
-                                        <FlipVerticalIcon Class="w-5 h-5" />
-                                        <span class="text-sm">上下反転</span>
-                                    </button>
-                                </div>
+                                <ActionButtonGroup T="string" Actions="imageRotateActions" />
+                                <ActionButtonGroup T="string" Actions="imageFlipActions" />
                             }
-
                         </div>
                     }
             </div>
@@ -367,6 +336,62 @@
     private const double PAGE_MARGIN_Y = 20;
 
     private bool _isBoldDefault = false;
+
+    private List<ActionButtonItem> imageRotateActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "左回転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateLeftIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "左回転",
+            OnClick = EventCallback.Factory.Create(this, RotateSelectedImageLeft),
+        },
+        new ActionButtonItem
+        {
+            Label = "右回転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateRightIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "右回転",
+            OnClick = EventCallback.Factory.Create(this, RotateSelectedImageRight),
+        }
+    };
+
+    private List<ActionButtonItem> imageFlipActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "左右反転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FlipHorizontalIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "左右反転",
+            OnClick = EventCallback.Factory.Create(this, FlipSelectedImageHorizontal),
+        },
+        new ActionButtonItem
+        {
+            Label = "上下反転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FlipVerticalIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "上下反転",
+            OnClick = EventCallback.Factory.Create(this, FlipSelectedImageVertical),
+        }
+    };
 
     private void FlipSelectedImageHorizontal()
     {
