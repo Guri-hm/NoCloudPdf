@@ -40,8 +40,7 @@
 
                     @if (currentTool == EditTool.Text)
                     {
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                            <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2 w-full">
 
                                 @{
                                     var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
@@ -101,18 +100,22 @@
                                     @onclick:stopPropagation
                                     @onmousedown:stopPropagation/>
                             </div>
-                        </div>
                     }
                     @if (currentTool == EditTool.Image)
                     {
-                        <label class="flex items-center gap-1 text-sm flex-shrink-0">
-                            <input type="checkbox" @bind="keepAspectRatio" />
-                            アスペクト比固定
-                        </label>
-                        <label class="cursor-pointer px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
-                            画像を追加
-                            <InputFile OnChange="OnImageSelected" multiple class="hidden" />
-                        </label>
+                        <div class="flex flex-wrap items-center gap-2 w-full">
+                            <label class="cursor-pointer bg-white hover:bg-gray-100 text-black px-4 py-1 font-bold focus:outline-none transition flex items-center gap-3 rounded-lg 
+                            ">
+                                画像を追加
+                                <InputFile OnChange="OnImageSelected" multiple class="hidden" />
+                            </label>
+                            <label class="flex items-center gap-1 text-sm
+                            ">
+                                <input @bind="keepAspectRatio"  type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                アスペクト比固定
+                            </label>
+
+                        </div>
                     }
             </div>
             <ActionButtonGroup T="string" Actions="primaryActions" />
@@ -236,31 +239,27 @@
                                     left: @(element.X * zoomLevel)px;
                                     top: @(element.Y * zoomLevel)px;
                                     width: @(element.Width * zoomLevel)px;
-                                    height: @(element.Height * zoomLevel)px;"
+                                    height: @(element.Height * zoomLevel)px;
+                                    box-sizing: content-box;"
                                 @onmousedown="(e) => OnImageMouseDown(e, element)"
                                 @onmouseup="OnImageMouseUp"
                                 @onclick="() => { if (currentTool == EditTool.Image || currentTool == EditTool.Select) SelectElement(element.Id); }"
-                                @onclick:stopPropagation
-                            >
-                                <img src="@element.ImageUrl" class="w-full h-full object-contain pointer-events-none" style="object-fit:@(keepAspectRatio ? "contain" : "fill");" />
-                                @if (selectedElementIds.Contains(element.Id) && currentTool == EditTool.Image || currentTool == EditTool.Select)
+                                @onclick:stopPropagation>
+                                
+                                <img src="@element.ImageUrl" 
+                                    class="w-full h-full object-contain pointer-events-none" 
+                                    style="object-fit:@(keepAspectRatio ? "contain" : "fill");" />
+                                
+                                @* 画像要素選択状態（ハンドル付で表示） *@
+                                @if (selectedElementIds.Contains(element.Id) && (currentTool == EditTool.Image || currentTool == EditTool.Select))
                                 {
-                                    <div class="element-handles absolute inset-0 pointer-events-none">
-                                        @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
-                                        {
-                                            <div class="handle handle-@handle absolute bg-blue-600 border border-white w-2 h-2 pointer-events-auto"
-                                                style="@GetHandleStyle(handle, element)"
-                                                @onmousedown="(e) => OnImageResizeMouseDown(e, element, handle)"
-                                                @onmousedown:stopPropagation />
-                                        }
-                                    </div>
-                                }
-                                @if (selectedElementIds.Contains(element.Id))
-                                {
-                                    <button class="delete-btn absolute top-[-20px] right-[-20px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
-                                            @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                            <CloseIcon/>
-                                    </button>
+                                    <ImageElementControls 
+                                        IsVisible="true"
+                                        ElementWidth="element.Width"
+                                        ElementHeight="element.Height"
+                                        ZoomLevel="zoomLevel"
+                                        OnResizeStart="@((args) => OnImageResizeMouseDown(args.Item1, element, args.Item2))"
+                                        OnDelete="@(() => DeleteElement(element.Id))" />
                                 }
                             </div>
                         }
@@ -1178,24 +1177,6 @@
         resizingImageId = null;
         resizingHandle = null;
         StateHasChanged();
-    }
-
-    private string GetHandleStyle(string handle, EditElement element)
-    {
-        var w = element.Width * zoomLevel;
-        var h = element.Height * zoomLevel;
-        var positions = new Dictionary<string, string>
-        {
-            ["nw"] = "top:-4px;left:-4px;cursor:nw-resize;",
-            ["n"]  = $"top:-4px;left:{w/2-4}px;cursor:n-resize;",
-            ["ne"] = $"top:-4px;right:-4px;cursor:ne-resize;",
-            ["e"]  = $"top:{h/2-4}px;right:-4px;cursor:e-resize;",
-            ["se"] = $"bottom:-4px;right:-4px;cursor:se-resize;",
-            ["s"]  = $"bottom:-4px;left:{w/2-4}px;cursor:s-resize;",
-            ["sw"] = $"bottom:-4px;left:-4px;cursor:sw-resize;",
-            ["w"]  = $"top:{h/2-4}px;left:-4px;cursor:w-resize;"
-        };
-        return positions[handle];
     }
 
     private async void OnElementMouseDown(MouseEventArgs e, EditElement element)

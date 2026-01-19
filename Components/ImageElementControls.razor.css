@@ -1,0 +1,99 @@
+.element-handles {
+    position: absolute;
+    inset: -4px;
+    pointer-events: none;
+}
+
+.handle {
+    position: absolute;
+    background-color: rgba(59, 130, 246, 0.95);
+    border: 1px solid white;
+    width: 12px;
+    height: 12px;
+    pointer-events: auto;
+    z-index: 10;
+}
+
+.handle-nw {
+    top: -4px;
+    left: -4px;
+    cursor: nw-resize;
+}
+
+.handle-n {
+    top: -4px;
+    left: calc(var(--element-width) / 2 - 4px);
+    cursor: n-resize;
+}
+
+.handle-ne {
+    top: -4px;
+    right: -4px;
+    cursor: ne-resize;
+}
+
+.handle-e {
+    top: calc(var(--element-height) / 2 - 4px);
+    right: -4px;
+    cursor: e-resize;
+}
+
+.handle-se {
+    bottom: -4px;
+    right: -4px;
+    cursor: se-resize;
+}
+
+.handle-s {
+    bottom: -4px;
+    left: calc(var(--element-width) / 2 - 4px);
+    cursor: s-resize;
+}
+
+.handle-sw {
+    bottom: -4px;
+    left: -4px;
+    cursor: sw-resize;
+}
+
+.handle-w {
+    top: calc(var(--element-height) / 2 - 4px);
+    left: -4px;
+    cursor: w-resize;
+}
+
+.control-buttons {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 6px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    border-radius: 0.375rem;
+    padding: 0.25rem;
+    background-color: rgba(0, 0, 0, 0.6);
+    pointer-events: auto;
+    z-index: 20;
+}
+
+.control-button {
+    width: 1.5rem;
+    height: 1.5rem;
+    background-color: transparent;
+    color: white;
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.control-button:hover {
+    background-color: rgba(75, 85, 99, 1);
+}
+
+.control-button.delete:hover {
+    background-color: rgba(220, 38, 38, 1);
+}

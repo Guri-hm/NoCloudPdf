@@ -1,0 +1,53 @@
+@using NoCloudPdf.Models
+
+@if (IsVisible)
+{
+    <div class="element-handles" 
+         style="--element-width: @(ElementWidth * ZoomLevel)px; 
+                --element-height: @(ElementHeight * ZoomLevel)px;"
+         @onmousedown:stopPropagation
+         @onclick:stopPropagation>
+        @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
+        {
+            <div class="handle handle-@handle"
+                @onmousedown="@(e => OnResizeMouseDown(e, handle))"
+                @onmousedown:stopPropagation>
+            </div>
+        }
+
+        <div class="control-buttons">
+            <button class="control-button delete"
+                @onclick="OnDeleteClick" 
+                @onclick:stopPropagation 
+                title="削除">
+                <DeleteIcon Class="w-4 h-4"/>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public double ElementWidth { get; set; }
+    [Parameter] public double ElementHeight { get; set; }
+    [Parameter] public double ZoomLevel { get; set; } = 1.0;
+    
+    [Parameter] public EventCallback<(MouseEventArgs, string)> OnResizeStart { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private async Task OnResizeMouseDown(MouseEventArgs e, string handle)
+    {
+        if (OnResizeStart.HasDelegate)
+        {
+            await OnResizeStart.InvokeAsync((e, handle));
+        }
+    }
+
+    private async Task OnDeleteClick()
+    {
+        if (OnDelete.HasDelegate)
+        {
+            await OnDelete.InvokeAsync();
+        }
+    }
+}
