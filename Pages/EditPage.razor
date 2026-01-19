@@ -1852,56 +1852,58 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
         StateHasChanged();
     }
 
-    private string inputFileKey = Guid.NewGuid().ToString();
 
     private async Task OnImageSelected(InputFileChangeEventArgs e)
+{
+    var files = e.GetMultipleFiles();
+    if (files == null || files.Count == 0)
     {
-        var files = e.GetMultipleFiles();
-        if (files == null || files.Count == 0)
+        _ = MessageService.ShowAsync("ファイルが選択されていません。", MessageType.Warn);
+        return;
+    }
+
+    var file = files[0];
+    var contentType = file.ContentType?.ToLower() ?? "";
+
+    try
+    {
+        const long maxSize = 5 * 1024 * 1024;
+        using var stream = file.OpenReadStream(maxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var base64 = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+        
+        if (contentType == "image/png" || contentType == "image/jpeg")
         {
-            _ = MessageService.ShowAsync("ファイルが選択されていません。", MessageType.Warn);
+            var size = await JSRuntime.InvokeAsync<SizeDto>("getImageSizeFromBase64", base64);
+            
+            // PNGの場合、透明度を保持したままBase64を使用
+            await OnImageBase64Loaded(base64, size.width, size.height);
+        }
+        else if (contentType == "image/gif" || contentType == "image/bmp" ||
+                contentType == "image/webp" || contentType == "image/svg+xml")
+        {
+            // 他の形式はPNGに変換（透明度保持）
+            var result = await JSRuntime.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64, contentType);
+            await OnImageBase64Loaded(result.pngBase64, result.width, result.height);
+        }
+        else
+        {
+            _ = MessageService.ShowAsync("対応していない画像形式です。PNG, JPEG, GIF, BMP, WebP, SVGのみ追加できます。", MessageType.Warn);
             return;
         }
-
-        var file = files[0];
-        var contentType = file.ContentType?.ToLower() ?? "";
-
-        try
-        {
-            // 最大サイズを指定（例: 5MB = 5 * 1024 * 1024）
-            const long maxSize = 5 * 1024 * 1024;
-            using var stream = file.OpenReadStream(maxSize);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            var base64 = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
-            if (contentType == "image/png" || contentType == "image/jpeg")
-            {
-                var size = await JSRuntime.InvokeAsync<SizeDto>("getImageSizeFromBase64", base64);
-                await OnImageBase64Loaded(base64, size.width, size.height);
-            }
-            else if (contentType == "image/gif" || contentType == "image/bmp" ||
-                    contentType == "image/webp" || contentType == "image/svg+xml")
-            {
-                var result = await JSRuntime.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64,contentType);
-                await OnImageBase64Loaded(result.pngBase64, result.width, result.height);
-            }
-            else
-            {
-                _ = MessageService.ShowAsync("対応していない画像形式です。PNG, JPEG, GIF, BMP, WebP, SVGのみ追加できます。", MessageType.Warn);
-                return;
-            }
-        }
-        catch (IOException ex)
-        {
-            _ = MessageService.ShowAsync("画像サイズが大きすぎます（最大5MBまで）。", MessageType.Warn);
-            Console.WriteLine($"画像サイズエラー: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            _ = MessageService.ShowAsync("画像の読み込みに失敗しました。", MessageType.Error);
-            Console.WriteLine($"画像読み込みエラー: {ex.Message}");
-        }
     }
+    catch (IOException ex)
+    {
+        _ = MessageService.ShowAsync("画像サイズが大きすぎます（最大5MBまで）。", MessageType.Warn);
+        Console.WriteLine($"画像サイズエラー: {ex.Message}");
+    }
+    catch (Exception ex)
+    {
+        _ = MessageService.ShowAsync("画像の読み込みに失敗しました。", MessageType.Error);
+        Console.WriteLine($"画像読み込みエラー: {ex.Message}");
+    }
+}
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -2397,62 +2399,63 @@ private async void FitToHeight()
     }
 
     private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)
+{
+    var result = new List<EditElement>();
+    foreach (var el in editElements)
     {
-        var result = new List<EditElement>();
-        foreach (var el in editElements)
+        var newEl = new EditElement
         {
-            var newEl = new EditElement
-            {
-                Id = el.Id,
-                Type = el.Type,
-                Text = el.Text,
-                FontSize = el.FontSize,
-                Color = el.Color,
-                FontFamily = el.FontFamily,
-                IsBold = el.IsBold,
-                ImageUrl = el.ImageUrl,
-                ImageOriginalWidth = el.ImageOriginalWidth,
-                ImageOriginalHeight = el.ImageOriginalHeight,
-                LineHeight = el.LineHeight
-            };
+            Id = el.Id,
+            Type = el.Type,
+            Text = el.Text,
+            FontSize = el.FontSize,
+            Color = el.Color,
+            FontFamily = el.FontFamily,
+            IsBold = el.IsBold,
+            ImageUrl = el.ImageUrl,
+            ImageOriginalWidth = el.ImageOriginalWidth,
+            ImageOriginalHeight = el.ImageOriginalHeight,
+            LineHeight = el.LineHeight,
+            Rotation = el.Rotation,           // ← 回転角度を保存
+            FlipHorizontal = el.FlipHorizontal, // ← 左右反転を保存
+            FlipVertical = el.FlipVertical      // ← 上下反転を保存
+        };
 
-            if (rotateAngle == 90)
-            {
-                newEl.X = el.Y +  el.Height;
-                newEl.Y = pageWidth - el.X -el.Height;
-                newEl.Width = el.Height;
-                newEl.Height = el.Width;
-                //newEl.Rotation = (el.Rotation - 90 + 360) % 360;
-                newEl.Rotation = rotateAngle; // ← PDF-libは左回転
-            }
-            else if (rotateAngle == 180)
-            {
-                newEl.X = pageWidth - el.X;
-                newEl.Y = pageHeight - el.Y - el.Height - (el.FontSize * 0.5);
-                newEl.Width = el.Width;
-                newEl.Height = el.Height;
-                newEl.Rotation = rotateAngle;
-            }
-            else if (rotateAngle == 270)
-            {
-                newEl.X = pageHeight - el.Y - el.Height - (el.FontSize * 0.5);
-                newEl.Y = el.X - el.Height - (el.FontSize * 0.5);
-                newEl.Width = el.Height;
-                newEl.Height = el.Width;
-                newEl.Rotation = rotateAngle;
-            }
-            else
-            {
-                newEl.X = el.X;
-                newEl.Y = el.Y;
-                newEl.Width = el.Width;
-                newEl.Height = el.Height;
-                newEl.Rotation = 0;
-            }
-            result.Add(newEl);
+        // ページ回転による座標変換（テキストと同様）
+        if (rotateAngle == 90)
+        {
+            newEl.X = el.Y + el.Height;
+            newEl.Y = pageWidth - el.X - el.Height;
+            newEl.Width = el.Height;
+            newEl.Height = el.Width;
         }
-        return result;
+        else if (rotateAngle == 180)
+        {
+            newEl.X = pageWidth - el.X;
+            newEl.Y = pageHeight - el.Y - el.Height;
+            newEl.Width = el.Width;
+            newEl.Height = el.Height;
+        }
+        else if (rotateAngle == 270)
+        {
+            newEl.X = pageHeight - el.Y - el.Height;
+            newEl.Y = el.X - el.Height;
+            newEl.Width = el.Height;
+            newEl.Height = el.Width;
+        }
+        else
+        {
+            newEl.X = el.X;
+            newEl.Y = el.Y;
+            newEl.Width = el.Width;
+            newEl.Height = el.Height;
+        }
+        
+        result.Add(newEl);
     }
+    return result;
+}
+
 
     private async Task SaveChanges()
     {

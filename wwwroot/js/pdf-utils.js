@@ -873,8 +873,9 @@ window.unlockPdf = async function (pdfData, password) {
 // ========================================
 // PDF編集（テキスト・画像追加）
 // ========================================
+
 window.editPdfPageWithElements = async function (pdfBase64, editJson) {
-    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+    const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
     if (!PDFLib._fontkitRegistered) {
         if (window.fontkit) {
@@ -906,7 +907,7 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
                 isSerif: (el.FontFamily || '').toLowerCase().includes('notoserif')
             });
 
-            const rotateDegrees = PDFLib.degrees(el.Rotation || 0);
+            const rotateDegrees = degrees(el.Rotation || 0);
             const fontSize = Number(el.FontSize) || 16;
             const specifiedLineHeight = (typeof el.LineHeight !== "undefined" && el.LineHeight > 0) ? Number(el.LineHeight) : null;
             const lineHeightPx = specifiedLineHeight || fontSize;
@@ -977,21 +978,24 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
             }
         } else if (el.Type === 1 || el.Type === "Image") {
             if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
-                let base64 = el.ImageUrl.split(',')[1] || el.ImageUrl;
-                let img;
-                if (el.ImageUrl.startsWith("data:image/png")) {
-                    img = await pdfDoc.embedPng(base64ToUint8Array(base64));
-                } else if (el.ImageUrl.startsWith("data:image/jpeg")) {
-                    img = await pdfDoc.embedJpg(base64ToUint8Array(base64));
-                }
-                const rotateDegrees = PDFLib.degrees(el.Rotation || 0);
+                const rotation = el.Rotation || 0;
+                const flipH = el.FlipHorizontal || false;
+                const flipV = el.FlipVertical || false;
 
-                page.drawImage(img, {
+                // 常にCanvas経由で処理（回転・反転の有無に関わらず）
+                const processedDataUrl = await applyImageTransformations(el.ImageUrl, rotation, flipH, flipV);
+                const processedBase64 = processedDataUrl.split(',')[1];
+                const processedImg = await pdfDoc.embedPng(base64ToUint8Array(processedBase64));
+
+                // 回転後の画像サイズを取得
+                const imgDims = processedImg.scale(1);
+
+                // PDF座標系での配置（回転は既にCanvas側で適用済みなので rotate は不要）
+                page.drawImage(processedImg, {
                     x: el.X || 0,
-                    y: pageHeight - (el.Y || 0) - (el.Height || img.height),
-                    width: el.Width || img.width,
-                    height: el.Height || img.height,
-                    rotate: rotateDegrees
+                    y: pageHeight - (el.Y || 0) - (el.Height || imgDims.height),
+                    width: el.Width || imgDims.width,
+                    height: el.Height || imgDims.height
                 });
             } else {
                 console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
@@ -1002,6 +1006,66 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
     const newPdfBytes = await pdfDoc.save();
     return uint8ArrayToBase64(newPdfBytes);
 };
+
+
+/**
+ * Canvas経由で画像の回転・反転を適用
+ */
+async function applyImageTransformations(imageDataUrl, rotation, flipH, flipV) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // 回転角度を正規化
+            const normalizedRotation = ((rotation % 360) + 360) % 360;
+            
+            // 回転角度に応じたキャンバスサイズ計算
+            let canvasWidth, canvasHeight;
+            
+            if (normalizedRotation === 0 || normalizedRotation === 180) {
+                // 0度・180度：元のサイズ
+                canvasWidth = img.width;
+                canvasHeight = img.height;
+            } else if (normalizedRotation === 90 || normalizedRotation === 270) {
+                // 90度・270度：幅と高さを入れ替え
+                canvasWidth = img.height;
+                canvasHeight = img.width;
+            } else {
+                // 45度などの中間角度：外接矩形を計算
+                const rad = (normalizedRotation * Math.PI) / 180;
+                const cos = Math.abs(Math.cos(rad));
+                const sin = Math.abs(Math.sin(rad));
+                canvasWidth = Math.ceil(img.width * cos + img.height * sin);
+                canvasHeight = Math.ceil(img.width * sin + img.height * cos);
+            }
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            // 変換の中心を設定
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            // 回転を適用
+            ctx.rotate((normalizedRotation * Math.PI) / 180);
+
+            // 反転を適用
+            const scaleX = flipH ? -1 : 1;
+            const scaleY = flipV ? -1 : 1;
+            ctx.scale(scaleX, scaleY);
+
+            // 画像を描画（中心基点）
+            ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+
+            // PNG として出力（透明度保持）
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = imageDataUrl;
+    });
+}
+
 
 // ========================================
 // PDFページサイズ取得
