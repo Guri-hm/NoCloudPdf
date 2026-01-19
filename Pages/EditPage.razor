@@ -569,8 +569,14 @@
             Title = "保存",
             OnClick = EventCallback.Factory.Create(this, SaveChanges),
             ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex",
-            IconPosition = "right",
-            TextColor = "text-white"
+            TextColor = "text-white",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(SaveIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+
         }
     };
     
