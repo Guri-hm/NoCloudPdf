@@ -1382,7 +1382,6 @@
 
     private async void StartTextEdit(EditElement element)
     {
-        Console.WriteLine($"StartTextEdit: element.Id={element.Id}");
         foreach (var el in editElements)
             el.IsEditing = false;
 
@@ -2053,7 +2052,6 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
             element.X = dragStartElementX + dx;
             element.Y = dragStartElementY + dy;
             changed = true;
-            Console.WriteLine($"Text element dragged: {element.Id}, New position: ({element.X}, {element.Y})");
         }
 
         if (changed) StateHasChanged();
@@ -2150,7 +2148,6 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        //Console.WriteLine("Rendered EditPage component");
         if (firstRender)
         {
             try{
@@ -2158,12 +2155,9 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
                 await MessageService.ShowLoadingAsync("読み込み中...");
 
                 _dotNetRef = DotNetObjectReference.Create(this);
-                //await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
-                //await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
                 await JSRuntime.InvokeVoidAsync("registerEditPageMouseHandlers", _dotNetRef);
                 await JSRuntime.InvokeVoidAsync("registerEditPageKeyHandler", _dotNetRef);
 
-                //await JSRuntime.InvokeVoidAsync("registerEditPageResize", _dotNetRef);
                 // 初期コンテナサイズを取得
                 var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
                 containerWidth = size.width;
@@ -2242,22 +2236,10 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
 
     public async ValueTask DisposeAsync()
     {
-        //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
-        //await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
         await JSRuntime.InvokeVoidAsync("unregisterEditPageMouseHandlers");
         await JSRuntime.InvokeVoidAsync("unregisterEditPageKeyHandler");
-        //await JSRuntime.InvokeVoidAsync("unregisterEditPageResize");
         _dotNetRef?.Dispose();
     }
-
-    //[JSInvokable]
-    //public async Task OnWindowResized(double width, double height)
-    //{
-    //    containerWidth = width;
-    //    containerHeight = height;
-    //    // 必要に応じて再描画
-    //    await InvokeAsync(StateHasChanged);
-    //}
 
     private async void NavigateBack()
     {
@@ -2275,14 +2257,12 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
     {
         zoomLevel = Math.Min(zoomLevel * 1.2, 5.0);
         await RedrawPdfPage();
-        Console.WriteLine($"ZoomIn: zoomLevel={zoomLevel}");
     }
 
     private async void ZoomOut()
     {
         zoomLevel = Math.Max(zoomLevel / 1.2, 0.1);
         await RedrawPdfPage();
-        Console.WriteLine($"ZoomOut: zoomLevel={zoomLevel}");
     }
 
     private async void FitToScreen()
@@ -2298,8 +2278,6 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
         var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
         containerWidth = size.width;
         containerHeight = size.height;
-        
-        Console.WriteLine($"FitToWidth: Got container size - width={containerWidth}, height={containerHeight}");
         
         var src = cachedPageSource;
         if (src == null)
@@ -2317,7 +2295,6 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
         var logicalW = Math.Max(1, src.origW);
         
         var newZoomLevel = Math.Round(Math.Max(0.1, Math.Min(availW / logicalW, 5.0)), 3);
-        Console.WriteLine($"FitToWidth: availW={availW}, logicalW={logicalW}, newZoomLevel={newZoomLevel}");
         
         zoomLevel = newZoomLevel;
         await RedrawPdfPage();
@@ -2338,8 +2315,6 @@ private async void FitToHeight()
         containerWidth = size.width;
         containerHeight = size.height;
         
-        Console.WriteLine($"FitToHeight: Got container size - width={containerWidth}, height={containerHeight}");
-        
         var src = cachedPageSource;
         if (src == null)
         {
@@ -2356,7 +2331,6 @@ private async void FitToHeight()
         var logicalH = Math.Max(1, src.origH);
         
         var newZoomLevel = Math.Round(Math.Max(0.1, Math.Min(availH / logicalH, 5.0)), 3);
-        Console.WriteLine($"FitToHeight: availH={availH}, logicalH={logicalH}, newZoomLevel={newZoomLevel}");
         
         zoomLevel = newZoomLevel;
         await RedrawPdfPage();
@@ -2461,7 +2435,6 @@ private async void FitToHeight()
     private void SetTool(EditTool tool)
     {
         currentTool = tool;
-        Console.WriteLine($"SetTool: {tool}");
         selectedElementIds.Clear();
     }
 
@@ -2498,12 +2471,9 @@ private async void FitToHeight()
     }
     private async Task OnPageClick(MouseEventArgs e)
     {
-        Console.WriteLine("OnPageClick");
-
         // リサイズ/ドラッグ中はページクリックを無視
         if (isResizingOrDragging)
         {
-            Console.WriteLine("OnPageClick: Ignored due to resizing/dragging");
             isResizingOrDragging = false;
             return;
         }
@@ -2511,20 +2481,14 @@ private async void FitToHeight()
         // カラーピッカーが開いている場合は何もしない
         if (ignoreNextPageClick)
         {
-            Console.WriteLine("OnPageClick: Ignored due to ignoreNextPageClick");
             ignoreNextPageClick = false;
             return;
         }
-
-        // JSでクリックターゲットのタグ名を取得
-        //var tagName = await JSRuntime.InvokeAsync<string>("getTagNameFromEvent", e);
-        //if (tagName == "INPUT" || tagName == "BUTTON") return;
 
         // すでにテキスト編集中の要素があれば追加しない
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
-            Console.WriteLine($"Editing element found: {editingElement.Id}");
             // ここで全てのIsEditingをfalseにしておく
             foreach (var el in editElements)
                 el.IsEditing = false;
@@ -2535,7 +2499,6 @@ private async void FitToHeight()
         // 選択中が1つ以上なら、選択解除だけして終了
         if (selectedElementIds.Count > 0)
         {
-            Console.WriteLine("Clearing selected elements");
             selectedElementIds.Clear();
             ResetFontToDefault();
             return;
@@ -2544,7 +2507,6 @@ private async void FitToHeight()
         // テキストボックス新規追加
         if (currentTool == EditTool.Text)
         {
-            Console.WriteLine("OnPageClick: Text tool active");
             // JSで正確なキャンバス座標を取得
             var coords = await JSRuntime.InvokeAsync<CanvasCoords>(
             "getCanvasCoords",
@@ -2595,7 +2557,6 @@ private async void FitToHeight()
         }
         else
         {
-            Console.WriteLine("Clearing selected elements at end of OnPageClick");
             selectedElementIds.Clear();
             ResetFontToDefault();
         }
@@ -2615,7 +2576,6 @@ private async void FitToHeight()
         }
         else
         {
-            Console.WriteLine($"SelectElement: Clearing selected elements and selecting {elementId}");
             selectedElementIds.Clear();
             selectedElementIds.Add(elementId);
         }
@@ -2654,7 +2614,6 @@ private async void FitToHeight()
         // blur直後のクリックを1回だけ無視
         ignoreNextPageClick = true;
 
-        Console.WriteLine($"FinishTextEdit: Element {element.Id} text set to: {element.Text}");
         StateHasChanged();
     }
 
