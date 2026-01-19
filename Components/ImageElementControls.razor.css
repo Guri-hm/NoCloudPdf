@@ -2,9 +2,7 @@
     position: absolute;
     inset: -4px;
     pointer-events: none;
-    /* 親要素の回転を打ち消す */
-    transform: rotate(calc(-1 * var(--rotation, 0deg)));
-    transform-origin: center center;
+    /* ハンドル全体は回転させない（個別に回転後の位置を計算） */
 }
 
 .handle {
@@ -17,6 +15,7 @@
     z-index: 10;
 }
 
+/* リサイズハンドルの位置（回転を考慮せず固定） */
 .handle-nw {
     top: -4px;
     left: -4px;
@@ -65,6 +64,33 @@
     cursor: w-resize;
 }
 
+/* 回転ハンドル */
+.rotate-handle {
+    position: absolute;
+    top: -38px;
+    left: calc(var(--element-width) / 2 - 13px);
+    background-color: rgba(59, 130, 246, 0.95);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    cursor: grab;
+    z-index: 11;
+    padding: 5px;
+    /* アイコンの回転を打ち消す（コンテナ自体は回転させない） */
+}
+
+.rotate-handle:active {
+    cursor: grabbing;
+}
+
+/* 回転ハンドル内のアイコン（親要素の回転を打ち消す） */
+.rotate-handle > * {
+    transform: rotate(calc(-1 * var(--rotation, 0deg)));
+}
+
+/* 削除ボタン */
 .control-buttons {
     position: absolute;
     top: 0;
@@ -77,6 +103,12 @@
     background-color: rgba(0, 0, 0, 0.6);
     pointer-events: auto;
     z-index: 20;
+    /* コンテナ自体は回転させない */
+}
+
+/* 削除ボタン内のアイコン（親要素の回転を打ち消す） */
+.control-buttons > * {
+    transform: rotate(calc(-1 * var(--rotation, 0deg)));
 }
 
 .control-button {

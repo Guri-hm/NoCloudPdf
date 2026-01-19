@@ -132,6 +132,20 @@
                                         <RotateRightIcon Class="w-5 h-5" />
                                         <span class="text-sm">右回転</span>
                                     </button>
+                                    <button class="flex items-center gap-1 bg-white hover:bg-gray-100 text-black px-3 py-1 rounded border border-gray-300"
+                                            @onclick="FlipSelectedImageHorizontal"
+                                            @onclick:stopPropagation
+                                            title="左右反転">
+                                        <FlipHorizontalIcon Class="w-5 h-5" />
+                                        <span class="text-sm">左右反転</span>
+                                    </button>
+                                    <button class="flex items-center gap-1 bg-white hover:bg-gray-100 text-black px-3 py-1 rounded border border-gray-300"
+                                            @onclick="FlipSelectedImageVertical"
+                                            @onclick:stopPropagation
+                                            title="上下反転">
+                                        <FlipVerticalIcon Class="w-5 h-5" />
+                                        <span class="text-sm">上下反転</span>
+                                    </button>
                                 </div>
                             }
 
@@ -283,6 +297,7 @@
                                         ZoomLevel="zoomLevel"
                                         Rotation="element.Rotation"
                                         OnResizeStart="@((args) => OnImageResizeMouseDown(args.Item1, element, args.Item2))"
+                                        OnRotateStart="@((e) => OnImageRotateMouseDown(e, element))"
                                         OnDelete="@(() => DeleteElement(element.Id))" />
                                 }
                             </div>
@@ -352,6 +367,52 @@
     private const double PAGE_MARGIN_Y = 20;
 
     private bool _isBoldDefault = false;
+
+    private void FlipSelectedImageHorizontal()
+    {
+        var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+        if (selectedImage != null)
+        {
+            selectedImage.FlipHorizontal = !selectedImage.FlipHorizontal;
+            StateHasChanged();
+        }
+    }
+    
+    private void FlipSelectedImageVertical()
+    {
+        var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+        if (selectedImage != null)
+        {
+            selectedImage.FlipVertical = !selectedImage.FlipVertical;
+            StateHasChanged();
+        }
+    }
+    
+    private string? rotatingImageId = null;
+    private double rotateStartAngle = 0;
+    private double rotateStartMouseX = 0;
+    private double rotateStartMouseY = 0;
+    private double rotateStartCenterX = 0;
+    private double rotateStartCenterY = 0;
+    
+    private async void OnImageRotateMouseDown(MouseEventArgs e, EditElement element)
+    {
+        rotatingImageId = element.Id;
+        rotateStartMouseX = e.ClientX;
+        rotateStartMouseY = e.ClientY;
+        
+        // 画像の中心座標（スクリーン座標）を計算
+        rotateStartCenterX = (element.X + element.Width / 2) * zoomLevel;
+        rotateStartCenterY = (element.Y + element.Height / 2) * zoomLevel;
+        
+        var canvasRect = await GetCanvasRect();
+        rotateStartCenterX += canvasRect.left;
+        rotateStartCenterY += canvasRect.top;
+        
+        rotateStartAngle = element.Rotation;
+        
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
+    }
 
     private List<SelectOption> fontSizeOptions = new()
     {
@@ -1690,7 +1751,7 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
         resizingHandle = null;
         resizingTextId = null;
         resizingTextHandle = null;
-        // isResizingOrDragging はここではリセットしない
+        rotatingImageId = null;
         StateHasChanged();
     }
 
@@ -1730,6 +1791,34 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
     public async Task OnMouseMove(MouseMoveArgs e)
     {
         bool changed = false;
+
+        // --- 画像回転
+        if (rotatingImageId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == rotatingImageId);
+            if (element != null)
+            {
+                // マウスの現在角度を計算
+                var dx = e.ClientX - rotateStartCenterX;
+                var dy = e.ClientY - rotateStartCenterY;
+                var currentAngle = Math.Atan2(dy, dx) * (180 / Math.PI);
+                
+                // 開始時のマウス角度
+                var startDx = rotateStartMouseX - rotateStartCenterX;
+                var startDy = rotateStartMouseY - rotateStartCenterY;
+                var startMouseAngle = Math.Atan2(startDy, startDx) * (180 / Math.PI);
+                
+                // 角度差を計算
+                var angleDiff = currentAngle - startMouseAngle;
+                
+                // 新しい回転角度（15度単位にスナップ）
+                var newRotation = rotateStartAngle + angleDiff;
+                newRotation = Math.Round(newRotation / 15) * 15;
+                
+                element.Rotation = ((int)newRotation + 360) % 360;
+                changed = true;
+            }
+        }
 
         // --- テキストリサイズ
         if (resizingTextId != null && resizingTextHandle != null)
