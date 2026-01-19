@@ -2,6 +2,9 @@
     position: absolute;
     inset: -4px;
     pointer-events: none;
+    /* 親要素の回転を打ち消す */
+    transform: rotate(calc(-1 * var(--rotation, 0deg)));
+    transform-origin: center center;
 }
 
 .handle {

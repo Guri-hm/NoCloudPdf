@@ -4,7 +4,8 @@
 {
     <div class="element-handles" 
          style="--element-width: @(ElementWidth * ZoomLevel)px; 
-                --element-height: @(ElementHeight * ZoomLevel)px;"
+                --element-height: @(ElementHeight * ZoomLevel)px;
+                --rotation: @(Rotation)deg;"
          @onmousedown:stopPropagation
          @onclick:stopPropagation>
         @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
@@ -31,6 +32,7 @@
     [Parameter] public double ElementWidth { get; set; }
     [Parameter] public double ElementHeight { get; set; }
     [Parameter] public double ZoomLevel { get; set; } = 1.0;
+    [Parameter] public int Rotation { get; set; } = 0;
     
     [Parameter] public EventCallback<(MouseEventArgs, string)> OnResizeStart { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
