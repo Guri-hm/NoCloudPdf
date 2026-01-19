@@ -8,7 +8,7 @@
             <span class="text-blue-500 text-xl font-bold select-none mb-8 px-4">ここにファイルをドロップ または ペースト</span>
             <div class="text-center">
                 <div class="mb-1">
-                    <ActionButtonGroup T="string" Actions="selectFileActions" HideLabelOnNarrow="false" />
+                    <ActionButtonGroup T="string" Actions="selectFileActions" />
                 </div>
                 <div class="mb-6 text-neutral-500 text-sm mt-8 px-4">
                     サポートされているファイル形式：<br />
@@ -32,17 +32,18 @@
     [Parameter] public int progress { get; set; }
 
     private List<ActionButtonItem> selectFileActions => new()
-{
-new ActionButtonItem
-{
-Label = "ファイルを選択",
-Title = "ファイルを選択",
-OnClick = EventCallback.Factory.Create(this, OpenFileDialog),
-ButtonClass = "bg-blue-600 hover:bg-blue-700 font-bold py-3 px-6 rounded-lg text-lg shadow",
-StopPropagation = true,
-TextColor = "text-white"
-}
-};
+    {
+        new ActionButtonItem
+        {
+        Label = "ファイルを選択",
+        Title = "ファイルを選択",
+        OnClick = EventCallback.Factory.Create(this, OpenFileDialog),
+        ButtonClass = "bg-blue-600 hover:bg-blue-700 font-bold py-3 px-6 rounded-lg text-lg shadow",
+        StopPropagation = true,
+        TextColor = "text-white",
+        HideLabelOnNarrow = false
+        }
+    };
 
     private async Task OpenFileDialog()
     {

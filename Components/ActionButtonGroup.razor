@@ -7,9 +7,7 @@
         string? roundedClass = Actions.Count == 1
         ? "rounded-lg"
         : (i == 0 ? "rounded-s-lg" : (i == Actions.Count - 1 ? "rounded-e-lg" : ""));
-        // 枠線は通常ボタンのみ。ButtonClassに"border"が含まれていない場合のみ枠線を追加
-        string? borderClass = string.IsNullOrEmpty(action.ButtonClass) && i < Actions.Count - 1 ? "border-e border-gray-300" :
-        "";
+        string? borderClass = string.IsNullOrEmpty(action.ButtonClass) && i < Actions.Count - 1 ? "border-e border-gray-300" : "";
 
         string? effectiveBtnClass = string.IsNullOrWhiteSpace(action.ButtonClass) ? "bg-white hover:bg-gray-100" : action.ButtonClass;
         string? textColor = action.TextColor;
@@ -34,11 +32,11 @@
                 }
             }
 
-            <span class="break-keep flex-1 text-center @(HideLabelOnNarrow ? "hidden xl:inline" : "")">
+            <span class="break-keep flex-1 text-center @(action.HideLabelOnNarrow ? "hidden xl:inline" : "")">
                 @action.Label
             </span>
 
-            @if (string.IsNullOrEmpty(action.IconPosition) || action.IconPosition == "right")
+            @if (action.IconPosition == "right")
             {
                 if (action.IconFragment != null)
                 {
@@ -58,6 +56,4 @@
 @code {
     [Parameter]
     public List<ActionButtonItem> Actions { get; set; } = new();
-    [Parameter]
-    public bool HideLabelOnNarrow { get; set; } = true;
 }
