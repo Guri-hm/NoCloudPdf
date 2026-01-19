@@ -2398,7 +2398,7 @@ private async void FitToHeight()
 
     }
 
-    private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)
+private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)
 {
     var result = new List<EditElement>();
     foreach (var el in editElements)
@@ -2416,46 +2416,52 @@ private async void FitToHeight()
             ImageOriginalWidth = el.ImageOriginalWidth,
             ImageOriginalHeight = el.ImageOriginalHeight,
             LineHeight = el.LineHeight,
-            Rotation = el.Rotation,           // ← 回転角度を保存
-            FlipHorizontal = el.FlipHorizontal, // ← 左右反転を保存
-            FlipVertical = el.FlipVertical      // ← 上下反転を保存
+            Rotation = el.Rotation,
+            FlipHorizontal = el.FlipHorizontal,
+            FlipVertical = el.FlipVertical
         };
 
-        // ページ回転による座標変換（テキストと同様）
+        // 画像の回転を考慮してWidth/Heightを調整
+        bool isImageRotated = (el.Type == ElementType.Image) && 
+                               (el.Rotation == 90 || el.Rotation == 270);
+        
+        double elementWidth = isImageRotated ? el.Height : el.Width;
+        double elementHeight = isImageRotated ? el.Width : el.Height;
+
+        // ページ回転による座標変換
         if (rotateAngle == 90)
         {
             newEl.X = el.Y + el.Height;
-            newEl.Y = pageWidth - el.X - el.Height;
+            newEl.Y = pageWidth - el.X - elementHeight;
             newEl.Width = el.Height;
-            newEl.Height = el.Width;
+            newEl.Height = elementWidth;
         }
         else if (rotateAngle == 180)
         {
             newEl.X = pageWidth - el.X;
-            newEl.Y = pageHeight - el.Y - el.Height;
-            newEl.Width = el.Width;
-            newEl.Height = el.Height;
+            newEl.Y = pageHeight - el.Y - elementHeight;
+            newEl.Width = elementWidth;
+            newEl.Height = elementHeight;
         }
         else if (rotateAngle == 270)
         {
-            newEl.X = pageHeight - el.Y - el.Height;
-            newEl.Y = el.X - el.Height;
+            newEl.X = pageHeight - el.Y - elementHeight;
+            newEl.Y = el.X - elementHeight;
             newEl.Width = el.Height;
-            newEl.Height = el.Width;
+            newEl.Height = elementWidth;
         }
         else
         {
             newEl.X = el.X;
             newEl.Y = el.Y;
-            newEl.Width = el.Width;
-            newEl.Height = el.Height;
+            newEl.Width = elementWidth;
+            newEl.Height = elementHeight;
         }
         
         result.Add(newEl);
     }
     return result;
 }
-
 
     private async Task SaveChanges()
     {

@@ -873,6 +873,7 @@ window.unlockPdf = async function (pdfData, password) {
 // ========================================
 // PDF編集（テキスト・画像追加）
 // ========================================
+// ...existing code...
 
 window.editPdfPageWithElements = async function (pdfBase64, editJson) {
     const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
@@ -902,6 +903,7 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 
     for (const el of editElements) {
         if (el.Type === 0 || el.Type === "Text") {
+            // ...existing text rendering code...
             const font = await fontManager.getFont(el.Text, { 
                 isBold: el.IsBold, 
                 isSerif: (el.FontFamily || '').toLowerCase().includes('notoserif')
@@ -982,21 +984,41 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
                 const flipH = el.FlipHorizontal || false;
                 const flipV = el.FlipVertical || false;
 
-                // 常にCanvas経由で処理（回転・反転の有無に関わらず）
-                const processedDataUrl = await applyImageTransformations(el.ImageUrl, rotation, flipH, flipV);
-                const processedBase64 = processedDataUrl.split(',')[1];
+                console.log("=== 画像埋め込み開始 ===");
+                console.log("元の要素:", { 
+                    X: el.X, 
+                    Y: el.Y, 
+                    Width: el.Width, 
+                    Height: el.Height, 
+                    Rotation: rotation,
+                    FlipH: flipH,
+                    FlipV: flipV
+                });
+
+                // Canvas経由で変換（回転・反転適用）
+                const transformResult = await applyImageTransformations(el.ImageUrl, rotation, flipH, flipV);
+                
+                console.log("変換後の画像サイズ:", {
+                    width: transformResult.width,
+                    height: transformResult.height
+                });
+
+                const processedBase64 = transformResult.dataUrl.split(',')[1];
                 const processedImg = await pdfDoc.embedPng(base64ToUint8Array(processedBase64));
 
-                // 回転後の画像サイズを取得
-                const imgDims = processedImg.scale(1);
-
-                // PDF座標系での配置（回転は既にCanvas側で適用済みなので rotate は不要）
-                page.drawImage(processedImg, {
+                // PDF座標系での配置
+                const drawParams = {
                     x: el.X || 0,
-                    y: pageHeight - (el.Y || 0) - (el.Height || imgDims.height),
-                    width: el.Width || imgDims.width,
-                    height: el.Height || imgDims.height
-                });
+                    y: pageHeight - (el.Y || 0) - (el.Height || transformResult.height),
+                    width: el.Width || transformResult.width,
+                    height: el.Height || transformResult.height
+                };
+
+                console.log("PDF描画パラメータ:", drawParams);
+
+                page.drawImage(processedImg, drawParams);
+                
+                console.log("=== 画像埋め込み完了 ===\n");
             } else {
                 console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
             }
@@ -1010,22 +1032,25 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
 
 /**
  * Canvas経由で画像の回転・反転を適用
+ * @returns {Promise<{dataUrl: string, width: number, height: number}>}
  */
 async function applyImageTransformations(imageDataUrl, rotation, flipH, flipV) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
+            console.log("元画像サイズ:", { width: img.width, height: img.height });
+
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
 
             // 回転角度を正規化
             const normalizedRotation = ((rotation % 360) + 360) % 360;
+            console.log("正規化された回転角度:", normalizedRotation);
             
             // 回転角度に応じたキャンバスサイズ計算
             let canvasWidth, canvasHeight;
             
             if (normalizedRotation === 0 || normalizedRotation === 180) {
-                // 0度・180度：元のサイズ
                 canvasWidth = img.width;
                 canvasHeight = img.height;
             } else if (normalizedRotation === 90 || normalizedRotation === 270) {
@@ -1041,8 +1066,13 @@ async function applyImageTransformations(imageDataUrl, rotation, flipH, flipV) {
                 canvasHeight = Math.ceil(img.width * sin + img.height * cos);
             }
 
+            console.log("計算されたキャンバスサイズ:", { canvasWidth, canvasHeight });
+
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
+
+            // 透明背景（PNG対応）
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 変換の中心を設定
             ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -1058,13 +1088,20 @@ async function applyImageTransformations(imageDataUrl, rotation, flipH, flipV) {
             // 画像を描画（中心基点）
             ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
 
-            // PNG として出力（透明度保持）
-            resolve(canvas.toDataURL('image/png'));
+            const result = {
+                dataUrl: canvas.toDataURL('image/png'),
+                width: canvasWidth,
+                height: canvasHeight
+            };
+
+            console.log("変換結果:", result);
+            resolve(result);
         };
         img.onerror = reject;
         img.src = imageDataUrl;
     });
 }
+
 
 
 // ========================================
