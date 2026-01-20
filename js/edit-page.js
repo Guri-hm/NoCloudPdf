@@ -1,5 +1,9 @@
 let renderTask = null;
 
+window.getDevicePixelRatio = function() {
+    return window.devicePixelRatio || 1;
+};
+
 window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
     try {
         if (!pageData) return null;
@@ -8,7 +12,7 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
         const m = /^data:.*;base64,(.*)$/.exec(pageData);
         if (m && m[1]) raw = m[1];
 
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = window.getDevicePixelRatio();
 
         // try PDF
         try {
@@ -75,7 +79,7 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rota
         const page = await pdf.getPage(1);
 
         // 回転・ズームを反映したviewport
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = window.getDevicePixelRatio();
         const effectiveDpr = zoomLevel < 1 ? 1 : dpr;
         const targetScale = zoomLevel * effectiveDpr;
         const viewport = page.getViewport({ scale: targetScale, rotation: rotateAngle });
@@ -111,16 +115,15 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rota
     }
 };
 
-window.getTagNameFromEvent = function (e) {
-    // e.target.tagName を返す
-    return e && e.target && e.target.tagName ? e.target.tagName : "";
-};
+// window.getTagNameFromEvent = function (e) {
+//     // e.target.tagName を返す
+//     return e && e.target && e.target.tagName ? e.target.tagName : "";
+// };
 
-window.getCanvasCoords = function (canvasSelector, clientX, clientY, offsetX, offsetY, zoomLevel) {
+window.getCanvasCoords = function (canvasSelector, clientX, clientY, zoomLevel) {
     const canvas = document.querySelector(canvasSelector);
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    // offsetX/offsetYはtransformで既に反映済みなので引かない！
     const x = (clientX - rect.left) / zoomLevel;
     const y = (clientY - rect.top) / zoomLevel;
     return { x, y };
@@ -133,34 +136,34 @@ window.clearFileInput = function (element) {
     if (element) element.value = "";
 };
 
-window.registerGlobalMouseUp = function (dotNetHelper) {
-    window._blazorMouseUpHandler = function (e) {
-        dotNetHelper.invokeMethodAsync('OnGlobalMouseUp');
-    };
-    window.addEventListener('mouseup', window._blazorMouseUpHandler);
-};
-window.unregisterGlobalMouseUp = function () {
-    if (window._blazorMouseUpHandler) {
-        window.removeEventListener('mouseup', window._blazorMouseUpHandler);
-        window._blazorMouseUpHandler = null;
-    }
-};
+// window.registerGlobalMouseUp = function (dotNetHelper) {
+//     window._blazorMouseUpHandler = function (e) {
+//         dotNetHelper.invokeMethodAsync('OnGlobalMouseUp');
+//     };
+//     window.addEventListener('mouseup', window._blazorMouseUpHandler);
+// };
+// window.unregisterGlobalMouseUp = function () {
+//     if (window._blazorMouseUpHandler) {
+//         window.removeEventListener('mouseup', window._blazorMouseUpHandler);
+//         window._blazorMouseUpHandler = null;
+//     }
+// };
 
-window.registerGlobalMouseMove = function (dotNetRef) {
-    window._globalMouseMoveHandler = function (e) {
-        dotNetRef.invokeMethodAsync('OnGlobalMouseMove', {
-            clientX: e.clientX,
-            clientY: e.clientY
-        });
-    };
-    window.addEventListener('mousemove', window._globalMouseMoveHandler);
-};
-window.unregisterGlobalMouseMove = function () {
-    if (window._globalMouseMoveHandler) {
-        window.removeEventListener('mousemove', window._globalMouseMoveHandler);
-        window._globalMouseMoveHandler = null;
-    }
-};
+// window.registerGlobalMouseMove = function (dotNetRef) {
+//     window._globalMouseMoveHandler = function (e) {
+//         dotNetRef.invokeMethodAsync('OnGlobalMouseMove', {
+//             clientX: e.clientX,
+//             clientY: e.clientY
+//         });
+//     };
+//     window.addEventListener('mousemove', window._globalMouseMoveHandler);
+// };
+// window.unregisterGlobalMouseMove = function () {
+//     if (window._globalMouseMoveHandler) {
+//         window.removeEventListener('mousemove', window._globalMouseMoveHandler);
+//         window._globalMouseMoveHandler = null;
+//     }
+// };
 
 window.getElementRect = function (selector) {
     const el = document.querySelector(selector);
@@ -168,6 +171,72 @@ window.getElementRect = function (selector) {
     const r = el.getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
 };
+
+window.getViewportSize = function () {
+    return {
+        width: window.innerWidth,
+        height: window.innerHeight
+    };
+};
+
+/**
+ * edit-canvas-containerのサイズを計算して固定
+ * ヘッダーとサイドバーを除いた画面領域のサイズに固定する
+ */
+window.updateEditContainerSize = function() {
+    const container = document.getElementById('edit-canvas-container');
+    if (!container) return { width: 0, height: 0 };
+    
+    const rect = container.getBoundingClientRect();
+    return { 
+        width: Math.max(1, rect.width), 
+        height: Math.max(1, rect.height) 
+    };
+};
+
+/**
+ * EditPage用ウィンドウリサイズハンドラ
+ */
+// window.registerEditPageResize = function(dotNetRef) {
+//     if (!dotNetRef) return;
+    
+//     window._editPageResize = window._editPageResize || {};
+//     window._editPageResize.dotNetRef = dotNetRef;
+    
+//     let resizeTimer = null;
+//     const onResize = function() {
+//         if (resizeTimer) clearTimeout(resizeTimer);
+//         resizeTimer = setTimeout(() => {
+//             try {
+//                 // コンテナサイズを更新
+//                 const size = window.updateEditContainerSize();
+                
+//                 // .NET側に通知
+//                 if (window._editPageResize.dotNetRef && window._editPageResize.dotNetRef.invokeMethodAsync) {
+//                     window._editPageResize.dotNetRef.invokeMethodAsync('OnWindowResized', size.width, size.height).catch(() => {});
+//                 }
+//             } catch (e) {
+//                 console.error('EditPage resize error', e);
+//             }
+//         }, 150);
+//     };
+    
+//     window._editPageResize.handler = onResize;
+//     window.addEventListener('resize', onResize, { passive: true });
+    
+//     // 初回実行
+//     try {
+//         window.updateEditContainerSize();
+//     } catch (e) {}
+// };
+
+// window.unregisterEditPageResize = function() {
+//     if (window._editPageResize && window._editPageResize.handler) {
+//         window.removeEventListener('resize', window._editPageResize.handler);
+//         window._editPageResize.handler = null;
+//         window._editPageResize.dotNetRef = null;
+//     }
+// };
 
 window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));
@@ -202,33 +271,33 @@ window.autoResizeTextarea = function (ref) {
         const el = resolveEl(ref);
         if (!el || !el.style) {
             console.debug("autoResizeTextarea: element not found:", ref);
-            return 0; // 常に数値を返す
+            return 0;
         }
 
         return new Promise((resolve) => {
             requestAnimationFrame(() => {
                 try {
-                    el.style.height = "auto";
-                    void el.getBoundingClientRect();
+                    // 高さを一旦リセット（重要：削除時に縮小するため）
+                    el.style.height = "1px"; // ← "auto" より確実
+                    void el.getBoundingClientRect(); // 強制リフロー
+                    
                     const cs = window.getComputedStyle(el);
-                    const lineH = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) || 16;
-                    const contentH = Math.max(el.scrollHeight || 0, lineH);
-                    const textareaH = Math.ceil(contentH + 2);
+                    const fontSize = parseFloat(cs.fontSize) || 16;
+                    const lineHeight = parseFloat(cs.lineHeight) || fontSize * 1.2;
+                    
+                    // scrollHeight で実際の高さを取得
+                    const scrollH = el.scrollHeight;
+                    
+                    // 行数を計算（削除時も正確に計算）
+                    const lines = Math.max(1, Math.ceil(scrollH / lineHeight));
+                    const textareaH = lines * lineHeight;
+                    
+                    // 高さを設定
                     el.style.height = textareaH + "px";
                     el.style.overflow = "hidden";
 
-                    // 親の枠（border）を加算して返す（存在しなければ 0 区分）
-                    let parentBorderV = 0;
-                    try {
-                        const parent = el.closest && el.closest(".edit-element");
-                        if (parent) {
-                            const pcs = window.getComputedStyle(parent);
-                            parentBorderV = (parseFloat(pcs.borderTopWidth) || 0) + (parseFloat(pcs.borderBottomWidth) || 0);
-                        }
-                    } catch (e) { /* ignore */ }
-
-                    const totalParentPx = textareaH + parentBorderV;
-                    resolve(totalParentPx || 0);
+                    console.log(`autoResizeTextarea: scrollH=${scrollH}, lines=${lines}, textareaH=${textareaH}`); // ← デバッグ用
+                    resolve(textareaH); // border を含めない
                 } catch (err) {
                     console.error("autoResizeTextarea inner error", err);
                     resolve(0);
@@ -250,4 +319,107 @@ window.getImageSizeFromBase64 = function (base64) {
         };
         img.src = base64;
     });
+};
+
+/**
+ * EditPage用のマウスムーブハンドラを登録
+ * リサイズ/ドラッグ中のみBlazor側に通知
+ */
+window.registerEditPageMouseHandlers = function(dotNetRef) {
+    if (!dotNetRef) return;
+    
+    window._editPageMouse = window._editPageMouse || {};
+    window._editPageMouse.dotNetRef = dotNetRef;
+    window._editPageMouse.isActive = false; // リサイズ/ドラッグ中フラグ
+    
+    let lastMoveTime = 0;
+    const throttleMs = 16; // 60FPS
+    
+    const onMouseMove = function(e) {
+        // リサイズ/ドラッグ中でなければ何もしない
+        if (!window._editPageMouse.isActive) return;
+        
+        // スロットル処理
+        const now = Date.now();
+        if (now - lastMoveTime < throttleMs) return;
+        lastMoveTime = now;
+        
+        // Blazor側に通知
+        if (window._editPageMouse.dotNetRef && window._editPageMouse.dotNetRef.invokeMethodAsync) {
+            // console.log(`onMouseMove: clientX=${e.clientX}, clientY=${e.clientY}`);
+            window._editPageMouse.dotNetRef.invokeMethodAsync('OnMouseMove', {
+                clientX: e.clientX,
+                clientY: e.clientY
+            }).catch(() => {});
+        }
+    };
+    
+    const onMouseUp = function(e) {
+        window._editPageMouse.isActive = false;
+        
+        if (window._editPageMouse.dotNetRef && window._editPageMouse.dotNetRef.invokeMethodAsync) {
+            window._editPageMouse.dotNetRef.invokeMethodAsync('OnMouseUp').catch(() => {});
+        }
+    };
+    
+    window._editPageMouse.moveHandler = onMouseMove;
+    window._editPageMouse.upHandler = onMouseUp;
+    
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+    window.addEventListener('mouseup', onMouseUp);
+};
+
+/**
+ * リサイズ/ドラッグ開始を通知
+ */
+window.setEditPageMouseActive = function(active) {
+    if (window._editPageMouse) {
+        window._editPageMouse.isActive = !!active;
+    }
+};
+
+window.unregisterEditPageMouseHandlers = function() {
+    if (window._editPageMouse) {
+        if (window._editPageMouse.moveHandler) {
+            window.removeEventListener('mousemove', window._editPageMouse.moveHandler);
+        }
+        if (window._editPageMouse.upHandler) {
+            window.removeEventListener('mouseup', window._editPageMouse.upHandler);
+        }
+        window._editPageMouse = null;
+    }
+};
+
+// キーボードイベントハンドラの登録
+window.registerEditPageKeyHandler = function(dotNetRef) {
+    if (!dotNetRef) return;
+    
+    window._editPageKey = window._editPageKey || {};
+    window._editPageKey.dotNetRef = dotNetRef;
+    
+    const onKeyDown = function(e) {
+        // input, textarea, select 要素内でのキー入力は無視
+        const tagName = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+        if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+            return;
+        }
+        
+        // Delete または Backspace キー
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault(); // ブラウザの戻る動作を防止
+            if (window._editPageKey.dotNetRef && window._editPageKey.dotNetRef.invokeMethodAsync) {
+                window._editPageKey.dotNetRef.invokeMethodAsync('OnKeyDown', e.key).catch(() => {});
+            }
+        }
+    };
+    
+    window._editPageKey.keyDownHandler = onKeyDown;
+    document.addEventListener('keydown', onKeyDown);
+};
+
+window.unregisterEditPageKeyHandler = function() {
+    if (window._editPageKey && window._editPageKey.keyDownHandler) {
+        document.removeEventListener('keydown', window._editPageKey.keyDownHandler);
+        window._editPageKey = null;
+    }
 };

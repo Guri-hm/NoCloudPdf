@@ -102,11 +102,25 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                     }
                     trimState.selectedRectIndex = -1;
 
+                    // padding を考慮した正しい座標系で計算
+                    const computedStyle = getComputedStyle(canvas);
+                    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+                    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+                    const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+                    const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+
                     const cssW = Math.max(1, Math.round(parseFloat(canvas.style.width) || canvas.clientWidth || 1));
                     const cssH = Math.max(1, Math.round(parseFloat(canvas.style.height) || canvas.clientHeight || 1));
+                    
+                    // padding を引いた内側のサイズ（矩形の座標系）
+                    const innerW = cssW - paddingLeft - paddingRight;
+                    const innerH = cssH - paddingTop - paddingBottom;
+
                     const rectsToRender = (trimState.currentRectsPx || []).map(r => ({
-                        X: r.x / cssW, Y: r.y / cssH,
-                        Width: r.w / cssW, Height: r.h / cssH
+                        X: r.x / innerW, 
+                        Y: r.y / innerH,
+                        Width: r.w / innerW, 
+                        Height: r.h / innerH
                     }));
 
                     if (window.drawTrimOverlayAsSvg) {
