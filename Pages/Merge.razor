@@ -792,12 +792,12 @@ OnClick = EventCallback.Factory.Create(this, AddPdfFile)
 new DropdownMenuItem
 {
 Label = "名前（昇順）",
-OnClick = EventCallback.Factory.Create(this, () => SelectSort(true))
+OnClick = EventCallback.Factory.Create(this, () => SortByName(true))
 },
 new DropdownMenuItem
 {
 Label = "名前（降順）",
-OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
+OnClick = EventCallback.Factory.Create(this, () => SortByName(false))
 }
 };
 
@@ -905,26 +905,25 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         }
     }
 
-    private async Task SelectSort(bool ascending)
-    {
-        await SortByName(ascending);
-    }
     private async Task SortByName(bool ascending)
     {
         try{
             await MessageService.ShowLoadingAsync("ソート中...");
 
-            if (CurrentDisplayMode == DisplayMode.File)
-            {
-                var sorted = ascending
-                ? DisplayItems.OrderBy(x => x.DisplayName).Select(x => x.Id).ToList()
-                : DisplayItems.OrderByDescending(x => x.DisplayName).Select(x => x.Id).ToList();
-                PdfDataService.ReorderFiles(sorted);
-            }
-            else if (CurrentDisplayMode == DisplayMode.Page)
-            {
-                PdfDataService.SortPagesByName(ascending);
-            }
+            //if (CurrentDisplayMode == DisplayMode.File)
+            //{
+            //    var sorted = ascending
+            //    ? DisplayItems.OrderBy(x => x.DisplayName).Select(x => x.Id).ToList()
+            //    : DisplayItems.OrderByDescending(x => x.DisplayName).Select(x => x.Id).ToList();
+            //    PdfDataService.ReorderFiles(sorted);
+            //}
+            //else if (CurrentDisplayMode == DisplayMode.Page)
+            //{
+            //    PdfDataService.SortPagesByName(ascending);
+            //}
+
+            PdfDataService.SortPagesByName(ascending);
+
         }catch(Exception ex)
         {
             Console.WriteLine($"Error showing loading message: {ex.Message}");
