@@ -882,18 +882,20 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
     {
         try{
             await MessageService.ShowLoadingAsync("逆順中...");
-            if (CurrentDisplayMode == DisplayMode.File)
-            {
-                // ファイル単位：ファイルごと逆順
-                var model = PdfDataService.GetModel();
-                var fileIds = DisplayItems.Select(x => x.Id).Reverse().ToList();
-                PdfDataService.ReorderFiles(fileIds);
-            }
-            else if (CurrentDisplayMode == DisplayMode.Page)
-            {
-                // ページ単位：ページごと逆順
-                PdfDataService.ReversePages();
-            }
+            PdfDataService.ReversePages();
+
+            //if (CurrentDisplayMode == DisplayMode.File)
+            //{
+            //    // ファイル単位：ファイルごと逆順
+            //    //var model = PdfDataService.GetModel();
+            //    //var fileIds = DisplayItems.Select(x => x.Id).Reverse().ToList();
+            //    //PdfDataService.ReorderFiles(fileIds);
+            //}
+            //else if (CurrentDisplayMode == DisplayMode.Page)
+            //{
+            //    // ページ単位：ページごと逆順
+            //    PdfDataService.ReversePages();
+            //}
 
         }catch(Exception ex){
             Console.WriteLine($"Error showing loading message: {ex.Message}");
