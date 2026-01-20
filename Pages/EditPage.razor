@@ -2400,70 +2400,77 @@ private async void FitToHeight()
 
     }
 
-private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)
-{
-    var result = new List<EditElement>();
-    foreach (var el in editElements)
+    private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)
     {
-        var newEl = new EditElement
+        var result = new List<EditElement>();
+        foreach (var el in editElements)
         {
-            Id = el.Id,
-            Type = el.Type,
-            Text = el.Text,
-            FontSize = el.FontSize,
-            Color = el.Color,
-            FontFamily = el.FontFamily,
-            IsBold = el.IsBold,
-            ImageUrl = el.ImageUrl,
-            ImageOriginalWidth = el.ImageOriginalWidth,
-            ImageOriginalHeight = el.ImageOriginalHeight,
-            LineHeight = el.LineHeight,
-            Rotation = el.Rotation,
-            FlipHorizontal = el.FlipHorizontal,
-            FlipVertical = el.FlipVertical
-        };
+            var newEl = new EditElement
+            {
+                Id = el.Id,
+                Type = el.Type,
+                Text = el.Text,
+                FontSize = el.FontSize,
+                Color = el.Color,
+                FontFamily = el.FontFamily,
+                IsBold = el.IsBold,
+                ImageUrl = el.ImageUrl,
+                ImageOriginalWidth = el.ImageOriginalWidth,
+                ImageOriginalHeight = el.ImageOriginalHeight,
+                LineHeight = el.LineHeight,
+                Rotation = el.Rotation,
+                FlipHorizontal = el.FlipHorizontal,
+                FlipVertical = el.FlipVertical
+            };
 
-        // 画像の回転を考慮してWidth/Heightを調整
-        bool isImageRotated = (el.Type == ElementType.Image) && 
-                               (el.Rotation == 90 || el.Rotation == 270);
-        
-        double elementWidth = isImageRotated ? el.Height : el.Width;
-        double elementHeight = isImageRotated ? el.Width : el.Height;
-
-        // ページ回転による座標変換
-        if (rotateAngle == 90)
-        {
-            newEl.X = el.Y + el.Height;
-            newEl.Y = pageWidth - el.X - elementHeight;
-            newEl.Width = el.Height;
-            newEl.Height = elementWidth;
+            // ページ回転が 0 度の場合は座標変換不要
+            if (rotateAngle == 0)
+            {
+                newEl.X = el.X;
+                newEl.Y = el.Y;
+                newEl.Width = el.Width;
+                newEl.Height = el.Height;
+            }
+            else
+            {
+                // ページ回転による座標変換（90/180/270度のみ）
+                if (rotateAngle == 90)
+                {
+                    // 画像回転を考慮した座標変換
+                    // 画像自体が回転している場合、Width/Height は既に回転後のサイズ
+                    newEl.X = el.Y;
+                    newEl.Y = pageWidth - el.X - el.Width;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+                else if (rotateAngle == 180)
+                {
+                    newEl.X = pageWidth - el.X - el.Width;
+                    newEl.Y = pageHeight - el.Y - el.Height;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+                else if (rotateAngle == 270)
+                {
+                    newEl.X = pageHeight - el.Y - el.Height;
+                    newEl.Y = el.X;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+                else
+                {
+                    // 0/90/180/270 以外は変換しない
+                    newEl.X = el.X;
+                    newEl.Y = el.Y;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+            }
+            
+            result.Add(newEl);
         }
-        else if (rotateAngle == 180)
-        {
-            newEl.X = pageWidth - el.X;
-            newEl.Y = pageHeight - el.Y - elementHeight;
-            newEl.Width = elementWidth;
-            newEl.Height = elementHeight;
-        }
-        else if (rotateAngle == 270)
-        {
-            newEl.X = pageHeight - el.Y - elementHeight;
-            newEl.Y = el.X - elementHeight;
-            newEl.Width = el.Height;
-            newEl.Height = elementWidth;
-        }
-        else
-        {
-            newEl.X = el.X;
-            newEl.Y = el.Y;
-            newEl.Width = elementWidth;
-            newEl.Height = elementHeight;
-        }
-        
-        result.Add(newEl);
+        return result;
     }
-    return result;
-}
 
     private async Task SaveChanges()
     {

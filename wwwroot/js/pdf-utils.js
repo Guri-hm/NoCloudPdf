@@ -53,7 +53,7 @@ async function loadPdfDocument(uint8Array, options = {}) {
 
     const defaultOptions = {
         data: uint8Array,
-        cMapUrl: pdfjsLib.GlobalWorkerOptions.cMapUrl, 
+        cMapUrl: pdfjsLib.GlobalWorkerOptions.cMapUrl,
         cMapPacked: pdfjsLib.GlobalWorkerOptions.cMapPacked,
         standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
         wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
@@ -70,36 +70,36 @@ async function loadPdfDocument(uint8Array, options = {}) {
  */
 async function renderPageToCanvas(page, scale, rotation = 0, options = {}) {
     const viewport = page.getViewport({ scale, rotation });
-    
+
     const maxDimension = 2048;
     let width = Math.round(viewport.width);
     let height = Math.round(viewport.height);
-    
+
     if (width > maxDimension || height > maxDimension) {
         const adjustedScale = Math.min(maxDimension / width, maxDimension / height);
         width = Math.round(width * adjustedScale);
         height = Math.round(height * adjustedScale);
     }
-    
+
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, width);
     canvas.height = Math.max(1, height);
-    
+
     const context = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
-    
+
     if (options.fillWhite) {
         context.fillStyle = '#FFFFFF';
         context.fillRect(0, 0, canvas.width, canvas.height);
     }
-    
+
     const renderContext = {
         canvasContext: context,
         viewport: page.getViewport({ scale: scale * (width / viewport.width), rotation }),
         intent: 'display'
     };
-    
+
     await page.render(renderContext).promise;
-    
+
     return canvas;
 }
 
@@ -134,7 +134,7 @@ function normalizeRotationAngle(rotateAngle) {
  */
 function handlePdfError(error, context) {
     console.error(`${context} error:`, error);
-    
+
     if (error && error.name === "PasswordException") {
         return {
             thumbnail: "",
@@ -142,7 +142,7 @@ function handlePdfError(error, context) {
             securityInfo: "パスワード付きPDF"
         };
     }
-    
+
     return {
         thumbnail: "",
         isError: true,
@@ -173,7 +173,7 @@ class PdfFontManager {
         const isJapanese = containsJapanese(text);
 
         if (isJapanese) {
-            const fontKey = isSerif 
+            const fontKey = isSerif
                 ? (isBold ? 'notoSerifBold' : 'notoSerifReg')
                 : (isBold ? 'notoSansBold' : 'notoSansReg');
 
@@ -190,7 +190,7 @@ class PdfFontManager {
             return this.cache[fontKey];
         } else {
             const { StandardFonts } = PDFLib;
-            return isBold 
+            return isBold
                 ? await this.pdfDoc.embedFont(StandardFonts.HelveticaBold)
                 : await this.pdfDoc.embedFont(StandardFonts.Helvetica);
         }
@@ -210,7 +210,7 @@ class PdfCacheManager {
     set(key, doc) { this.libCache.set(key, doc); }
     get(key) { return this.libCache.get(key); }
     has(key) { return this.libCache.has(key); }
-    delete(key) { 
+    delete(key) {
         this.libCache.delete(key);
         this.restrictedFiles.delete(key);
     }
@@ -274,7 +274,7 @@ window.embedImageAsPdf = async function (imageBase64, ext) {
     const pdfDoc = await PDFDocument.create();
     let img;
     const bytes = base64ToUint8Array(imageBase64);
-    
+
     if (ext.endsWith('.png')) {
         img = await pdfDoc.embedPng(bytes);
     } else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) {
@@ -287,9 +287,9 @@ window.embedImageAsPdf = async function (imageBase64, ext) {
     ) {
         const mime = ext.endsWith('.gif') ? 'image/gif'
             : ext.endsWith('.bmp') ? 'image/bmp'
-            : ext.endsWith('.webp') ? 'image/webp'
-            : ext.endsWith('.svg') ? 'image/svg+xml'
-            : '';
+                : ext.endsWith('.webp') ? 'image/webp'
+                    : ext.endsWith('.svg') ? 'image/svg+xml'
+                        : '';
         const { pngBase64 } = await window.convertImageToPngBase64AndSize(imageBase64, mime);
         img = await pdfDoc.embedPng(base64ToUint8Array(pngBase64.split(',')[1]));
     } else {
@@ -300,7 +300,7 @@ window.embedImageAsPdf = async function (imageBase64, ext) {
     const page = pdfDoc.addPage([imgDims.width, imgDims.height]);
     page.drawImage(img, { x: 0, y: 0, width: imgDims.width, height: imgDims.height });
     const pdfBytes = await pdfDoc.save();
-    
+
     return uint8ArrayToBase64(pdfBytes);
 };
 
@@ -358,26 +358,26 @@ window.renderFirstPDFPage = async function (fileData, password) {
         let lastError = null;
 
         const loadingOptions = [
-            { 
-                stopAtErrors: false, 
+            {
+                stopAtErrors: false,
                 maxImageSize: -1,
-                disableFontFace: true, 
-                disableRange: true, 
-                disableStream: true, 
+                disableFontFace: true,
+                disableRange: true,
+                disableStream: true,
                 verbosity: 0
             },
-            { 
-                stopAtErrors: false, 
+            {
+                stopAtErrors: false,
                 maxImageSize: -1, // 埋め込み画像の最大サイズ制限なし
-                disableFontFace: false, 
-                disableRange: true, 
-                disableStream: false, 
-                verbosity: 0 
+                disableFontFace: false,
+                disableRange: true,
+                disableStream: false,
+                verbosity: 0
             },
-            { 
-                stopAtErrors: false, 
+            {
+                stopAtErrors: false,
                 maxImageSize: -1,
-                verbosity: 0 
+                verbosity: 0
             }
         ];
 
@@ -406,7 +406,7 @@ window.renderFirstPDFPage = async function (fileData, password) {
         }
 
         const page = await pdf.getPage(1);
-        
+
         let pageRotation = 0;
         try {
             if (typeof page.getRotation === 'function') pageRotation = page.getRotation();
@@ -423,10 +423,10 @@ window.renderFirstPDFPage = async function (fileData, password) {
         let thumbnail = "";
         try {
             const renderPromise = renderPageToCanvas(page, scale, 0);
-            const timeoutPromise = new Promise((_, reject) => 
+            const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Thumbnail rendering timeout')), 10000)
             );
-            
+
             const canvas = await Promise.race([renderPromise, timeoutPromise]);
             thumbnail = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
         } catch (renderError) {
@@ -461,10 +461,10 @@ window.renderFirstPDFPage = async function (fileData, password) {
                             }
                         } catch (e) { /* ignore */ }
 
-                        const node = { 
-                            title: it.title || '', 
-                            pageIndex: pageIndex !== null ? pageIndex : -1, 
-                            items: [] 
+                        const node = {
+                            title: it.title || '',
+                            pageIndex: pageIndex !== null ? pageIndex : -1,
+                            items: []
                         };
                         if (it.items && it.items.length) {
                             node.items = await mapOutlineItems(it.items);
@@ -500,13 +500,13 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
     try {
         const uint8Array = toUint8Array(pdfFileData);
         const pdf = await loadPdfDocument(uint8Array);
-        
+
         const page = await pdf.getPage(pageIndex + 1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
         const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
 
         return {
-            thumbnail:blobUrl,
+            thumbnail: blobUrl,
             isError: false,
             isPasswordProtected: false,
             securityInfo: ""
@@ -567,10 +567,10 @@ async function imageFallbackPdf(uint8Array, pageIndex, cacheKey = null) {
 
     const pdf = await loadPdfDocument(uint8Array);
     const page = await pdf.getPage(pageIndex + 1);
-    
+
     const scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
     const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
-    
+
     const imgDataUrl = canvas.toDataURL('image/png');
     const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
 
@@ -599,11 +599,11 @@ window.cropRestrictedPdfPageToImage = async function (
         const uint8Array = toUint8Array(fileData);
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(pageIndex + 1);
-        
+
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
         const pageW = originalViewport.width;
         const pageH = originalViewport.height;
-        
+
         const quant = normalizeRotationAngle(rotateAngle);
         const scale = dpi / 72;
 
@@ -611,7 +611,7 @@ window.cropRestrictedPdfPageToImage = async function (
         const ny = Math.max(0, Math.min(1, Number(normY) || 0));
         const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
-        
+
         // トリミング範囲計算（cropPdfPageToImageと同じ）
         const llx = nx * pageW;
         const lly = pageH * (1 - ny - nh);
@@ -625,16 +625,16 @@ window.cropRestrictedPdfPageToImage = async function (
         srcCanvas.width = Math.max(1, Math.round(viewport.width));
         srcCanvas.height = Math.max(1, Math.round(viewport.height));
         const srcCtx = srcCanvas.getContext('2d', { alpha: false });
-        
+
         srcCtx.fillStyle = '#FFFFFF';
         srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
-        
+
         await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
 
         // スケール計算
         const scaleX = srcCanvas.width / pageW;
         const scaleY = srcCanvas.height / pageH;
-        
+
         const sx = Math.round(llx * scaleX);
         const sy = Math.round((pageH - ury) * scaleY);
         const sw = Math.max(1, Math.round((urx - llx) * scaleX));
@@ -740,11 +740,11 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
 // ========================================
 window.generatePreviewImage = async function (pdfBase64, rotateAngle, scaleKey = "normal") {
     const uint8Array = base64ToUint8Array(pdfBase64);
-    
+
     // 埋め込み画像が大きいと制限にかかるため，maxImageSize を明示的に -1 に設定（ない場合は自動で無制限になるが，ここでは明示的にする）
-    const pdf = await loadPdfDocument(uint8Array, { 
-        maxImageSize: -1, 
-        verbosity: 0 
+    const pdf = await loadPdfDocument(uint8Array, {
+        maxImageSize: -1,
+        verbosity: 0
     });
     const page = await pdf.getPage(1);
 
@@ -777,13 +777,13 @@ window.getPdfFileSize = async function (url) {
 /**
  * PDFページの元サイズ（pt単位）を取得
  */
-window.getPdfPageOriginalSize = async function(pdfBase64) {
+window.getPdfPageOriginalSize = async function (pdfBase64) {
     try {
         const uint8Array = base64ToUint8Array(pdfBase64);
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
-        
+
         return {
             width: viewport.width,   // pt (1pt ≈ 1.333px at 96dpi)
             height: viewport.height
@@ -817,12 +817,12 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
     }
 
     const pdf = await loadPdfDocument(await fetch(pdfUrl).then(r => r.arrayBuffer()).then(b => new Uint8Array(b)));
-    
+
     for (let i = 0; i < canvasIds.length; i++) {
         const page = await pdf.getPage(i + 1);
         const canvas = document.getElementById(canvasIds[i]);
         if (!canvas) continue;
-        
+
         const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.normal });
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -844,10 +844,10 @@ window.checkCanvasExists = function (canvasId) {
 window.unlockPdf = async function (pdfData, password) {
     const uint8Array = toUint8Array(pdfData);
     const pdf = await loadPdfDocument(uint8Array, { password });
-    
+
     const { PDFDocument } = PDFLib;
     const unlockedPdf = await PDFDocument.create();
-    
+
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const canvas = await renderPageToCanvas(
@@ -856,17 +856,17 @@ window.unlockPdf = async function (pdfData, password) {
             0,
             { fillWhite: true }
         );
-        
+
         const imgData = canvas.toDataURL('image/png');
         const img = await unlockedPdf.embedPng(imgData);
         const pdfPage = unlockedPdf.addPage([canvas.width, canvas.height]);
-        pdfPage.drawImage(img, { 
-            x: 0, y: 0, 
-            width: canvas.width, 
-            height: canvas.height 
+        pdfPage.drawImage(img, {
+            x: 0, y: 0,
+            width: canvas.width,
+            height: canvas.height
         });
     }
-    
+
     return uint8ArrayToBase64(await unlockedPdf.save());
 };
 
@@ -884,7 +884,7 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
             throw new Error("fontkitがロードされていません。");
         }
     }
-    
+
     const pdfBytes = base64ToUint8Array(pdfBase64);
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const page = pdfDoc.getPage(0);
@@ -902,8 +902,8 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
     for (const el of editElements) {
         if (el.Type === 0 || el.Type === "Text") {
             // ...existing text rendering code...
-            const font = await fontManager.getFont(el.Text, { 
-                isBold: el.IsBold, 
+            const font = await fontManager.getFont(el.Text, {
+                isBold: el.IsBold,
                 isSerif: (el.FontFamily || '').toLowerCase().includes('notoserif')
             });
 
@@ -964,7 +964,7 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
                 if (lines.length === 0) wrappedLines.push('');
                 else wrappedLines.push(...lines);
             }
-            
+
             const startY = pageHeight - (el.Y || 0) - fontSize;
             for (let i = 0; i < wrappedLines.length; i++) {
                 page.drawText(wrappedLines[i] || '', {
@@ -976,89 +976,48 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
                     rotate: rotateDegrees
                 });
             }
-} else if (el.Type === 1 || el.Type === "Image") {
-    if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
-        const rotation = el.Rotation || 0;
-        const flipH = el.FlipHorizontal || false;
-        const flipV = el.FlipVertical || false;
+        } else if (el.Type === 1 || el.Type === "Image") {
+            if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
+                const rotation = el.Rotation || 0;
+                const flipH = el.FlipHorizontal || false;
+                const flipV = el.FlipVertical || false;
 
-        console.log("=== 画像埋め込み開始 ===");
-        console.log("元の要素:", { 
-            X: el.X, 
-            Y: el.Y, 
-            Width: el.Width,
-            Height: el.Height,
-            Rotation: rotation,
-            FlipH: flipH,
-            FlipV: flipV,
-            ImageOriginalWidth: el.ImageOriginalWidth,
-            ImageOriginalHeight: el.ImageOriginalHeight
-        });
+                // Canvas経由で変換（回転・反転適用）
+                const transformResult = await applyImageTransformations(el.ImageUrl, rotation, flipH, flipV);
 
-        // Canvas経由で変換（回転・反転適用）
-        const transformResult = await applyImageTransformations(el.ImageUrl, rotation, flipH, flipV);
-        
-        console.log("変換後の画像サイズ（ピクセル）:", {
-            width: transformResult.width,
-            height: transformResult.height
-        });
+                const processedBase64 = transformResult.dataUrl.split(',')[1];
+                const processedImg = await pdfDoc.embedPng(base64ToUint8Array(processedBase64));
 
-        const processedBase64 = transformResult.dataUrl.split(',')[1];
-        const processedImg = await pdfDoc.embedPng(base64ToUint8Array(processedBase64));
+                // 回転後の画像サイズを元の縦横比で pt 単位に変換
+                const scaleFromOriginal = el.Width / el.ImageOriginalWidth;
 
-        // ★ 修正：画面表示サイズ（el.Width/Height）を基準に、回転後の実際のサイズを計算
-        // el.Width/Height は「画面上の表示サイズ（pt単位、回転前の向き）」
-        
-        // 元画像に対する表示倍率を計算
-        const originalAspect = el.ImageOriginalWidth / el.ImageOriginalHeight;
-        
-        // 回転前の画面表示サイズから、元画像に対する縮尺を計算
-        const scaleFromOriginal = el.Width / el.ImageOriginalWidth;
-        
-        // 回転後の画像サイズ（ピクセル）を、同じ縮尺で pt 単位に変換
-        const drawWidth = transformResult.width * scaleFromOriginal;
-        const drawHeight = transformResult.height * scaleFromOriginal;
+                // 回転後の画像サイズ（ピクセル）を、同じ縮尺で pt 単位に変換
+                const drawWidth = transformResult.width * scaleFromOriginal;
+                const drawHeight = transformResult.height * scaleFromOriginal;
 
-        console.log("計算された描画サイズ（pt）:", {
-            drawWidth,
-            drawHeight,
-            scaleFromOriginal,
-            originalAspect,
-            transformedAspect: transformResult.width / transformResult.height
-        });
+                // EditPage では画像の左上を基準に X/Y を管理しているが、
+                // 回転後は画像の外接矩形が変わるため、中心を維持するように調整
 
-        // ★ 座標の調整：回転により画像の中心位置がずれるため補正
-        // EditPage では画像の左上を基準に X/Y を管理しているが、
-        // 回転後は画像の外接矩形が変わるため、中心を維持するように調整
-        
-        let adjustedX = el.X;
-        let adjustedY = el.Y;
-        
-        // 回転前の中心座標を計算
-        const centerX = el.X + el.Width / 2;
-        const centerY = el.Y + el.Height / 2;
-        
-        // 回転後の左上座標を逆算（中心を維持）
-        adjustedX = centerX - drawWidth / 2;
-        adjustedY = centerY - drawHeight / 2;
+                // 回転前の中心座標（ページ座標）
+                const centerX = el.X + el.Width / 2;
+                const centerY = el.Y + el.Height / 2;
 
-        // PDF座標系での配置（左下基点）
-        const drawParams = {
-            x: adjustedX,
-            y: pageHeight - adjustedY - drawHeight,
-            width: drawWidth,
-            height: drawHeight
-        };
+                // 回転後の左上座標を逆算（中心を維持）
+                const adjustedX = centerX - drawWidth / 2;
+                const adjustedY = centerY - drawHeight / 2;
 
-        console.log("PDF描画パラメータ:", drawParams);
-
-        page.drawImage(processedImg, drawParams);
-        
-        console.log("=== 画像埋め込み完了 ===\n");
-    } else {
-        console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
-    }
-}
+                // PDF座標系での配置（左下基点）
+                const drawParams = {
+                    x: adjustedX,
+                    y: pageHeight - adjustedY - drawHeight,
+                    width: drawWidth,
+                    height: drawHeight
+                };
+                page.drawImage(processedImg, drawParams);
+            } else {
+                console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
+            }
+        }
     }
 
     const newPdfBytes = await pdfDoc.save();
@@ -1082,10 +1041,10 @@ async function applyImageTransformations(imageDataUrl, rotation, flipH, flipV) {
             // 回転角度を正規化
             const normalizedRotation = ((rotation % 360) + 360) % 360;
             console.log("正規化された回転角度:", normalizedRotation);
-            
+
             // 回転角度に応じたキャンバスサイズ計算
             let canvasWidth, canvasHeight;
-            
+
             if (normalizedRotation === 0 || normalizedRotation === 180) {
                 canvasWidth = img.width;
                 canvasHeight = img.height;
@@ -1178,7 +1137,7 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
-    
+
     function transformCoordinates(corner, offsetX, offsetY, rotateAngle, pageWidth, pageHeight, textWidth, fontSize) {
         let x = 0, y = 0;
         let textRotation = 0;
@@ -1308,7 +1267,7 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
         const text = stamp.text || "";
         const fontFamily = stamp.fontFamily || "NotoSansJP";
         const isBold = stamp.isBold || false;
-        
+
         if (containsJapanese(text)) {
             // 日本語を含む場合は強制的にNotoフォント
             if (fontFamily.includes("Serif")) {
@@ -1340,13 +1299,13 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     }
 
     for (const stamp of stamps) {
-        
+
         let text = stamp.text || "";
         if (!text) {
             console.warn("Empty text, skipping stamp");
             continue;
         }
-        
+
 
         const fontFamily = stamp.fontFamily || "NotoSansJP";
         const isBold = stamp.isBold || false;
@@ -1359,7 +1318,7 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
             } else {
                 fontKey = isBold ? "NotoSansJP-Bold" : "NotoSansJP-Regular";
             }
-            
+
             font = fontCache[fontKey];
             if (!font) {
                 console.error("日本語フォントが読み込まれていません");
@@ -1439,11 +1398,11 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
         const uint8Array = base64ToUint8Array(pdfBase64);
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
-        
+
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
         const pageW = originalViewport.width;
         const pageH = originalViewport.height;
-        
+
         const quant = normalizeRotationAngle(rotateAngle);
         const scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
 
@@ -1451,7 +1410,7 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
         const ny = Math.max(0, Math.min(1, Number(normY) || 0));
         const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
-        
+
         const llx = nx * pageW;
         const lly = pageH * (1 - ny - nh);
         const urx = llx + (nw * pageW);
@@ -1467,7 +1426,7 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
 
         const scaleX = srcCanvas.width / pageW;
         const scaleY = srcCanvas.height / pageH;
-        
+
         const sx = Math.round(llx * scaleX);
         const sy = Math.round((pageH - ury) * scaleY);
         const sw = Math.max(1, Math.round((urx - llx) * scaleX));
@@ -1524,7 +1483,7 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
             lly = pageH * (1 - ny - nh);
             urx = llx + (nw * pageW);
             ury = lly + (nh * pageH);
-            
+
         } else if (quant === 90) {
             // 90°回転時の座標変換
             // 表示：横長 (pageH × pageW)、元PDF：縦長 (pageW × pageH)
@@ -1544,7 +1503,7 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
             lly = pageH * ny;
             urx = pageW * (1 - nx);
             ury = pageH * (ny + nh);
-            
+
         } else if (quant === 270) {
             const sx = nx * pageH;
             const sy = ny * pageW;
@@ -1613,11 +1572,11 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         const uint8Array = base64ToUint8Array(pageDataBase64);
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
-        
+
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
         const pageW = originalViewport.width;
         const pageH = originalViewport.height;
-        
+
         const quant = normalizeRotationAngle(rotateAngle);
         const scale = dpi / 72;
 
@@ -1625,7 +1584,7 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         const ny = Math.max(0, Math.min(1, Number(normY) || 0));
         const nw = Math.max(0, Math.min(1, Number(normWidth) || 0));
         const nh = Math.max(0, Math.min(1, Number(normHeight) || 0));
-        
+
         // cropPdfPageRasterized と同じ座標計算
         const llx = nx * pageW;
         const lly = pageH * (1 - ny - nh);
@@ -1638,16 +1597,16 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
         srcCanvas.width = Math.max(1, Math.round(viewport.width));
         srcCanvas.height = Math.max(1, Math.round(viewport.height));
         const srcCtx = srcCanvas.getContext('2d', { alpha: false });
-        
+
         srcCtx.fillStyle = '#FFFFFF';
         srcCtx.fillRect(0, 0, srcCanvas.width, srcCanvas.height);
-        
+
         await page.render({ canvasContext: srcCtx, viewport: viewport }).promise;
 
         // cropPdfPageRasterized と同じスケール計算
         const scaleX = srcCanvas.width / pageW;
         const scaleY = srcCanvas.height / pageH;
-        
+
         const sx = Math.round(llx * scaleX);
         const sy = Math.round((pageH - ury) * scaleY);
         const sw = Math.max(1, Math.round((urx - llx) * scaleX));
@@ -1677,24 +1636,24 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
 window.createNUpPdf = async function (pages, nup, direction, orientation, showDividers = false) {
     try {
         const { PDFDocument, rgb, degrees, PDFName } = PDFLib;
-        
+
         const pagePdfs = [];
-        
+
         for (let i = 0; i < pages.length; i++) {
             const pageData = pages[i];
-            
+
             try {
                 const pdfBytes = base64ToUint8Array(pageData.pageData);
-                
+
                 const tempPdf = await PDFDocument.load(pdfBytes);
                 const tempPage = tempPdf.getPage(0);
-                
+
                 const { width, height } = tempPage.getSize();
-                
+
                 // Contents ストリームの存在確認
                 const pageDict = tempPage.node;
                 const contents = pageDict.lookup(PDFName.of('Contents'));
-                
+
                 if (!contents) {
                     console.warn(`[createNUpPdf] Page ${i + 1} has no Contents, creating blank page`);
                     const blankPdf = await PDFDocument.create();
@@ -1721,14 +1680,14 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
                 pagePdfs.push(null);
             }
         }
-        
+
         const { rows, cols } = getNUpGrid(nup, orientation);
-        
+
         const validPages = pagePdfs.filter(p => p !== null);
         if (validPages.length === 0) {
             throw new Error('No valid pages to process');
         }
-        
+
         let totalWidth = 0, totalHeight = 0;
         validPages.forEach(item => {
             const page = item.pdf.getPage(0);
@@ -1736,19 +1695,19 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
             totalWidth += width;
             totalHeight += height;
         });
-        
+
         const avgWidth = totalWidth / validPages.length;
         const avgHeight = totalHeight / validPages.length;
         const pageWidth = avgWidth * cols;
         const pageHeight = avgHeight * rows;
         const cellWidth = pageWidth / cols;
         const cellHeight = pageHeight / rows;
-        
+
         const orderedIndices = getPageOrder(pagePdfs.length, rows, cols, direction);
-        
+
         const outputPdf = await PDFDocument.create();
         const outputPage = outputPdf.addPage([pageWidth, pageHeight]);
-        
+
         outputPage.drawRectangle({
             x: 0, y: 0,
             width: pageWidth, height: pageHeight,
@@ -1761,43 +1720,43 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
                 console.warn(`[createNUpPdf] Skipping invalid page at index ${pageIndex}`);
                 continue;
             }
-            
+
             const item = pagePdfs[pageIndex];
-            
+
             try {
                 const [embeddedPage] = await outputPdf.embedPdf(item.pdf, [0]);
                 const { width, height } = embeddedPage;
-                
+
                 const { x, y } = getCellPosition(i, rows, cols, cellWidth, cellHeight, direction);
-                
+
                 const rotateAngle = item.rotateAngle || 0;
                 const normalizedAngle = ((rotateAngle % 360) + 360) % 360;
                 const isRotated = (normalizedAngle === 90 || normalizedAngle === 270);
-                
+
                 // 回転後の実効サイズ（セル内に収めるための計算用）
                 const effectiveWidth = isRotated ? height : width;
                 const effectiveHeight = isRotated ? width : height;
-                
+
                 // セル内に収まるスケールを計算
                 const scaleX = cellWidth / effectiveWidth;
                 const scaleY = cellHeight / effectiveHeight;
                 const scale = Math.min(scaleX, scaleY);
-                
+
                 // 実際の描画サイズ（回転前の元サイズ × scale）
                 const drawWidth = width * scale;
                 const drawHeight = height * scale;
-                
+
                 // セル内での中央寄せオフセット（回転後のサイズで計算）
                 const rotatedDrawWidth = isRotated ? drawHeight : drawWidth;
                 const rotatedDrawHeight = isRotated ? drawWidth : drawHeight;
-                
+
                 const offsetX = (cellWidth - rotatedDrawWidth) / 2;
                 const offsetY = (cellHeight - rotatedDrawHeight) / 2;
-                
+
                 // 回転の基点調整（PDFLib は左下基点で回転）
                 let finalX = x + offsetX;
                 let finalY = y + offsetY;
-                
+
                 if (normalizedAngle === 90) {
                     // 90度回転時の正しい配置
                     // 回転後にセル中央に来るよう、回転前の左下位置を計算
@@ -1820,14 +1779,14 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
                     height: drawHeight,  // 元のサイズ × scale
                     rotate: degrees(normalizedAngle)
                 });
-                
+
             } catch (embedError) {
                 console.error(`[createNUpPdf] Error embedding page ${pageIndex + 1}:`, embedError);
                 console.error(`  - Stack:`, embedError.stack);
                 throw embedError;
             }
         }
-        
+
         if (showDividers) {
             for (let c = 1; c < cols; c++) {
                 const lineX = c * cellWidth;
@@ -1850,13 +1809,13 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
                 });
             }
         }
-        
+
         const pdfBytes = await outputPdf.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
-        
+
         return url;
-        
+
     } catch (error) {
         console.error('[createNUpPdf] Fatal error:', error);
         console.error('[createNUpPdf] Stack trace:', error.stack);
@@ -1869,7 +1828,7 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
  */
 function getNUpGrid(nup, orientation) {
     const isLandscape = orientation === 'landscape';
-    
+
     switch (nup) {
         case 2:
             return isLandscape ? { rows: 1, cols: 2 } : { rows: 2, cols: 1 };
@@ -1889,47 +1848,47 @@ function getNUpGrid(nup, orientation) {
  */
 function getPageOrder(pageCount, rows, cols, direction) {
     const indices = [];
-    
+
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             let index;
-            
+
             switch (direction) {
                 case 'forward':
                     // 左→右、上→下
                     index = row * cols + col;
                     break;
-                    
+
                 case 'forward-vertical':
                     // 上→下、左→右（列優先）
                     index = col * rows + row;
                     break;
-                    
+
                 case 'reverse-horizontal':
                     // 右→左、上→下
                     index = row * cols + (cols - 1 - col);
                     break;
-                    
+
                 case 'reverse-vertical':
                     // 右の列から上→下
                     index = (cols - 1 - col) * rows + row;
                     break;
-                    
+
                 case 'reverse':
                     // 右→左、下→上
                     index = (rows - 1 - row) * cols + (cols - 1 - col);
                     break;
-                    
+
                 default:
                     index = row * cols + col;
             }
-            
+
             if (index < pageCount) {
                 indices.push(index);
             }
         }
     }
-    
+
     return indices;
 }
 
@@ -1938,68 +1897,68 @@ function getPageOrder(pageCount, rows, cols, direction) {
  */
 function getCellPosition(index, rows, cols, cellWidth, cellHeight, direction) {
     let row, col;
-    
+
     switch (direction) {
         case 'forward':
             row = Math.floor(index / cols);
             col = index % cols;
             break;
-            
+
         case 'forward-vertical':
             col = Math.floor(index / rows);
             row = index % rows;
             break;
-            
+
         case 'reverse-horizontal':
             row = Math.floor(index / cols);
             col = cols - 1 - (index % cols);
             break;
-            
+
         case 'reverse-vertical':
             col = cols - 1 - Math.floor(index / rows);
             row = index % rows;
             break;
-            
+
         case 'reverse':
             row = rows - 1 - Math.floor(index / cols);
             col = cols - 1 - (index % cols);
             break;
-            
+
         default:
             row = Math.floor(index / cols);
             col = index % cols;
     }
-    
+
     // PDF座標系（左下原点）での位置
     const x = col * cellWidth;
     const y = (rows - 1 - row) * cellHeight;
-    
+
     return { x, y };
 }
 
 /**
  * PDFページをタイル分割（ラスタ化オプション対応）
  */
-window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction, rasterize = false) {
+window.splitPdfPageIntoTiles = async function (pageData, tileCount, direction, rasterize = false) {
     try {
         const { PDFDocument } = PDFLib;
         const uint8Array = base64ToUint8Array(pageData);
         const srcPdf = await PDFDocument.load(uint8Array);
         const srcPage = srcPdf.getPage(0);
         const { width, height } = srcPage.getSize();
-        
+
         // グリッド計算
         const { rows, cols } = getTileGrid(tileCount, direction);
         const tileWidth = width / cols;
         const tileHeight = height / rows;
-        
+
         const results = [];
-        
+
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
                 const x = col * tileWidth;
                 const y = height - (row + 1) * tileHeight; // PDF座標系
-                
+
                 let tileUrl;
                 if (rasterize) {
                     // ラスタ化：指定領域を画像として抽出してPDF化
@@ -2008,13 +1967,13 @@ window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction, ra
                     // ベクトル：CropBox でトリミング
                     tileUrl = await createVectorTile(srcPdf, x, y, tileWidth, tileHeight);
                 }
-                
+
                 if (tileUrl) {
                     results.push(tileUrl);
                 }
             }
         }
-        
+
         return results;
     } catch (error) {
         console.error('splitPdfPageIntoTiles error:', error);
@@ -2027,7 +1986,7 @@ window.splitPdfPageIntoTiles = async function(pageData, tileCount, direction, ra
  */
 function getTileGrid(tileCount, direction) {
     const isHorizontal = direction === 'horizontal';
-    
+
     switch (tileCount) {
         case 2:
             return isHorizontal ? { rows: 2, cols: 1 } : { rows: 1, cols: 2 };
@@ -2051,7 +2010,7 @@ async function createVectorTile(srcPdf, x, y, w, h) {
         const outputPdf = await PDFDocument.create();
         const [copiedPage] = await outputPdf.copyPages(srcPdf, [0]);
         outputPdf.addPage(copiedPage);
-        
+
         // CropBox を設定
         copiedPage.node.set(PDFName.of('CropBox'), outputPdf.context.obj([
             Math.round(x),
@@ -2059,7 +2018,7 @@ async function createVectorTile(srcPdf, x, y, w, h) {
             Math.round(x + w),
             Math.round(y + h)
         ]));
-        
+
         const pdfBytes = await outputPdf.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         return URL.createObjectURL(blob);
@@ -2076,46 +2035,46 @@ async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeigh
     try {
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
-        
+
         const scale = 2.0; // 高解像度
         const viewport = page.getViewport({ scale, rotation: 0 });
-        
+
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(viewport.width));
         canvas.height = Math.max(1, Math.round(viewport.height));
-        
+
         const ctx = canvas.getContext('2d', { alpha: false });
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
+
         await page.render({ canvasContext: ctx, viewport }).promise;
-        
+
         // PDF座標をCanvas座標に変換
         const scaleX = canvas.width / pageWidth;
         const scaleY = canvas.height / pageHeight;
-        
+
         const sx = Math.round(x * scaleX);
         const sy = Math.round((pageHeight - y - h) * scaleY); // Y座標反転
         const sw = Math.max(1, Math.round(w * scaleX));
         const sh = Math.max(1, Math.round(h * scaleY));
-        
+
         // 指定領域を切り出し
         const tileCanvas = document.createElement('canvas');
         tileCanvas.width = sw;
         tileCanvas.height = sh;
         const tileCtx = tileCanvas.getContext('2d', { alpha: false });
         tileCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-        
+
         // PNG → PDF 化
         const imgDataUrl = tileCanvas.toDataURL('image/png');
         const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
-        
+
         const { PDFDocument } = PDFLib;
         const tilePdf = await PDFDocument.create();
         const pngImage = await tilePdf.embedPng(imgBytes);
         const tilePage = tilePdf.addPage([sw, sh]);
         tilePage.drawImage(pngImage, { x: 0, y: 0, width: sw, height: sh });
-        
+
         const pdfBytes = await tilePdf.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         return URL.createObjectURL(blob);
@@ -2128,11 +2087,11 @@ async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeigh
 /**
  * Canvas の自然なサイズを取得
  */
-window.getCanvasNaturalSize = function(canvasId) {
+window.getCanvasNaturalSize = function (canvasId) {
     try {
         const canvas = document.getElementById(canvasId);
         if (!canvas) return [0, 0];
-        
+
         // Canvas の実際のピクセルサイズ
         return [canvas.width, canvas.height];
     } catch (e) {
@@ -2141,16 +2100,16 @@ window.getCanvasNaturalSize = function(canvasId) {
     }
 };
 
-window.setCanvasSize = function(canvasId, width, height) {
+window.setCanvasSize = function (canvasId, width, height) {
     try {
         const canvas = document.getElementById(canvasId);
         if (!canvas) return false;
-        
+
         canvas.naturalWidth = width;
         canvas.naturalHeight = height;
         canvas.style.width = width + 'px';
         canvas.style.height = height + 'px';
-        
+
         return true;
     } catch (e) {
         console.error('setCanvasSize error', e);
@@ -2180,7 +2139,7 @@ window.revokeObjectUrl = function (url) {
     return false;
 }
 
-window.fetchBlobAsBytes = async function(blobUrl) {
+window.fetchBlobAsBytes = async function (blobUrl) {
     try {
         const response = await fetch(blobUrl);
         const arrayBuffer = await response.arrayBuffer();
@@ -2199,11 +2158,11 @@ window.generatePdfThumbnailUrl = async function (pdfBlobUrl) {
         const response = await fetch(pdfBlobUrl);
         const arrayBuffer = await response.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
-        
+
         return await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
     } catch (error) {
         console.error('generatePdfThumbnailUrl error:', error);
