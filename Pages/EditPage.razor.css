@@ -1,0 +1,6 @@
+.edit-page-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden; /* EditPage 内でスクロールを制御 */
+}

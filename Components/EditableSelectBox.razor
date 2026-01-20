@@ -1,0 +1,297 @@
+@using Microsoft.AspNetCore.Components
+@using NoCloudPdf.Models
+
+<div class="@(IsHorizontal ? "flex items-center gap-1" : "space-y-2")">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="@LabelClass" for="@_inputId">
+            @Label
+        </label>
+    }
+    <div class="@(IsHorizontal ? "flex-1" : "") relative">
+        <!-- 入力フィールド -->
+        <div class="relative">
+            <input
+                id="@_inputId"
+                name="@(Name ?? _inputId)"
+                type="@(InputType == EditableInputType.Number ? "number" : "text")"
+                class="@InputClass"
+                style="@GetInputStyle()"
+                value="@Value"
+                min="@MinValue"
+                max="@MaxValue"
+                step="@StepValue"
+                placeholder="@Placeholder"
+                autocomplete="off"
+                @oninput="OnInputChanged"
+                @onchange="OnInputBlur"
+                @onfocus="OnInputFocus"
+                @onblur="OnInputBlurDelayed"
+                disabled="@IsDisabled"
+                @onclick:stopPropagation
+                @onmousedown:stopPropagation />
+            
+            <!-- ドロップダウンボタン -->
+            <button
+                type="button"
+                class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-auto"
+                style="@GetButtonStyle()"
+                @onclick="ToggleDropdown"
+                @onclick:stopPropagation
+                @onmousedown:stopPropagation
+                disabled="@IsDisabled">
+                @if (IconFragment != null)
+                {
+                    @IconFragment
+                }
+                else
+                {
+                    <ArrowDownIcon/>
+                }
+            </button>
+        </div>
+        
+        <!-- ドロップダウンリスト -->
+        @if (_isDropdownOpen && Options != null && Options.Any())
+        {
+            <div class="absolute z-50 @DropdownWidthClass mt-1 border border-gray-300 rounded-md shadow-lg @DropdownMaxHeightClass overflow-auto custom-scrollbar"
+                 style="@GetDropdownStyle()"
+                 @onclick:stopPropagation
+                 @onmousedown:stopPropagation>
+                @foreach (var option in FilteredOptions)
+                {
+                    <div class="@OptionClass px-3 py-2 cursor-pointer hover:bg-blue-100 @(option.Value == Value ? "bg-blue-50 font-medium" : "")"
+                         style="@GetOptionStyle()"
+                         @onclick="() => SelectOption(option)"
+                         @onmousedown:stopPropagation>
+                        @option.Text
+                    </div>
+                }
+                @if (!FilteredOptions.Any())
+                {
+                    <div class="px-3 py-2 text-gray-500 text-sm">
+                        該当する項目がありません
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    public enum EditableInputType { Text, Number }
+
+    /// <summary>ラベルテキスト</summary>
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>選択中の値</summary>
+    [Parameter] public string? Value { get; set; }
+
+    /// <summary>値変更時のコールバック</summary>
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>選択肢リスト</summary>
+    [Parameter] public List<SelectOption>? Options { get; set; }
+
+    /// <summary>ラベルを横並びにするか</summary>
+    [Parameter] public bool IsHorizontal { get; set; } = false;
+
+    /// <summary>無効化フラグ</summary>
+    [Parameter] public bool IsDisabled { get; set; } = false;
+
+    /// <summary>入力タイプ</summary>
+    [Parameter] public EditableInputType InputType { get; set; } = EditableInputType.Text;
+
+    /// <summary>最小値（数値入力時）</summary>
+    [Parameter] public int? MinValue { get; set; }
+
+    /// <summary>最大値（数値入力時）</summary>
+    [Parameter] public int? MaxValue { get; set; }
+
+    /// <summary>ステップ値（数値入力時）</summary>
+    [Parameter] public int? StepValue { get; set; } = 1;
+
+    /// <summary>プレースホルダー</summary>
+    [Parameter] public string? Placeholder { get; set; }
+
+    /// <summary>入力フィールドの背景色</summary>
+    [Parameter] public string? InputBackgroundColor { get; set; }
+
+    /// <summary>入力フィールドの文字色</summary>
+    [Parameter] public string? InputTextColor { get; set; }
+
+    /// <summary>ドロップダウンの背景色</summary>
+    [Parameter] public string? DropdownBackgroundColor { get; set; }
+
+    /// <summary>ドロップダウンの文字色</summary>
+    [Parameter] public string? DropdownTextColor { get; set; }
+
+    /// <summary>オプションの背景色</summary>
+    [Parameter] public string? OptionBackgroundColor { get; set; }
+
+    /// <summary>オプションの文字色</summary>
+    [Parameter] public string? OptionTextColor { get; set; }
+
+    /// <summary>ボタンの文字色</summary>
+    [Parameter] public string? ButtonTextColor { get; set; }
+
+    /// <summary>カスタムアイコン</summary>
+    [Parameter] public RenderFragment? IconFragment { get; set; }
+
+    /// <summary>ラベル用CSSクラス</summary>
+    [Parameter] public string LabelClass { get; set; } = "block text-sm font-medium text-gray-700";
+
+    /// <summary>入力フィールド用CSSクラス</summary>
+    [Parameter] public string InputClass { get; set; } = 
+        "h-8 text-sm border rounded px-2 py-1 w-20 pr-8 focus:ring-2 focus:ring-blue-200 focus:border-blue-400";
+
+    /// <summary>オプション用CSSクラス</summary>
+    [Parameter] public string OptionClass { get; set; } = "text-gray-700";
+
+    /// <summary>ドロップダウンの幅クラス</summary>
+    [Parameter] public string DropdownWidthClass { get; set; } = "w-full";
+
+    /// <summary>ドロップダウンの最大高さクラス</summary>
+    [Parameter] public string DropdownMaxHeightClass { get; set; } = "max-h-60";
+
+    /// <summary>要素の id（未指定時は自動生成）</summary>
+    [Parameter] public string? Id { get; set; }
+
+    /// <summary>要素の name（未指定時は id を使用）</summary>
+    [Parameter] public string? Name { get; set; }
+
+    private string? _inputId;
+    private bool _isDropdownOpen = false;
+    private string _filterText = "";
+
+    protected override void OnInitialized()
+    {
+        var guid = Guid.NewGuid().ToString("N");
+        _inputId = Id ?? $"editable-input-{guid}";
+    }
+
+    private List<SelectOption> FilteredOptions
+    {
+        get
+        {
+            if (Options == null) return new List<SelectOption>();
+            
+            // 入力値でフィルタリング（空なら全て表示）
+            if (string.IsNullOrEmpty(_filterText))
+                return Options;
+            
+            return Options
+                .Where(o => o.Text.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ||
+                           o.Value.Contains(_filterText, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private void OnInputFocus(FocusEventArgs e)
+    {
+        _isDropdownOpen = true;
+        _filterText = Value ?? "";
+    }
+
+    private async Task OnInputBlurDelayed(FocusEventArgs e)
+    {
+        // ドロップダウンのクリックを処理するために遅延させる
+        await Task.Delay(200);
+        _isDropdownOpen = false;
+    }
+
+    private void ToggleDropdown()
+    {
+        _isDropdownOpen = !_isDropdownOpen;
+        if (_isDropdownOpen)
+        {
+            _filterText = "";
+        }
+    }
+
+    private async Task SelectOption(SelectOption option)
+    {
+        Value = option.Value;
+        _isDropdownOpen = false;
+        _filterText = "";
+        
+        if (ValueChanged.HasDelegate)
+        {
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private async Task OnInputChanged(ChangeEventArgs e)
+    {
+        var newValue = e.Value?.ToString();
+        _filterText = newValue ?? "";
+        
+        if (InputType == EditableInputType.Number && !string.IsNullOrEmpty(newValue))
+        {
+            // 数値検証
+            if (int.TryParse(newValue, out int numValue))
+            {
+                // 範囲チェック
+                if (MinValue.HasValue && numValue < MinValue.Value)
+                    newValue = MinValue.Value.ToString();
+                if (MaxValue.HasValue && numValue > MaxValue.Value)
+                    newValue = MaxValue.Value.ToString();
+            }
+            else
+            {
+                return; // 数値でない場合は更新しない
+            }
+        }
+
+        Value = newValue;
+        _isDropdownOpen = true; // 入力中はドロップダウンを表示
+        
+        if (ValueChanged.HasDelegate)
+        {
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private async Task OnInputBlur(ChangeEventArgs e)
+    {
+        await OnInputChanged(e);
+    }
+
+    private string GetInputStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(InputBackgroundColor))
+            styles.Add($"background-color: {InputBackgroundColor}");
+        if (!string.IsNullOrEmpty(InputTextColor))
+            styles.Add($"color: {InputTextColor}");
+        return string.Join("; ", styles);
+    }
+
+    private string GetDropdownStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(DropdownBackgroundColor))
+            styles.Add($"background-color: {DropdownBackgroundColor}");
+        if (!string.IsNullOrEmpty(DropdownTextColor))
+            styles.Add($"color: {DropdownTextColor}");
+        return string.Join("; ", styles);
+    }
+
+    private string GetOptionStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(OptionBackgroundColor))
+            styles.Add($"background-color: {OptionBackgroundColor}");
+        if (!string.IsNullOrEmpty(OptionTextColor))
+            styles.Add($"color: {OptionTextColor}");
+        return string.Join("; ", styles);
+    }
+
+    private string GetButtonStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(ButtonTextColor))
+            styles.Add($"color: {ButtonTextColor}");
+        return string.Join("; ", styles);
+    }
+}

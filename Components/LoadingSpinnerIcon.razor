@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 50 50"
+     fill="none"
+     class="text-blue-600 animate-spin @Class"
+     aria-hidden="true"
+     role="img">
+  <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4" class="opacity-20"></circle>
+  <path d="M45 25a20 20 0 0 1-20 20" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"></path>
+</svg>
+
+@code {
+    [Parameter] public string? Class { get; set; } = "w-12 h-12";
+}

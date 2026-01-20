@@ -6,6 +6,6 @@ namespace NoCloudPdf.Models
     {
         public TValue Value { get; set; } = default!;
         public string Label { get; set; } = "";
-        public RenderFragment? Icon { get; set; }
+        public RenderFragment? IconFragment { get; set; }
     }
 }

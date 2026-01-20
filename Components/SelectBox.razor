@@ -1,0 +1,130 @@
+@using Microsoft.AspNetCore.Components
+@using NoCloudPdf.Models
+
+<div class="@(IsHorizontal ? "flex items-center gap-1" : "space-y-2")">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="@LabelClass" for="@_id">
+            @Label
+        </label>
+    }
+    <div class="@(IsHorizontal ? "flex-1" : "") relative">
+        <select
+            id="@_id"
+            name="@(Name ?? _id)"       
+            class="@SelectClass appearance-none pl-2 pr-8 py-1"
+            style="@GetSelectStyle()"
+            value="@Value"
+            @onchange="OnValueChanged"
+            disabled="@IsDisabled">
+            @if (Options != null)
+            {
+                @foreach (var option in Options)
+                {
+                    <option 
+                        class="@OptionClass" 
+                        style="@GetOptionStyle()" 
+                        value="@option.Value">
+                        @option.Text
+                    </option>
+                }
+            }
+        </select>
+        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+            @if (IconFragment != null)
+            {
+                @IconFragment
+            }
+            else
+            {
+                <ArrowDownIcon />
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>ラベルテキスト</summary>
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>選択中の値</summary>
+    [Parameter] public string? Value { get; set; }
+
+    /// <summary>値変更時のコールバック</summary>
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>選択肢リスト</summary>
+    [Parameter] public List<SelectOption>? Options { get; set; }
+
+    /// <summary>ラベルを横並びにするか</summary>
+    [Parameter] public bool IsHorizontal { get; set; } = false;
+
+    /// <summary>無効化フラグ</summary>
+    [Parameter] public bool IsDisabled { get; set; } = false;
+
+    /// <summary>セレクトボックスの背景色</summary>
+    [Parameter] public string? SelectBackgroundColor { get; set; }
+
+    /// <summary>セレクトボックスの文字色</summary>
+    [Parameter] public string? SelectTextColor { get; set; }
+
+    /// <summary>オプションの背景色</summary>
+    [Parameter] public string? OptionBackgroundColor { get; set; }
+
+    /// <summary>オプションの文字色</summary>
+    [Parameter] public string? OptionTextColor { get; set; }
+
+    /// <summary>カスタムアイコン</summary>
+    [Parameter] public RenderFragment? IconFragment { get; set; }
+
+    /// <summary>ラベル用CSSクラス</summary>
+    [Parameter] public string LabelClass { get; set; } = "block text-sm font-medium text-gray-700";
+
+    /// <summary>セレクト用CSSクラス</summary>
+    [Parameter] public string SelectClass { get; set; } = 
+        "block w-full h-10 px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none";
+
+    /// <summary>オプション用CSSクラス</summary>
+    [Parameter] public string OptionClass { get; set; } = "text-gray-700";
+
+    /// <summary>要素の id（未指定時は自動生成）</summary>
+    [Parameter] public string? Id { get; set; }
+
+    /// <summary>要素の name（未指定時は id を使用）</summary>
+    [Parameter] public string? Name { get; set; }
+
+    private string? _id;
+
+    protected override void OnInitialized()
+    {
+        _id = Id ?? $"select-{Guid.NewGuid():N}";
+    }
+    private async Task OnValueChanged(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+        if (ValueChanged.HasDelegate)
+        {
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private string GetSelectStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(SelectBackgroundColor))
+            styles.Add($"background-color: {SelectBackgroundColor}");
+        if (!string.IsNullOrEmpty(SelectTextColor))
+            styles.Add($"color: {SelectTextColor}");
+        return string.Join("; ", styles);
+    }
+
+    private string GetOptionStyle()
+    {
+        var styles = new List<string>();
+        if (!string.IsNullOrEmpty(OptionBackgroundColor))
+            styles.Add($"background-color: {OptionBackgroundColor}");
+        if (!string.IsNullOrEmpty(OptionTextColor))
+            styles.Add($"color: {OptionTextColor}");
+        return string.Join("; ", styles);
+    }
+}

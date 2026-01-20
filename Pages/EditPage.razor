@@ -17,189 +17,121 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
 
 </HeadContent>
-<div class="edit-page-container h-screen flex flex-col">
+<div class="edit-page-layout">
     <!-- ヘッダー -->
-    <div class="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <button @onclick="NavigateBack" class="text-gray-600 hover:text-gray-800">
-                <ArrowLeftIcon/>
-            </button>
-            <h1 class="text-lg font-semibold">ページ編集</h1>
-            @if (!string.IsNullOrEmpty(fileName))
-            {
-                <span class="text-sm text-gray-500">@fileName - ページ @(PageIndex + 1)</span>
-            }
-        </div>
-        <div class="flex items-center gap-3">
-            <button @onclick="SaveChanges" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                保存
-            </button>
-        </div>
-    </div>
+    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 flex-shrink-0">
+        <div class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+            <div class="flex flex-wrap gap-2 items-center">
+                <ActionButtonGroup T="string" Actions="backToActions" />
 
-    <!-- ツールバー -->
-    <div class="bg-gray-50 border-b px-4 py-2 flex flex-wrap items-center gap-4">
-        <!-- ズーム -->
-        <div class="flex items-center gap-2 flex-shrink-0">
-            <button @onclick="ZoomOut" class="p-2 hover:bg-gray-200 rounded">
-                <ZoomOutIcon/>
-            </button>
-            <span class="text-sm font-medium text-center">@((int)(zoomLevel * 100))%</span>
-            <button @onclick="ZoomIn" class="p-2 hover:bg-gray-200 rounded">
-                <ZoomInIcon/>
-            </button>
-            <button @onclick="FitToScreen" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">
-                画面に合わせる
-            </button>
-        </div>
+                <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
 
-        <div class="h-6 w-px bg-gray-300"></div>
+                <h1 class="hidden md:inline text-lg font-bold">ページ編集</h1>
+                @if (!string.IsNullOrEmpty(fileName))
+                {
+                    <span class="text-sm">@fileName - ページ @(PageIndex + 1)</span>
+                }
 
-        <!-- ツール選択 -->
-        <div class="flex items-center gap-2 flex-shrink-0">
-            <button @onclick="() => SetTool(EditTool.Select)"
-                class="p-2 rounded @(currentTool == EditTool.Select ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <ArrowPointerIcon/>
-            </button>
-            <button @onclick="() => SetTool(EditTool.Text)"
-                class="p-2 rounded @(currentTool == EditTool.Text ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <FontIcon/>
-            </button>
-            <button @onclick="() => SetTool(EditTool.Image)"
-                class="p-2 rounded @(currentTool == EditTool.Image ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200")">
-                <ImageIcon/>
-            </button>
-        </div>
+                <ToggleButtonGroup T="EditTool" 
+                    Items="toolToggleItems" 
+                    ActiveValue="currentTool"
+                    OnClick="OnToolChanged" />
+                <ActionButtonGroup T="string" Actions="zoomActions" />
 
-        @if (currentTool == EditTool.Text)
-        {
-            <div class="h-6 w-px bg-gray-300"></div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <select class="text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                        @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true">
-                        <option value="10">10px</option>
-                        <option value="11">11px</option>
-                        <option value="12">12px</option>
-                        <option value="13">13px</option>
-                        <option value="14">14px</option>
-                        <option value="15">15px</option>
-                        <option value="16">16px</option>
-                        <option value="18">18px</option>
-                        <option value="20">20px</option>
-                        <option value="22">22px</option>
-                        <option value="24">24px</option>
-                        <option value="28">28px</option>
-                        <option value="32">32px</option>
-                        <option value="36">36px</option>
-                        <option value="40">40px</option>
-                        <option value="48">48px</option>
-                        <option value="56">56px</option>
-                        <option value="64">64px</option>
-                    </select>
-                    <input type="number" min="6" max="128" step="1"
-                        class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize ?? fontSize)"
-                        @onchange="OnFontSizeChanged" @onmousedown="() => ignoreTextBlur = true" placeholder="手入力" />
-                    <span class="text-xs text-gray-500">px</span>
+                    @if (currentTool == EditTool.Text)
+                    {
+                        <div class="flex flex-wrap items-center gap-2 w-full">
 
-                    <input type="number" min="0" max="300" step="1"
-                    class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                    value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
-                    @onchange="OnLineHeightChanged" @onmousedown="() => ignoreTextBlur = true" />
-                    <span class="text-xs text-gray-500">行間 (px, 0=自動)</span>
+                                @{
+                                    var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+                                    var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
+                                    var targetElement = editingElement ?? selectedElement;
+                                    var fontFamilyOptions = GetFontFamilyOptions(targetElement);
+                                }
+                                <SelectBox 
+                                    Id="font-family-select"
+                                    Label="フォント"
+                                    IsHorizontal="true"
+                                    Value="@fontFamily"
+                                    ValueChanged="@OnFontFamilyChangedFromSelect"
+                                    Options="@fontFamilyOptions"
+                                    LabelClass="text-white"
+                                    SelectClass="h-8 text-sm border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400" 
+                                    />
+                                <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます">
+                                        <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
+                                </Tooltip>
+                                <EditableSelectBox 
+                                    Label=""
+                                    IsHorizontal="true"
+                                    Value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize.ToString() ?? fontSize.ToString())"
+                                    ValueChanged="@OnFontSizeChangedFromSelect"
+                                    Options="@fontSizeOptions"
+                                    InputType="EditableSelectBox.EditableInputType.Number"
+                                    MinValue="6"
+                                    MaxValue="128"
+                                    StepValue="1"
+                                    Placeholder="px"
+                                    InputClass="h-8 text-sm border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                    DropdownMaxHeightClass="max-h-48"
+                                    DropdownWidthClass="w-full bg-white"
+                                    />
+                                <span class="text-xs text-white">px</span>
+                                <input type="number" min="0" max="300" step="1"
+                                class="text-sm border rounded px-2 py-1 w-12 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
+                                value="@(editElements.FirstOrDefault(el => el.IsEditing)?.LineHeight ?? 0)"
+                                @onchange="OnLineHeightChanged" @onclick:stopPropagation
+    @onmousedown:stopPropagation />
+                                <span class="text-xs text-white">行間 (px, 0=自動)</span>
+                                <button
+                                    @onclick="ToggleBold" 
+                                    @onclick:stopPropagation
+                                    title="太字"
+                                    aria-pressed="@IsBoldActive"
+                                    class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-100 text-blue-900 transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white text-black hover:bg-gray-200")">
+                                    <BoldIcon/>
+                                </button>
+                                <input type="color"
+                                    class="w-8 h-8"
+                                    value="@CurrentTextColor"
+                                    @oninput="OnTextColorInput"
+                                    @onfocus="() => ignoreNextPageClick = true"
+                                    @onblur="OnColorPickerBlur"
+                                    @onclick:stopPropagation
+                                    @onmousedown:stopPropagation/>
+                            </div>
+                    }
+                    @if (currentTool == EditTool.Image)
+                    {
+                        <div class="flex flex-wrap items-center gap-2 w-full">
+                            <label class="cursor-pointer bg-white hover:bg-gray-100 text-black px-4 py-1 font-bold focus:outline-none transition flex items-center rounded-lg h-10">
+                                画像を追加
+                                <InputFile OnChange="OnImageSelected" multiple class="hidden" />
+                            </label>
+                            <label class="flex items-center gap-1 text-sm">
+                                <input @bind="keepAspectRatio" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                アスペクト比固定
+                            </label>
 
-                    <select id="font-family-select"
-                        class="text-sm border rounded px-2 py-1 w-30 focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@fontFamily"
-                        @onchange="OnFontFamilyChanged" @onmousedown="() => ignoreTextBlur = true">
-                        @* 編集中の要素 or 選択中の要素を取得 *@
-                        @{
-                            var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
-                            var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
-                            var targetElement = editingElement ?? selectedElement;
-                        }
-                        @if (targetElement != null && ContainsJapanese(targetElement.Text))
-                        {
-                            <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                            <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                        }
-                        else
-                        {
-                            <option value="@FontFamilyNotoSans" title="Noto Sans JP — ゴシック系（日本語対応）">Noto Sans（ゴシック） — 日本語対応</option>
-                            <option value="@FontFamilyNotoSerif" title="Noto Serif JP — 明朝系（日本語対応）">Noto Serif（明朝） — 日本語対応</option>
-                            <option value="sans-serif" title="ブラウザ既定のゴシック系（主に英数字）">システム ゴシック（英数字向け）</option>
-                            <option value="serif" title="ブラウザ既定の明朝系（主に英数字）">システム 明朝（英数字向け）</option>
-                            <option value="monospace" title="等幅フォント（コードや表記揃えに）">等幅（Monospace）</option>
-                            <option value="Arial, Helvetica, sans-serif" title="英字メインの欧文フォント">Arial（英字向け）</option>
-                            <option value="Times New Roman, serif" title="欧文の明朝系フォント">Times New Roman（英字向け）</option>
-                            <option value="Meiryo, sans-serif" title="メイリオ（Windows 日本語ゴシック）">Meiryo（Windows）</option>
-                            <option value="Yu Gothic, sans-serif" title="游ゴシック（Windows 日本語ゴシック）">游ゴシック（Windows）</option>
-                        }
-                    </select>
-                    <Tooltip Text="日本語テキストを含む場合は自動的にNotoSansフォントで表示・保存されます">
-                            <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
-                    </Tooltip>
-                    @* <button
-                        class="@(IsFitActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")"
-                        @onclick="() => uiFitTextToArea = !uiFitTextToArea" @onmousedown="() => ignoreTextBlur = true"
-                        title="テキストにフィット：オンでエリアに合わせ自動調整（折返しなし）"
-                        aria-pressed="@IsFitActive" aria-label="テキストにフィット切替">
-                        @if (IsFitActive)
-                        {
-                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        }
-                        else
-                        {
-                            <svg class="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M21 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M3 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M7 12H17M7 12L9.5 9.5M7 12L9.5 14.5M17 12L14.5 9.5M17 12L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        }
-                    </button> *@
-                    <button
-                        @onclick="ToggleBold"
-                        title="太字"
-                        aria-pressed="@IsBoldActive"
-                        class="@(IsBoldActive ? "h-8 flex items-center justify-center px-2 rounded border border-blue-600 bg-blue-600 text-white transition-colors" : "h-8 flex items-center justify-center px-2 rounded border border-gray-300 bg-white hover:bg-gray-200")">
-                        <BoldIcon/>
-                    </button>
-                    <input type="color"
-                        class="w-8 h-8 border rounded focus:ring-2 focus:ring-blue-200 focus:border-blue-400"
-                        value="@CurrentTextColor"
-                        @oninput="OnTextColorInput"
-                        @onfocus="() => ignoreNextPageClick = true"
-                        @onblur="OnColorPickerBlur"
-                        @onclick:stopPropagation @onmousedown="() => ignoreTextBlur = true"/>
-                </div>
+                            @if (selectedElementIds.Any(id => editElements.Any(el => el.Id == id && el.Type == ElementType.Image)))
+                            {
+                                <ActionButtonGroup T="string" Actions="imageRotateActions" />
+                                <ActionButtonGroup T="string" Actions="imageFlipActions" />
+                            }
+                        </div>
+                    }
             </div>
-        }
-        @if (currentTool == EditTool.Image)
-        {
-            <label class="flex items-center gap-1 text-sm flex-shrink-0">
-                <input type="checkbox" @bind="keepAspectRatio" />
-                アスペクト比固定
-            </label>
-            <label class="cursor-pointer px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
-                画像を追加
-                <InputFile OnChange="OnImageSelected" multiple class="hidden" />
-            </label>
-        }
+            <ActionButtonGroup T="string" Actions="primaryActions" />
+        </div>
     </div>
-
+        
     <!-- メインエディタエリア -->
-    <div class="edit-canvas-container h-full w-[100vw] md:w-[calc(100vw-70px)] min-w-0 overflow-auto flex justify-center items-start
+    <div id="edit-canvas-container" class="flex-1 w-full overflow-auto flex justify-center items-start custom-scrollbar
     @(currentTool == EditTool.Text ? " cursor-text" : "")"
-    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp" @onmousemove="OnElementMouseMove">
+    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp">
                 <!-- PDF ページ -->
                 <div class="pdf-page bg-white shadow-lg relative"
-                    style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; transform: scale(1); transform-origin: center center;"
+                    style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; margin: 20px; transform: scale(1); transform-origin: center center;"
                     @onclick="OnPageClick">
                     <canvas id="pdf-canvas-@canvasUniqueId"
                             width="@(pageWidth)"
@@ -214,7 +146,7 @@
                         {
                             <div class="edit-element text-element absolute cursor-move select-none
                                 @(element.IsEditing
-                                    ? "border-2 border-blue-600 bg-blue-50"
+                                    ? "border-3 border-blue-600 bg-blue-50"
                                     : (selectedElementIds.Contains(element.Id)
                                         ? "border-2 border-blue-600"
                                         : "border-2 border-transparent"))"
@@ -225,77 +157,81 @@
                                     height: @(element.Height * zoomLevel)px;
                                     font-size: @(element.FontSize * zoomLevel)px;
                                     color: @element.Color;
-                                    font-family: @(element.FontFamily);"
+                                    font-family: @(element.FontFamily);
+                                    box-sizing: content-box;"
                                 @onmousedown="(e) => OnElementMouseDown(e, element)"
-                                @onmouseup="OnElementMouseUp"
-                                >
-                                @if (element.IsEditing)
-                                {
+                                @onmouseup="OnElementMouseUp">
+                                
+                                <!-- 内側のコンテナ（border-box で統一） -->
+                                <div class="w-full h-full" style="box-sizing: border-box; position: relative;">
+                                    <!-- textarea（編集モード） -->
                                     <textarea
                                         id="text-area-@element.Id"
                                         name="text-area-@element.Id"
-                                        @bind="element.Text"
+                                        value="@element.Text"
                                         @oninput="(e) => OnTextAreaInput(e, element)"
                                         @onblur="() => FinishTextEdit(element)"
-                                        class="border-none outline-none bg-transparent resize-none overflow-hidden"
-                                        style="width: 100%; height: auto; min-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; font-size: @(element.FontSize * zoomLevel)px; line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px; padding: 0; margin: 0; box-sizing: border-box; display: block; color: @element.Color; font-weight: @(element.IsBold ? "bold" : "normal"); @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; overflow: hidden;")"
+                                        class="border-none outline-none bg-transparent resize-none overflow-hidden w-full h-full absolute inset-0"
+                                        style="
+                                            font-size: @(element.FontSize * zoomLevel)px; 
+                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2) * zoomLevel)px; 
+                                            padding: 0; 
+                                            margin: 0; 
+                                            box-sizing: border-box; 
+                                            display: @(element.IsEditing ? "block" : "none"); 
+                                            color: @element.Color; 
+                                            font-weight: @(element.IsBold ? "bold" : "normal"); 
+                                            font-family: @(element.FontFamily);
+                                            word-wrap: break-word; 
+                                            word-break: break-word; 
+                                            overflow-wrap: break-word;
+                                            white-space: @(element.FitTextToArea ? "nowrap" : "pre-wrap");"
                                         wrap="@(element.FitTextToArea ? "off" : "soft")"
                                         @ref="textInputRef"
                                         @onclick:stopPropagation
                                         @onmousedown:stopPropagation
                                     />
-                                }
-                                else
-                                {
+                                    
+                                    <!-- span（表示モード） -->
                                     <span
                                         @onclick="() => { if (!element.IsEditing) SelectElement(element.Id); }"
                                         @ondblclick="() => StartTextEdit(element)"
                                         @onclick:stopPropagation
                                         @ondblclick:stopPropagation
+                                        class="w-full h-full block absolute inset-0"
                                         style="
-                                            width: 100%;
-                                            height: 100%;
                                             font-size: @(element.FontSize * zoomLevel)px;
-                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize) * zoomLevel)px;
-                                            padding: 0;
-                                            margin: 0;
-                                            border: none;
-                                            box-sizing: border-box;
-                                            display: block;
-                                            vertical-align: middle;
+                                            line-height: @((element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2) * zoomLevel)px;
                                             color: @element.Color;
                                             font-weight: @(element.IsBold ? "bold" : "normal");
-                                            @(element.FitTextToArea ? "white-space: nowrap; overflow: hidden;" : "white-space: normal; overflow-wrap: anywhere; word-break: break-word;")"
+                                            font-family: @(element.FontFamily);
+                                            padding: 0;
+                                            margin: 0;
+                                            box-sizing: border-box;
+                                            display: @(element.IsEditing ? "none" : "block");
+                                            word-wrap: break-word;
+                                            word-break: break-word;
+                                            overflow-wrap: break-word;
+                                            white-space: @(element.FitTextToArea ? "nowrap" : "pre-wrap");"
                                     >
                                         @((MarkupString)element.Text.Replace("\n", "<br />"))
                                     </span>
-                                }
+                                </div>
+                                
+                                @* テキストエリア選択状態（ハンドル付で表示） *@
                                 @if (selectedElementIds.Contains(element.Id) && !element.IsEditing)
                                 {
-                                    <div class="element-handles absolute inset-[-4px] pointer-events-none">
-                                        @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
-                                        {
-                                            <div class="handle handle-@handle absolute bg-blue-600 border border-white pointer-events-auto"
-                                                style="@GetHandleStyle(handle, element)"
-                                                @onmousedown="@(e => OnTextResizeMouseDown(e, element, handle))"
-                                                @onmousedown:stopPropagation>
-                                            </div>
-                                        }
-                                        @if (!element.IsEditing)
-                                        {
-                                            @if (currentTool == EditTool.Text)
-                                            {
-                                                <button class="edit-btn absolute top-[-20px] right-[35px] w-5 h-5 bg-blue-600 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs z-20 hover:bg-blue-700"
-                                                    @onclick="() => StartTextEdit(element)" @onclick:stopPropagation title="テキスト編集">
-                                                    <PenIcon/>
-                                                </button>
-                                            }
-                                        }
-                                        <button class="delete-btn absolute top-[-20px] right-[10px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
-                                            @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                            <CloseIcon/>
-                                        </button>
-                                    </div>
+                                    <TextElementControls 
+                                        IsVisible="true"
+                                        ShowEditButton="currentTool == EditTool.Text"
+                                        ElementWidth="element.Width"
+                                        ElementHeight="element.Height"
+                                        ZoomLevel="zoomLevel"
+                                        FontSize="element.FontSize"
+                                        LineHeight="element.LineHeight"
+                                        OnResizeStart="@((args) => OnTextResizeMouseDown(args.Item1, element, args.Item2))"
+                                        OnEdit="@(() => StartTextEdit(element))"
+                                        OnDelete="@(() => DeleteElement(element.Id))" />
                                 }
                             </div>
                         }
@@ -307,31 +243,32 @@
                                     left: @(element.X * zoomLevel)px;
                                     top: @(element.Y * zoomLevel)px;
                                     width: @(element.Width * zoomLevel)px;
-                                    height: @(element.Height * zoomLevel)px;"
+                                    height: @(element.Height * zoomLevel)px;
+                                    box-sizing: content-box;
+                                    transform: rotate(@(element.Rotation)deg);
+                                    transform-origin: center center;"
                                 @onmousedown="(e) => OnImageMouseDown(e, element)"
                                 @onmouseup="OnImageMouseUp"
                                 @onclick="() => { if (currentTool == EditTool.Image || currentTool == EditTool.Select) SelectElement(element.Id); }"
-                                @onclick:stopPropagation
-                            >
-                                <img src="@element.ImageUrl" class="w-full h-full object-contain pointer-events-none" style="object-fit:@(keepAspectRatio ? "contain" : "fill");" />
-                                @if (selectedElementIds.Contains(element.Id) && currentTool == EditTool.Image || currentTool == EditTool.Select)
+                                @onclick:stopPropagation>
+                                
+                                <!-- img だけを反転 -->
+                                <img src="@element.ImageUrl" 
+                                    class="w-full h-full object-contain pointer-events-none" 
+                                    style="object-fit:@(keepAspectRatio ? "contain" : "fill");
+                                            transform: scaleX(@(element.FlipHorizontal ? -1 : 1)) scaleY(@(element.FlipVertical ? -1 : 1));" />
+                                
+                                @if (selectedElementIds.Contains(element.Id) && (currentTool == EditTool.Image || currentTool == EditTool.Select))
                                 {
-                                    <div class="element-handles absolute inset-0 pointer-events-none">
-                                        @foreach (var handle in new[] { "nw", "n", "ne", "e", "se", "s", "sw", "w" })
-                                        {
-                                            <div class="handle handle-@handle absolute bg-blue-600 border border-white w-2 h-2 pointer-events-auto"
-                                                style="@GetHandleStyle(handle, element)"
-                                                @onmousedown="(e) => OnImageResizeMouseDown(e, element, handle)"
-                                                @onmousedown:stopPropagation />
-                                        }
-                                    </div>
-                                }
-                                @if (selectedElementIds.Contains(element.Id))
-                                {
-                                    <button class="delete-btn absolute top-[-20px] right-[-20px] w-5 h-5 bg-red-500 text-white border-none rounded-full cursor-pointer pointer-events-auto flex items-center justify-center text-xs hover:bg-red-600"
-                                            @onclick="() => DeleteElement(element.Id)" @onclick:stopPropagation title="削除">
-                                            <CloseIcon/>
-                                    </button>
+                                    <ImageElementControls 
+                                        IsVisible="true"
+                                        ElementWidth="element.Width"
+                                        ElementHeight="element.Height"
+                                        ZoomLevel="zoomLevel"
+                                        Rotation="element.Rotation"
+                                        OnResizeStart="@((args) => OnImageResizeMouseDown(args.Item1, element, args.Item2))"
+                                        OnRotateStart="@((e) => OnImageRotateMouseDown(e, element))"
+                                        OnDelete="@(() => DeleteElement(element.Id))" />
                                 }
                             </div>
                         }
@@ -371,9 +308,6 @@
     private int pageWidth = 595;
     private int pageHeight = 842;
     private double zoomLevel = 1.0;
-    private double offsetX = 0;
-    private double offsetY = 0;
-
     private string? draggingElementId = null;
     private double dragStartMouseX = 0;
     private double dragStartMouseY = 0;
@@ -392,9 +326,331 @@
 
     private bool ignoreNextPageClick = false;
     private bool ignoreTextBlur = false;
+    private bool isResizingOrDragging = false;
+
+    // コンテナサイズのキャッシュ（ウィンドウリサイズ時に更新）
+    private double containerWidth = 0;
+    private double containerHeight = 0;
+    
+    // PDFページの余白（左右・上下）
+    private const double PAGE_MARGIN_X = 20;
+    private const double PAGE_MARGIN_Y = 20;
+
+    private bool _isBoldDefault = false;
+
+    private List<ActionButtonItem> imageRotateActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "左回転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateLeftIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "左回転",
+            OnClick = EventCallback.Factory.Create(this, RotateSelectedImageLeft),
+        },
+        new ActionButtonItem
+        {
+            Label = "右回転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(RotateRightIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "右回転",
+            OnClick = EventCallback.Factory.Create(this, RotateSelectedImageRight),
+        }
+    };
+
+    private List<ActionButtonItem> imageFlipActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "左右反転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FlipHorizontalIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "左右反転",
+            OnClick = EventCallback.Factory.Create(this, FlipSelectedImageHorizontal),
+        },
+        new ActionButtonItem
+        {
+            Label = "上下反転",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FlipVerticalIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "上下反転",
+            OnClick = EventCallback.Factory.Create(this, FlipSelectedImageVertical),
+        }
+    };
+
+    private void FlipSelectedImageHorizontal()
+    {
+        var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+        if (selectedImage != null)
+        {
+            selectedImage.FlipHorizontal = !selectedImage.FlipHorizontal;
+            StateHasChanged();
+        }
+    }
+    
+    private void FlipSelectedImageVertical()
+    {
+        var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+        if (selectedImage != null)
+        {
+            selectedImage.FlipVertical = !selectedImage.FlipVertical;
+            StateHasChanged();
+        }
+    }
+    
+    private string? rotatingImageId = null;
+    private double rotateStartAngle = 0;
+    private double rotateStartMouseX = 0;
+    private double rotateStartMouseY = 0;
+    private double rotateStartCenterX = 0;
+    private double rotateStartCenterY = 0;
+    
+    private async void OnImageRotateMouseDown(MouseEventArgs e, EditElement element)
+    {
+        rotatingImageId = element.Id;
+        rotateStartMouseX = e.ClientX;
+        rotateStartMouseY = e.ClientY;
+        
+        // 画像の中心座標（スクリーン座標）を計算
+        rotateStartCenterX = (element.X + element.Width / 2) * zoomLevel;
+        rotateStartCenterY = (element.Y + element.Height / 2) * zoomLevel;
+        
+        var canvasRect = await GetCanvasRect();
+        rotateStartCenterX += canvasRect.left;
+        rotateStartCenterY += canvasRect.top;
+        
+        rotateStartAngle = element.Rotation;
+        
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
+    }
+
+    private List<SelectOption> fontSizeOptions = new()
+    {
+        new SelectOption { Value = "10", Text = "10px" },
+        new SelectOption { Value = "11", Text = "11px" },
+        new SelectOption { Value = "12", Text = "12px" },
+        new SelectOption { Value = "13", Text = "13px" },
+        new SelectOption { Value = "14", Text = "14px" },
+        new SelectOption { Value = "15", Text = "15px" },
+        new SelectOption { Value = "16", Text = "16px" },
+        new SelectOption { Value = "18", Text = "18px" },
+        new SelectOption { Value = "20", Text = "20px" },
+        new SelectOption { Value = "22", Text = "22px" },
+        new SelectOption { Value = "24", Text = "24px" },
+        new SelectOption { Value = "28", Text = "28px" },
+        new SelectOption { Value = "32", Text = "32px" },
+        new SelectOption { Value = "36", Text = "36px" },
+        new SelectOption { Value = "40", Text = "40px" },
+        new SelectOption { Value = "48", Text = "48px" },
+        new SelectOption { Value = "56", Text = "56px" },
+        new SelectOption { Value = "64", Text = "64px" }
+    };
+
+    private async Task OnFontSizeChangedFromSelect(string value)
+    {
+        if (int.TryParse(value, out int size))
+        {
+            await OnFontSizeChanged(new ChangeEventArgs { Value = size });
+        }
+    }
+
+    private void OnFontFamilyChangedFromSelect(string value)
+    {
+        OnFontFamilyChanged(new ChangeEventArgs { Value = value });
+        ignoreTextBlur = true;
+    }
+
+    private List<SelectOption> GetFontFamilyOptions(EditElement? targetElement)
+    {
+        if (targetElement != null && ContainsJapanese(targetElement.Text))
+        {
+            return new List<SelectOption>
+            {
+                new SelectOption { Value = FontFamilyNotoSans, Text = "Noto Sans(ゴシック) — 日本語対応" },
+                new SelectOption { Value = FontFamilyNotoSerif, Text = "Noto Serif(明朝) — 日本語対応" }
+            };
+        }
+
+        return new List<SelectOption>
+        {
+            new SelectOption { Value = FontFamilyNotoSans, Text = "Noto Sans(ゴシック) — 日本語対応" },
+            new SelectOption { Value = FontFamilyNotoSerif, Text = "Noto Serif(明朝) — 日本語対応" },
+            new SelectOption { Value = "sans-serif", Text = "システム ゴシック(英数字向け)" },
+            new SelectOption { Value = "serif", Text = "システム 明朝(英数字向け)" },
+            new SelectOption { Value = "monospace", Text = "等幅(Monospace)" },
+            new SelectOption { Value = "Arial, Helvetica, sans-serif", Text = "Arial(英字向け)" },
+            new SelectOption { Value = "Times New Roman, serif", Text = "Times New Roman(英字向け)" },
+            new SelectOption { Value = "Meiryo, sans-serif", Text = "Meiryo(Windows)" },
+            new SelectOption { Value = "Yu Gothic, sans-serif", Text = "游ゴシック(Windows)" }
+        };
+    }
 
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
+
+    private List<ToggleButtonItem<EditTool>> toolToggleItems = new()
+    {
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Select,
+            Label = "選択",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowPointerIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Text,
+            Label = "テキスト",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FontIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Image,
+            Label = "画像",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ImageIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
+        }
+    };
+
+    private Task OnToolChanged(EditTool tool)
+    {
+        SetTool(tool);
+        return Task.CompletedTask;
+    }
+
+    private List<ActionButtonItem> backToActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "戻る",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.CloseComponent();
+            },
+            Title = "戻る",
+            OnClick = EventCallback.Factory.Create(this, NavigateBack),
+        }
+    };
+
+    private List<ActionButtonItem> primaryActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "保存",
+            Title = "保存",
+            OnClick = EventCallback.Factory.Create(this, SaveChanges),
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 px-8 transition hidden md:flex",
+            TextColor = "text-white",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(SaveIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+
+        }
+    };
+    
+    private List<ActionButtonItem> zoomActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "幅に合わせる",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitWidthIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "幅に合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitToWidth),
+        },
+        new ActionButtonItem
+        {
+            Label = "高さに合わせる",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(FitHeightIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "高さに合わせる",
+            OnClick = EventCallback.Factory.Create(this, FitToHeight),
+        },
+        new ActionButtonItem
+        {
+            Label = "実際のサイズ",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ViewRealSizeIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "実際のサイズ",
+            OnClick = EventCallback.Factory.Create(this, SetToActualSize),
+        },
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomOutIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "縮小",
+            OnClick = EventCallback.Factory.Create(this, ZoomOut),
+            IconPosition = "left"
+        },
+        new ActionButtonItem
+        {
+            Title = "倍率を指定",
+            Label = $"{(int)(zoomLevel * 100)}%",
+            OnClick = EventCallback.Factory.Create(this, ShowZoomDialog),
+            HideLabelOnNarrow = false
+        },
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ZoomInIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6"); 
+                builder.CloseComponent();
+            },
+            Title = "拡大",
+            OnClick = EventCallback.Factory.Create(this, ZoomIn),
+            IconPosition = "left"
+        }
+    };
 
     private string fontFamily = "NotoSansJP, sans-serif";
 
@@ -421,6 +677,32 @@
             StateHasChanged();
         }
     }
+
+    private async void ShowZoomDialog()
+    {
+        var currentZoom = (int)(zoomLevel * 100);
+        var input = await JSRuntime.InvokeAsync<string>(
+            "prompt", 
+            $"倍率を入力してください（10〜500%）", 
+            currentZoom.ToString()
+        );
+        
+        if (string.IsNullOrWhiteSpace(input)) return;
+        
+        if (int.TryParse(input, out int percent))
+        {
+            // 10%〜500%の範囲に制限
+            percent = Math.Max(10, Math.Min(percent, 500));
+            zoomLevel = percent / 100.0;
+            await RedrawPdfPage();
+            StateHasChanged();
+        }
+        else
+        {
+            await MessageService.ShowAsync("無効な数値です", MessageType.Warn);
+        }
+    }
+
     private bool IsBoldActive
     {
         get
@@ -428,23 +710,11 @@
             var editing = editElements.FirstOrDefault(el => el.IsEditing && el.Type == ElementType.Text);
             if (editing != null) return editing.IsBold;
             var selectedTextElems = editElements.Where(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Text).ToList();
-            if (!selectedTextElems.Any()) return false;
+            if (!selectedTextElems.Any()) return _isBoldDefault; // 未選択時はデフォルト値を返す
             return selectedTextElems.All(e => e.IsBold);
         }
     }
     
-    private bool IsFitActive
-    {
-        get
-        {
-            var editing = editElements.FirstOrDefault(el => el.IsEditing && el.Type == ElementType.Text);
-            if (editing != null) return editing.FitTextToArea;
-            var selectedTextElems = editElements.Where(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Text).ToList();
-            if (!selectedTextElems.Any()) return uiFitTextToArea;
-            return selectedTextElems.All(e => e.FitTextToArea);
-        }
-    }
-
     protected override void OnInitialized()
     {
         canvasUniqueId = Guid.NewGuid().ToString();
@@ -465,14 +735,20 @@
     }
     private async Task OnTextAreaInput(ChangeEventArgs e, EditElement element)
     {
-        element.Text = e.Value?.ToString() ?? "";
+        var newText = e.Value?.ToString() ?? "";
+
+        // テキストが変わっていない場合もスキップしない（削除時も処理するため）
+        element.Text = newText;
 
         // 日本語が含まれていたらNotoSansJPに強制
         if (ContainsJapanese(element.Text))
         {
             var resolved = ResolveFontForText(element.Text, element.FontFamily ?? fontFamily);
-            element.FontFamily = resolved;
-            fontFamily = resolved;
+            if (element.FontFamily != resolved)
+            {
+                element.FontFamily = resolved;
+                fontFamily = resolved;
+            }
         }
 
         if (element.FitTextToArea)
@@ -484,19 +760,27 @@
                 element.FontSize * zoomLevel,
                 element.FontFamily
             );
-            element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5); // 余白分はfontSizeに比例
+            element.Width = (maxLineWidth / zoomLevel) + (element.FontSize * 0.5);
         }
-        else{
 
-        }
-        await Task.Yield();
-
-        var scrollH = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-        if (scrollH > 0)
+        // 高さを常に再計算（削除時も縮小するため）
+        try
         {
-            element.Height = Math.Max(6, scrollH / zoomLevel);
+            var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+            if (textareaHeightPx > 0)
+            {
+                var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
+                var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
+                
+                // 高さを常に更新（削除時も反映）
+                element.Height = newHeight;
+                StateHasChanged();
+            }
         }
-        StateHasChanged(); 
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnTextAreaInput error: {ex.Message}");
+        }
     }
     private bool ContainsJapanese(string text)
     {
@@ -573,8 +857,10 @@
         public double ImageOriginalWidth { get; set; }
         public double ImageOriginalHeight { get; set; }
         public bool IsBold { get; set; } = false;
-        public int Rotation { get; set; } = 0;
         public bool FitTextToArea { get; set; } = false;
+        public int Rotation { get; set; } = 0;
+        public bool FlipHorizontal { get; set; } = false; 
+        public bool FlipVertical { get; set; } = false; 
     }
 
     private string _textColor = "#000000";
@@ -607,16 +893,25 @@
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
+            // 編集中の要素がある場合
             editingElement.IsBold = !editingElement.IsBold;
             StateHasChanged();
         }
         else if (selectedElementIds.Count > 0)
         {
+            // 選択中の要素がある場合
             foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
                 el.IsBold = !el.IsBold;
             StateHasChanged();
         }
+        else
+        {
+            // 未選択時はデフォルト値を切り替え
+            _isBoldDefault = !_isBoldDefault;
+            StateHasChanged();
+        }
     }
+
     private void OnColorPickerBlur(FocusEventArgs e)
     {
         ignoreNextPageClick = true;
@@ -658,6 +953,7 @@
     {
         _fontSize = DefaultFontSize;
         fontFamily = DefaultFontFamily;
+        _isBoldDefault = false;
         StateHasChanged();
     }
     private int fontSize
@@ -689,13 +985,6 @@
     private double anchorX, anchorY; // ページ座標で保持
     private double anchorFontSize;
 
-
-    // ピクセル移動何pxでフォントサイズを1pt変えるか（調整可）
-    private const double TextFontResizePixelsPerPoint = 4.0;
-
-    private DateTime lastMouseMoveTime = DateTime.MinValue;
-    private const int MouseMoveThrottleMs = 16; // 約60FPS（16ms間隔）
-
     private RectDto? cachedCanvasRect = null;
     private DateTime canvasRectCacheTime = DateTime.MinValue;
     private const int CanvasRectCacheMs = 100; // 100ms間キャッシュ
@@ -714,212 +1003,10 @@
         return cachedCanvasRect;
     }
     
-        private async void OnElementMouseMove(MouseEventArgs e)
-    {
-        // フレームレート制限（60FPS以下にする）
-        DateTime now = DateTime.UtcNow;
-        if ((now - lastMouseMoveTime).TotalMilliseconds < MouseMoveThrottleMs)
-        {
-            return; // スキップ
-        }
-        lastMouseMoveTime = now;
-
-        bool changed = false;
-
-        // テキストリサイズ中
-        if (resizingTextId != null && resizingTextHandle != null)
-        {
-            var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
-            if (element != null)
-            {
-                // キャッシュされたCanvasRectを使用
-                var canvasRect = await GetCanvasRect();
-                var mouseCanvasX = (e.ClientX - canvasRect.left) / zoomLevel;
-                var mouseCanvasY = (e.ClientY - canvasRect.top) / zoomLevel;
-
-                // マウスの差分（ページ座標単位）
-                var dx = mouseCanvasX - dragStartTextMouseCanvasX;
-                var dy = mouseCanvasY - dragStartTextMouseCanvasY;
-
-                double newX = dragStartTextElementX;
-                double newY = dragStartTextElementY;
-                double newWidth = dragStartTextElementWidth;
-                double newHeight = dragStartTextElementHeight;
-                int newFontSize = dragStartTextFontSize;
-
-                switch (resizingTextHandle)
-                {
-                    case "nw":
-                        // 右下固定
-                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                        if (element.FitTextToArea)
-                        {
-                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthNW = await JSRuntime.InvokeAsync<double>(
-                                "measureMaxLineWidth",
-                                element.Text,
-                                newFontSize * zoomLevel,
-                                element.FontFamily
-                            );
-                            newWidth = (maxLineWidthNW / zoomLevel) + (newFontSize * 0.5);
-                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                        }
-                        break;
-
-                    case "ne":
-                        // 左下固定
-                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                        newX = dragStartTextElementX;
-                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                        if (element.FitTextToArea)
-                        {
-                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthNE = await JSRuntime.InvokeAsync<double>(
-                                "measureMaxLineWidth",
-                                element.Text,
-                                newFontSize * zoomLevel,
-                                element.FontFamily
-                            );
-                            newWidth = (maxLineWidthNE / zoomLevel) + (newFontSize * 0.5);
-                        }
-                        break;
-
-                    case "sw":
-                        // 右上固定
-                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                        newY = dragStartTextElementY;
-                        if (element.FitTextToArea)
-                        {
-                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthSW = await JSRuntime.InvokeAsync<double>(
-                                "measureMaxLineWidth",
-                                element.Text,
-                                newFontSize * zoomLevel,
-                                element.FontFamily
-                            );
-                            newWidth = (maxLineWidthSW / zoomLevel) + (newFontSize * 0.5);
-                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                        }
-                        break;
-
-                    case "se":
-                        // 左上固定
-                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                        newX = dragStartTextElementX;
-                        newY = dragStartTextElementY;
-                        if (element.FitTextToArea)
-                        {
-                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthSE = await JSRuntime.InvokeAsync<double>(
-                                "measureMaxLineWidth",
-                                element.Text,
-                                newFontSize * zoomLevel,
-                                element.FontFamily
-                            );
-                            newWidth = (maxLineWidthSE / zoomLevel) + (newFontSize * 0.5);
-                        }
-                        break;
-
-                    case "n":
-                        // 下辺（中心）固定 — 高さを変える (上にドラッグで縮小)
-                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                        if (element.FitTextToArea)
-                        {
-                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthN = await JSRuntime.InvokeAsync<double>(
-                                "measureMaxLineWidth",
-                                element.Text,
-                                newFontSize * zoomLevel,
-                                element.FontFamily
-                            );
-                            newWidth = (maxLineWidthN / zoomLevel) + (newFontSize * 0.5);
-                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
-                        }
-                        else
-                        {
-                            newWidth = dragStartTextElementWidth;
-                            newX = dragStartTextElementX;
-                        }
-                        break;
-
-                    case "s":
-                        // 上辺（中心）固定 — 高さを変える
-                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                        newY = dragStartTextElementY;
-                        if (element.FitTextToArea)
-                        {
-                            newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                            var maxLineWidthS = await JSRuntime.InvokeAsync<double>(
-                                "measureMaxLineWidth",
-                                element.Text,
-                                newFontSize * zoomLevel,
-                                element.FontFamily
-                            );
-                            newWidth = (maxLineWidthS / zoomLevel) + (newFontSize * 0.5);
-                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
-                        }
-                        else
-                        {
-                            newWidth = dragStartTextElementWidth;
-                            newX = dragStartTextElementX;
-                        }
-                        break;
-
-                    case "w":
-                        // 右辺（中心）固定 — 幅を変える (左にドラッグで縮小)
-                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                        newY = dragStartTextElementY;
-                        if (element.FitTextToArea)
-                        {
-                            // 高さは固定 -> フォントサイズは変えない
-                            newFontSize = element.FontSize;
-                        }
-                        break;
-
-                    case "e":
-                        // 左辺（中心）固定 — 幅を変える
-                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                        newX = dragStartTextElementX;
-                        newY = dragStartTextElementY;
-                        if (element.FitTextToArea)
-                        {
-                            newFontSize = element.FontSize;
-                        }
-                        break;
-                }
-
-                // 最低値確保
-                newWidth = Math.Max(newWidth, 6);
-                newHeight = Math.Max(newHeight, 6);
-
-                // 反映
-                element.X = Math.Round(newX, 3);
-                element.Y = Math.Round(newY, 3);
-                element.Width = Math.Round(newWidth, 3);
-                element.Height = Math.Round(newHeight, 3);
-                if (element.FitTextToArea)
-                {
-                    element.FontSize = newFontSize;
-                    fontSize = newFontSize;
-                }
-                changed = true;
-            }
-        }
-
-        if (changed) StateHasChanged();
-    }
 
     private async void OnTextResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
     {
+        isResizingOrDragging = true; 
         resizingTextId = element.Id;
         resizingTextHandle = handle;
         dragStartTextMouseX = e.ClientX;
@@ -975,6 +1062,7 @@
         }
         anchorFontSize = element.FontSize;
         draggingElementId = null;
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
     }
 
     // マウスアップ時にリサイズを終了
@@ -992,27 +1080,7 @@
         StateHasChanged();
     }
 
-    // ...existing code...
-
-    private string GetHandleStyle(string handle, EditElement element)
-    {
-        var w = element.Width * zoomLevel;
-        var h = element.Height * zoomLevel;
-        var positions = new Dictionary<string, string>
-        {
-            ["nw"] = "top:-4px;left:-4px;cursor:nw-resize;",
-            ["n"]  = $"top:-4px;left:{w/2-4}px;cursor:n-resize;",
-            ["ne"] = $"top:-4px;right:-4px;cursor:ne-resize;",
-            ["e"]  = $"top:{h/2-4}px;right:-4px;cursor:e-resize;",
-            ["se"] = $"bottom:-4px;right:-4px;cursor:se-resize;",
-            ["s"]  = $"bottom:-4px;left:{w/2-4}px;cursor:s-resize;",
-            ["sw"] = $"bottom:-4px;left:-4px;cursor:sw-resize;",
-            ["w"]  = $"top:{h/2-4}px;left:-4px;cursor:w-resize;"
-        };
-        return positions[handle] + "position:absolute;width:8px;height:8px;z-index:10;";
-    }
-
-    private void OnElementMouseDown(MouseEventArgs e, EditElement element)
+    private async void OnElementMouseDown(MouseEventArgs e, EditElement element)
     {
         if (element.Type != ElementType.Text || !selectedElementIds.Contains(element.Id)) return;
         draggingElementId = element.Id;
@@ -1020,9 +1088,10 @@
         dragStartMouseY = e.ClientY;
         dragStartElementX = element.X;
         dragStartElementY = element.Y;
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
     }
 
-    private async void OnFontSizeChanged(ChangeEventArgs e)
+    private async Task OnFontSizeChanged(ChangeEventArgs e)
     {
         int value;
         if (!int.TryParse(e.Value?.ToString(), out value))
@@ -1079,27 +1148,39 @@
 
         fontFamily = element.FontFamily;
         _fontSize = element.FontSize;
-
         uiFitTextToArea = element.FitTextToArea;
 
         StateHasChanged();
-        await Task.Yield(); // レンダリング待ち
+        await Task.Yield();
 
         try
         {
             await textInputRef.FocusAsync();
-            var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-            if (totalParentPx > 0) element.Height = Math.Max(6, totalParentPx / zoomLevel);
+            await JSRuntime.InvokeVoidAsync("selectAllTextarea", textInputRef);
+            
+            // 初回の高さ調整（削除時も機能するように修正）
+            var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+            if (textareaHeightPx > 0)
+            {
+                var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
+                var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
+                
+                if (Math.Abs(element.Height - newHeight) > 0.1)
+                {
+                    element.Height = newHeight;
+                    StateHasChanged();
+                }
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // フォーカス失敗は無視
+            Console.WriteLine($"StartTextEdit error: {ex.Message}");
         }
     }
 
     private bool keepAspectRatio = true;
 
-    private void OnImageMouseDown(MouseEventArgs e, EditElement element)
+    private async void OnImageMouseDown(MouseEventArgs e, EditElement element)
     {
         if ((currentTool != EditTool.Image && currentTool != EditTool.Select) || !selectedElementIds.Contains(element.Id)) return;
         draggingImageId = element.Id;
@@ -1107,6 +1188,7 @@
         dragStartMouseY = e.ClientY;
         dragStartImageX = element.X;
         dragStartImageY = element.Y;
+        await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
     }
 
     private void OnImageMouseMove(MouseEventArgs e)
@@ -1141,162 +1223,353 @@
         resizingHandle = null;
     }
 
-    private void OnImageResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
+private double dragStartFlipH;
+private double dragStartFlipV;
+private async void OnImageResizeMouseDown(MouseEventArgs e, EditElement element, string handle)
+{
+    isResizingOrDragging = true;
+    resizingImageId = element.Id;
+    resizingHandle = handle;
+    dragStartMouseX = e.ClientX;
+    dragStartMouseY = e.ClientY;
+    dragStartImageX = element.X;
+    dragStartImageY = element.Y;
+    dragStartImageWidth = element.Width;
+    dragStartImageHeight = element.Height;
+    
+    dragStartFlipH = element.FlipHorizontal ? 1 : 0;
+    dragStartFlipV = element.FlipVertical ? 1 : 0;
+    
+    await JSRuntime.InvokeVoidAsync("setEditPageMouseActive", true);
+}
+
+private void ResizeImageElement(EditElement element, string handle, double dx, double dy)
+{
+    double minSize = 20;
+    double aspect = element.ImageOriginalWidth > 0 && element.ImageOriginalHeight > 0
+        ? element.ImageOriginalWidth / element.ImageOriginalHeight
+        : 1.0;
+
+    double newX = dragStartImageX;
+    double newY = dragStartImageY;
+    double newWidth = dragStartImageWidth;
+    double newHeight = dragStartImageHeight;
+
+    // ★ リサイズ開始時点の反転状態を基準にする
+    bool startFlipH = dragStartFlipH > 0.5;
+    bool startFlipV = dragStartFlipV > 0.5;
+    bool flipH = startFlipH;
+    bool flipV = startFlipV;
+
+    if (keepAspectRatio)
     {
-        resizingImageId = element.Id;
-        resizingHandle = handle;
-        dragStartMouseX = e.ClientX;
-        dragStartMouseY = e.ClientY;
-        dragStartImageX = element.X;
-        dragStartImageY = element.Y;
-        dragStartImageWidth = element.Width;
-        dragStartImageHeight = element.Height;
+        switch (handle)
+        {
+            case "n":
+                {
+                    double rawHeight = dragStartImageHeight - dy;
+                    newHeight = Math.Abs(rawHeight);
+                    newWidth = newHeight * aspect;
+                    
+                    // ★ 符号が変わった場合のみ反転
+                    flipV = (rawHeight < 0) ? !startFlipV : startFlipV;
+                    
+                    if (rawHeight < 0)
+                    {
+                        newY = dragStartImageY + dragStartImageHeight;
+                    }
+                    else
+                    {
+                        newY = dragStartImageY + dragStartImageHeight - newHeight;
+                    }
+                }
+                break;
+            case "s":
+                {
+                    double rawHeight = dragStartImageHeight + dy;
+                    newHeight = Math.Abs(rawHeight);
+                    newWidth = newHeight * aspect;
+                    
+                    flipV = (rawHeight < 0) ? !startFlipV : startFlipV;
+                    
+                    if (rawHeight < 0)
+                    {
+                        newY = dragStartImageY - newHeight;
+                    }
+                    else
+                    {
+                        newY = dragStartImageY;
+                    }
+                }
+                break;
+            case "e":
+                {
+                    double rawWidth = dragStartImageWidth + dx;
+                    newWidth = Math.Abs(rawWidth);
+                    newHeight = newWidth / aspect;
+                    
+                    flipH = (rawWidth < 0) ? !startFlipH : startFlipH;
+                    
+                    if (rawWidth < 0)
+                    {
+                        newX = dragStartImageX - newWidth;
+                    }
+                    else
+                    {
+                        newX = dragStartImageX;
+                    }
+                }
+                break;
+            case "w":
+                {
+                    double rawWidth = dragStartImageWidth - dx;
+                    newWidth = Math.Abs(rawWidth);
+                    newHeight = newWidth / aspect;
+                    
+                    flipH = (rawWidth < 0) ? !startFlipH : startFlipH;
+                    
+                    if (rawWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth;
+                    }
+                    else
+                    {
+                        newX = dragStartImageX + dragStartImageWidth - newWidth;
+                    }
+                }
+                break;
+            case "nw":
+                {
+                    double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
+                    double rawWidth = dragStartImageWidth - delta;
+                    newWidth = Math.Abs(rawWidth);
+                    newHeight = newWidth / aspect;
+                    
+                    flipH = (rawWidth < 0) ? !startFlipH : startFlipH;
+                    flipV = (rawWidth < 0) ? !startFlipV : startFlipV;
+                    
+                    if (rawWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth;
+                        newY = dragStartImageY + dragStartImageHeight - newHeight;
+                    }
+                    else
+                    {
+                        newX = dragStartImageX + dragStartImageWidth - newWidth;
+                        newY = dragStartImageY + dragStartImageHeight - newHeight;
+                    }
+                }
+                break;
+            case "ne":
+                {
+                    double rawWidth = dragStartImageWidth + dx;
+                    newWidth = Math.Abs(rawWidth);
+                    newHeight = newWidth / aspect;
+                    
+                    flipH = (rawWidth < 0) ? !startFlipH : startFlipH;
+                    flipV = (rawWidth < 0) ? !startFlipV : startFlipV;
+                    
+                    if (rawWidth < 0)
+                    {
+                        newX = dragStartImageX - newWidth;
+                        newY = dragStartImageY + dragStartImageHeight - newHeight;
+                    }
+                    else
+                    {
+                        newX = dragStartImageX;
+                        newY = dragStartImageY + dragStartImageHeight - newHeight;
+                    }
+                }
+                break;
+            case "se":
+                {
+                    double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
+                    double rawWidth = dragStartImageWidth + delta;
+                    newWidth = Math.Abs(rawWidth);
+                    newHeight = newWidth / aspect;
+                    
+                    flipH = (rawWidth < 0) ? !startFlipH : startFlipH;
+                    flipV = (rawWidth < 0) ? !startFlipV : startFlipV;
+                    
+                    if (rawWidth < 0)
+                    {
+                        newX = dragStartImageX - newWidth;
+                        newY = dragStartImageY - newHeight;
+                    }
+                    else
+                    {
+                        newX = dragStartImageX;
+                        newY = dragStartImageY;
+                    }
+                }
+                break;
+            case "sw":
+                {
+                    double rawWidth = dragStartImageWidth - dx;
+                    newWidth = Math.Abs(rawWidth);
+                    newHeight = newWidth / aspect;
+                    
+                    flipH = (rawWidth < 0) ? !startFlipH : startFlipH;
+                    flipV = (rawWidth < 0) ? !startFlipV : startFlipV;
+                    
+                    if (rawWidth < 0)
+                    {
+                        newX = dragStartImageX + dragStartImageWidth;
+                        newY = dragStartImageY - newHeight;
+                    }
+                    else
+                    {
+                        newX = dragStartImageX + dragStartImageWidth - newWidth;
+                        newY = dragStartImageY;
+                    }
+                }
+                break;
+        }
+    }
+    else
+    {
+        // アスペクト比無視時
+        switch (handle)
+        {
+            case "nw":
+                newWidth = Math.Abs(dragStartImageWidth - dx);
+                newHeight = Math.Abs(dragStartImageHeight - dy);
+                
+                flipH = ((dragStartImageWidth - dx) < 0) ? !startFlipH : startFlipH;
+                newX = (dragStartImageWidth - dx) < 0
+                    ? dragStartImageX + dragStartImageWidth
+                    : dragStartImageX + dragStartImageWidth - newWidth;
+                    
+                flipV = ((dragStartImageHeight - dy) < 0) ? !startFlipV : startFlipV;
+                newY = (dragStartImageHeight - dy) < 0
+                    ? dragStartImageY + dragStartImageHeight
+                    : dragStartImageY + dragStartImageHeight - newHeight;
+                break;
+            case "n":
+                newHeight = Math.Abs(dragStartImageHeight - dy);
+                newWidth = dragStartImageWidth;
+                newX = dragStartImageX;
+                flipV = ((dragStartImageHeight - dy) < 0) ? !startFlipV : startFlipV;
+                newY = (dragStartImageHeight - dy) < 0
+                    ? dragStartImageY + dragStartImageHeight
+                    : dragStartImageY + dragStartImageHeight - newHeight;
+                break;
+            case "ne":
+                newWidth = Math.Abs(dragStartImageWidth + dx);
+                newHeight = Math.Abs(dragStartImageHeight - dy);
+                
+                flipH = ((dragStartImageWidth + dx) < 0) ? !startFlipH : startFlipH;
+                newX = (dragStartImageWidth + dx) < 0
+                    ? dragStartImageX - newWidth
+                    : dragStartImageX;
+                    
+                flipV = ((dragStartImageHeight - dy) < 0) ? !startFlipV : startFlipV;
+                newY = (dragStartImageHeight - dy) < 0
+                    ? dragStartImageY + dragStartImageHeight
+                    : dragStartImageY + dragStartImageHeight - newHeight;
+                break;
+            case "e":
+                newWidth = Math.Abs(dragStartImageWidth + dx);
+                newHeight = dragStartImageHeight;
+                newY = dragStartImageY;
+                flipH = ((dragStartImageWidth + dx) < 0) ? !startFlipH : startFlipH;
+                newX = (dragStartImageWidth + dx) < 0
+                    ? dragStartImageX - newWidth
+                    : dragStartImageX;
+                break;
+            case "se":
+                newWidth = Math.Abs(dragStartImageWidth + dx);
+                newHeight = Math.Abs(dragStartImageHeight + dy);
+                
+                flipH = ((dragStartImageWidth + dx) < 0) ? !startFlipH : startFlipH;
+                newX = (dragStartImageWidth + dx) < 0
+                    ? dragStartImageX - newWidth
+                    : dragStartImageX;
+                    
+                flipV = ((dragStartImageHeight + dy) < 0) ? !startFlipV : startFlipV;
+                newY = (dragStartImageHeight + dy) < 0
+                    ? dragStartImageY - newHeight
+                    : dragStartImageY;
+                break;
+            case "s":
+                newHeight = Math.Abs(dragStartImageHeight + dy);
+                newWidth = dragStartImageWidth;
+                newX = dragStartImageX;
+                flipV = ((dragStartImageHeight + dy) < 0) ? !startFlipV : startFlipV;
+                newY = (dragStartImageHeight + dy) < 0
+                    ? dragStartImageY - newHeight
+                    : dragStartImageY;
+                break;
+            case "sw":
+                newWidth = Math.Abs(dragStartImageWidth - dx);
+                newHeight = Math.Abs(dragStartImageHeight + dy);
+                
+                flipH = ((dragStartImageWidth - dx) < 0) ? !startFlipH : startFlipH;
+                newX = (dragStartImageWidth - dx) < 0
+                    ? dragStartImageX + dragStartImageWidth
+                    : dragStartImageX + dragStartImageWidth - newWidth;
+                    
+                flipV = ((dragStartImageHeight + dy) < 0) ? !startFlipV : startFlipV;
+                newY = (dragStartImageHeight + dy) < 0
+                    ? dragStartImageY - newHeight
+                    : dragStartImageY;
+                break;
+            case "w":
+                newWidth = Math.Abs(dragStartImageWidth - dx);
+                newHeight = dragStartImageHeight;
+                newY = dragStartImageY;
+                flipH = ((dragStartImageWidth - dx) < 0) ? !startFlipH : startFlipH;
+                newX = (dragStartImageWidth - dx) < 0
+                    ? dragStartImageX + dragStartImageWidth
+                    : dragStartImageX + dragStartImageWidth - newWidth;
+                break;
+        }
     }
 
-    private void ResizeImageElement(EditElement element, string handle, double dx, double dy)
+    newWidth = Math.Max(newWidth, minSize);
+    newHeight = Math.Max(newHeight, minSize);
+
+    element.X = newX;
+    element.Y = newY;
+    element.Width = newWidth;
+    element.Height = newHeight;
+    element.FlipHorizontal = flipH;
+    element.FlipVertical = flipV;
+}
+
+
+    private void RotateSelectedImageLeft()
+{
+    var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+    if (selectedImage != null)
     {
-        double minSize = 20;
-        double aspect = element.ImageOriginalWidth > 0 && element.ImageOriginalHeight > 0
-            ? element.ImageOriginalWidth / element.ImageOriginalHeight
-            : 1.0;
-
-        double newX = dragStartImageX;
-        double newY = dragStartImageY;
-        double newWidth = dragStartImageWidth;
-        double newHeight = dragStartImageHeight;
-
-        if (keepAspectRatio)
-        {
-            switch (handle)
-            {
-                case "n":
-                    {
-                        double rawHeight = dragStartImageHeight - dy;
-                        newHeight = Math.Max(rawHeight, minSize);
-                        double actualDy = dragStartImageHeight - newHeight;
-                        newWidth = Math.Max(newHeight * aspect, minSize);
-                        newY = dragStartImageY + actualDy;
-                    }
-                    break;
-                case "s":
-                    {
-                        double rawHeight = dragStartImageHeight + dy;
-                        newHeight = Math.Max(rawHeight, minSize);
-                        newWidth = Math.Max(newHeight * aspect, minSize);
-                    }
-                    break;
-                case "e":
-                    {
-                        double rawWidth = dragStartImageWidth + dx;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                    }
-                    break;
-                case "w":
-                    {
-                        double rawWidth = dragStartImageWidth - dx;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        double actualDx = dragStartImageWidth - newWidth;
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        newX = dragStartImageX + actualDx;
-                    }
-                    break;
-                case "nw":
-                    {
-                        // dx,dyのうち絶対値が大きい方を優先
-                        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
-                        double rawWidth = dragStartImageWidth - delta;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        double actualDelta = dragStartImageWidth - newWidth;
-                        newX = dragStartImageX + actualDelta;
-                        newY = dragStartImageY + (dragStartImageHeight - newHeight);
-                    }
-                    break;
-                case "ne":
-                    {
-                        double delta = Math.Abs(dx) > Math.Abs(dy) ? -dx : dy;
-                        double rawWidth = dragStartImageWidth + dx;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        newY = dragStartImageY + (dragStartImageHeight - newHeight);
-                    }
-                    break;
-                case "se":
-                    {
-                        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : dy;
-                        double rawWidth = dragStartImageWidth + delta;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                    }
-                    break;
-                case "sw":
-                    {
-                        double delta = Math.Abs(dx) > Math.Abs(dy) ? dx : -dy;
-                        double rawWidth = dragStartImageWidth - dx;
-                        newWidth = Math.Max(rawWidth, minSize);
-                        newHeight = Math.Max(newWidth / aspect, minSize);
-                        double actualDx = dragStartImageWidth - newWidth;
-                        newX = dragStartImageX + actualDx;
-                    }
-                    break;
-            }
-        }
-        else
-        {
-            // アスペクト比無視（今のままでOK）
-            switch (handle)
-            {
-                case "nw":
-                    newX = dragStartImageX + dx;
-                    newY = dragStartImageY + dy;
-                    newWidth = Math.Max(dragStartImageWidth - dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight - dy, minSize);
-                    break;
-                case "n":
-                    newY = dragStartImageY + dy;
-                    newHeight = Math.Max(dragStartImageHeight - dy, minSize);
-                    break;
-                case "ne":
-                    newY = dragStartImageY + dy;
-                    newWidth = Math.Max(dragStartImageWidth + dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight - dy, minSize);
-                    break;
-                case "e":
-                    newWidth = Math.Max(dragStartImageWidth + dx, minSize);
-                    break;
-                case "se":
-                    newWidth = Math.Max(dragStartImageWidth + dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight + dy, minSize);
-                    break;
-                case "s":
-                    newHeight = Math.Max(dragStartImageHeight + dy, minSize);
-                    break;
-                case "sw":
-                    newX = dragStartImageX + dx;
-                    newWidth = Math.Max(dragStartImageWidth - dx, minSize);
-                    newHeight = Math.Max(dragStartImageHeight + dy, minSize);
-                    break;
-                case "w":
-                    newX = dragStartImageX + dx;
-                    newWidth = Math.Max(dragStartImageWidth - dx, minSize);
-                    break;
-            }
-        }
-
-        element.X = newX;
-        element.Y = newY;
-        element.Width = newWidth;
-        element.Height = newHeight;
+        // ★ Width/Height を入れ替えず、回転角度のみ変更
+        selectedImage.Rotation = (selectedImage.Rotation - 90 + 360) % 360;
+        StateHasChanged();
     }
+}
+
+private void RotateSelectedImageRight()
+{
+    var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+    if (selectedImage != null)
+    {
+        // ★ Width/Height を入れ替えず、回転角度のみ変更
+        selectedImage.Rotation = (selectedImage.Rotation + 90) % 360;
+        StateHasChanged();
+    }
+}
 
     [JSInvokable]
-    public void OnGlobalMouseUp()
+    public void OnMouseUp()
     {
         draggingElementId = null;
         draggingImageId = null;
         resizingImageId = null;
         resizingHandle = null;
+        resizingTextId = null;
+        resizingTextHandle = null;
+        rotatingImageId = null;
         StateHasChanged();
     }
 
@@ -1319,217 +1592,229 @@
         public double height { get; set; }
     }
 
-    [JSInvokable]
-public async Task OnGlobalMouseMove(MouseMoveArgs e)
-{
-    bool changed = false;
-
-    // --- テキストリサイズをグローバルで処理（OnElementMouseMove と同等） ---
-    if (resizingTextId != null && resizingTextHandle != null)
+    private async Task<(int fontSize, double width)> CalcFontSizeAndWidthAsync(EditElement element, double targetHeight)
     {
-        var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
-        if (element != null)
+        var fs = Math.Max(6, (int)Math.Round(targetHeight));
+        var maxLineWidth = await JSRuntime.InvokeAsync<double>(
+            "measureMaxLineWidth",
+            element.Text,
+            fs * zoomLevel,
+            element.FontFamily
+        );
+        var w = (maxLineWidth / zoomLevel) + (fs * 0.5);
+        return (fs, w);
+    }
+
+    [JSInvokable]
+    public async Task OnMouseMove(MouseMoveArgs e)
+    {
+        bool changed = false;
+
+        // --- 画像回転
+        if (rotatingImageId != null)
         {
-            // canvas rect を取得（キャッシュ利用）
-            var canvasRect = await GetCanvasRect();
-            var mouseCanvasX = (e.ClientX - canvasRect.left) / zoomLevel;
-            var mouseCanvasY = (e.ClientY - canvasRect.top) / zoomLevel;
-
-            var dx = mouseCanvasX - dragStartTextMouseCanvasX;
-            var dy = mouseCanvasY - dragStartTextMouseCanvasY;
-
-            double newX = dragStartTextElementX;
-            double newY = dragStartTextElementY;
-            double newWidth = dragStartTextElementWidth;
-            double newHeight = dragStartTextElementHeight;
-            int newFontSize = dragStartTextFontSize;
-
-            switch (resizingTextHandle)
+            var element = editElements.FirstOrDefault(el => el.Id == rotatingImageId);
+            if (element != null)
             {
-                case "nw":
-                    newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                    newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthNW = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthNW / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    }
-                    break;
-                case "ne":
-                    newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                    newX = dragStartTextElementX;
-                    newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthNE = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthNE / zoomLevel) + (newFontSize * 0.5);
-                    }
-                    break;
-                case "sw":
-                    newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                    newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSW = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthSW / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    }
-                    break;
-                case "se":
-                    newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                    newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                    newX = dragStartTextElementX;
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthSE = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthSE / zoomLevel) + (newFontSize * 0.5);
-                    }
-                    break;
-                case "n":
-                    newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
-                    newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthN = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthN / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
-                    }
-                    else
-                    {
-                        newWidth = dragStartTextElementWidth;
-                        newX = dragStartTextElementX;
-                    }
-                    break;
-                case "s":
-                    newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = Math.Max(6, (int)Math.Round(newHeight));
-                        var maxLineWidthS = await JSRuntime.InvokeAsync<double>(
-                            "measureMaxLineWidth",
-                            element.Text,
-                            newFontSize * zoomLevel,
-                            element.FontFamily
-                        );
-                        newWidth = (maxLineWidthS / zoomLevel) + (newFontSize * 0.5);
-                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
-                    }
-                    else
-                    {
-                        newWidth = dragStartTextElementWidth;
-                        newX = dragStartTextElementX;
-                    }
-                    break;
-                case "w":
-                    newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
-                    newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = element.FontSize;
-                    }
-                    break;
-                case "e":
-                    newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
-                    newX = dragStartTextElementX;
-                    newY = dragStartTextElementY;
-                    if (element.FitTextToArea)
-                    {
-                        newFontSize = element.FontSize;
-                    }
-                    break;
+                // マウスの現在角度を計算
+                var dx = e.ClientX - rotateStartCenterX;
+                var dy = e.ClientY - rotateStartCenterY;
+                var currentAngle = Math.Atan2(dy, dx) * (180 / Math.PI);
+                
+                // 開始時のマウス角度
+                var startDx = rotateStartMouseX - rotateStartCenterX;
+                var startDy = rotateStartMouseY - rotateStartCenterY;
+                var startMouseAngle = Math.Atan2(startDy, startDx) * (180 / Math.PI);
+                
+                // 角度差を計算
+                var angleDiff = currentAngle - startMouseAngle;
+                
+                // 新しい回転角度（15度単位にスナップ）
+                var newRotation = rotateStartAngle + angleDiff;
+                newRotation = Math.Round(newRotation / 15) * 15;
+                
+                element.Rotation = ((int)newRotation + 360) % 360;
+                changed = true;
             }
+        }
 
-            newWidth = Math.Max(newWidth, 6);
-            newHeight = Math.Max(newHeight, 6);
-
-            element.X = Math.Round(newX, 3);
-            element.Y = Math.Round(newY, 3);
-            element.Width = Math.Round(newWidth, 3);
-            element.Height = Math.Round(newHeight, 3);
-            if (element.FitTextToArea)
+        // --- テキストリサイズ
+        if (resizingTextId != null && resizingTextHandle != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingTextId);
+            if (element != null)
             {
-                element.FontSize = newFontSize;
-                fontSize = newFontSize;
+                // canvas rect を取得（キャッシュ利用）
+                var canvasRect = await GetCanvasRect();
+                var mouseCanvasX = (e.ClientX - canvasRect.left) / zoomLevel;
+                var mouseCanvasY = (e.ClientY - canvasRect.top) / zoomLevel;
+
+                var dx = mouseCanvasX - dragStartTextMouseCanvasX;
+                var dy = mouseCanvasY - dragStartTextMouseCanvasY;
+
+                double newX = dragStartTextElementX;
+                double newY = dragStartTextElementY;
+                double newWidth = dragStartTextElementWidth;
+                double newHeight = dragStartTextElementHeight;
+                int newFontSize = dragStartTextFontSize;
+
+                switch (resizingTextHandle)
+                {
+                    case "nw":
+                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
+                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        }
+                        break;
+                    case "ne":
+                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
+                        newX = dragStartTextElementX;
+                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                        }
+                        break;
+                    case "sw":
+                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
+                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        }
+                        break;
+                    case "se":
+                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
+                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
+                        newX = dragStartTextElementX;
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                        }
+                        break;
+                    case "n":
+                        newHeight = Math.Max(dragStartTextElementHeight - dy, 6);
+                        newY = dragStartTextElementY + (dragStartTextElementHeight - newHeight);
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
+                        }
+                        else
+                        {
+                            newWidth = dragStartTextElementWidth;
+                            newX = dragStartTextElementX;
+                        }
+                        break;
+                    case "s":
+                        newHeight = Math.Max(dragStartTextElementHeight + dy, 6);
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            var (calcFontSize, calcWidth) = await CalcFontSizeAndWidthAsync(element, newHeight);
+                            newFontSize = calcFontSize;
+                            newWidth = calcWidth;
+                            newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth) / 2.0;
+                        }
+                        else
+                        {
+                            newWidth = dragStartTextElementWidth;
+                            newX = dragStartTextElementX;
+                        }
+                        break;
+                    case "w":
+                        newWidth = Math.Max(dragStartTextElementWidth - dx, 6);
+                        newX = dragStartTextElementX + (dragStartTextElementWidth - newWidth);
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = element.FontSize;
+                        }
+                        break;
+                    case "e":
+                        newWidth = Math.Max(dragStartTextElementWidth + dx, 6);
+                        newX = dragStartTextElementX;
+                        newY = dragStartTextElementY;
+                        if (element.FitTextToArea)
+                        {
+                            newFontSize = element.FontSize;
+                        }
+                        break;
+                }
+
+                newWidth = Math.Max(newWidth, 6);
+                newHeight = Math.Max(newHeight, 6);
+
+                element.X = Math.Round(newX, 3);
+                element.Y = Math.Round(newY, 3);
+                element.Width = Math.Round(newWidth, 3);
+                element.Height = Math.Round(newHeight, 3);
+                if (element.FitTextToArea)
+                {
+                    element.FontSize = newFontSize;
+                    fontSize = newFontSize;
+                }
+                changed = true;
             }
+        }
+
+        // 画像リサイズ
+        if (resizingImageId != null && resizingHandle != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == resizingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            ResizeImageElement(element, resizingHandle, dx, dy);
             changed = true;
         }
-    }
 
-    // --- 既存の画像リサイズ / ドラッグ処理（そのまま） ---
-    // 画像リサイズ
-    if (resizingImageId != null && resizingHandle != null)
-    {
-        var element = editElements.FirstOrDefault(el => el.Id == resizingImageId);
-        if (element == null) return;
-        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
-        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
-        ResizeImageElement(element, resizingHandle, dx, dy);
-        changed = true;
-    }
-    // 画像ドラッグ
-    else if (draggingImageId != null)
-    {
-        var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
-        if (element == null) return;
-        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
-        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
-        element.X = dragStartImageX + dx;
-        element.Y = dragStartImageY + dy;
-        changed = true;
-    }
-    // テキスト要素のドラッグ
-    else if (draggingElementId != null)
-    {
-        var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
-        if (element == null) return;
-        var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
-        var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
-        element.X = dragStartElementX + dx;
-        element.Y = dragStartElementY + dy;
-        changed = true;
-    }
+        // 画像ドラッグ
+        else if (draggingImageId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingImageId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartImageX + dx;
+            element.Y = dragStartImageY + dy;
+            changed = true;
+        }
 
-    if (changed) StateHasChanged();
-}
+        // テキスト要素ドラッグ
+        else if (draggingElementId != null)
+        {
+            var element = editElements.FirstOrDefault(el => el.Id == draggingElementId);
+            if (element == null) return;
+            var dx = (e.ClientX - dragStartMouseX) / zoomLevel;
+            var dy = (e.ClientY - dragStartMouseY) / zoomLevel;
+            element.X = dragStartElementX + dx;
+            element.Y = dragStartElementY + dy;
+            changed = true;
+        }
+
+        if (changed) StateHasChanged();
+    }
 
     [JSInvokable]
     public async Task OnImageBase64Loaded(string base64, double width, double height)
@@ -1569,56 +1854,58 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         StateHasChanged();
     }
 
-    private string inputFileKey = Guid.NewGuid().ToString();
 
     private async Task OnImageSelected(InputFileChangeEventArgs e)
+{
+    var files = e.GetMultipleFiles();
+    if (files == null || files.Count == 0)
     {
-        var files = e.GetMultipleFiles();
-        if (files == null || files.Count == 0)
+        _ = MessageService.ShowAsync("ファイルが選択されていません。", MessageType.Warn);
+        return;
+    }
+
+    var file = files[0];
+    var contentType = file.ContentType?.ToLower() ?? "";
+
+    try
+    {
+        const long maxSize = 5 * 1024 * 1024;
+        using var stream = file.OpenReadStream(maxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var base64 = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+        
+        if (contentType == "image/png" || contentType == "image/jpeg")
         {
-            _ = MessageService.ShowAsync("ファイルが選択されていません。", MessageType.Warn);
+            var size = await JSRuntime.InvokeAsync<SizeDto>("getImageSizeFromBase64", base64);
+            
+            // PNGの場合、透明度を保持したままBase64を使用
+            await OnImageBase64Loaded(base64, size.width, size.height);
+        }
+        else if (contentType == "image/gif" || contentType == "image/bmp" ||
+                contentType == "image/webp" || contentType == "image/svg+xml")
+        {
+            // 他の形式はPNGに変換（透明度保持）
+            var result = await JSRuntime.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64, contentType);
+            await OnImageBase64Loaded(result.pngBase64, result.width, result.height);
+        }
+        else
+        {
+            _ = MessageService.ShowAsync("対応していない画像形式です。PNG, JPEG, GIF, BMP, WebP, SVGのみ追加できます。", MessageType.Warn);
             return;
         }
-
-        var file = files[0];
-        var contentType = file.ContentType?.ToLower() ?? "";
-
-        try
-        {
-            // 最大サイズを指定（例: 5MB = 5 * 1024 * 1024）
-            const long maxSize = 5 * 1024 * 1024;
-            using var stream = file.OpenReadStream(maxSize);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            var base64 = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
-            if (contentType == "image/png" || contentType == "image/jpeg")
-            {
-                var size = await JSRuntime.InvokeAsync<SizeDto>("getImageSizeFromBase64", base64);
-                await OnImageBase64Loaded(base64, size.width, size.height);
-            }
-            else if (contentType == "image/gif" || contentType == "image/bmp" ||
-                    contentType == "image/webp" || contentType == "image/svg+xml")
-            {
-                var result = await JSRuntime.InvokeAsync<ImageConvertResult>("convertImageToPngBase64AndSize", base64,contentType);
-                await OnImageBase64Loaded(result.pngBase64, result.width, result.height);
-            }
-            else
-            {
-                _ = MessageService.ShowAsync("対応していない画像形式です。PNG, JPEG, GIF, BMP, WebP, SVGのみ追加できます。", MessageType.Warn);
-                return;
-            }
-        }
-        catch (IOException ex)
-        {
-            _ = MessageService.ShowAsync("画像サイズが大きすぎます（最大5MBまで）。", MessageType.Warn);
-            Console.WriteLine($"画像サイズエラー: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            _ = MessageService.ShowAsync("画像の読み込みに失敗しました。", MessageType.Error);
-            Console.WriteLine($"画像読み込みエラー: {ex.Message}");
-        }
     }
+    catch (IOException ex)
+    {
+        _ = MessageService.ShowAsync("画像サイズが大きすぎます（最大5MBまで）。", MessageType.Warn);
+        Console.WriteLine($"画像サイズエラー: {ex.Message}");
+    }
+    catch (Exception ex)
+    {
+        _ = MessageService.ShowAsync("画像の読み込みに失敗しました。", MessageType.Error);
+        Console.WriteLine($"画像読み込みエラー: {ex.Message}");
+    }
+}
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1629,8 +1916,13 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 await MessageService.ShowLoadingAsync("読み込み中...");
 
                 _dotNetRef = DotNetObjectReference.Create(this);
-                await JSRuntime.InvokeVoidAsync("registerGlobalMouseUp", _dotNetRef);
-                await JSRuntime.InvokeVoidAsync("registerGlobalMouseMove", _dotNetRef);
+                await JSRuntime.InvokeVoidAsync("registerEditPageMouseHandlers", _dotNetRef);
+                await JSRuntime.InvokeVoidAsync("registerEditPageKeyHandler", _dotNetRef);
+
+                // 初期コンテナサイズを取得
+                var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
+                containerWidth = size.width;
+                containerHeight = size.height;
 
                 var allPages = PdfDataService.GetModel().Pages;
                 var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
@@ -1649,7 +1941,11 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
                 if (cachedPageSource == null)
                 {
-                    cachedPageSource = new PageSourceInfo { origW = pageWidth, origH = pageHeight, dpr = await JSRuntime.InvokeAsync<double>("eval", "window.devicePixelRatio || 1") };
+                    cachedPageSource = new PageSourceInfo { 
+                        origW = pageWidth, 
+                        origH = pageHeight, 
+                        dpr = await JSRuntime.InvokeAsync<double>("getDevicePixelRatio")
+                    };
                 }
 
                 // 回転角度を考慮して幅・高さを入れ替え
@@ -1667,6 +1963,9 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
                 // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
                 await RedrawPdfPage(applyFit: true);
+
+                StateHasChanged();
+
             }catch(Exception ex)
             {
                 Console.WriteLine($"初期化エラー: {ex.Message}");
@@ -1678,12 +1977,29 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
     }
 
+    [JSInvokable]
+    public void OnKeyDown(string key)
+    {
+        // テキスト編集中は何もしない（textarea のキー入力を優先）
+        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editingElement != null) return;
+
+        // キーで選択中の要素を削除
+        if ((key == "Delete" || key == "Backspace") && selectedElementIds.Count > 0)
+        {
+            foreach (var id in selectedElementIds.ToList())
+            {
+                DeleteElement(id);
+            }
+            StateHasChanged();
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
-        await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseUp");
-        await JSRuntime.InvokeVoidAsync("unregisterGlobalMouseMove");
+        await JSRuntime.InvokeVoidAsync("unregisterEditPageMouseHandlers");
+        await JSRuntime.InvokeVoidAsync("unregisterEditPageKeyHandler");
         _dotNetRef?.Dispose();
-
     }
 
     private async void NavigateBack()
@@ -1712,9 +2028,109 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
     private async void FitToScreen()
     {
-        offsetX = 0;
-        offsetY = 0;
         await RedrawPdfPage(applyFit: true);
+    }
+
+    private async void FitToWidth()
+{
+    try
+    {
+        // 最新のコンテナサイズを取得して更新
+        var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
+        containerWidth = size.width;
+        containerHeight = size.height;
+        
+        var src = cachedPageSource;
+        if (src == null)
+        {
+            src = new PageSourceInfo
+            {
+                origW = pageWidth,
+                origH = pageHeight,
+                dpr = 1.0
+            };
+        }
+
+        // 利用可能な幅に合わせてズームレベルを計算（余白を考慮）
+        var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
+        var logicalW = Math.Max(1, src.origW);
+        
+        var newZoomLevel = Math.Round(Math.Max(0.1, Math.Min(availW / logicalW, 5.0)), 3);
+        
+        zoomLevel = newZoomLevel;
+        await RedrawPdfPage();
+        StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"FitToWidth error: {ex.Message}");
+    }
+}
+
+private async void FitToHeight()
+{
+    try
+    {
+        // 最新のコンテナサイズを取得して更新
+        var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
+        containerWidth = size.width;
+        containerHeight = size.height;
+        
+        var src = cachedPageSource;
+        if (src == null)
+        {
+            src = new PageSourceInfo
+            {
+                origW = pageWidth,
+                origH = pageHeight,
+                dpr = 1.0
+            };
+        }
+
+        // 利用可能な高さに合わせてズームレベルを計算（余白を考慮）
+        var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
+        var logicalH = Math.Max(1, src.origH);
+        
+        var newZoomLevel = Math.Round(Math.Max(0.1, Math.Min(availH / logicalH, 5.0)), 3);
+        
+        zoomLevel = newZoomLevel;
+        await RedrawPdfPage();
+        StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"FitToHeight error: {ex.Message}");
+    }
+}
+
+    private async void FitToBoth()
+    {
+        var src = cachedPageSource;
+        if (src == null)
+        {
+            src = new PageSourceInfo
+            {
+                origW = pageWidth,
+                origH = pageHeight,
+                dpr = 1.0
+            };
+        }
+
+        // 縦横両方に合わせる（大きい方の倍率を使用、余白を考慮）
+        var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
+        var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
+        var logicalW = Math.Max(1, src.origW);
+        var logicalH = Math.Max(1, src.origH);
+        
+        // 両方いっぱいに表示（はみ出しても良い）
+        zoomLevel = Math.Round(Math.Max(0.1, Math.Min(Math.Max(availW / logicalW, availH / logicalH), 5.0)), 3);
+        await RedrawPdfPage();
+    }
+
+    private async void SetToActualSize()
+    {
+        zoomLevel = 1.0; // 100% = 実際のPDFサイズ
+        await RedrawPdfPage();
     }
     private class RectDto
     {
@@ -1734,17 +2150,19 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         public double dpr { get; set; }
     }
 
-    // PDF再描画用メソッドを追加
+    // PDF再描画用メソッド
     private async Task RedrawPdfPage(bool applyFit = false)
     {
         var allPages = PdfDataService.GetModel().Pages;
         var pageItem = allPages.FirstOrDefault(p => p.FileId == FileId && p.OriginalPageIndex == PageIndex);
         if (pageItem == null) return;
 
-        // getElementRectなどの値を確実に取得できるように待機
-        await InvokeAsync(StateHasChanged);
-        await JSRuntime.InvokeVoidAsync("waitForNextFrame");
-
+        if (applyFit)
+        {
+            // 初回表示時は待機させてfitScaleの正確に取得（異常値だと描画が真っ白になる）
+            await InvokeAsync(StateHasChanged);
+            await JSRuntime.InvokeVoidAsync("waitForNextFrame");
+        }
         var src = cachedPageSource;
         if (src == null)
         {
@@ -1757,9 +2175,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         }
 
         // 編集領域コンテナの可用サイズを取得
-        var containerRect = await JSRuntime.InvokeAsync<RectDto>("getElementRect", ".edit-canvas-container");
-        var availW = Math.Max(1, containerRect.width);
-        var availH = Math.Max(1, containerRect.height);
+        var availW = Math.Max(1, containerWidth - (PAGE_MARGIN_X * 2));
+        var availH = Math.Max(1, containerHeight - (PAGE_MARGIN_Y * 2));
 
         // origW/origH を基準にフィット（これで横長なら横幅いっぱい、縦長なら縦幅いっぱい）
         var logicalW = Math.Max(1, src.origW);
@@ -1769,9 +2186,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
 
         if (applyFit)
         {
-            zoomLevel = Math.Max(0.1, Math.Min(fitScale, 5.0));
+            zoomLevel = 1.0;
         }
-
         var rotateAngle = pageItem.RotateAngle;
 
         await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel, rotateAngle);
@@ -1816,16 +2232,19 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
     }
     private async Task OnPageClick(MouseEventArgs e)
     {
+        // リサイズ/ドラッグ中はページクリックを無視
+        if (isResizingOrDragging)
+        {
+            isResizingOrDragging = false;
+            return;
+        }
+
         // カラーピッカーが開いている場合は何もしない
         if (ignoreNextPageClick)
         {
             ignoreNextPageClick = false;
             return;
         }
-
-        // JSでクリックターゲットのタグ名を取得
-        var tagName = await JSRuntime.InvokeAsync<string>("getTagNameFromEvent", e);
-        if (tagName == "INPUT" || tagName == "BUTTON") return;
 
         // すでにテキスト編集中の要素があれば追加しない
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
@@ -1855,25 +2274,29 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             $"#pdf-canvas-{canvasUniqueId}",
             e.ClientX,
             e.ClientY,
-            offsetX,
-            offsetY,
             zoomLevel
             );
+
+            // 初期高さは1行分 + わずかな余白（fontSize * 1.05）
+            var initialHeight = fontSize * 1.05;
 
             var element = new EditElement
             {
                 Type = ElementType.Text,
                 X = coords.x,
-                Y = coords.y,
+                Y = coords.y - fontSize, // カーソル上端に合わせる,
                 Text = "入力...",
                 FontSize = fontSize,
+                Height = initialHeight,
                 Color = textColor,
                 IsEditing = true,
                 FontFamily = DefaultFontFamily,
-                FitTextToArea = uiFitTextToArea
+                FitTextToArea = uiFitTextToArea,
+                IsBold = _isBoldDefault
             };
             editElements.Add(element);
 
+            // 実行しないと新規作成したテキストボックスが文字列が初期状態で選択されない
             StateHasChanged();
             await InvokeAsync(StateHasChanged);
             await Task.Yield();
@@ -1881,7 +2304,12 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             {
                 await textInputRef.FocusAsync();
                 await JSRuntime.InvokeVoidAsync("selectAllTextarea", textInputRef);
-                await JSRuntime.InvokeVoidAsync("autoResizeTextarea", textInputRef);
+                var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
+                if (totalParentPx > 0)
+                {
+                    element.Height = Math.Max(6, totalParentPx / zoomLevel);
+                    StateHasChanged();
+                }
             }
             catch
             {
@@ -1925,6 +2353,7 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
             {
                 _fontSize = selected.FontSize;
                 uiFitTextToArea = selected.FitTextToArea;
+                _isBoldDefault = selected.IsBold;
             }
         }
 
@@ -1943,16 +2372,8 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
         element.IsEditing = false;
         fontFamily = ResolveFontForText(element.Text, element.FontFamily);
 
-        // blur による直後の page click で新規追加されないようにする
+        // blur直後のクリックを1回だけ無視
         ignoreNextPageClick = true;
-
-        // 念のため短時間後に自動解除（例: 300ms）。不要なら削除可。
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(300);
-            ignoreNextPageClick = false;
-            await InvokeAsync(StateHasChanged);
-        });
 
         StateHasChanged();
     }
@@ -1996,42 +2417,56 @@ public async Task OnGlobalMouseMove(MouseMoveArgs e)
                 ImageUrl = el.ImageUrl,
                 ImageOriginalWidth = el.ImageOriginalWidth,
                 ImageOriginalHeight = el.ImageOriginalHeight,
-                LineHeight = el.LineHeight
+                LineHeight = el.LineHeight,
+                Rotation = el.Rotation,
+                FlipHorizontal = el.FlipHorizontal,
+                FlipVertical = el.FlipVertical
             };
 
-            if (rotateAngle == 90)
-            {
-                newEl.X = el.Y +  el.Height;
-                newEl.Y = pageWidth - el.X -el.Height;
-                newEl.Width = el.Height;
-                newEl.Height = el.Width;
-                //newEl.Rotation = (el.Rotation - 90 + 360) % 360;
-                newEl.Rotation = rotateAngle; // ← PDF-libは左回転
-            }
-            else if (rotateAngle == 180)
-            {
-                newEl.X = pageWidth - el.X;
-                newEl.Y = pageHeight - el.Y - el.Height - (el.FontSize * 0.5);
-                newEl.Width = el.Width;
-                newEl.Height = el.Height;
-                newEl.Rotation = rotateAngle;
-            }
-            else if (rotateAngle == 270)
-            {
-                newEl.X = pageHeight - el.Y - el.Height - (el.FontSize * 0.5);
-                newEl.Y = el.X - el.Height - (el.FontSize * 0.5);
-                newEl.Width = el.Height;
-                newEl.Height = el.Width;
-                newEl.Rotation = rotateAngle;
-            }
-            else
+            // ページ回転が 0 度の場合は座標変換不要
+            if (rotateAngle == 0)
             {
                 newEl.X = el.X;
                 newEl.Y = el.Y;
                 newEl.Width = el.Width;
                 newEl.Height = el.Height;
-                newEl.Rotation = 0;
             }
+            else
+            {
+                // ページ回転による座標変換（90/180/270度のみ）
+                if (rotateAngle == 90)
+                {
+                    // 画像回転を考慮した座標変換
+                    // 画像自体が回転している場合、Width/Height は既に回転後のサイズ
+                    newEl.X = el.Y;
+                    newEl.Y = pageWidth - el.X - el.Width;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+                else if (rotateAngle == 180)
+                {
+                    newEl.X = pageWidth - el.X - el.Width;
+                    newEl.Y = pageHeight - el.Y - el.Height;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+                else if (rotateAngle == 270)
+                {
+                    newEl.X = pageHeight - el.Y - el.Height;
+                    newEl.Y = el.X;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+                else
+                {
+                    // 0/90/180/270 以外は変換しない
+                    newEl.X = el.X;
+                    newEl.Y = el.Y;
+                    newEl.Width = el.Width;
+                    newEl.Height = el.Height;
+                }
+            }
+            
             result.Add(newEl);
         }
         return result;

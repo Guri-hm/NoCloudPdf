@@ -103,7 +103,7 @@
                     <DropdownButton T="string" MenuId="addMenu" MenuItems="addMenuItems">
                         <Trigger>
                             <DropdownTriggerButton>
-                                <AddIcon />
+                                <AddIcon Class="w-6 h-6" />
                                 <span class="hidden xl:inline">追加</span>
                             </DropdownTriggerButton>
                         </Trigger>
@@ -530,7 +530,7 @@
         {
             Value = "forward",
             Label = "順横方向",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(LayoutIconHorizontalIcon));
                 builder.AddAttribute(1, "Class", "w-4 h-4");
@@ -541,7 +541,7 @@
         {
             Value = "forward-vertical",
             Label = "順縦方向",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(LayoutIconVerticalIcon));
                 builder.AddAttribute(1, "Class", "w-4 h-4");
@@ -552,7 +552,7 @@
         {
             Value = "reverse-horizontal",
             Label = "逆横方向",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(LayoutIconReverseHorizontalIcon));
                 builder.AddAttribute(1, "Class", "w-4 h-4");
@@ -563,7 +563,7 @@
         {
             Value = "reverse-vertical",
             Label = "逆縦方向",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(LayoutIconReverseVerticalIcon));
                 builder.AddAttribute(1, "Class", "w-4 h-4");
@@ -578,7 +578,7 @@
         {
             Value = "forward",
             Label = "順方向",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(LayoutIconForwardIcon));
                 builder.AddAttribute(1, "Class", "w-4 h-4");
@@ -589,7 +589,7 @@
         {
             Value = "reverse",
             Label = "逆方向",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(LayoutIconReverseIcon));
                 builder.AddAttribute(1, "Class", "w-4 h-4");
@@ -1072,7 +1072,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(NUpIcon));
-                builder.AddAttribute(1, "Class", "text-black w-5 h-5");
+                builder.AddAttribute(1, "Class", "w-6 h-6");
                 builder.CloseComponent();
             }
         },
@@ -1083,7 +1083,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(TileIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.AddAttribute(1, "Class", "w-6 h-6");
                 builder.CloseComponent();
             }
         }
@@ -1315,7 +1315,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         new ActionButtonItem
         {
             Label = GetPrimaryActionLabel(),
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ArrowRightIcon));
                 builder.CloseComponent();
@@ -1332,7 +1332,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
     {
         new ActionButtonItem
         {
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ResetIcon));
                 builder.AddAttribute(1, "Class", "w-5 h-5");
@@ -1349,7 +1349,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         new ActionButtonItem
         {
             Label = "編集に戻る",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ArrowLeftIcon));
                 builder.CloseComponent();
@@ -1755,38 +1755,41 @@ OnClick = EventCallback.Factory.Create(this, () => InsertPdfAtPosition(DisplayIt
 };
 
     private List<DropdownMenuItem> sortMenuItems => new()
-{
-new DropdownMenuItem
-{
-Label = "名前（昇順）",
-OnClick = EventCallback.Factory.Create(this, () => SelectSort(true))
-},
-new DropdownMenuItem
-{
-Label = "名前（降順）",
-OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
-}
-};
+    {
+        new DropdownMenuItem
+            {
+            Label = "名前（昇順）",
+            OnClick = EventCallback.Factory.Create(this, () => SelectSort(true))
+            },
+            new DropdownMenuItem
+            {
+            Label = "名前（降順）",
+            OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
+        }
+    };
 
     private List<ActionButtonItem> reverseActions => new()
-{
-new ActionButtonItem
-{
-Label = "逆順",
-IconHtml = @"<svg width='20' height='20' viewBox='0 0 21 21' fill='none' class='inline-block align-middle'><g
-stroke='currentColor' stroke-linecap='round' stroke-linejoin='round'><path d='M4.5 8.5l-4 4 4 4' /><path d='M12.5
-12.5h-12' /><path d='M8.5.5l4 4-4 4' /><path d='M12.5 4.5h-12' /></g></svg>",
-Title = "逆順",
-OnClick = EventCallback.Factory.Create(this, ReverseOrder)
-}
-};
+        {
+        new ActionButtonItem
+        {
+        Label = "逆順",
+        IconFragment = builder =>
+        {
+            builder.OpenComponent(0, typeof(LeftRightIcon));
+            builder.AddAttribute(1, "Class", "w-5 h-5"); 
+            builder.CloseComponent();
+        },
+        Title = "逆順",
+        OnClick = EventCallback.Factory.Create(this, ReverseOrder)
+        }
+    };
 
     private List<ActionButtonItem> rotateActions => new()
     {
         new ActionButtonItem
         {
             Label = "左",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(RotateLeftIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定
@@ -1799,7 +1802,7 @@ OnClick = EventCallback.Factory.Create(this, ReverseOrder)
         new ActionButtonItem
         {
             Label = "右",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(RotateRightIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); // ← ここでパラメータ指定

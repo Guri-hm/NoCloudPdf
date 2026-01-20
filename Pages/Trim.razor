@@ -349,7 +349,7 @@
             IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(TrimIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.AddAttribute(1, "Class", "w-6 h-6");
                 builder.CloseComponent();
             }
         },
@@ -360,7 +360,7 @@
             IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(PanIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.AddAttribute(1, "Class", "w-6 h-6");
                 builder.CloseComponent();
             }
         }
@@ -397,7 +397,7 @@
         new ActionButtonItem
         {
             Label = "完了",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ArrowRightIcon));
                 builder.CloseComponent();
@@ -516,10 +516,10 @@
     {
         new ActionButtonItem
         {
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ResetIcon));
-                builder.AddAttribute(1, "Class", "w-5 h-5"); // 必要に応じてサイズ調整
+                builder.AddAttribute(1, "Class", "w-5 h-5"); 
                 builder.CloseComponent();
             },
             Title = "最初からやり直す",
@@ -534,7 +534,7 @@
         new ActionButtonItem
         {
             Label = "編集に戻る",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ArrowLeftIcon));
                 builder.CloseComponent();
@@ -549,7 +549,7 @@
         new ActionButtonItem
         {
             Label = "左",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(RotateLeftIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 
@@ -562,7 +562,7 @@
         new ActionButtonItem
         {
             Label = "右",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(RotateRightIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 
@@ -579,7 +579,7 @@
         new ActionButtonItem
         {
             Label = "幅に合わせる",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(FitWidthIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 
@@ -591,7 +591,7 @@
         new ActionButtonItem
         {
             Label = "高さに合わせる",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(FitHeightIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 
@@ -603,7 +603,7 @@
                 new ActionButtonItem
         {
             Label = "全体表示",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(FitScreenIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 
@@ -615,7 +615,7 @@
         new ActionButtonItem
         {
             Label = "実際のサイズ",
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ViewRealSizeIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 
@@ -626,7 +626,7 @@
         },
         new ActionButtonItem
         {
-            Icon = builder =>
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ZoomOutIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 
@@ -638,7 +638,13 @@
         },
         new ActionButtonItem
         {
-            Icon = builder =>
+            Title = "縮小",
+            OnClick = EventCallback.Factory.Create(this, ZoomIn),
+            Label = "縮小"
+        },
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
             {
                 builder.OpenComponent(0, typeof(ZoomInIcon));
                 builder.AddAttribute(1, "Class", "w-6 h-6"); 

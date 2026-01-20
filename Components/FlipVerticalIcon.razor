@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 720 880"
+     width="1em" height="1em"
+     fill="currentColor"
+     class="@Class"
+     aria-hidden="true" role="img">
+  <!-- 中心 (360,440) を基準に 90° 回転 -->
+  <g transform="rotate(90 360 440)">
+    <path d="M240 800H80Q47 800 24 777T0 720V160Q0 127 24 104T80 80H240V160H80V720H240V800ZM320 880V0H400V880H320ZM480 800V720H560V800H480ZM480 160V80H560V160H480ZM640 800V720H720Q720 753 697 777T640 800ZM640 640V560H720V640H640ZM640 480V400H720V480H640ZM640 320V240H720V320H640ZM640 160V80Q673 80 697 104T720 160H640Z"/>
+  </g>
+</svg>
+
+@code {
+    [Parameter] public string? Class { get; set; } = "inline-block";
+}
