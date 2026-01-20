@@ -300,7 +300,7 @@
                 </div>
 
                 <div class="flex-1 overflow-auto p-6">
-                    @if (!isLoadingPreview)
+                    @if (isLoadingPreview)
                     {
                         <div class="text-center py-12">
                             <LoadingSpinnerIcon Class="w-12 h-12 mx-auto" />
@@ -311,27 +311,31 @@
                     {
                         <div class="relative inline-block shadow-2xl">
                             <img src="@previewImageUrl" 
-                                 alt="Preview" 
-                                 style="width: auto; height: auto; max-width: 100%;"
-                                 class="border border-gray-300 rounded-lg" />
+                                alt="Preview" 
+                                style="width: auto; height: auto; max-width: 100%;"
+                                class="border border-gray-300 rounded-lg" />
                             
                             @if (IsPageInRange(previewPageNumber))
                             {
                                 @foreach (var stamp in currentSetting.Stamps)
                                 {
-                                    
                                     var previewText = GetPreviewText(stamp, previewPageNumber);
-                                    // 日本語が含まれていれば強制的に Noto Sans JP（ゴシック）を使う
                                     var fontFamily = ContainsJapanese(previewText)
                                         ? "'Noto Sans JP', sans-serif"
                                         : (stamp.FontFamily == "NotoSerifJP" ? "'Noto Serif JP', serif" : "'Noto Sans JP', sans-serif");
                                     
                                     <div class="absolute text-sm pointer-events-none"
-                                         style="@GetPreviewStampStyle(stamp); color: @GetColorHex(stamp.Color); font-size: @(stamp.FontSize * previewScale)px; font-weight: @(stamp.IsBold ? "bold" : "normal"); font-family: @(fontFamily); white-space: nowrap;">
+                                        style="@GetPreviewStampStyle(stamp); color: @GetColorHex(stamp.Color); font-size: @(stamp.FontSize * previewScale)px; font-weight: @(stamp.IsBold ? "bold" : "normal"); font-family: @(fontFamily); white-space: nowrap;">
                                         @GetPreviewText(stamp, previewPageNumber)
                                     </div>
                                 }
                             }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-12 text-gray-500">
+                            <p>プレビューを読み込めませんでした</p>
                         </div>
                     }
                 </div>
@@ -372,7 +376,7 @@
     private HeaderFooterSetting currentSetting = new();
     private int previewPageNumber = 1;
     private string? previewImageUrl = null;
-    private bool isLoadingPreview = false;
+    private bool isLoadingPreview = true;
     private double previewScale = 0.558;
 
     private void OnStampTextInput(StampPosition stamp, ChangeEventArgs e)
@@ -416,6 +420,7 @@
     private async Task LoadPreviewAsync()
     {
         isLoadingPreview = true;
+        previewImageUrl = null;
         StateHasChanged();
 
         try
