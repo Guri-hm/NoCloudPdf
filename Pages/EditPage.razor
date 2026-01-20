@@ -1539,24 +1539,26 @@ private void ResizeImageElement(EditElement element, string handle, double dx, d
 
 
     private void RotateSelectedImageLeft()
+{
+    var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+    if (selectedImage != null)
     {
-        var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
-        if (selectedImage != null)
-        {
-            selectedImage.Rotation = (selectedImage.Rotation - 90 + 360) % 360;
-            StateHasChanged();
-        }
+        // ★ Width/Height を入れ替えず、回転角度のみ変更
+        selectedImage.Rotation = (selectedImage.Rotation - 90 + 360) % 360;
+        StateHasChanged();
     }
+}
 
-    private void RotateSelectedImageRight()
+private void RotateSelectedImageRight()
+{
+    var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
+    if (selectedImage != null)
     {
-        var selectedImage = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Image);
-        if (selectedImage != null)
-        {
-            selectedImage.Rotation = (selectedImage.Rotation + 90) % 360;
-            StateHasChanged();
-        }
+        // ★ Width/Height を入れ替えず、回転角度のみ変更
+        selectedImage.Rotation = (selectedImage.Rotation + 90) % 360;
+        StateHasChanged();
     }
+}
 
     [JSInvokable]
     public void OnMouseUp()

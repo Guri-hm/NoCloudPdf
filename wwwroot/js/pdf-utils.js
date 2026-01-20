@@ -873,8 +873,6 @@ window.unlockPdf = async function (pdfData, password) {
 // ========================================
 // PDF編集（テキスト・画像追加）
 // ========================================
-// ...existing code...
-
 window.editPdfPageWithElements = async function (pdfBase64, editJson) {
     const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
@@ -978,51 +976,89 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
                     rotate: rotateDegrees
                 });
             }
-        } else if (el.Type === 1 || el.Type === "Image") {
-            if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
-                const rotation = el.Rotation || 0;
-                const flipH = el.FlipHorizontal || false;
-                const flipV = el.FlipVertical || false;
+} else if (el.Type === 1 || el.Type === "Image") {
+    if (el.ImageUrl && (el.ImageUrl.startsWith("data:image/png") || el.ImageUrl.startsWith("data:image/jpeg"))) {
+        const rotation = el.Rotation || 0;
+        const flipH = el.FlipHorizontal || false;
+        const flipV = el.FlipVertical || false;
 
-                console.log("=== 画像埋め込み開始 ===");
-                console.log("元の要素:", { 
-                    X: el.X, 
-                    Y: el.Y, 
-                    Width: el.Width, 
-                    Height: el.Height, 
-                    Rotation: rotation,
-                    FlipH: flipH,
-                    FlipV: flipV
-                });
+        console.log("=== 画像埋め込み開始 ===");
+        console.log("元の要素:", { 
+            X: el.X, 
+            Y: el.Y, 
+            Width: el.Width,
+            Height: el.Height,
+            Rotation: rotation,
+            FlipH: flipH,
+            FlipV: flipV,
+            ImageOriginalWidth: el.ImageOriginalWidth,
+            ImageOriginalHeight: el.ImageOriginalHeight
+        });
 
-                // Canvas経由で変換（回転・反転適用）
-                const transformResult = await applyImageTransformations(el.ImageUrl, rotation, flipH, flipV);
-                
-                console.log("変換後の画像サイズ:", {
-                    width: transformResult.width,
-                    height: transformResult.height
-                });
+        // Canvas経由で変換（回転・反転適用）
+        const transformResult = await applyImageTransformations(el.ImageUrl, rotation, flipH, flipV);
+        
+        console.log("変換後の画像サイズ（ピクセル）:", {
+            width: transformResult.width,
+            height: transformResult.height
+        });
 
-                const processedBase64 = transformResult.dataUrl.split(',')[1];
-                const processedImg = await pdfDoc.embedPng(base64ToUint8Array(processedBase64));
+        const processedBase64 = transformResult.dataUrl.split(',')[1];
+        const processedImg = await pdfDoc.embedPng(base64ToUint8Array(processedBase64));
 
-                // PDF座標系での配置
-                const drawParams = {
-                    x: el.X || 0,
-                    y: pageHeight - (el.Y || 0) - (el.Height || transformResult.height),
-                    width: el.Width || transformResult.width,
-                    height: el.Height || transformResult.height
-                };
+        // ★ 修正：画面表示サイズ（el.Width/Height）を基準に、回転後の実際のサイズを計算
+        // el.Width/Height は「画面上の表示サイズ（pt単位、回転前の向き）」
+        
+        // 元画像に対する表示倍率を計算
+        const originalAspect = el.ImageOriginalWidth / el.ImageOriginalHeight;
+        
+        // 回転前の画面表示サイズから、元画像に対する縮尺を計算
+        const scaleFromOriginal = el.Width / el.ImageOriginalWidth;
+        
+        // 回転後の画像サイズ（ピクセル）を、同じ縮尺で pt 単位に変換
+        const drawWidth = transformResult.width * scaleFromOriginal;
+        const drawHeight = transformResult.height * scaleFromOriginal;
 
-                console.log("PDF描画パラメータ:", drawParams);
+        console.log("計算された描画サイズ（pt）:", {
+            drawWidth,
+            drawHeight,
+            scaleFromOriginal,
+            originalAspect,
+            transformedAspect: transformResult.width / transformResult.height
+        });
 
-                page.drawImage(processedImg, drawParams);
-                
-                console.log("=== 画像埋め込み完了 ===\n");
-            } else {
-                console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
-            }
-        }
+        // ★ 座標の調整：回転により画像の中心位置がずれるため補正
+        // EditPage では画像の左上を基準に X/Y を管理しているが、
+        // 回転後は画像の外接矩形が変わるため、中心を維持するように調整
+        
+        let adjustedX = el.X;
+        let adjustedY = el.Y;
+        
+        // 回転前の中心座標を計算
+        const centerX = el.X + el.Width / 2;
+        const centerY = el.Y + el.Height / 2;
+        
+        // 回転後の左上座標を逆算（中心を維持）
+        adjustedX = centerX - drawWidth / 2;
+        adjustedY = centerY - drawHeight / 2;
+
+        // PDF座標系での配置（左下基点）
+        const drawParams = {
+            x: adjustedX,
+            y: pageHeight - adjustedY - drawHeight,
+            width: drawWidth,
+            height: drawHeight
+        };
+
+        console.log("PDF描画パラメータ:", drawParams);
+
+        page.drawImage(processedImg, drawParams);
+        
+        console.log("=== 画像埋め込み完了 ===\n");
+    } else {
+        console.warn("未対応画像形式: ", el.ImageUrl ? el.ImageUrl.substring(0, 30) : "");
+    }
+}
     }
 
     const newPdfBytes = await pdfDoc.save();
