@@ -65,6 +65,11 @@
                 <OcrIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">文字認識</span>
             </NavLink>
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("qrcode")"
+                href="qrcode">
+                <QrCodeIcon Class="w-8 h-8" />
+                <span class="text-[10px] mt-1 opacity-80">QRコード</span>
+            </NavLink>
         </nav>
     </div>
 </div>
@@ -103,6 +108,7 @@
         if (uri.EndsWith("/layout")) return "レイアウト";
         if (uri.EndsWith("/slice")) return "スライス";
         if (uri.EndsWith("/ocr")) return "文字認識";
+        if (uri.Contains("/qrcode")) return "QRコード";
         if (uri.EndsWith("/") || uri.EndsWith("")) return "NoCloudPDF";
         return "";
     }

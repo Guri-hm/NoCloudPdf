@@ -4,7 +4,8 @@
             "thumbnail": 0.2,
             "normal": 1.0,
             "unlock": 1.5,
-            "preview": 1.5
+            "preview": 1.5,
+            "qrcode": 2.5
         }
     }
 }

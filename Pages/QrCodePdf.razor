@@ -1,0 +1,500 @@
+@page "/qrcode/pdf"
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject PdfDataService PdfDataService
+@inject MessageService MessageService
+@inject CompletionStateService CompletionState
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using System.IO
+@using NoCloudPdf.Models
+@using NoCloudPdf.Services
+@using NoCloudPdf.Components
+
+<PageTitle>NoCloudPDF - PDFからQRコード読み取り</PageTitle>
+
+@if (IsFilesLoaded)
+{
+    <div id="drop-area" class="relative h-screen flex flex-col">
+        <DropCover Message="ここにファイルをドロップ" />
+        
+        <!-- 上部固定バー -->
+        <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
+            <div class="flex items-start justify-between px-4 py-2">
+                <div class="flex flex-wrap gap-2 items-center">
+                    <button @onclick="GoBack" class="hover:bg-gray-700 p-2 rounded">
+                        <ArrowLeftIcon Class="w-5 h-5" />
+                    </button>
+                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2"></div>
+                    <h1 class="hidden md:inline text-lg font-bold">PDFからQRコード読み取り</h1>
+                    <div class="ml-4 flex items-center gap-2">
+                        <input type="number"
+                            min="1"
+                            max="@Math.Max(1, DisplayItems.Count)"
+                            value="@displayedPageNumber"
+                            @onchange="OnPageInputChanged"
+                            class="w-10 px-2 py-1 rounded border border-gray-300 text-sm text-white bg-gray-700" />
+                        <span class="text-sm">/ @DisplayItems.Count</span>
+                    </div>
+                    <button @onclick="() => ScanCurrentPage()" 
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center"
+                            disabled="@isScanning">
+                        @if (isScanning)
+                        {
+                            <LoadingSpinnerIcon Class="w-5 h-5 mr-2 animate-spin" />
+                            <span>読み取り中...</span>
+                        }
+                        else
+                        {
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <span>このページをスキャン</span>
+                        }
+                    </button>
+                    <button @onclick="() => ScanAllPages()" 
+                            class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center"
+                            disabled="@isScanning">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span>全ページをスキャン</span>
+                    </button>
+                </div>
+                <button @onclick="ClearAllResults" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                    クリア
+                </button>
+            </div>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-hidden flex">
+            <!-- 左側: PDFプレビュー -->
+            <div class="w-1/2 bg-gray-100 overflow-auto">
+                <div class="p-4">
+                    @if (DisplayItems.Any() && displayedPageNumber > 0 && displayedPageNumber <= DisplayItems.Count)
+                    {
+                        var item = DisplayItems[displayedPageNumber - 1];
+                        if (item.RawData is PageItem pageItem)
+                        {
+                            <div class="bg-white shadow-lg rounded-lg p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="font-semibold">ページ @displayedPageNumber</h3>
+                                    <div class="flex gap-2">
+                                        <button @onclick="PrevPage" disabled="@(displayedPageNumber <= 1)"
+                                                class="px-3 py-1 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 rounded">
+                                            ◀
+                                        </button>
+                                        <button @onclick="NextPage" disabled="@(displayedPageNumber >= DisplayItems.Count)"
+                                                class="px-3 py-1 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 rounded">
+                                            ▶
+                                        </button>
+                                    </div>
+                                </div>
+                                @{
+                                    var previewUrl = GetHighResPreview(displayedPageNumber - 1, pageItem);
+                                }
+                                @if (!string.IsNullOrEmpty(previewUrl))
+                                {
+                                    <img src="@previewUrl" 
+                                         alt="ページ @displayedPageNumber" 
+                                         class="w-full border border-gray-300 rounded" />
+                                }
+                                else
+                                {
+                                    <div class="w-full h-64 bg-gray-200 flex items-center justify-center">
+                                        <p class="text-gray-500">読み込み中...</p>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <!-- 右側: 読み取り結果 -->
+            <div class="w-1/2 bg-white overflow-auto p-6">
+                <h2 class="text-lg font-bold mb-4">読み取り結果</h2>
+
+                @if (qrResults.Any())
+                {
+                    <div class="space-y-3">
+                        @foreach (var result in qrResults.OrderBy(r => r.PageNumber))
+                        {
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-700 font-bold">
+                                            P.@result.PageNumber
+                                        </span>
+                                        @if (result.Success)
+                                        {
+                                            <CheckCircleIcon Class="w-5 h-5 text-green-600" />
+                                        }
+                                        else
+                                        {
+                                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        }
+                                    </div>
+                                    <button @onclick="() => qrResults.Remove(result)"
+                                            class="text-gray-400 hover:text-red-600">
+                                        <DeleteIcon Class="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                @if (result.Success)
+                                {
+                                    <div class="bg-white rounded p-3 mb-2 break-all">
+                                        @if (IsUrl(result.Text))
+                                        {
+                                            <a href="@result.Text" target="_blank" rel="noopener noreferrer"
+                                               class="text-blue-600 hover:underline flex items-center">
+                                                @result.Text
+                                                <svg class="w-4 h-4 ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                                </svg>
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <p class="text-gray-800">@result.Text</p>
+                                        }
+                                    </div>
+                                    <button @onclick="() => CopyToClipboard(result.Text)"
+                                            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center">
+                                        <CopyIcon Class="w-4 h-4 mr-1" />
+                                        コピー
+                                    </button>
+                                }
+                                else
+                                {
+                                    <p class="text-sm text-red-700">@result.Error</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-12 text-gray-400">
+                        <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                        </svg>
+                        <p>「このページをスキャン」または「全ページをスキャン」を押してください</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- 初期画面: ファイル選択 -->
+    <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
+}
+
+<!-- 隠しQRリーダー要素 -->
+<div id="qr-reader-hidden" style="display: none;"></div>
+
+<!-- ファイル選択用の隠しinput -->
+<InputFile OnChange="HandleFileSelectionAsync" accept=".pdf" class="hidden" id="pdfFileInput" />
+
+<!-- メッセージ表示エリア -->
+<MessageBar />
+
+<!-- パスワードダイアログ -->
+<PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
+
+<LoadingOverlay />
+
+@code {
+    private List<DisplayItem> DisplayItems => PdfDataService.GetDisplayItems();
+    private bool IsFilesLoaded => DisplayItems.Any();
+    private int displayedPageNumber = 1;
+    private bool isScanning = false;
+    private List<QrScanResult> qrResults = new();
+    
+    // 高解像度プレビュー用キャッシュ
+    private Dictionary<int, string> highResPreviewCache = new();
+
+    private bool isPasswordDialogOpen = false;
+    private string passwordDialogFileName = "";
+    private TaskCompletionSource<string?>? passwordTcs;
+
+    private class QrScanResult
+    {
+        public int PageNumber { get; set; }
+        public bool Success { get; set; }
+        public string Text { get; set; } = "";
+        public string Error { get; set; } = "";
+    }
+
+    protected override void OnInitialized()
+    {
+        PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
+        PdfDataService.SwitchDisplayMode(DisplayMode.Page);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("loadHtml5QrcodeLibrary");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to load QR library: {ex.Message}");
+            }
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        PdfDataService.PasswordInputDialogFunc = null;
+        return ValueTask.CompletedTask;
+    }
+
+    private async Task ScanCurrentPage()
+    {
+        if (isScanning) return;
+
+        isScanning = true;
+        StateHasChanged();
+
+        try
+        {
+            var item = DisplayItems[displayedPageNumber - 1];
+            await ScanPage(item, displayedPageNumber);
+        }
+        finally
+        {
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScanAllPages()
+    {
+        if (isScanning) return;
+
+        isScanning = true;
+        StateHasChanged();
+
+        try
+        {
+            for (int i = 0; i < DisplayItems.Count; i++)
+            {
+                var item = DisplayItems[i];
+                await ScanPage(item, i + 1);
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ScanPage(DisplayItem item, int pageNumber)
+    {
+        try
+        {
+            if (item.RawData is PageItem pageItem)
+            {
+                // 高解像度画像を取得（キャッシュまたは生成）
+                var highResUrl = await GetOrCreateHighResPreview(pageNumber - 1, pageItem);
+                
+                if (string.IsNullOrEmpty(highResUrl))
+                {
+                    qrResults.Add(new QrScanResult
+                    {
+                        PageNumber = pageNumber,
+                        Success = false,
+                        Error = "プレビュー画像の生成に失敗しました"
+                    });
+                    return;
+                }
+                
+                var result = await JSRuntime.InvokeAsync<QrScanJsResult>("scanQrCodeFromImageUrl", highResUrl);
+                
+                // 既存の結果を削除
+                qrResults.RemoveAll(r => r.PageNumber == pageNumber);
+                
+                // 新しい結果を追加
+                qrResults.Add(new QrScanResult
+                {
+                    PageNumber = pageNumber,
+                    Success = result.success,
+                    Text = result.text ?? "",
+                    Error = result.error ?? "QRコードが見つかりませんでした"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            qrResults.Add(new QrScanResult
+            {
+                PageNumber = pageNumber,
+                Success = false,
+                Error = $"スキャンエラー: {ex.Message}"
+            });
+        }
+    }
+    
+    /// <summary>
+    /// 高解像度プレビューを取得（同期版 - UI表示用）
+    /// </summary>
+    private string? GetHighResPreview(int pageIndex, PageItem pageItem)
+    {
+        // キャッシュにあればそれを返す
+        if (highResPreviewCache.TryGetValue(pageIndex, out var cachedUrl))
+        {
+            return cachedUrl;
+        }
+        
+        // キャッシュになければ非同期で生成開始（バックグラウンド）
+        _ = Task.Run(async () =>
+        {
+            await GetOrCreateHighResPreview(pageIndex, pageItem);
+            await InvokeAsync(StateHasChanged);
+        });
+        
+        // 即座にnullを返す（読み込み中表示）
+        return null;
+    }
+    
+    /// <summary>
+    /// 高解像度プレビューを取得または生成（非同期版 - QRスキャン用）
+    /// PdfDataService.GetPreviewImageAsync を使用して既存の仕組みを活用
+    /// </summary>
+    private async Task<string?> GetOrCreateHighResPreview(int pageIndex, PageItem pageItem)
+    {
+        // キャッシュチェック
+        if (highResPreviewCache.TryGetValue(pageIndex, out var cachedUrl))
+        {
+            return cachedUrl;
+        }
+        
+        try
+        {
+            // PdfDataServiceの既存メソッドを使用（"qrcode"スケール=2.5倍で高解像度）
+            // scaleKey: "thumbnail"=0.2, "normal"=1.0, "unlock"=1.5, "preview"=1.5, "qrcode"=2.5
+            var highResUrl = await PdfDataService.GetPreviewImageAsync(pageItem.Id, null, "qrcode");
+            
+            if (string.IsNullOrEmpty(highResUrl))
+            {
+                Console.WriteLine($"Failed to generate high-res preview for page {pageIndex + 1}: GetPreviewImageAsync returned null");
+                return null;
+            }
+            
+            // キャッシュに保存
+            highResPreviewCache[pageIndex] = highResUrl;
+            
+            return highResUrl;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to generate high-res preview for page {pageIndex + 1}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private class QrScanJsResult
+    {
+        public bool success { get; set; }
+        public string? text { get; set; }
+        public string? error { get; set; }
+    }
+
+    private void ClearAllResults()
+    {
+        qrResults.Clear();
+        StateHasChanged();
+    }
+
+    private bool IsUrl(string text)
+    {
+        return Uri.TryCreate(text, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            var success = await JSRuntime.InvokeAsync<bool>("copyToClipboard", text);
+            if (success)
+            {
+                await MessageService.ShowAsync("クリップボードにコピーしました");
+            }
+        }
+        catch (Exception ex)
+        {
+            await MessageService.ShowAsync($"コピー失敗: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    private void PrevPage() => displayedPageNumber = Math.Max(1, displayedPageNumber - 1);
+    private void NextPage() => displayedPageNumber = Math.Min(DisplayItems.Count, displayedPageNumber + 1);
+
+    private Task OnPageInputChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var pageNum))
+        {
+            displayedPageNumber = Math.Max(1, Math.Min(pageNum, DisplayItems.Count));
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task OpenFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('pdfFileInput').click()");
+    }
+
+    private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
+    {
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            await PdfDataService.AddOrInsertPdfFileAsync(file.Name, bytes);
+        }
+    }
+
+    private Task<string?> ShowPasswordInputDialogAsync(string fileName)
+    {
+        passwordDialogFileName = fileName;
+        isPasswordDialogOpen = true;
+        passwordTcs = new TaskCompletionSource<string?>();
+        StateHasChanged();
+        return passwordTcs.Task;
+    }
+
+    private void OnPasswordDialogClose(string? password)
+    {
+        isPasswordDialogOpen = false;
+        passwordTcs?.SetResult(password);
+        StateHasChanged();
+    }
+
+    private void GoBack()
+    {
+        // ファイルをクリア（他の機能ページと同様）
+        PdfDataService.Clear();
+        Navigation.NavigateTo("/qrcode");
+    }
+
+    private Task ReloadPageItem(DisplayItem item)
+    {
+        // 必要に応じて実装
+        return Task.CompletedTask;
+    }
+}

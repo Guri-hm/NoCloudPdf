@@ -71,7 +71,8 @@ async function loadPdfDocument(uint8Array, options = {}) {
 async function renderPageToCanvas(page, scale, rotation = 0, options = {}) {
     const viewport = page.getViewport({ scale, rotation });
 
-    const maxDimension = 2048;
+    // QR読み取り用に高解像度を許可（最大4096px、デフォルトは2048だったが制限を緩和）
+    const maxDimension = options.maxDimension || 4096;
     let width = Math.round(viewport.width);
     let height = Math.round(viewport.height);
 
@@ -416,9 +417,11 @@ window.renderFirstPDFPage = async function (fileData, password) {
         }
         pageRotation = ((Number(pageRotation) || 0) % 360 + 360) % 360;
 
-        const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
-        const targetWidth = 200;
-        const scale = targetWidth / viewport.width;
+    const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
+    // サムネイル解像度を引き上げる（QR読み取り用に高解像度を生成）
+    // ここは大きめにしておき、renderPageToCanvas側で maxDimension による調整を受ける
+    const targetWidth = 800;
+    const scale = targetWidth / viewport.width;
 
         let thumbnail = "";
         try {
@@ -502,7 +505,13 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         const pdf = await loadPdfDocument(uint8Array);
 
         const page = await pdf.getPage(pageIndex + 1);
-        const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
+        
+        // QRコード検出用に高解像度サムネイルを生成（renderFirstPDFPageと同じ解像度）
+        const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
+        const targetWidth = 800; // QR読み取り用に高解像度
+        const scale = targetWidth / viewport.width;
+        
+        const canvas = await renderPageToCanvas(page, scale, 0);
         const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
 
         return {
@@ -513,6 +522,34 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         };
     } catch (error) {
         return handlePdfError(error, 'generatePdfThumbnailFromFileMetaData');
+    }
+};
+
+/**
+ * 指定ページの高解像度プレビュー画像を生成（QRコード検出＋表示用）
+ * @param {Uint8Array|string} pdfFileData - PDFファイルデータ
+ * @param {number} pageIndex - ページインデックス（0始まり）
+ * @returns {Promise<string>} Blob URL
+ */
+window.generateHighResPagePreview = async function (pdfFileData, pageIndex) {
+    try {
+        const uint8Array = toUint8Array(pdfFileData);
+        const pdf = await loadPdfDocument(uint8Array);
+
+        const page = await pdf.getPage(pageIndex + 1);
+        
+        // 高解像度プレビュー生成（renderFirstPDFPageと同じ）
+        const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
+        const targetWidth = 800; // QR読み取りに十分な解像度
+        const scale = targetWidth / viewport.width;
+        
+        const canvas = await renderPageToCanvas(page, scale, 0);
+        const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
+
+        return blobUrl;
+    } catch (error) {
+        console.error('generateHighResPagePreview error:', error);
+        throw error;
     }
 };
 

@@ -1,0 +1,251 @@
+@page "/qrcode/image"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject MessageService MessageService
+@using Microsoft.AspNetCore.Components.Forms
+@using NoCloudPdf.Services
+@using NoCloudPdf.Components
+@using NoCloudPdf.Models
+
+<PageTitle>NoCloudPDF - 画像からQRコード読み取り</PageTitle>
+
+@if (string.IsNullOrEmpty(imagePreviewUrl))
+{
+    <!-- 初期画面: ファイル選択 -->
+    <SelectImagePanel OnOpenFileDialog="OpenFileDialog"/>
+}
+else
+{
+    <div class="flex flex-col h-screen">
+        <!-- ヘッダー -->
+        <div class="bg-gray-800 text-white shadow z-50 h-16">
+            <div class="h-full px-4 flex items-center justify-between">
+                <div class="flex items-center">
+                    <button @onclick="GoBack" class="mr-4 hover:bg-gray-700 p-2 rounded">
+                        <ArrowLeftIcon Class="w-5 h-5" />
+                    </button>
+                    <h1 class="text-xl font-bold">画像からQRコード読み取り</h1>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @onclick="ClearAndSelectNew"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center">
+                        <ImageIcon Class="w-5 h-5 mr-2" />
+                        別の画像を選択
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="flex-1 overflow-hidden flex">
+            <!-- 左側: 画像プレビュー -->
+            <div class="w-1/2 bg-gray-100 p-6 overflow-auto flex items-center justify-center">
+                <div class="max-w-full max-h-full">
+                    <img src="@imagePreviewUrl" alt="アップロードされた画像" class="max-w-full max-h-full object-contain shadow-lg rounded-lg" />
+                </div>
+            </div>
+
+            <!-- 右側: 読み取り結果 -->
+            <div class="w-1/2 bg-white p-6 overflow-auto">
+                <h2 class="text-lg font-bold mb-4">読み取り結果</h2>
+
+                @if (isScanning)
+                {
+                    <div class="text-center py-12">
+                        <LoadingSpinnerIcon Class="w-12 h-12 mx-auto animate-spin" />
+                        <p class="text-gray-600 mt-4">QRコードを読み取り中...</p>
+                    </div>
+                }
+                else if (scanResult != null)
+                {
+                    @if (scanResult.Success)
+                    {
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                            <div class="flex items-start">
+                                <CheckCircleIcon Class="w-6 h-6 text-green-600 mr-3 flex-shrink-0 mt-0.5" />
+                                <div class="flex-1">
+                                    <h3 class="font-semibold text-green-800 mb-2">QRコード検出成功</h3>
+                                    <div class="bg-white rounded p-3 mb-3 break-all">
+                                        @if (IsUrl(scanResult.Text))
+                                        {
+                                            <a href="@scanResult.Text" target="_blank" rel="noopener noreferrer"
+                                               class="text-blue-600 hover:underline flex items-center">
+                                                @scanResult.Text
+                                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                                </svg>
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <p class="text-gray-800">@scanResult.Text</p>
+                                        }
+                                    </div>
+                                    <button @onclick="() => CopyToClipboard(scanResult.Text)"
+                                            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center text-sm">
+                                        <CopyIcon Class="w-4 h-4 mr-2" />
+                                        クリップボードにコピー
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <div class="flex items-start">
+                                <svg class="w-6 h-6 text-red-600 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div>
+                                    <h3 class="font-semibold text-red-800 mb-2">QRコードが検出できませんでした</h3>
+                                    <p class="text-sm text-red-700">@scanResult.Error</p>
+                                    <button @onclick="ClearAndSelectNew"
+                                            class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm">
+                                        別の画像を試す
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- 隠しQRリーダー要素 -->
+<div id="qr-reader-hidden" style="display: none;"></div>
+
+<!-- ファイル選択用の隠しinput -->
+<InputFile OnChange="HandleFileSelection" accept="image/*" class="hidden" id="imageFileInput" />
+
+<!-- メッセージ表示エリア -->
+<MessageBar />
+
+@code {
+    private string? imagePreviewUrl;
+    private bool isScanning = false;
+    private ScanResult? scanResult;
+
+    private class ScanResult
+    {
+        public bool Success { get; set; }
+        public string Text { get; set; } = "";
+        public string Error { get; set; } = "";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("loadHtml5QrcodeLibrary");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to load QR library: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task OpenFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('imageFileInput').click()");
+    }
+
+    private async Task HandleFileSelection(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            // 画像プレビュー表示
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10MB
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            var base64 = Convert.ToBase64String(bytes);
+            imagePreviewUrl = $"data:{file.ContentType};base64,{base64}";
+
+            // QRコードスキャン開始
+            isScanning = true;
+            scanResult = null;
+            StateHasChanged();
+
+            await Task.Delay(100); // UIの更新を待つ
+
+            try
+            {
+                var result = await JSRuntime.InvokeAsync<string>("decodeQrCodeFromImage", imagePreviewUrl);
+                scanResult = new ScanResult
+                {
+                    Success = true,
+                    Text = result
+                };
+            }
+            catch (Exception ex)
+            {
+                scanResult = new ScanResult
+                {
+                    Success = false,
+                    Error = ex.Message.Contains("QRコード") ? ex.Message : "QRコードが見つかりませんでした。画像が鮮明でQRコードが含まれているか確認してください。"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            await MessageService.ShowAsync($"画像の読み込みに失敗しました: {ex.Message}", MessageType.Error);
+        }
+        finally
+        {
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool IsUrl(string text)
+    {
+        return Uri.TryCreate(text, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            var success = await JSRuntime.InvokeAsync<bool>("copyToClipboard", text);
+            if (success)
+            {
+                await MessageService.ShowAsync("クリップボードにコピーしました");
+            }
+            else
+            {
+                await MessageService.ShowAsync("クリップボードへのコピーに失敗しました", MessageType.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            await MessageService.ShowAsync($"エラー: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    private void GoBack()
+    {
+        // ローカル状態をクリア
+        imagePreviewUrl = null;
+        scanResult = null;
+        isScanning = false;
+        Navigation.NavigateTo("/qrcode");
+    }
+
+    private void ClearAndSelectNew()
+    {
+        imagePreviewUrl = null;
+        scanResult = null;
+        isScanning = false;
+        StateHasChanged();
+    }
+}
