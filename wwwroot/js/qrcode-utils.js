@@ -275,8 +275,8 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
                 };
             },
             aspectRatio: 1.0,  // 1:1 アスペクト比を強制
+            // videoConstraints の facingMode を削除（カメラIDで直接指定するため）
             videoConstraints: {
-                facingMode: "environment",
                 aspectRatio: 1.0
             },
             // QRコードの文字コード自動検出を有効化
@@ -329,6 +329,21 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
         );
 
         console.log(`✅ Scanner successfully started with cameraId: ${cameraId}`);
+        
+        // 実際に起動したカメラの情報を取得して確認
+        try {
+            const state = activeScanner.getState();
+            console.log(`📹 Scanner state: ${state}`);
+            
+            // カメラストリームの詳細情報を取得
+            const capabilities = activeScanner.getRunningTrackCapabilities();
+            if (capabilities) {
+                console.log(`📹 Running track capabilities:`, capabilities);
+            }
+        } catch (e) {
+            console.log('Could not get scanner state:', e);
+        }
+        
         return cameraId;
     } catch (error) {
         console.error('Failed to start QR scanner:', error);
