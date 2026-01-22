@@ -1,4 +1,5 @@
 @page "/qrcode/image"
+@implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject MessageService MessageService
@@ -97,6 +98,7 @@ else
     private bool isScanning = false;
     private ScanResult? scanResult;
     private bool isMenuOpen = false;
+    private DotNetObjectReference<QrCodeImage>? _dotNetRef;
 
     private class ScanResult
     {
@@ -250,6 +252,24 @@ else
                 Console.WriteLine($"Failed to load QR library: {ex.Message}");
             }
         }
+        
+        // 画像未選択の初期画面のときのみ登録
+        if (string.IsNullOrEmpty(imagePreviewUrl))
+        {
+            if (_dotNetRef == null)
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
+            }
+        }
+        else
+        {
+            // 画像が読み込まれたらドロップエリアを解除
+            if (_dotNetRef != null)
+            {
+                await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea");
+            }
+        }
     }
 
     private async Task OpenFileDialog()
@@ -351,5 +371,84 @@ else
         scanResult = null;
         isScanning = false;
         StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
+    {
+        try
+        {
+            // 画像ファイルのみ受け付ける
+            if (!contentType.StartsWith("image/"))
+            {
+                await MessageService.ShowAsync("画像ファイルのみ対応しています", MessageType.Error);
+                return;
+            }
+
+            // ファイルサイズチェック（10MB）
+            var bytes = Convert.FromBase64String(base64Data);
+            if (bytes.Length > 10 * 1024 * 1024)
+            {
+                await MessageService.ShowAsync("ファイルサイズが10MBを超えています", MessageType.Error);
+                return;
+            }
+
+            // 画像プレビュー表示
+            imagePreviewUrl = $"data:{contentType};base64,{base64Data}";
+
+            // QRコードスキャン開始
+            isScanning = true;
+            scanResult = null;
+            StateHasChanged();
+
+            await Task.Delay(100); // UIの更新を待つ
+
+            try
+            {
+                var result = await JSRuntime.InvokeAsync<QrScanJsResult>("scanQrCodeFromImage", imagePreviewUrl);
+                scanResult = new ScanResult
+                {
+                    Success = result.success,
+                    Text = result.text ?? "",
+                    Error = result.error ?? ""
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"QR scan error: {ex.Message}");
+                scanResult = new ScanResult
+                {
+                    Success = false,
+                    Error = "QRコードの読み取りに失敗しました"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"File drop error: {ex.Message}");
+            await MessageService.ShowAsync("ファイルの読み込みに失敗しました", MessageType.Error);
+        }
+        finally
+        {
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private class QrScanJsResult
+    {
+        public bool success { get; set; }
+        public string? text { get; set; }
+        public string? error { get; set; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea");
+        }
+        catch { }
+        _dotNetRef?.Dispose();
     }
 }

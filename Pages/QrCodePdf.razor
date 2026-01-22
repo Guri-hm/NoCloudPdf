@@ -179,6 +179,7 @@ else
     private bool isScanning = false;
     private List<QrScanResult> qrResults = new();
     private bool isMenuOpen = false;
+    private DotNetObjectReference<QrCodePdf>? _dotNetRef;
     
     // 高解像度プレビュー用キャッシュ（キー: "pageIndex_scale"）
     private Dictionary<string, string> highResPreviewCache = new();
@@ -380,13 +381,37 @@ else
                 Console.WriteLine($"Failed to load QR library: {ex.Message}");
             }
         }
+        
+        // 初期画面のときのみ登録
+        if (!IsFilesLoaded)
+        {
+            if (_dotNetRef == null)
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
+            }
+        }
+        else
+        {
+            // ファイルが読み込まれたらドロップエリアを解除
+            if (_dotNetRef != null)
+            {
+                await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea");
+            }
+        }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         PdfDataService.OnChange -= OnServiceChanged;
         PdfDataService.PasswordInputDialogFunc = null;
-        return ValueTask.CompletedTask;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea");
+        }
+        catch { }
+        _dotNetRef?.Dispose();
     }
 
     private async Task ScanCurrentPage()
@@ -618,6 +643,24 @@ else
     private async Task OpenFileDialog()
     {
         await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('pdfFileInput').click()");
+    }
+
+    [JSInvokable]
+    public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
+    {
+        try
+        {
+            await PdfDataService.HandleDroppedFileAsync(fileName, base64Data);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
