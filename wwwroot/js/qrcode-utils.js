@@ -275,10 +275,7 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
                 };
             },
             aspectRatio: 1.0,  // 1:1 アスペクト比を強制
-            // videoConstraints の facingMode を削除（カメラIDで直接指定するため）
-            videoConstraints: {
-                aspectRatio: 1.0
-            },
+            // videoConstraints を完全に削除（カメラIDのみで制御）
             // QRコードの文字コード自動検出を有効化
             formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
             experimentalFeatures: {
