@@ -479,10 +479,6 @@ main[b-zdpdkgcm98] {
     overflow: hidden;
 } */
 
-.sidebar[b-zdpdkgcm98] {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
-}
-
 @media (max-width: 767px) {
     .page[b-zdpdkgcm98] {
         height: 100vh;
@@ -586,11 +582,11 @@ main[b-zdpdkgcm98] {
     transform: translateY(-12px) rotate(-45deg);
 }
 
-@media (max-width: 768px) {
-    .navmenu-sidebar-bg[b-3hnp40kz9m] {
+/* @media (max-width: 768px) {
+    .navmenu-sidebar-bg {
         background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
     }
-}
+} */
 /* /Pages/EditPage.razor.rz.scp.css */
 .edit-page-layout[b-us3e0upuex] {
     display: flex;
