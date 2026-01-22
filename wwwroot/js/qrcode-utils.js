@@ -26,7 +26,6 @@ window.loadHtml5QrcodeLibrary = async function() {
         script.onload = () => {
             html5QrcodeLibLoaded = true;
             html5QrcodeLibLoading = false;
-            console.log('✅ html5-qrcode library loaded');
             resolve(true);
         };
         script.onerror = () => {
@@ -245,8 +244,6 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
             throw new Error(`Element not found: ${elementId}`);
         }
 
-        console.log(`startQrScanner called with cameraId: ${cameraId}`);
-
         // カメラIDが指定されていない場合は優先カメラを取得
         if (!cameraId) {
             const preferredCamera = await window.getPreferredCamera();
@@ -254,13 +251,10 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
                 throw new Error('No camera available');
             }
             cameraId = preferredCamera.id;
-            console.log(`No cameraId provided, using preferred: ${cameraId}`);
         }
 
         activeScanner = new Html5Qrcode(elementId);
         currentCameraId = cameraId;
-        
-        console.log(`About to start scanner with cameraId: ${cameraId}`);
 
         const config = {
             fps: 10,
@@ -308,11 +302,10 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
                                 text = sjisDecoder.decode(new Uint8Array(decodedResult.result.rawBytes));
                             } catch (e) {
                                 // Shift_JIS失敗時は元のテキストを使用
-                                console.log('Shift_JIS decode failed, using default:', e);
                             }
                         }
                     } catch (e) {
-                        console.log('Text decoding failed, using default:', e);
+                        // デコード失敗時は元のテキストを使用
                     }
                 }
                 
@@ -324,22 +317,6 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
                 // エラーは無視（連続スキャン中は頻繁に発生）
             }
         );
-
-        console.log(`✅ Scanner successfully started with cameraId: ${cameraId}`);
-        
-        // 実際に起動したカメラの情報を取得して確認
-        try {
-            const state = activeScanner.getState();
-            console.log(`📹 Scanner state: ${state}`);
-            
-            // カメラストリームの詳細情報を取得
-            const capabilities = activeScanner.getRunningTrackCapabilities();
-            if (capabilities) {
-                console.log(`📹 Running track capabilities:`, capabilities);
-            }
-        } catch (e) {
-            console.log('Could not get scanner state:', e);
-        }
         
         return cameraId;
     } catch (error) {
@@ -393,11 +370,9 @@ window.getQrScannerZoomCapabilities = async function() {
     }
 
     try {
-        // Html5Qrcode の getRunningTrackCapabilities() メソッドを使用
         const capabilities = activeScanner.getRunningTrackCapabilities();
         
         if (!capabilities || !capabilities.zoomFeature) {
-            console.log('Zoom feature not available in capabilities');
             return { supported: false, min: 1.0, max: 1.0, current: 1.0 };
         }
 
@@ -410,7 +385,6 @@ window.getQrScannerZoomCapabilities = async function() {
             current: zoomFeature.value()
         };
     } catch (error) {
-        console.log('Zoom not supported:', error);
         return { supported: false, min: 1.0, max: 1.0, current: 1.0 };
     }
 };
@@ -476,7 +450,7 @@ window.initQrScannerPinchZoom = function(elementId, dotNetRef = null) {
                     pinchStartZoom = stream.zoomFeature().value();
                 }
             } catch (error) {
-                console.log('Could not get current zoom:', error);
+                // ズーム取得失敗時は無視
             }
         }
     };

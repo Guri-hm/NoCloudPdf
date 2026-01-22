@@ -55,30 +55,18 @@
             <!-- スキャナー表示領域 -->
             @if (isScanning)
             {
-                <div class="relative w-full h-full">
-                    <div id="qr-scanner-view" class="w-full h-full flex items-center justify-center"></div>
-                    <!-- 現在のカメラ表示 -->
-                    <div class="absolute top-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm z-10">
-                        <div class="font-bold">起動中のカメラ:</div>
-                        <div class="mt-1">@GetCurrentCameraLabel()</div>
-                    </div>
-                </div>
+                <div id="qr-scanner-view" class="w-full h-full flex items-center justify-center"></div>
             }
             else
             {
                 <div class="text-center text-gray-400">
-                    <svg class="w-32 h-32 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                    <p class="text-xl mb-4">カメラスキャナー</p>
-                    
+                    <CameraIcon Class="w-32 h-32 mx-auto mb-6 text-gray-400" />
                     @if (errorMessage != null)
                     {
-                        <p class="text-sm mb-6">カメラの起動に失敗しました</p>
-                        <div class="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-200">
-                            <p class="font-semibold mb-2">エラーが発生しました</p>
-                            <p class="text-sm">@errorMessage</p>
+                        <div class="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-200 max-w-md">
+                            <p class="font-semibold mb-2">カメラの起動に失敗しました</p>
+                            <p class="text-sm">カメラへのアクセス権限を確認してください。</p>
+                            <p class="text-sm mt-2">ブラウザの設定でカメラの使用を許可する必要があります。</p>
                         </div>
                     }
                     else if (cameras.Any())
@@ -143,8 +131,13 @@
     <!-- 下部スライドアップメニュー（モバイル） -->
     <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
         <div class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
-            <div class="max-h-[70vh] overflow-y-auto">
-                <div class="flex items-center justify-between mb-4">
+            <!-- 閉じるボタン -->
+            <button class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 w-8 h-8 flex items-center justify-center" @onclick="() => isMenuOpen = false">
+                <CloseIcon />
+            </button>
+            
+            <div class="max-h-[70vh] overflow-y-auto pt-2">
+                <div class="flex items-center justify-between mb-4 pr-8">
                     <h2 class="text-lg font-bold">スキャン履歴</h2>
                     @if (scanHistory.Any())
                     {
@@ -156,9 +149,6 @@
                 </div>
                 @RenderHistoryContent()
             </div>
-            <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
-                <CloseIcon />
-            </button>
         </div>
 
         @if (!isMenuOpen && scanHistory.Any())
@@ -196,12 +186,10 @@
         {
             if (_currentCameraId != value)
             {
-                Console.WriteLine($"Camera ID changing: {_currentCameraId} → {value}");
                 _currentCameraId = value;
                 // カメラ変更時の処理（スキャナー起動中の場合のみ）
                 if (isScanning && !string.IsNullOrEmpty(value))
                 {
-                    Console.WriteLine($"Camera switch triggered, restarting scanner with: {value}");
                     _ = Task.Run(async () =>
                     {
                         await StopScanner();
@@ -415,18 +403,9 @@
                     // SelectBox 用のオプションを生成（currentCameraId設定前に行う）
                     cameraOptions = cameras.Select(c => new SelectOption { Value = c.Id, Text = c.Label }).ToList();
                     
-                    // デバッグ: カメラ一覧を出力
-                    Console.WriteLine($"Available cameras: {cameras.Count}");
-                    foreach (var cam in cameras)
-                    {
-                        Console.WriteLine($"  - ID: {cam.Id}, Label: {cam.Label}");
-                    }
-                    
                     // 優先カメラを取得してcurrentCameraIdに設定
                     var preferredCamera = await JSRuntime.InvokeAsync<CameraDevice?>("getPreferredCamera");
                     _currentCameraId = preferredCamera?.Id ?? cameras[0].Id;
-                    
-                    Console.WriteLine($"Preferred camera selected: {_currentCameraId} ({preferredCamera?.Label ?? cameras[0].Label})");
                     
                     // StateHasChanged を呼んで UI に反映（SelectBox に反映）
                     StateHasChanged();
@@ -442,7 +421,7 @@
                     catch (Exception exAuto)
                     {
                         // 自動起動に失敗した場合のエラー処理
-                        errorMessage = $"カメラの起動に失敗: {exAuto.Message}";
+                        errorMessage = "カメラの起動に失敗しました";
                         Console.WriteLine($"Auto start scanner failed: {exAuto.Message}");
                         Console.WriteLine($"Stack trace: {exAuto.StackTrace}");
                         StateHasChanged();
@@ -457,7 +436,7 @@
             catch (Exception ex)
             {
                 // カメラ初期化全体のエラー
-                errorMessage = $"カメラの初期化に失敗: {ex.Message}";
+                errorMessage = "カメラの初期化に失敗しました";
                 Console.WriteLine($"Camera initialization error details: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 StateHasChanged();
@@ -478,16 +457,13 @@
                 errorMessage = "カメラが選択されていません";
                 return;
             }
-
-            Console.WriteLine($"Starting scanner with camera ID: {_currentCameraId}");
             
             isScanning = true;
             StateHasChanged();
             
             await Task.Delay(50);
 
-            var startedCameraId = await JSRuntime.InvokeAsync<string>("startQrScanner", "qr-scanner-view", _currentCameraId, _dotNetRef);
-            Console.WriteLine($"Scanner started, actual camera used: {startedCameraId}");
+            await JSRuntime.InvokeAsync<string>("startQrScanner", "qr-scanner-view", _currentCameraId, _dotNetRef);
             
             // カメラストリームが完全に初期化されるまで少し待機
             await Task.Delay(500);
@@ -506,7 +482,6 @@
             try
             {
                 var capabilities = await JSRuntime.InvokeAsync<ZoomCapabilities?>("getQrScannerZoomCapabilities");
-                Console.WriteLine($"Zoom capabilities: Supported={capabilities?.Supported}, Min={capabilities?.Min}, Max={capabilities?.Max}");
                 
                 if (capabilities != null && capabilities.Supported)
                 {
@@ -514,12 +489,10 @@
                     minZoom = capabilities.Min;
                     maxZoom = capabilities.Max;
                     currentZoom = capabilities.Current;
-                    Console.WriteLine($"Zoom enabled: {minZoom} - {maxZoom}, current: {currentZoom}");
                 }
                 else
                 {
                     zoomSupported = false;
-                    Console.WriteLine("Zoom not supported by this camera");
                 }
             }
             catch (Exception exZoom)
@@ -655,15 +628,6 @@
     private void GoBack()
     {
         Navigation.NavigateTo("/qrcode");
-    }
-
-    private string GetCurrentCameraLabel()
-    {
-        if (string.IsNullOrEmpty(_currentCameraId))
-            return "不明";
-        
-        var camera = cameras.FirstOrDefault(c => c.Id == _currentCameraId);
-        return camera?.Label ?? "不明";
     }
 
     public async ValueTask DisposeAsync()

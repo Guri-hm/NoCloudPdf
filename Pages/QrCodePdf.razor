@@ -468,11 +468,12 @@ else
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"QR scan error for page {pageNumber}: {ex.Message}");
             qrResults.Add(new QrScanResult
             {
                 PageNumber = pageNumber,
                 Success = false,
-                Error = $"スキャンエラー: {ex.Message}"
+                Error = "QRコードの読み取りに失敗しました"
             });
         }
     }

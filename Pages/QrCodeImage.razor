@@ -290,16 +290,18 @@ else
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"QR decode error: {ex.Message}");
                 scanResult = new ScanResult
                 {
                     Success = false,
-                    Error = ex.Message.Contains("QRコード") ? ex.Message : "QRコードが見つかりませんでした。画像が鮮明でQRコードが含まれているか確認してください。"
+                    Error = "QRコードが見つかりませんでした"
                 };
             }
         }
         catch (Exception ex)
         {
-            await MessageService.ShowAsync($"画像の読み込みに失敗しました: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"Image load error: {ex.Message}");
+            await MessageService.ShowAsync("画像の読み込みに失敗しました", MessageType.Error);
         }
         finally
         {
