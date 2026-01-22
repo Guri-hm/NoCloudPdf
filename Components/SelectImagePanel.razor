@@ -1,0 +1,54 @@
+@using NoCloudPdf.Models
+@using NoCloudPdf.Components
+
+<div class="min-h-[calc(100vh-56px)] md:min-h-screen flex items-center justify-center bg-neutral-100 relative">
+    <div id="select-drop-area"
+        class="absolute inset-0 flex flex-col items-center justify-center z-0 cursor-pointer transition"
+        @onclick="OpenFileDialog">
+        <div
+            class="w-[97%] min-h-[calc(100vh-60px)] md:h-[97vh] border-2 border-dashed border-blue-300 hover:border-solid rounded-xl flex flex-col items-center justify-center bg-white/60 hover:bg-blue-100/60 transition-colors duration-200">
+            <ImageIcon Class="w-24 h-24 text-blue-500"></ImageIcon>
+            <span class="text-blue-500 text-xl font-bold select-none mb-8 px-4">ここに画像をドロップ または ペースト</span>
+            <div class="text-center">
+                <div class="mb-1">
+                    <ActionButtonGroup T="string" Actions="selectFileActions" />
+                </div>
+                <div class="mb-6 text-neutral-500 text-sm mt-8 px-4">
+                    サポートされている画像形式：<br />
+                    <span class="inline-block mt-1 font-mono bg-gray-100 px-2 py-1 rounded">
+                        .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg
+                    </span>
+                </div>
+                <div class="text-neutral-600">
+                    <p class="text-sm mt-2">
+                        1ファイルあたり最大 <span class="font-bold">10MB</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnOpenFileDialog { get; set; }
+
+    private List<ActionButtonItem> selectFileActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "画像を選択",
+            Title = "画像を選択",
+            OnClick = EventCallback.Factory.Create(this, OpenFileDialog),
+            ButtonClass = "bg-blue-600 hover:bg-blue-700 font-bold py-3 px-6 rounded-lg text-lg shadow",
+            StopPropagation = true,
+            TextColor = "text-white",
+            HideLabelOnNarrow = false
+        }
+    };
+
+    private async Task OpenFileDialog()
+    {
+        if (OnOpenFileDialog.HasDelegate)
+            await OnOpenFileDialog.InvokeAsync();
+    }
+}

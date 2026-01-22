@@ -24,9 +24,7 @@
                 class="flex items-center justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 <div class="flex flex-wrap gap-2 items-center">
                     <ActionButtonGroup T="string" Actions="resetActions" />
-
-                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
-                    <h1 class="hidden md:inline text-lg font-bold">レイアウト
+                    <h1 class="hidden md:inline text-lg font-bold ml-2">レイアウト
                         <Tooltip Text="@layoutTooltip">
                             <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                         </Tooltip>
@@ -1334,7 +1332,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
         {
             IconFragment = builder =>
             {
-                builder.OpenComponent(0, typeof(ResetIcon));
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
                 builder.AddAttribute(1, "Class", "w-5 h-5");
                 builder.CloseComponent();
             },

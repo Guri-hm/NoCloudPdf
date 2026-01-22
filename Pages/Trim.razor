@@ -25,8 +25,7 @@
                 class="flex items-start justify-between px-4 py-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
                 <div class="flex flex-wrap gap-2 items-center">
                     <ActionButtonGroup T="string" Actions="resetActions" />
-                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2" aria-hidden="true"></div>
-                    <h1 class="hidden md:inline text-lg font-bold">トリミング
+                    <h1 class="hidden md:inline text-lg font-bold ml-2">トリミング
                         <Tooltip Text="通常のトリミング（無効時）は単に非表示にするだけで、ファイルサイズは変わりません。非表示部分を削除したい場合はラスタ化を有効にしてください。">
                             <InfoIcon Class="w-5 h-5 inline-block ml-1 text-blue-400 cursor-pointer" />
                         </Tooltip>
@@ -518,7 +517,7 @@
         {
             IconFragment = builder =>
             {
-                builder.OpenComponent(0, typeof(ResetIcon));
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
                 builder.AddAttribute(1, "Class", "w-5 h-5"); 
                 builder.CloseComponent();
             },
