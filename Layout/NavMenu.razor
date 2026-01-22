@@ -27,7 +27,7 @@
      @onclick="CloseNavMenu"></div>
 
     <!-- 機能アイコンエリア -->
-   <div class="fixed top-[56px] left-0 w-full md:static md:w-auto md:flex-1 md:overflow-y-auto z-70 sidebar transition-opacity duration-[500ms] navmenu-sidebar-bg ease-in-out md:opacity-100 md:pointer-events-auto md:block @(collapseNavMenu ? "opacity-0 pointer-events-none" : "opacity-100") max-w-[100vw]">
+   <div class="fixed top-[56px] left-0 w-full md:static md:w-auto md:flex-1 md:overflow-y-auto z-70 sidebar transition-opacity duration-[500ms] bg-gradient-royal ease-in-out md:opacity-100 md:pointer-events-auto md:block @(collapseNavMenu ? "opacity-0 pointer-events-none" : "opacity-100") max-w-[100vw]">
         <nav id="nav-main"
             class="w-full mt-4 flex flex-row flex-wrap justify-start gap-4 px-4 pb-4 md:flex-col md:flex-wrap md:gap-y-2 md:gap-x-0 md:px-2 md:max-h-[calc(100vh-120px)]">
             <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("merge")"

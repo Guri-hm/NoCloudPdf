@@ -245,6 +245,8 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
             throw new Error(`Element not found: ${elementId}`);
         }
 
+        console.log(`startQrScanner called with cameraId: ${cameraId}`);
+
         // カメラIDが指定されていない場合は優先カメラを取得
         if (!cameraId) {
             const preferredCamera = await window.getPreferredCamera();
@@ -252,15 +254,36 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
                 throw new Error('No camera available');
             }
             cameraId = preferredCamera.id;
+            console.log(`No cameraId provided, using preferred: ${cameraId}`);
         }
 
         activeScanner = new Html5Qrcode(elementId);
         currentCameraId = cameraId;
+        
+        console.log(`About to start scanner with cameraId: ${cameraId}`);
 
         const config = {
             fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0
+            // 正方形のスキャンエリアを表示: ビューポートの70%を使用
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+                const qrboxSize = Math.floor(minEdge * 0.7);
+                // 正方形を保証するため width と height を同じ値に設定
+                return {
+                    width: qrboxSize,
+                    height: qrboxSize
+                };
+            },
+            aspectRatio: 1.0,  // 1:1 アスペクト比を強制
+            videoConstraints: {
+                facingMode: "environment",
+                aspectRatio: 1.0
+            },
+            // QRコードの文字コード自動検出を有効化
+            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            }
         };
 
         await activeScanner.start(
@@ -268,8 +291,36 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
             config,
             (decodedText, decodedResult) => {
                 // スキャン成功時の処理
+                // 文字コードの自動検出を試みる（Shift_JISやUTF-8など）
+                let text = decodedText;
+                
+                // デコード結果にバイト配列がある場合、複数の文字コードで試行
+                if (decodedResult && decodedResult.result && decodedResult.result.rawBytes) {
+                    try {
+                        // まずUTF-8として解釈
+                        const decoder = new TextDecoder('utf-8');
+                        const utf8Text = decoder.decode(new Uint8Array(decodedResult.result.rawBytes));
+                        
+                        // 文字化けチェック（�が含まれていたらShift_JISを試行）
+                        if (!utf8Text.includes('�')) {
+                            text = utf8Text;
+                        } else {
+                            // Shift_JISで再試行
+                            try {
+                                const sjisDecoder = new TextDecoder('shift_jis');
+                                text = sjisDecoder.decode(new Uint8Array(decodedResult.result.rawBytes));
+                            } catch (e) {
+                                // Shift_JIS失敗時は元のテキストを使用
+                                console.log('Shift_JIS decode failed, using default:', e);
+                            }
+                        }
+                    } catch (e) {
+                        console.log('Text decoding failed, using default:', e);
+                    }
+                }
+                
                 if (dotNetRef) {
-                    dotNetRef.invokeMethodAsync('OnQrCodeScanned', decodedText);
+                    dotNetRef.invokeMethodAsync('OnQrCodeScanned', text);
                 }
             },
             (errorMessage) => {
@@ -277,6 +328,7 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
             }
         );
 
+        console.log(`✅ Scanner successfully started with cameraId: ${cameraId}`);
         return cameraId;
     } catch (error) {
         console.error('Failed to start QR scanner:', error);
@@ -319,6 +371,148 @@ window.switchQrScannerCamera = async function(elementId, cameraId, dotNetRef = n
 window.getCurrentCameraId = function() {
     return currentCameraId;
 };
+
+/**
+ * ズーム機能のサポート状態を取得
+ */
+window.getQrScannerZoomCapabilities = async function() {
+    if (!activeScanner) {
+        return { supported: false, min: 1.0, max: 1.0, current: 1.0 };
+    }
+
+    try {
+        // Html5Qrcode の getRunningTrackCapabilities() メソッドを使用
+        const capabilities = activeScanner.getRunningTrackCapabilities();
+        
+        if (!capabilities || !capabilities.zoomFeature) {
+            console.log('Zoom feature not available in capabilities');
+            return { supported: false, min: 1.0, max: 1.0, current: 1.0 };
+        }
+
+        const zoomFeature = capabilities.zoomFeature();
+        
+        return {
+            supported: true,
+            min: zoomFeature.min(),
+            max: zoomFeature.max(),
+            current: zoomFeature.value()
+        };
+    } catch (error) {
+        console.log('Zoom not supported:', error);
+        return { supported: false, min: 1.0, max: 1.0, current: 1.0 };
+    }
+};
+
+/**
+ * ズームを適用
+ */
+window.applyQrScannerZoom = async function(zoomLevel) {
+    if (!activeScanner) {
+        throw new Error('Scanner not active');
+    }
+
+    try {
+        const capabilities = activeScanner.getRunningTrackCapabilities();
+        if (capabilities && capabilities.zoomFeature) {
+            const zoomFeature = capabilities.zoomFeature();
+            await zoomFeature.apply(zoomLevel);
+        } else {
+            console.warn('Zoom feature not available');
+        }
+    } catch (error) {
+        console.error('Failed to apply zoom:', error);
+        throw error;
+    }
+};
+
+// ========================================
+// ピンチイン/アウト機能
+// ========================================
+
+let pinchStartDistance = 0;
+let pinchStartZoom = 1.0;
+let pinchHandlersAttached = false;
+let pinchTouchStartHandler = null;
+let pinchTouchMoveHandler = null;
+let pinchTouchEndHandler = null;
+
+/**
+ * ピンチジェスチャーのサポートを初期化
+ */
+window.initQrScannerPinchZoom = function(elementId, dotNetRef = null) {
+    const element = document.getElementById(elementId);
+    if (!element) {
+        console.error('Element not found for pinch zoom:', elementId);
+        return;
+    }
+
+    // 既存のイベントリスナーを削除
+    if (pinchHandlersAttached) {
+        if (pinchTouchStartHandler) element.removeEventListener('touchstart', pinchTouchStartHandler);
+        if (pinchTouchMoveHandler) element.removeEventListener('touchmove', pinchTouchMoveHandler);
+        if (pinchTouchEndHandler) element.removeEventListener('touchend', pinchTouchEndHandler);
+    }
+
+    // タッチイベントハンドラー
+    pinchTouchStartHandler = (e) => {
+        if (e.touches.length === 2 && activeScanner) {
+            pinchStartDistance = getTouchDistance(e.touches[0], e.touches[1]);
+            
+            try {
+                const stream = activeScanner.getRunningTrackCameraCapabilities();
+                if (stream && stream.zoomFeature) {
+                    pinchStartZoom = stream.zoomFeature().value();
+                }
+            } catch (error) {
+                console.log('Could not get current zoom:', error);
+            }
+        }
+    };
+
+    pinchTouchMoveHandler = async (e) => {
+        if (e.touches.length === 2 && activeScanner && pinchStartDistance > 0) {
+            e.preventDefault();
+            
+            const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
+            const scale = currentDistance / pinchStartDistance;
+            
+            try {
+                const stream = activeScanner.getRunningTrackCameraCapabilities();
+                if (stream && stream.zoomFeature) {
+                    const minZoom = stream.zoomFeature().min();
+                    const maxZoom = stream.zoomFeature().max();
+                    let newZoom = pinchStartZoom * scale;
+                    newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+                    
+                    await stream.zoomFeature().apply(newZoom);
+                }
+            } catch (error) {
+                // ズームエラーは無視
+            }
+        }
+    };
+
+    pinchTouchEndHandler = (e) => {
+        if (e.touches.length < 2) {
+            pinchStartDistance = 0;
+        }
+    };
+
+    element.addEventListener('touchstart', pinchTouchStartHandler);
+    element.addEventListener('touchmove', pinchTouchMoveHandler);
+    element.addEventListener('touchend', pinchTouchEndHandler);
+    
+    pinchHandlersAttached = true;
+};
+
+/**
+ * 2点間の距離を計算
+ */
+function getTouchDistance(touch1, touch2) {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
 
 // ========================================
 // ユーティリティ関数

@@ -9,7 +9,6 @@ body {
         sans-serif;
 }
 
-
 h1:focus {
     outline: none;
 }
@@ -46,6 +45,10 @@ input[type="submit"]:not([disabled]) {
 
 .validation-message {
     color: red;
+}
+
+.bg-gradient-royal {
+    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
 }
 
 #blazor-error-ui {
@@ -374,4 +377,22 @@ input[type=number] {
     -webkit-user-select: none;
     -ms-user-select: none;
 }
+
+/* QRスキャナービデオ表示の強制サイズ調整 */
+#qr-scanner-view {
+    position: relative;
+}
+
+#qr-scanner-view video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    max-height: none !important;
+}
+
+#qr-scanner-view #qr-shaded-region {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 @import "tailwindcss";

@@ -12,7 +12,7 @@
 @using NoCloudPdf.Services
 @using NoCloudPdf.Components
 
-<PageTitle>NoCloudPDF - PDFからQRコード読み取り</PageTitle>
+<PageTitle>NoCloudPDF-ファイル内のQRコード読み取り</PageTitle>
 
 @if (IsFilesLoaded)
 {
@@ -23,11 +23,8 @@
         <div class="sticky top-0 left-0 w-full max-w-full bg-gray-800 text-white shadow z-50">
             <div class="flex items-start justify-between px-4 py-2">
                 <div class="flex flex-wrap gap-2 items-center">
-                    <button @onclick="GoBack" class="hover:bg-gray-700 p-2 rounded">
-                        <ArrowLeftIcon Class="w-5 h-5" />
-                    </button>
-                    <div class="hidden md:block h-6 w-px bg-gray-300 mx-2"></div>
-                    <h1 class="hidden md:inline text-lg font-bold">PDFからQRコード読み取り</h1>
+                    <ActionButtonGroup T="string" Actions="resetActions" />
+                    <h1 class="hidden md:inline text-lg font-bold ml-2">ファイル内のQRコード読み取り</h1>
                     <div class="ml-4 flex items-center gap-2">
                         <input type="number"
                             min="1"
@@ -47,18 +44,14 @@
                         }
                         else
                         {
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
+                            <QrCodeIcon Class="w-5 h-5 mr-2" />
                             <span>このページをスキャン</span>
                         }
                     </button>
                     <button @onclick="() => ScanAllPages()" 
                             class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center"
                             disabled="@isScanning">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
+                        <QrCodeIcon Class="w-5 h-5 mr-2" />
                         <span>全ページをスキャン</span>
                     </button>
                 </div>
@@ -69,9 +62,9 @@
         </div>
 
         <!-- メインコンテンツ -->
-        <div class="flex-1 overflow-hidden flex">
-            <!-- 左側: PDFプレビュー -->
-            <div class="w-1/2 bg-gray-100 overflow-auto">
+        <div class="flex-1 overflow-hidden flex flex-col md:flex-row">
+            <!-- PDFプレビュー -->
+            <div class="flex-1 bg-gray-100 overflow-auto">
                 <div class="p-4">
                     @if (DisplayItems.Any() && displayedPageNumber > 0 && displayedPageNumber <= DisplayItems.Count)
                     {
@@ -79,9 +72,16 @@
                         if (item.RawData is PageItem pageItem)
                         {
                             <div class="bg-white shadow-lg rounded-lg p-4">
-                                <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center justify-between mb-4">
                                     <h3 class="font-semibold">ページ @displayedPageNumber</h3>
-                                    <div class="flex gap-2">
+                                    <div class="flex gap-2 items-center">
+                                        <SelectBox 
+                                            Options="@previewScaleOptions"
+                                            @bind-Value="@selectedPreviewScale"
+                                            IsHorizontal="true"
+                                            Label="解像度"
+                                            SelectClass="h-8 px-2 py-1 pr-8 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                                            LabelClass="text-sm font-medium text-gray-700" />
                                         <button @onclick="PrevPage" disabled="@(displayedPageNumber <= 1)"
                                                 class="px-3 py-1 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 rounded">
                                             ◀
@@ -103,8 +103,9 @@
                                 }
                                 else
                                 {
-                                    <div class="w-full h-64 bg-gray-200 flex items-center justify-center">
-                                        <p class="text-gray-500">読み込み中...</p>
+                                    <div class="text-center py-12">
+                                        <LoadingSpinnerIcon Class="w-12 h-12 mx-auto" />
+                                        <p class="text-gray-600">プレビューを読み込み中...</p>
                                     </div>
                                 }
                             </div>
@@ -113,81 +114,42 @@
                 </div>
             </div>
 
-            <!-- 右側: 読み取り結果 -->
-            <div class="w-1/2 bg-white overflow-auto p-6">
+            <!-- 右側: 読み取り結果（PC表示） -->
+            <div class="hidden md:flex md:flex-col md:w-1/2 bg-white overflow-auto p-6">
                 <h2 class="text-lg font-bold mb-4">読み取り結果</h2>
-
-                @if (qrResults.Any())
-                {
-                    <div class="space-y-3">
-                        @foreach (var result in qrResults.OrderBy(r => r.PageNumber))
-                        {
-                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <div class="flex items-start justify-between mb-2">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-gray-700 font-bold">
-                                            P.@result.PageNumber
-                                        </span>
-                                        @if (result.Success)
-                                        {
-                                            <CheckCircleIcon Class="w-5 h-5 text-green-600" />
-                                        }
-                                        else
-                                        {
-                                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                            </svg>
-                                        }
-                                    </div>
-                                    <button @onclick="() => qrResults.Remove(result)"
-                                            class="text-gray-400 hover:text-red-600">
-                                        <DeleteIcon Class="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                @if (result.Success)
-                                {
-                                    <div class="bg-white rounded p-3 mb-2 break-all">
-                                        @if (IsUrl(result.Text))
-                                        {
-                                            <a href="@result.Text" target="_blank" rel="noopener noreferrer"
-                                               class="text-blue-600 hover:underline flex items-center">
-                                                @result.Text
-                                                <svg class="w-4 h-4 ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                                </svg>
-                                            </a>
-                                        }
-                                        else
-                                        {
-                                            <p class="text-gray-800">@result.Text</p>
-                                        }
-                                    </div>
-                                    <button @onclick="() => CopyToClipboard(result.Text)"
-                                            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center">
-                                        <CopyIcon Class="w-4 h-4 mr-1" />
-                                        コピー
-                                    </button>
-                                }
-                                else
-                                {
-                                    <p class="text-sm text-red-700">@result.Error</p>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <div class="text-center py-12 text-gray-400">
-                        <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                        </svg>
-                        <p>「このページをスキャン」または「全ページをスキャン」を押してください</p>
-                    </div>
-                }
+                @RenderResultsContent()
             </div>
         </div>
+
+        <!-- 下部スライドアップメニュー（モバイル） -->
+        <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
+            <div class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
+                <div class="max-h-[70vh] overflow-y-auto">
+                    <h2 class="text-lg font-bold mb-4">読み取り結果</h2>
+                    @RenderResultsContent()
+                </div>
+                <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
+                    <CloseIcon />
+                </button>
+            </div>
+
+            @if (!isMenuOpen && qrResults.Any())
+            {
+                <button
+                    class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
+                    @onclick="() => isMenuOpen = true">
+                    <CheckCircleIcon Class="text-green-600 text-2xl"/>
+                    <span class="text-green-600">結果表示</span>
+                    <ChevronUpIcon/>
+                </button>
+            }
+        </div>
+
+        <!-- メニュー展開時の背景オーバーレイ -->
+        @if (isMenuOpen)
+        {
+            <div class="fixed inset-0 bg-black/30 z-[199] touch-none md:hidden" @onclick="() => isMenuOpen = false"></div>
+        }
     </div>
 }
 else
@@ -216,13 +178,25 @@ else
     private int displayedPageNumber = 1;
     private bool isScanning = false;
     private List<QrScanResult> qrResults = new();
+    private bool isMenuOpen = false;
     
-    // 高解像度プレビュー用キャッシュ
-    private Dictionary<int, string> highResPreviewCache = new();
+    // 高解像度プレビュー用キャッシュ（キー: "pageIndex_scale"）
+    private Dictionary<string, string> highResPreviewCache = new();
+    // プレビュー生成中のページを追跡（無限ループ防止）
+    private HashSet<string> previewGenerating = new();
 
     private bool isPasswordDialogOpen = false;
     private string passwordDialogFileName = "";
     private TaskCompletionSource<string?>? passwordTcs;
+    
+    // プレビュー解像度選択
+    private string selectedPreviewScale = "2.0";
+    private List<SelectOption> previewScaleOptions = new()
+    {
+        new SelectOption { Value = "2.0", Text = "標準（2.0x）" },
+        new SelectOption { Value = "2.5", Text = "やや高解像度（2.5x）" },
+        new SelectOption { Value = "3.0", Text = "高解像度（3.0x）" }
+    };
 
     private class QrScanResult
     {
@@ -232,10 +206,165 @@ else
         public string Error { get; set; } = "";
     }
 
+    private RenderFragment RenderResultsContent() => builder =>
+    {
+        if (qrResults.Any())
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "space-y-3");
+
+            int sequence = 10;
+            foreach (var result in qrResults.OrderBy(r => r.PageNumber))
+            {
+                var capturedResult = result;
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "bg-gray-50 border border-gray-200 rounded-lg p-4");
+                
+                // Header
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "flex items-start justify-between mb-2");
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "flex items-center gap-2");
+                builder.OpenElement(sequence++, "span");
+                builder.AddAttribute(sequence++, "class", "text-gray-700 font-bold");
+                builder.AddContent(sequence++, $"P.{capturedResult.PageNumber}");
+                builder.CloseElement();
+                
+                if (capturedResult.Success)
+                {
+                    builder.OpenComponent<CheckCircleIcon>(sequence++);
+                    builder.AddAttribute(sequence++, "Class", "w-5 h-5 text-green-600");
+                    builder.CloseComponent();
+                }
+                else
+                {
+                    builder.OpenElement(sequence++, "svg");
+                    builder.AddAttribute(sequence++, "class", "w-5 h-5 text-red-600");
+                    builder.AddAttribute(sequence++, "fill", "none");
+                    builder.AddAttribute(sequence++, "stroke", "currentColor");
+                    builder.AddAttribute(sequence++, "viewBox", "0 0 24 24");
+                    builder.OpenElement(sequence++, "path");
+                    builder.AddAttribute(sequence++, "stroke-linecap", "round");
+                    builder.AddAttribute(sequence++, "stroke-linejoin", "round");
+                    builder.AddAttribute(sequence++, "stroke-width", "2");
+                    builder.AddAttribute(sequence++, "d", "M6 18L18 6M6 6l12 12");
+                    builder.CloseElement();
+                    builder.CloseElement();
+                }
+                builder.CloseElement();
+                
+                builder.OpenElement(sequence++, "button");
+                builder.AddAttribute(sequence++, "class", "text-gray-400 hover:text-red-600");
+                builder.AddAttribute(sequence++, "onclick", EventCallback.Factory.Create(this, () => qrResults.Remove(capturedResult)));
+                builder.OpenComponent<DeleteIcon>(sequence++);
+                builder.AddAttribute(sequence++, "Class", "w-5 h-5");
+                builder.CloseComponent();
+                builder.CloseElement();
+                builder.CloseElement();
+                
+                // Content
+                if (capturedResult.Success)
+                {
+                    builder.OpenElement(sequence++, "div");
+                    builder.AddAttribute(sequence++, "class", "bg-white rounded p-3 mb-2 break-all");
+                    if (IsUrl(capturedResult.Text))
+                    {
+                        builder.OpenElement(sequence++, "a");
+                        builder.AddAttribute(sequence++, "href", capturedResult.Text);
+                        builder.AddAttribute(sequence++, "target", "_blank");
+                        builder.AddAttribute(sequence++, "rel", "noopener noreferrer");
+                        builder.AddAttribute(sequence++, "class", "text-blue-600 hover:underline flex items-center");
+                        builder.AddContent(sequence++, capturedResult.Text);
+                        builder.OpenElement(sequence++, "svg");
+                        builder.AddAttribute(sequence++, "class", "w-4 h-4 ml-1 flex-shrink-0");
+                        builder.AddAttribute(sequence++, "fill", "none");
+                        builder.AddAttribute(sequence++, "stroke", "currentColor");
+                        builder.AddAttribute(sequence++, "viewBox", "0 0 24 24");
+                        builder.OpenElement(sequence++, "path");
+                        builder.AddAttribute(sequence++, "stroke-linecap", "round");
+                        builder.AddAttribute(sequence++, "stroke-linejoin", "round");
+                        builder.AddAttribute(sequence++, "stroke-width", "2");
+                        builder.AddAttribute(sequence++, "d", "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14");
+                        builder.CloseElement();
+                        builder.CloseElement();
+                        builder.CloseElement();
+                    }
+                    else
+                    {
+                        builder.OpenElement(sequence++, "p");
+                        builder.AddAttribute(sequence++, "class", "text-gray-800");
+                        builder.AddContent(sequence++, capturedResult.Text);
+                        builder.CloseElement();
+                    }
+                    builder.CloseElement();
+                    
+                    builder.OpenElement(sequence++, "button");
+                    builder.AddAttribute(sequence++, "class", "px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center");
+                    builder.AddAttribute(sequence++, "onclick", EventCallback.Factory.Create(this, () => CopyToClipboard(capturedResult.Text)));
+                    builder.OpenComponent<CopyIcon>(sequence++);
+                    builder.AddAttribute(sequence++, "Class", "w-4 h-4 mr-1");
+                    builder.CloseComponent();
+                    builder.AddContent(sequence++, "コピー");
+                    builder.CloseElement();
+                }
+                else
+                {
+                    builder.OpenElement(sequence++, "p");
+                    builder.AddAttribute(sequence++, "class", "text-sm text-red-700");
+                    builder.AddContent(sequence++, capturedResult.Error);
+                    builder.CloseElement();
+                }
+                
+                builder.CloseElement();
+                sequence += 100;
+            }
+            
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-center py-12 text-gray-400");
+            builder.OpenComponent<QrCodeIcon>(2);
+            builder.AddAttribute(3, "Class", "w-16 h-16 mx-auto mb-4");
+            builder.CloseComponent();
+            builder.OpenElement(4, "p");
+            builder.AddContent(5, "「このページをスキャン」または「全ページをスキャン」を押してください");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+    };
+
+    private List<ActionButtonItem> resetActions => new()
+    {
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5"); 
+                builder.CloseComponent();
+            },
+            Title = "最初からやり直す",
+            OnClick = EventCallback.Factory.Create(this, GoBack),
+            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded",
+            TextColor = "text-black"
+        }
+    };
+
     protected override void OnInitialized()
     {
+        PdfDataService.OnChange += OnServiceChanged;
         PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
+    }
+
+    private void OnServiceChanged()
+    {
+        // プレビューキャッシュをクリア（新しいファイルが読み込まれた可能性）
+        highResPreviewCache.Clear();
+        previewGenerating.Clear();
+        StateHasChanged();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -255,6 +384,7 @@ else
 
     public ValueTask DisposeAsync()
     {
+        PdfDataService.OnChange -= OnServiceChanged;
         PdfDataService.PasswordInputDialogFunc = null;
         return ValueTask.CompletedTask;
     }
@@ -352,17 +482,41 @@ else
     /// </summary>
     private string? GetHighResPreview(int pageIndex, PageItem pageItem)
     {
+        // キャッシュキーを解像度込みで生成
+        var cacheKey = $"{pageIndex}_{selectedPreviewScale}";
+        
         // キャッシュにあればそれを返す
-        if (highResPreviewCache.TryGetValue(pageIndex, out var cachedUrl))
+        if (highResPreviewCache.TryGetValue(cacheKey, out var cachedUrl))
         {
             return cachedUrl;
         }
         
+        // 既に生成中であればnullを返す（無限ループ防止）
+        if (previewGenerating.Contains(cacheKey))
+        {
+            return null;
+        }
+        
+        // 生成中フラグを立てる
+        previewGenerating.Add(cacheKey);
+        
         // キャッシュになければ非同期で生成開始（バックグラウンド）
         _ = Task.Run(async () =>
         {
-            await GetOrCreateHighResPreview(pageIndex, pageItem);
-            await InvokeAsync(StateHasChanged);
+            try
+            {
+                var url = await GetOrCreateHighResPreview(pageIndex, pageItem, cacheKey);
+                if (!string.IsNullOrEmpty(url))
+                {
+                    highResPreviewCache[cacheKey] = url;
+                }
+                await InvokeAsync(StateHasChanged);
+            }
+            finally
+            {
+                // 生成完了したらフラグを解除
+                previewGenerating.Remove(cacheKey);
+            }
         });
         
         // 即座にnullを返す（読み込み中表示）
@@ -373,34 +527,42 @@ else
     /// 高解像度プレビューを取得または生成（非同期版 - QRスキャン用）
     /// PdfDataService.GetPreviewImageAsync を使用して既存の仕組みを活用
     /// </summary>
-    private async Task<string?> GetOrCreateHighResPreview(int pageIndex, PageItem pageItem)
+    private async Task<string?> GetOrCreateHighResPreview(int pageIndex, PageItem pageItem, string? cacheKey = null)
     {
+        // キャッシュキーが指定されていなければデフォルトで生成
+        cacheKey ??= $"{pageIndex}_{selectedPreviewScale}";
+        
         // キャッシュチェック
-        if (highResPreviewCache.TryGetValue(pageIndex, out var cachedUrl))
+        if (highResPreviewCache.TryGetValue(cacheKey, out var cachedUrl))
         {
             return cachedUrl;
         }
         
         try
         {
-            // PdfDataServiceの既存メソッドを使用（"qrcode"スケール=2.5倍で高解像度）
-            // scaleKey: "thumbnail"=0.2, "normal"=1.0, "unlock"=1.5, "preview"=1.5, "qrcode"=2.5
-            var highResUrl = await PdfDataService.GetPreviewImageAsync(pageItem.Id, null, "qrcode");
+            // 選択された解像度に応じてスケールキーを決定
+            // config.json: qrcode_2x=2.0, qrcode_2_5x=2.5, qrcode_3x=3.0
+            string scaleKey = selectedPreviewScale switch
+            {
+                "2.0" => "qrcode_2x",
+                "2.5" => "qrcode_2_5x",
+                "3.0" => "qrcode_3x",
+                _ => "qrcode_2x"  // デフォルトは 2.0x
+            };
+            
+            var highResUrl = await PdfDataService.GetPreviewImageAsync(pageItem.Id, null, scaleKey);
             
             if (string.IsNullOrEmpty(highResUrl))
             {
-                Console.WriteLine($"Failed to generate high-res preview for page {pageIndex + 1}: GetPreviewImageAsync returned null");
+                Console.WriteLine($"Failed to generate high-res preview for page {pageIndex + 1} at scale {selectedPreviewScale}x: GetPreviewImageAsync returned null");
                 return null;
             }
-            
-            // キャッシュに保存
-            highResPreviewCache[pageIndex] = highResUrl;
             
             return highResUrl;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Failed to generate high-res preview for page {pageIndex + 1}: {ex.Message}");
+            Console.WriteLine($"Failed to generate high-res preview for page {pageIndex + 1} at scale {selectedPreviewScale}x: {ex.Message}");
             return null;
         }
     }
@@ -459,13 +621,19 @@ else
 
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        foreach (var file in e.GetMultipleFiles(10))
+        try
         {
-            using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            var bytes = ms.ToArray();
-            await PdfDataService.AddOrInsertPdfFileAsync(file.Name, bytes);
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await PdfDataService.HandleFileInputAsync(e, null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
         }
     }
 

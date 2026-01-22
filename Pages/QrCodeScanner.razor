@@ -8,25 +8,22 @@
 @using NoCloudPdf.Components
 @using NoCloudPdf.Models
 
-<PageTitle>NoCloudPDF - QRコードスキャナー</PageTitle>
+<PageTitle>NoCloudPDF-QRコードスキャナー</PageTitle>
 
 <div class="flex flex-col h-screen">
     <!-- ヘッダー -->
     <div class="bg-gray-800 text-white shadow z-50 h-16">
         <div class="h-full px-4 flex items-center justify-between">
             <div class="flex items-center">
-                <button @onclick="GoBack" class="mr-4 hover:bg-gray-700 p-2 rounded">
-                    <ArrowLeftIcon Class="w-5 h-5" />
-                </button>
-                <h1 class="text-xl font-bold">QRコードスキャナー</h1>
+                <ActionButtonGroup T="string" Actions="resetActions" />
+                <h1 class="hidden md:inline text-lg font-bold ml-2">QRコードスキャナー</h1>
             </div>
             <div class="flex items-center gap-2">
                 @if (cameras.Any())
                 {
                     <SelectBox IsHorizontal="true"
                                Options="cameraOptions"
-                               Value="currentCameraId"
-                               ValueChanged="OnCameraSelectChanged"
+                               @bind-Value="currentCameraId"
                                SelectBackgroundColor="transparent"
                                SelectTextColor="white"
                                SelectClass="px-3 py-2 bg-gray-700 rounded-lg border border-gray-600" />
@@ -34,10 +31,8 @@
                 @if (isScanning)
                 {
                     <button @onclick="StopScanner"
-                            class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path>
-                        </svg>
+                                class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center">
+                        <StopIcon Class="w-5 h-5 mr-2" />
                         停止
                     </button>
                 }
@@ -45,10 +40,7 @@
                 {
                     <button @onclick="StartScanner"
                             class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
+                        <PlaySicon Class="w-5 h-5 mr-2" />
                         開始
                     </button>
                 }
@@ -57,11 +49,22 @@
     </div>
 
     <!-- メインコンテンツ -->
-    <div class="flex-1 overflow-hidden flex">
-        <!-- 左側: カメラプレビュー -->
-        <div class="w-1/2 bg-gray-900 flex items-center justify-center p-6">
-            <!-- プレースホルダー（スキャナー起動前のみ表示） -->
-            @if (!isScanning)
+    <div class="flex-1 overflow-hidden flex flex-col md:flex-row">
+        <!-- カメラプレビュー -->
+        <div class="flex-1 bg-gray-900 flex flex-col items-center justify-center p-6">
+            <!-- スキャナー表示領域 -->
+            @if (isScanning)
+            {
+                <div class="relative w-full h-full">
+                    <div id="qr-scanner-view" class="w-full h-full flex items-center justify-center"></div>
+                    <!-- 現在のカメラ表示 -->
+                    <div class="absolute top-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm z-10">
+                        <div class="font-bold">起動中のカメラ:</div>
+                        <div class="mt-1">@GetCurrentCameraLabel()</div>
+                    </div>
+                </div>
+            }
+            else
             {
                 <div class="text-center text-gray-400">
                     <svg class="w-32 h-32 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,12 +92,40 @@
                 </div>
             }
             
-            <!-- スキャナー表示領域（常に存在するが、非表示時は hidden） -->
-            <div id="qr-scanner-view" class="w-full max-w-2xl @(isScanning ? "" : "hidden")"></div>
+            <!-- ズームコントロール（スキャナー起動中のみ表示） -->
+            @if (isScanning && zoomSupported)
+            {
+                <div class="mt-4 flex items-center gap-4 bg-gray-800 p-3 rounded-lg">
+                    <button @onclick="ZoomOut" disabled="@(currentZoom <= minZoom)"
+                            class="w-10 h-10 bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                        </svg>
+                    </button>
+                    
+                    <div class="flex flex-col items-center min-w-[120px]">
+                        <input type="range" 
+                               min="@minZoom" 
+                               max="@maxZoom" 
+                               step="0.1" 
+                               value="@currentZoom"
+                               @oninput="OnZoomSliderChange"
+                               class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb" />
+                        <span class="text-white text-xs mt-1">×@currentZoom.ToString("F1")</span>
+                    </div>
+                    
+                    <button @onclick="ZoomIn" disabled="@(currentZoom >= maxZoom)"
+                            class="w-10 h-10 bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                    </button>
+                </div>
+            }
         </div>
 
-        <!-- 右側: スキャン履歴 -->
-        <div class="w-1/2 bg-white overflow-auto p-6">
+        <!-- 右側: スキャン履歴（PC表示） -->
+        <div class="hidden md:flex md:flex-col md:w-1/2 bg-white overflow-auto p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-bold">スキャン履歴</h2>
                 @if (scanHistory.Any())
@@ -105,73 +136,48 @@
                     </button>
                 }
             </div>
-
-            @if (scanHistory.Any())
-            {
-                <div class="space-y-3">
-                    @foreach (var item in scanHistory.OrderByDescending(h => h.Timestamp))
-                    {
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                            <div class="flex items-start justify-between mb-2">
-                                <div class="flex items-center">
-                                    <CheckCircleIcon Class="w-5 h-5 text-green-600 mr-2" />
-                                    <span class="text-xs text-gray-500">@item.Timestamp.ToString("HH:mm:ss")</span>
-                                </div>
-                                <button @onclick="() => RemoveFromHistory(item)"
-                                        class="text-gray-400 hover:text-red-600">
-                                    <DeleteIcon Class="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div class="bg-white rounded p-3 mb-2 break-all">
-                                @if (IsUrl(item.Text))
-                                {
-                                    <a href="@item.Text" target="_blank" rel="noopener noreferrer"
-                                       class="text-blue-600 hover:underline flex items-center">
-                                        @item.Text
-                                        <svg class="w-4 h-4 ml-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                        </svg>
-                                    </a>
-                                }
-                                else
-                                {
-                                    <p class="text-gray-800">@item.Text</p>
-                                }
-                            </div>
-
-                            <div class="flex gap-2">
-                                <button @onclick="() => CopyToClipboard(item.Text)"
-                                        class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center">
-                                    <CopyIcon Class="w-4 h-4 mr-1" />
-                                    コピー
-                                </button>
-                                @if (IsUrl(item.Text))
-                                {
-                                    <a href="@item.Text" target="_blank" rel="noopener noreferrer"
-                                       class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm flex items-center">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                                        </svg>
-                                        開く
-                                    </a>
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-            }
-            else
-            {
-                <div class="text-center py-12 text-gray-400">
-                    <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                    </svg>
-                    <p>スキャンした内容がここに表示されます</p>
-                </div>
-            }
+            @RenderHistoryContent()
         </div>
     </div>
+
+    <!-- 下部スライドアップメニュー（モバイル） -->
+    <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
+        <div class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
+            <div class="max-h-[70vh] overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold">スキャン履歴</h2>
+                    @if (scanHistory.Any())
+                    {
+                        <button @onclick="ClearHistory"
+                                class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+                            すべてクリア
+                        </button>
+                    }
+                </div>
+                @RenderHistoryContent()
+            </div>
+            <button class="absolute top-2 right-4 text-2xl text-gray-500" @onclick="() => isMenuOpen = false">
+                <CloseIcon />
+            </button>
+        </div>
+
+        @if (!isMenuOpen && scanHistory.Any())
+        {
+            <button
+                class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
+                @onclick="() => isMenuOpen = true">
+                <CheckCircleIcon Class="text-green-600 text-2xl"/>
+                <span class="text-green-600">履歴表示 (@scanHistory.Count)</span>
+                <ChevronUpIcon/>
+            </button>
+        }
+    </div>
+
+    <!-- メニュー展開時の背景オーバーレイ -->
+    @if (isMenuOpen)
+    {
+        <div class="fixed inset-0 bg-black/30 z-[199] touch-none md:hidden" @onclick="() => isMenuOpen = false"></div>
+    }
 </div>
 
 <!-- メッセージ表示エリア -->
@@ -180,10 +186,41 @@
 @code {
     private bool isScanning = false;
     private List<CameraDevice> cameras = new();
-    private string? currentCameraId;
+    private string? _currentCameraId;
+    private bool isMenuOpen = false;
+    
+    private string? currentCameraId
+    {
+        get => _currentCameraId;
+        set
+        {
+            if (_currentCameraId != value)
+            {
+                Console.WriteLine($"Camera ID changing: {_currentCameraId} → {value}");
+                _currentCameraId = value;
+                // カメラ変更時の処理（スキャナー起動中の場合のみ）
+                if (isScanning && !string.IsNullOrEmpty(value))
+                {
+                    Console.WriteLine($"Camera switch triggered, restarting scanner with: {value}");
+                    _ = Task.Run(async () =>
+                    {
+                        await StopScanner();
+                        await Task.Delay(200);
+                        await StartScanner();
+                    });
+                }
+            }
+        }
+    }
     private string? errorMessage;
     private List<ScanHistoryItem> scanHistory = new();
     private DotNetObjectReference<QrCodeScanner>? _dotNetRef;
+    
+    // ズーム機能関連
+    private bool zoomSupported = false;
+    private double currentZoom = 1.0;
+    private double minZoom = 1.0;
+    private double maxZoom = 3.0;
 
     private class CameraDevice
     {
@@ -196,6 +233,167 @@
         public string Text { get; set; } = "";
         public DateTime Timestamp { get; set; }
     }
+
+    private class ZoomCapabilities
+    {
+        public bool Supported { get; set; }
+        public double Min { get; set; }
+        public double Max { get; set; }
+        public double Current { get; set; }
+    }
+
+    private RenderFragment RenderHistoryContent() => builder =>
+    {
+        if (scanHistory.Any())
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "space-y-3");
+
+            int sequence = 10;
+            foreach (var item in scanHistory.OrderByDescending(h => h.Timestamp))
+            {
+                var capturedItem = item;
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "bg-gray-50 border border-gray-200 rounded-lg p-4");
+                
+                // Header
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "flex items-start justify-between mb-2");
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "flex items-center");
+                builder.OpenComponent<CheckCircleIcon>(sequence++);
+                builder.AddAttribute(sequence++, "Class", "w-5 h-5 text-green-600 mr-2");
+                builder.CloseComponent();
+                builder.OpenElement(sequence++, "span");
+                builder.AddAttribute(sequence++, "class", "text-xs text-gray-500");
+                builder.AddContent(sequence++, capturedItem.Timestamp.ToString("HH:mm:ss"));
+                builder.CloseElement();
+                builder.CloseElement();
+                
+                builder.OpenElement(sequence++, "button");
+                builder.AddAttribute(sequence++, "class", "text-gray-400 hover:text-red-600");
+                builder.AddAttribute(sequence++, "onclick", EventCallback.Factory.Create(this, () => RemoveFromHistory(capturedItem)));
+                builder.OpenComponent<DeleteIcon>(sequence++);
+                builder.AddAttribute(sequence++, "Class", "w-5 h-5");
+                builder.CloseComponent();
+                builder.CloseElement();
+                builder.CloseElement();
+                
+                // Content
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "bg-white rounded p-3 mb-2 break-all");
+                if (IsUrl(capturedItem.Text))
+                {
+                    builder.OpenElement(sequence++, "a");
+                    builder.AddAttribute(sequence++, "href", capturedItem.Text);
+                    builder.AddAttribute(sequence++, "target", "_blank");
+                    builder.AddAttribute(sequence++, "rel", "noopener noreferrer");
+                    builder.AddAttribute(sequence++, "class", "text-blue-600 hover:underline flex items-center");
+                    builder.AddContent(sequence++, capturedItem.Text);
+                    builder.OpenElement(sequence++, "svg");
+                    builder.AddAttribute(sequence++, "class", "w-4 h-4 ml-1 flex-shrink-0");
+                    builder.AddAttribute(sequence++, "fill", "none");
+                    builder.AddAttribute(sequence++, "stroke", "currentColor");
+                    builder.AddAttribute(sequence++, "viewBox", "0 0 24 24");
+                    builder.OpenElement(sequence++, "path");
+                    builder.AddAttribute(sequence++, "stroke-linecap", "round");
+                    builder.AddAttribute(sequence++, "stroke-linejoin", "round");
+                    builder.AddAttribute(sequence++, "stroke-width", "2");
+                    builder.AddAttribute(sequence++, "d", "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14");
+                    builder.CloseElement();
+                    builder.CloseElement();
+                    builder.CloseElement();
+                }
+                else
+                {
+                    builder.OpenElement(sequence++, "p");
+                    builder.AddAttribute(sequence++, "class", "text-gray-800");
+                    builder.AddContent(sequence++, capturedItem.Text);
+                    builder.CloseElement();
+                }
+                builder.CloseElement();
+                
+                // Actions
+                builder.OpenElement(sequence++, "div");
+                builder.AddAttribute(sequence++, "class", "flex gap-2");
+                builder.OpenElement(sequence++, "button");
+                builder.AddAttribute(sequence++, "class", "px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm flex items-center");
+                builder.AddAttribute(sequence++, "onclick", EventCallback.Factory.Create(this, () => CopyToClipboard(capturedItem.Text)));
+                builder.OpenComponent<CopyIcon>(sequence++);
+                builder.AddAttribute(sequence++, "Class", "w-4 h-4 mr-1");
+                builder.CloseComponent();
+                builder.AddContent(sequence++, "コピー");
+                builder.CloseElement();
+                
+                if (IsUrl(capturedItem.Text))
+                {
+                    builder.OpenElement(sequence++, "a");
+                    builder.AddAttribute(sequence++, "href", capturedItem.Text);
+                    builder.AddAttribute(sequence++, "target", "_blank");
+                    builder.AddAttribute(sequence++, "rel", "noopener noreferrer");
+                    builder.AddAttribute(sequence++, "class", "px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm flex items-center");
+                    builder.OpenElement(sequence++, "svg");
+                    builder.AddAttribute(sequence++, "class", "w-4 h-4 mr-1");
+                    builder.AddAttribute(sequence++, "fill", "none");
+                    builder.AddAttribute(sequence++, "stroke", "currentColor");
+                    builder.AddAttribute(sequence++, "viewBox", "0 0 24 24");
+                    builder.OpenElement(sequence++, "path");
+                    builder.AddAttribute(sequence++, "stroke-linecap", "round");
+                    builder.AddAttribute(sequence++, "stroke-linejoin", "round");
+                    builder.AddAttribute(sequence++, "stroke-width", "2");
+                    builder.AddAttribute(sequence++, "d", "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14");
+                    builder.CloseElement();
+                    builder.CloseElement();
+                    builder.AddContent(sequence++, "開く");
+                    builder.CloseElement();
+                }
+                builder.CloseElement();
+                
+                builder.CloseElement();
+                sequence += 100;
+            }
+            
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-center py-12 text-gray-400");
+            builder.OpenElement(2, "svg");
+            builder.AddAttribute(3, "class", "w-16 h-16 mx-auto mb-4");
+            builder.AddAttribute(4, "fill", "none");
+            builder.AddAttribute(5, "stroke", "currentColor");
+            builder.AddAttribute(6, "viewBox", "0 0 24 24");
+            builder.OpenElement(7, "path");
+            builder.AddAttribute(8, "stroke-linecap", "round");
+            builder.AddAttribute(9, "stroke-linejoin", "round");
+            builder.AddAttribute(10, "stroke-width", "2");
+            builder.AddAttribute(11, "d", "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2");
+            builder.CloseElement();
+            builder.CloseElement();
+            builder.OpenElement(12, "p");
+            builder.AddContent(13, "スキャンした内容がここに表示されます");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+    };
+
+    private List<ActionButtonItem> resetActions => new()
+    {
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5"); 
+                builder.CloseComponent();
+            },
+            Title = "最初からやり直す",
+            OnClick = EventCallback.Factory.Create(this, GoBack),
+            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded",
+            TextColor = "text-black"
+        }
+    };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -212,28 +410,42 @@
                 var cameraArray = await JSRuntime.InvokeAsync<CameraDevice[]>("getQrScannerCameras");
                 cameras = cameraArray.ToList();
 
-                // SelectBox 用のオプションを生成
-                cameraOptions = cameras.Select(c => new SelectOption { Value = c.Id, Text = c.Label }).ToList();
-
                 if (cameras.Any())
                 {
-                    // 優先カメラを取得
-                    var preferredCamera = await JSRuntime.InvokeAsync<CameraDevice?>("getPreferredCamera");
-                    currentCameraId = preferredCamera?.Id ?? cameras[0].Id;
+                    // SelectBox 用のオプションを生成（currentCameraId設定前に行う）
+                    cameraOptions = cameras.Select(c => new SelectOption { Value = c.Id, Text = c.Label }).ToList();
                     
-                    // StateHasChangedを呼んでSelectBoxに反映
+                    // デバッグ: カメラ一覧を出力
+                    Console.WriteLine($"Available cameras: {cameras.Count}");
+                    foreach (var cam in cameras)
+                    {
+                        Console.WriteLine($"  - ID: {cam.Id}, Label: {cam.Label}");
+                    }
+                    
+                    // 優先カメラを取得してcurrentCameraIdに設定
+                    var preferredCamera = await JSRuntime.InvokeAsync<CameraDevice?>("getPreferredCamera");
+                    _currentCameraId = preferredCamera?.Id ?? cameras[0].Id;
+                    
+                    Console.WriteLine($"Preferred camera selected: {_currentCameraId} ({preferredCamera?.Label ?? cameras[0].Label})");
+                    
+                    // StateHasChanged を呼んで UI に反映（SelectBox に反映）
                     StateHasChanged();
                     
-                    // 自動でスキャナーを開始（許可が与えられれば優先カメラで開始）
+                    // UI更新を待つ（SelectBoxがレンダリングされるまで少し待機）
+                    await Task.Delay(200);
+                    
+                    // 自動でスキャナーを開始
                     try
                     {
                         await StartScanner();
                     }
                     catch (Exception exAuto)
                     {
-                        // 自動起動に失敗しても操作できるようにエラーはログに出すだけにする
+                        // 自動起動に失敗した場合のエラー処理
+                        errorMessage = $"カメラの起動に失敗: {exAuto.Message}";
                         Console.WriteLine($"Auto start scanner failed: {exAuto.Message}");
                         Console.WriteLine($"Stack trace: {exAuto.StackTrace}");
+                        StateHasChanged();
                     }
                 }
                 else
@@ -244,9 +456,8 @@
             }
             catch (Exception ex)
             {
-                // ユーザー向けには簡潔なエラーメッセージ
-                errorMessage = "カメラの初期化に失敗しました";
-                // 詳細なエラーはコンソールに出力
+                // カメラ初期化全体のエラー
+                errorMessage = $"カメラの初期化に失敗: {ex.Message}";
                 Console.WriteLine($"Camera initialization error details: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 StateHasChanged();
@@ -262,23 +473,68 @@
         {
             errorMessage = null;
             
-            if (string.IsNullOrEmpty(currentCameraId))
+            if (string.IsNullOrEmpty(_currentCameraId))
             {
                 errorMessage = "カメラが選択されていません";
                 return;
             }
 
-            await JSRuntime.InvokeAsync<string>("startQrScanner", "qr-scanner-view", currentCameraId, _dotNetRef);
+            Console.WriteLine($"Starting scanner with camera ID: {_currentCameraId}");
+            
             isScanning = true;
+            StateHasChanged();
+            
+            await Task.Delay(50);
+
+            var startedCameraId = await JSRuntime.InvokeAsync<string>("startQrScanner", "qr-scanner-view", _currentCameraId, _dotNetRef);
+            Console.WriteLine($"Scanner started, actual camera used: {startedCameraId}");
+            
+            // カメラストリームが完全に初期化されるまで少し待機
+            await Task.Delay(500);
+            
+            // ピンチズームの初期化
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("initQrScannerPinchZoom", "qr-scanner-view", _dotNetRef);
+            }
+            catch (Exception exPinch)
+            {
+                Console.WriteLine($"Pinch zoom init failed: {exPinch.Message}");
+            }
+            
+            // ズーム機能のサポート状態を取得
+            try
+            {
+                var capabilities = await JSRuntime.InvokeAsync<ZoomCapabilities?>("getQrScannerZoomCapabilities");
+                Console.WriteLine($"Zoom capabilities: Supported={capabilities?.Supported}, Min={capabilities?.Min}, Max={capabilities?.Max}");
+                
+                if (capabilities != null && capabilities.Supported)
+                {
+                    zoomSupported = true;
+                    minZoom = capabilities.Min;
+                    maxZoom = capabilities.Max;
+                    currentZoom = capabilities.Current;
+                    Console.WriteLine($"Zoom enabled: {minZoom} - {maxZoom}, current: {currentZoom}");
+                }
+                else
+                {
+                    zoomSupported = false;
+                    Console.WriteLine("Zoom not supported by this camera");
+                }
+            }
+            catch (Exception exZoom)
+            {
+                Console.WriteLine($"Zoom capabilities check failed: {exZoom.Message}");
+                zoomSupported = false;
+            }
+            
             StateHasChanged();
         }
         catch (Exception ex)
         {
-            // ユーザー向けには簡潔なエラーメッセージ
             errorMessage = "スキャナーの起動に失敗しました";
-            // 詳細なエラーはコンソールに出力
             Console.WriteLine($"Scanner start error details: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            isScanning = false;
             StateHasChanged();
         }
     }
@@ -289,6 +545,8 @@
         {
             await JSRuntime.InvokeVoidAsync("stopQrScanner");
             isScanning = false;
+            zoomSupported = false;
+            currentZoom = 1.0;
             StateHasChanged();
         }
         catch (Exception ex)
@@ -297,27 +555,47 @@
         }
     }
 
-    private List<SelectOption> cameraOptions = new();
-
-    private async Task OnCameraSelectChanged(string newCameraId)
+    private async Task ZoomIn()
     {
-        if (string.IsNullOrEmpty(newCameraId)) return;
-
-        currentCameraId = newCameraId;
-
-        if (isScanning)
+        if (currentZoom < maxZoom)
         {
-            try
-            {
-                await JSRuntime.InvokeAsync<string>("switchQrScannerCamera", "qr-scanner-view", currentCameraId, _dotNetRef);
-            }
-            catch (Exception ex)
-            {
-                errorMessage = $"カメラの切り替えに失敗しました: {ex.Message}";
-                StateHasChanged();
-            }
+            currentZoom = Math.Min(maxZoom, currentZoom + 0.5);
+            await ApplyZoom();
         }
     }
+
+    private async Task ZoomOut()
+    {
+        if (currentZoom > minZoom)
+        {
+            currentZoom = Math.Max(minZoom, currentZoom - 0.5);
+            await ApplyZoom();
+        }
+    }
+
+    private async Task OnZoomSliderChange(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out var newZoom))
+        {
+            currentZoom = newZoom;
+            await ApplyZoom();
+        }
+    }
+
+    private async Task ApplyZoom()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("applyQrScannerZoom", currentZoom);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Zoom error: {ex.Message}");
+        }
+    }
+
+    private List<SelectOption> cameraOptions = new();
 
     [JSInvokable]
     public async Task OnQrCodeScanned(string decodedText)
@@ -377,6 +655,15 @@
     private void GoBack()
     {
         Navigation.NavigateTo("/qrcode");
+    }
+
+    private string GetCurrentCameraLabel()
+    {
+        if (string.IsNullOrEmpty(_currentCameraId))
+            return "不明";
+        
+        var camera = cameras.FirstOrDefault(c => c.Id == _currentCameraId);
+        return camera?.Label ?? "不明";
     }
 
     public async ValueTask DisposeAsync()
