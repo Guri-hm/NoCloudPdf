@@ -642,11 +642,6 @@ else
 
     private async Task OpenFileDialog()
     {
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('pdfFileInput').click()");
-    }
-
-    private async Task OpenFileDialog()
-    {
         try
         {
             await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
