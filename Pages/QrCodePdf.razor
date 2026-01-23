@@ -34,26 +34,21 @@
                             class="w-10 px-2 py-1 rounded border border-gray-300 text-sm text-white bg-gray-700" />
                         <span class="text-sm">/ @DisplayItems.Count</span>
                     </div>
-                    <button @onclick="() => ScanCurrentPage()" 
-                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center"
-                            disabled="@isScanning">
-                        @if (isScanning)
-                        {
+                    @if (isScanning)
+                    {
+                        <div class="px-4 py-2 bg-gray-600 rounded-lg flex items-center">
                             <LoadingSpinnerIcon Class="w-5 h-5 mr-2 animate-spin" />
                             <span>読み取り中...</span>
-                        }
-                        else
-                        {
-                            <QrCodeIcon Class="w-5 h-5 mr-2" />
-                            <span>このページをスキャン</span>
-                        }
-                    </button>
-                    <button @onclick="() => ScanAllPages()" 
-                            class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center"
-                            disabled="@isScanning">
-                        <QrCodeIcon Class="w-5 h-5 mr-2" />
-                        <span>全ページをスキャン</span>
-                    </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <SplitButton
+                            PrimaryLabel="スキャン"
+                            OnPrimaryClick="@(EventCallback.Factory.Create(this, ScanCurrentPage))"
+                            MenuItems="@scanMenuItems"
+                            FullWidth="false" />
+                    }
                 </div>
                 <button @onclick="ClearAllResults" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
                     クリア
@@ -350,6 +345,20 @@ else
             OnClick = EventCallback.Factory.Create(this, GoBack),
             ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded",
             TextColor = "text-black"
+        }
+    };
+
+    private List<SplitButton.MenuActionItem> scanMenuItems => new()
+    {
+        new SplitButton.MenuActionItem
+        {
+            Label = "このページ",
+            OnClick = EventCallback.Factory.Create(this, ScanCurrentPage)
+        },
+        new SplitButton.MenuActionItem
+        {
+            Label = "全ページ",
+            OnClick = EventCallback.Factory.Create(this, ScanAllPages)
         }
     };
 

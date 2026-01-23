@@ -1,5 +1,5 @@
-<div class="relative w-full mt-4">
-    <div class="flex w-full">
+<div class="relative @(FullWidth ? "w-full" : "")">
+    <div class="flex @(FullWidth ? "w-full" : "")">
         <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-lg flex-1 transition"
             @onclick="OnPrimaryClick">
             @PrimaryLabel
@@ -17,7 +17,7 @@
             <!-- 透明カバー（最前面・全画面） -->
             <div class="fixed inset-0 z-40" @onclick="CloseMenu" style="background:transparent;"></div>
             <!-- メニュー本体 -->
-            <div class="absolute right-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+            <div class="absolute right-0 mt-1 @(FullWidth ? "w-full" : "min-w-[200px]") bg-white border border-gray-300 rounded-lg shadow-lg z-50">
                 @foreach (var item in MenuItems)
                 {
                     <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800"
@@ -34,6 +34,7 @@
     [Parameter] public string PrimaryLabel { get; set; } = "ダウンロード";
     [Parameter] public EventCallback OnPrimaryClick { get; set; }
     [Parameter] public List<MenuActionItem> MenuItems { get; set; } = new();
+    [Parameter] public bool FullWidth { get; set; } = true;
 
     private bool ShowMenu { get; set; }
 
