@@ -12,7 +12,7 @@
 @using NoCloudPdf.Services
 @using NoCloudPdf.Components
 
-<PageTitle>NoCloudPDF-ファイル内のQRコード読み取り</PageTitle>
+<PageTitle>ファイル内のQRコード読み取り-NoCloudPDF</PageTitle>
 
 @if (IsFilesLoaded)
 {
@@ -34,26 +34,21 @@
                             class="w-10 px-2 py-1 rounded border border-gray-300 text-sm text-white bg-gray-700" />
                         <span class="text-sm">/ @DisplayItems.Count</span>
                     </div>
-                    <button @onclick="() => ScanCurrentPage()" 
-                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center"
-                            disabled="@isScanning">
-                        @if (isScanning)
-                        {
+                    @if (isScanning)
+                    {
+                        <div class="px-4 py-2 bg-gray-600 rounded-lg flex items-center">
                             <LoadingSpinnerIcon Class="w-5 h-5 mr-2 animate-spin" />
                             <span>読み取り中...</span>
-                        }
-                        else
-                        {
-                            <QrCodeIcon Class="w-5 h-5 mr-2" />
-                            <span>このページをスキャン</span>
-                        }
-                    </button>
-                    <button @onclick="() => ScanAllPages()" 
-                            class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center"
-                            disabled="@isScanning">
-                        <QrCodeIcon Class="w-5 h-5 mr-2" />
-                        <span>全ページをスキャン</span>
-                    </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <SplitButton
+                            PrimaryLabel="スキャン"
+                            OnPrimaryClick="@(EventCallback.Factory.Create(this, ScanCurrentPage))"
+                            MenuItems="@scanMenuItems"
+                            FullWidth="false" />
+                    }
                 </div>
                 <button @onclick="ClearAllResults" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
                     クリア
@@ -162,7 +157,7 @@ else
 <div id="qr-reader-hidden" style="display: none;"></div>
 
 <!-- ファイル選択用の隠しinput -->
-<InputFile OnChange="HandleFileSelectionAsync" accept=".pdf" class="hidden" id="pdfFileInput" />
+<InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
 
 <!-- メッセージ表示エリア -->
 <MessageBar />
@@ -179,6 +174,7 @@ else
     private bool isScanning = false;
     private List<QrScanResult> qrResults = new();
     private bool isMenuOpen = false;
+    private DotNetObjectReference<QrCodePdf>? _dotNetRef;
     
     // 高解像度プレビュー用キャッシュ（キー: "pageIndex_scale"）
     private Dictionary<string, string> highResPreviewCache = new();
@@ -352,6 +348,20 @@ else
         }
     };
 
+    private List<SplitButton.MenuActionItem> scanMenuItems => new()
+    {
+        new SplitButton.MenuActionItem
+        {
+            Label = "このページ",
+            OnClick = EventCallback.Factory.Create(this, ScanCurrentPage)
+        },
+        new SplitButton.MenuActionItem
+        {
+            Label = "全ページ",
+            OnClick = EventCallback.Factory.Create(this, ScanAllPages)
+        }
+    };
+
     protected override void OnInitialized()
     {
         PdfDataService.OnChange += OnServiceChanged;
@@ -380,13 +390,37 @@ else
                 Console.WriteLine($"Failed to load QR library: {ex.Message}");
             }
         }
+        
+        // 初期画面のときのみ登録
+        if (!IsFilesLoaded)
+        {
+            if (_dotNetRef == null)
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
+            }
+        }
+        else
+        {
+            // ファイルが読み込まれたらドロップエリアを解除
+            if (_dotNetRef != null)
+            {
+                await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea");
+            }
+        }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         PdfDataService.OnChange -= OnServiceChanged;
         PdfDataService.PasswordInputDialogFunc = null;
-        return ValueTask.CompletedTask;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea");
+        }
+        catch { }
+        _dotNetRef?.Dispose();
     }
 
     private async Task ScanCurrentPage()
@@ -617,7 +651,33 @@ else
 
     private async Task OpenFileDialog()
     {
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('pdfFileInput').click()");
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening file dialog: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
+    {
+        try
+        {
+            await PdfDataService.HandleDroppedFileAsync(fileName, base64Data);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
     }
 
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)

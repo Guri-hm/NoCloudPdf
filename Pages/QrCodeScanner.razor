@@ -8,7 +8,7 @@
 @using NoCloudPdf.Components
 @using NoCloudPdf.Models
 
-<PageTitle>NoCloudPDF-QRコードスキャナー</PageTitle>
+<PageTitle>QRコードスキャナー-NoCloudPDF</PageTitle>
 
 <div class="flex flex-col h-screen">
     <!-- ヘッダー -->
@@ -28,22 +28,7 @@
                                SelectTextColor="white"
                                SelectClass="px-3 py-2 bg-gray-700 rounded-lg border border-gray-600" />
                 }
-                @if (isScanning)
-                {
-                    <button @onclick="StopScanner"
-                                class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center">
-                        <StopIcon Class="w-5 h-5 mr-2" />
-                        停止
-                    </button>
-                }
-                else
-                {
-                    <button @onclick="StartScanner"
-                            class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center">
-                        <PlaySicon Class="w-5 h-5 mr-2" />
-                        開始
-                    </button>
-                }
+                <ActionButtonGroup T="string" Actions="scannerActions" />
             </div>
         </div>
     </div>
@@ -363,6 +348,41 @@
             builder.AddContent(13, "スキャンした内容がここに表示されます");
             builder.CloseElement();
             builder.CloseElement();
+        }
+    };
+
+    private List<ActionButtonItem> scannerActions => new()
+    {
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                if (isScanning)
+                {
+                    builder.OpenComponent(0, typeof(StopIcon));
+                    builder.AddAttribute(1, "Class", "w-6 h-6");
+                    builder.CloseComponent();
+                }
+                else
+                {
+                    builder.OpenComponent(0, typeof(PlaySicon));
+                    builder.AddAttribute(1, "Class", "w-6 h-6");
+                    builder.CloseComponent();
+                }
+            },
+            Label = isScanning ? "停止" : "開始",
+            Title = isScanning ? "スキャナーを停止" : "スキャナーを開始",
+            OnClick = EventCallback.Factory.Create(this, async () =>
+            {
+                if (isScanning)
+                    await StopScanner();
+                else
+                    await StartScanner();
+            }),
+            ButtonClass = isScanning 
+                ? "bg-red-600 hover:bg-red-700 font-bold py-2 px-3 rounded" 
+                : "bg-green-600 hover:bg-green-700 font-bold py-2 px-3 rounded",
+            TextColor = "text-white"
         }
     };
 
