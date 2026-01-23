@@ -18,9 +18,14 @@
             <div class="fixed inset-0 z-40" @onclick="CloseMenu" style="background:transparent;"></div>
             <!-- メニュー本体 -->
             <div class="absolute right-0 mt-1 @(FullWidth ? "w-full" : "min-w-[200px]") bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                @foreach (var item in MenuItems)
+                @for (int i = 0; i < MenuItems.Count; i++)
                 {
-                    <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800"
+                    var item = MenuItems[i];
+                    string roundedClass = MenuItems.Count == 1
+                        ? "rounded-lg"
+                        : (i == 0 ? "rounded-t-lg" : (i == MenuItems.Count - 1 ? "rounded-b-lg" : ""));
+                    
+                    <button class="w-full text-left px-4 py-2 hover:bg-blue-50 text-gray-800 @roundedClass"
                         @onclick="() => OnMenuItemClick(item)">
                         @item.Label
                     </button>
