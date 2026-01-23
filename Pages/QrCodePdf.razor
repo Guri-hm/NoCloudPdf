@@ -162,7 +162,7 @@ else
 <div id="qr-reader-hidden" style="display: none;"></div>
 
 <!-- ファイル選択用の隠しinput -->
-<InputFile OnChange="HandleFileSelectionAsync" accept=".pdf" class="hidden" id="pdfFileInput" />
+<InputFile OnChange="HandleFileSelectionAsync" amultiple class="hidden" id="fileInput" />
 
 <!-- メッセージ表示エリア -->
 <MessageBar />
@@ -643,6 +643,19 @@ else
     private async Task OpenFileDialog()
     {
         await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('pdfFileInput').click()");
+    }
+
+    private async Task OpenFileDialog()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening file dialog: {ex.Message}");
+            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+        }
     }
 
     [JSInvokable]
