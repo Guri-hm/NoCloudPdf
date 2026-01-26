@@ -318,17 +318,19 @@ input[type=number] {
 }
 #qr-scanner-view {
   position: relative;
+  max-height: 100%;
+  overflow: hidden;
 }
 #qr-scanner-view video {
   width: 100% !important;
   height: 100% !important;
   -o-object-fit: contain;
      object-fit: contain;
-  max-height: none !important;
+  max-height: 100% !important;
 }
 #qr-scanner-view #qr-shaded-region {
-  width: 100% !important;
-  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
 }
 @layer theme, base, components, utilities;
 @layer theme {
@@ -684,6 +686,9 @@ input[type=number] {
   .top-8 {
     top: calc(var(--spacing) * 8);
   }
+  .top-16 {
+    top: calc(var(--spacing) * 16);
+  }
   .top-20 {
     top: calc(var(--spacing) * 20);
   }
@@ -782,6 +787,15 @@ input[type=number] {
   }
   .z-70 {
     z-index: 70;
+  }
+  .z-\[40\] {
+    z-index: 40;
+  }
+  .z-\[45\] {
+    z-index: 45;
+  }
+  .z-\[50\] {
+    z-index: 50;
   }
   .z-\[100\] {
     z-index: 100;
@@ -990,6 +1004,9 @@ input[type=number] {
   .h-\[90vh\] {
     height: 90vh;
   }
+  .h-\[calc\(100\%-4rem\)\] {
+    height: calc(100% - 4rem);
+  }
   .h-\[calc\(100vh-4rem\)\] {
     height: calc(100vh - 4rem);
   }
@@ -1183,6 +1200,14 @@ input[type=number] {
     --tw-translate-x: calc(calc(1/2 * 100%) * -1);
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }
+  .translate-x-0 {
+    --tw-translate-x: calc(var(--spacing) * 0);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  .translate-x-full {
+    --tw-translate-x: 100%;
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
   .translate-y-0 {
     --tw-translate-y: calc(var(--spacing) * 0);
     translate: var(--tw-translate-x) var(--tw-translate-y);
@@ -1325,13 +1350,6 @@ input[type=number] {
   }
   .gap-8 {
     gap: calc(var(--spacing) * 8);
-  }
-  .space-y-1 {
-    :where(& > :not(:last-child)) {
-      --tw-space-y-reverse: 0;
-      margin-block-start: calc(calc(var(--spacing) * 1) * var(--tw-space-y-reverse));
-      margin-block-end: calc(calc(var(--spacing) * 1) * calc(1 - var(--tw-space-y-reverse)));
-    }
   }
   .space-y-2 {
     :where(& > :not(:last-child)) {
@@ -1908,9 +1926,6 @@ input[type=number] {
   }
   .py-12 {
     padding-block: calc(var(--spacing) * 12);
-  }
-  .pt-2 {
-    padding-top: calc(var(--spacing) * 2);
   }
   .pt-6 {
     padding-top: calc(var(--spacing) * 6);
@@ -2609,6 +2624,13 @@ input[type=number] {
       }
     }
   }
+  .hover\:bg-green-50 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-green-50);
+      }
+    }
+  }
   .hover\:bg-green-700 {
     &:hover {
       @media (hover: hover) {
@@ -2785,6 +2807,13 @@ input[type=number] {
       }
     }
   }
+  .hover\:text-red-800 {
+    &:hover {
+      @media (hover: hover) {
+        color: var(--color-red-800);
+      }
+    }
+  }
   .hover\:underline {
     &:hover {
       @media (hover: hover) {
@@ -2889,6 +2918,14 @@ input[type=number] {
   .focus-visible\:bg-blue-50 {
     &:focus-visible {
       background-color: var(--color-blue-50);
+    }
+  }
+  .active\:scale-95 {
+    &:active {
+      --tw-scale-x: 95%;
+      --tw-scale-y: 95%;
+      --tw-scale-z: 95%;
+      scale: var(--tw-scale-x) var(--tw-scale-y);
     }
   }
   .disabled\:cursor-not-allowed {
@@ -3064,6 +3101,11 @@ input[type=number] {
   .md\:w-32 {
     @media (width >= 48rem) {
       width: calc(var(--spacing) * 32);
+    }
+  }
+  .md\:w-96 {
+    @media (width >= 48rem) {
+      width: calc(var(--spacing) * 96);
     }
   }
   .md\:w-auto {

@@ -10,9 +10,9 @@
 
 <PageTitle>QRコードスキャナー-NoCloudPDF</PageTitle>
 
-<div class="flex flex-col h-screen">
+<div class="qr-scanner-layout">
     <!-- ヘッダー -->
-    <div class="bg-gray-800 text-white shadow z-50 h-16">
+    <div class="bg-gray-800 text-white shadow z-50 h-16 flex-shrink-0 sticky top-0 left-0 w-full">
         <div class="h-full px-4 flex items-center justify-between">
             <div class="flex items-center">
                 <ActionButtonGroup T="string" Actions="resetActions" />
@@ -33,14 +33,14 @@
         </div>
     </div>
 
-    <!-- メインコンテンツ -->
-    <div class="flex-1 overflow-hidden flex flex-col md:flex-row">
-        <!-- カメラプレビュー -->
-        <div class="flex-1 bg-gray-900 flex flex-col items-center justify-center p-6">
+    <!-- メインコンテンツ（中央にカメラ表示） -->
+    <div class="flex-1 min-h-0 w-full overflow-hidden flex flex-col relative">
+        <!-- カメラプレビュー（中央フル表示） -->
+        <div class="flex-1 min-h-0 w-full bg-gray-900 flex flex-col items-center justify-center p-4 md:p-6">
             <!-- スキャナー表示領域 -->
             @if (isScanning)
             {
-                <div id="qr-scanner-view" class="w-full h-full flex items-center justify-center"></div>
+                <div id="qr-scanner-view" class="w-full h-full max-w-2xl flex items-center justify-center"></div>
             }
             else
             {
@@ -97,53 +97,45 @@
             }
         </div>
 
-        <!-- 右側: スキャン履歴（PC表示） -->
-        <div class="hidden md:flex md:flex-col md:w-1/2 bg-white overflow-auto p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold">スキャン履歴</h2>
-                @if (scanHistory.Any())
-                {
-                    <button @onclick="ClearHistory"
-                            class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
-                        すべてクリア
-                    </button>
-                }
-            </div>
-            @RenderHistoryContent()
-        </div>
-    </div>
-
-    <!-- 下部スライドアップメニュー（モバイル） -->
-    <div class="md:hidden fixed bottom-0 left-0 w-full z-[200]">
-        <div class="@($"transition-transform will-change-transform duration-300 bg-white border-t border-gray-300 shadow-lg p-4 {(isMenuOpen ? "translate-y-0" : "translate-y-full")}")">
-            <!-- 閉じるボタン -->
-            <button class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 w-8 h-8 flex items-center justify-center" @onclick="() => isMenuOpen = false">
-                <CloseIcon />
-            </button>
-            
-            <div class="max-h-[70vh] overflow-y-auto pt-2">
-                <div class="flex items-center justify-between mb-4 pr-8">
+        <!-- 右側スライドメニュー（スキャン履歴） -->
+        <div class="fixed top-16 right-0 h-[calc(100vh-4rem)] z-[50] w-full md:w-96 max-w-full">
+            <div class="@($"h-full transition-transform will-change-transform duration-300 bg-white border-l border-gray-300 shadow-lg {(isMenuOpen ? "translate-x-0" : "translate-x-full")}")">
+                <!-- ヘッダー -->
+                <div class="flex items-center justify-between p-4 border-b border-gray-200">
                     <h2 class="text-lg font-bold">スキャン履歴</h2>
-                    @if (scanHistory.Any())
-                    {
-                        <button @onclick="ClearHistory"
-                                class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
-                            すべてクリア
+                    <div class="flex items-center gap-2">
+                        @if (scanHistory.Any())
+                        {
+                            <button @onclick="ClearHistory"
+                                    class="text-sm text-red-600 hover:text-red-800 px-2 py-1">
+                                クリア
+                            </button>
+                        }
+                        <button class="text-gray-500 hover:text-gray-700 w-8 h-8 flex items-center justify-center" 
+                                @onclick="CloseMenu"
+                                @onclick:stopPropagation="true">
+                            <CloseIcon />
                         </button>
-                    }
+                    </div>
                 </div>
-                @RenderHistoryContent()
+                
+                <!-- コンテンツ -->
+                <div class="overflow-y-auto p-4 h-[calc(100%-4rem)]">
+                    @RenderHistoryContent()
+                </div>
             </div>
         </div>
 
+        <!-- 履歴表示ボタン（履歴がある時のみ） -->
         @if (!isMenuOpen && scanHistory.Any())
         {
             <button
-                class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[201] bg-white rounded-full shadow px-8 py-3 border border-gray-300 flex items-center gap-3 text-lg font-bold hover:bg-blue-50 transition min-w-[260px]"
-                @onclick="() => isMenuOpen = true">
-                <CheckCircleIcon Class="text-green-600 text-2xl"/>
-                <span class="text-green-600">履歴表示 (@scanHistory.Count)</span>
-                <ChevronUpIcon/>
+                class="fixed bottom-4 right-4 z-[40] bg-white rounded-full shadow-lg p-4 border border-gray-300 flex items-center gap-2 hover:bg-green-50 transition active:scale-95"
+                @onclick="OpenMenu"
+                @onclick:stopPropagation="true"
+                title="スキャン履歴を表示">
+                <CheckCircleIcon Class="text-green-600 w-6 h-6"/>
+                <span class="font-bold text-green-600">@scanHistory.Count</span>
             </button>
         }
     </div>
@@ -151,7 +143,7 @@
     <!-- メニュー展開時の背景オーバーレイ -->
     @if (isMenuOpen)
     {
-        <div class="fixed inset-0 bg-black/30 z-[199] touch-none md:hidden" @onclick="() => isMenuOpen = false"></div>
+        <div class="fixed inset-0 bg-black/30 z-[45] touch-none" @onclick="CloseMenu"></div>
     }
 </div>
 
@@ -606,6 +598,9 @@
                 Timestamp = DateTime.Now
             });
 
+            // 読み取り成功時に自動的に履歴パネルを開く
+            isMenuOpen = true;
+            
             await MessageService.ShowAsync("QRコードを読み取りました");
             StateHasChanged();
         }
@@ -620,6 +615,18 @@
     private void ClearHistory()
     {
         scanHistory.Clear();
+        StateHasChanged();
+    }
+
+    private void OpenMenu()
+    {
+        isMenuOpen = true;
+        StateHasChanged();
+    }
+
+    private void CloseMenu()
+    {
+        isMenuOpen = false;
         StateHasChanged();
     }
 
