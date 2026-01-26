@@ -322,38 +322,43 @@
         </div>
     </FadeInOnScroll>
 </section>
-<footer class="w-full bg-gradient-to-r from-purple-100 via-gray-100 to-blue-100 border-t mt-12 py-8 shadow-inner">
-    <div class="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 px-4">
-        <div class="flex items-center gap-3">
-            <span class="text-gray-700 text-base font-semibold">開発者:
-                Guri-hm</span>
-            <a href="https://github.com/Guri-hm/NoCloudPdf" target="_blank" rel="noopener"
-                class="flex items-center gap-2 text-gray-800 hover:text-purple-700 transition-colors duration-200 font-mono text-lg">
-                <GithubIcon Class="w-6 h-6" />
-            </a>
-            <a href="mailto:contact@solopg.com"
-                class="flex items-center gap-2 text-gray-800 hover:text-purple-700 transition-colors duration-200 font-mono text-lg">
-                <MailIcon Class="w-6 h-6" />
-            </a>
+<footer class="w-full bg-gradient-to-r from-purple-100 via-gray-100 to-blue-100 mt-12 py-8 shadow-inner">
+    <div class="max-w-4xl mx-auto px-4">
+        <!-- 上段: 開発者情報とページリンク -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-6">
+            <!-- 開発者情報 -->
+            <div class="flex items-center gap-3">
+                <span class="text-gray-700 text-base font-semibold">開発者: Guri-hm</span>
+                <a href="https://github.com/Guri-hm/NoCloudPdf" target="_blank" rel="noopener"
+                    class="flex items-center gap-2 text-gray-800 hover:text-purple-700 transition-colors duration-200">
+                    <GithubIcon Class="w-6 h-6" />
+                </a>
+                <a href="mailto:contact@solopg.com"
+                    class="flex items-center gap-2 text-gray-800 hover:text-purple-700 transition-colors duration-200">
+                    <MailIcon Class="w-6 h-6" />
+                </a>
+            </div>
+            
+            <!-- ページリンク -->
+            <div class="flex flex-wrap justify-center gap-4 text-sm">
+                <a href="/privacy" class="text-gray-700 hover:text-purple-700 transition-colors font-semibold">
+                    プライバシーポリシー
+                </a>
+                <span class="text-gray-400">|</span>
+                <a href="/terms" class="text-gray-700 hover:text-purple-700 transition-colors font-semibold">
+                    利用規約
+                </a>
+                <span class="text-gray-400">|</span>
+                <a href="/contact" class="text-gray-700 hover:text-purple-700 transition-colors font-semibold">
+                    お問い合わせ
+                </a>
+            </div>
         </div>
-        <div class="text-xs text-gray-500 mt-2 md:mt-0 text-center md:text-right">
-            &copy; 2025 NoCloudPDF<br class="md:hidden" />
-            <span class="inline-block">Powered by Blazor WebAssembly</span>
-        </div>
-    </div>
-    <div class="max-w-3xl mx-auto mt-6 pt-4 border-t border-gray-300">
-        <div class="flex flex-wrap justify-center gap-4 text-sm">
-            <a href="/privacy" class="text-gray-700 hover:text-purple-700 transition-colors font-semibold">
-                プライバシーポリシー
-            </a>
-            <span class="text-gray-400">|</span>
-            <a href="/terms" class="text-gray-700 hover:text-purple-700 transition-colors font-semibold">
-                利用規約
-            </a>
-            <span class="text-gray-400">|</span>
-            <a href="/contact" class="text-gray-700 hover:text-purple-700 transition-colors font-semibold">
-                お問い合わせ
-            </a>
+        
+        <!-- 下段: 著作権表示 -->
+        <div class="text-center text-xs text-gray-500">
+            <p>&copy; 2025 NoCloudPDF</p>
+            <p class="mt-1">Powered by Blazor WebAssembly</p>
         </div>
     </div>
 </footer>
