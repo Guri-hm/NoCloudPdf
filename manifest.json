@@ -1,6 +1,7 @@
 {
-    "name": "NoCloudPdf",
-    "short_name": "NoCloudPdf",
+    "name": "NoCloudPDF",
+    "short_name": "NoCloudPDF",
+    "description": "ブラウザ完結型のPDF編集ツール。PDFの結合・分割・編集をサーバーにアップロードせずに安全に処理できます。",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
@@ -10,12 +11,20 @@
         {
             "src": "icon-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         },
         {
             "src": "icon-512.png",
             "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "favicon.png",
+            "sizes": "32x32",
             "type": "image/png"
         }
-    ]
+    ],
+    "categories": ["business", "productivity", "utilities"]
 }

@@ -20,6 +20,28 @@ window.scrollToSection = function scrollToSection(element) {
     }
 }
 
+// .content がある場合はそれをスクロール、それ以外は window
+window.scrollToTop = function scrollToTop() {
+    try {
+        const el = document.querySelector('.content');
+        if (el) {
+            if (typeof el.scrollTo === 'function') {
+                el.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            } else {
+                el.scrollTop = 0;
+            }
+            return;
+        }
+        // fallback
+        try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch { window.scrollTo(0, 0); }
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    } catch (e) {
+        // suppress in production
+        console.error('scrollToTop error', e);
+    }
+};
+
 window.imageViewerUtils = {
     addWheelListener: function(elementId, dotNetRef) {
         const el = document.getElementById(elementId);

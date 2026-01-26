@@ -4,15 +4,77 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NoCloudPdf</title>
-    <meta name="description" content="NoCloudPdf: ブラウザだけでPDFを結合・分割・編集。ファイルはローカルのみで処理します。使い方は簡単、無料で即利用可能。" />
+    <title>NoCloudPDF - ブラウザ完結型PDF編集ツール</title>
+    <meta name="description" content="NoCloudPDF: ブラウザだけでPDFを結合・分割・編集。ファイルはサーバーに送信されず、ローカルのみで安全に処理します。使い方は簡単、無料で即利用可能。" />
+    <meta name="keywords" content="PDF編集,PDF結合,PDF分割,無料,ブラウザ,オンライン,セキュア,プライバシー" />
     <link rel="canonical" href="https://ncp.solopg.com/" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ncp.solopg.com/" />
+    <meta property="og:title" content="NoCloudPDF - ブラウザ完結型PDF編集ツール" />
+    <meta property="og:description" content="ブラウザだけでPDFを結合・分割・編集。ファイルはサーバーに送信されず、ローカルのみで安全に処理。無料で即利用可能。" />
+    <meta property="og:image" content="https://ncp.solopg.com/icon-512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:site_name" content="NoCloudPDF" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:url" content="https://ncp.solopg.com/" />
+    <meta name="twitter:title" content="NoCloudPDF - ブラウザ完結型PDF編集ツール" />
+    <meta name="twitter:description" content="ブラウザだけでPDFを結合・分割・編集。ファイルはサーバーに送信されず、ローカルのみで安全に処理。無料で即利用可能。" />
+    <meta name="twitter:image" content="https://ncp.solopg.com/icon-512.png" />
+    
+    <!-- Favicon and Icons -->
     <base href="/">
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <!-- ICO format for maximum compatibility (especially Bing/Microsoft) -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico" />
+    <!-- PNG fallbacks for modern browsers -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    
+    <!-- Stylesheets -->
     <link href="NoCloudPdf.styles.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/@sjmc11/tourguidejs/dist/css/tour.min.css" />
     <link rel="stylesheet" href="css/site.css" />
+    
+    <!-- Structured Data for Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "NoCloudPDF",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "JPY"
+      },
+      "description": "ブラウザ完結型のPDF編集ツール。PDFの結合・分割・編集をサーバーにアップロードせずに安全に処理できます。",
+      "url": "https://ncp.solopg.com/",
+      "image": "https://ncp.solopg.com/icon-512.png",
+      "author": {
+        "@type": "Person",
+        "name": "Guri-hm"
+      },
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "softwareVersion": "1.0",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5",
+        "ratingCount": "1"
+      }
+    }
+    </script>
 
 </head>
 
@@ -31,7 +93,7 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="https://unpkg.com/@sjmc11/tourguidejs/dist/tour.js"></script>
-    <script src="js/bundle/bundle.min.js?v=20260123_134347"></script>
+    <script src="js/bundle/bundle.min.js?v=20260126_020701"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
