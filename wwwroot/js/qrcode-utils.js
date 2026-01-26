@@ -179,6 +179,9 @@ window.scanQrCodeFromImageUrl = async function(imageUrl) {
 
 let activeScanner = null;
 let currentCameraId = null;
+let resizeObserver = null;
+let resizeTimeout = null;
+let dotNetReference = null;
 
 /**
  * 利用可能なカメラデバイス一覧を取得
@@ -255,21 +258,29 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
 
         activeScanner = new Html5Qrcode(elementId);
         currentCameraId = cameraId;
+        dotNetReference = dotNetRef;
 
         const config = {
             fps: 10,
-            // 正方形のスキャンエリアを表示: ビューポートの70%を使用
+            // QRコード検出領域をレスポンシブに設定
             qrbox: function(viewfinderWidth, viewfinderHeight) {
+                // ビューポートの小さい方の辺を基準に、70%のサイズを使用
                 const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
                 const qrboxSize = Math.floor(minEdge * 0.7);
-                // 正方形を保証するため width と height を同じ値に設定
+                
+                // 最小サイズと最大サイズを設定
+                const minSize = 200;  // 最小200px
+                const maxSize = 400;  // 最大400px
+                const finalSize = Math.max(minSize, Math.min(maxSize, qrboxSize));
+                
+                console.log(`QR Box size: ${finalSize}px (viewport: ${viewfinderWidth}x${viewfinderHeight})`);
+                
                 return {
-                    width: qrboxSize,
-                    height: qrboxSize
+                    width: finalSize,
+                    height: finalSize
                 };
             },
-            aspectRatio: 1.0,  // 1:1 アスペクト比を強制
-            // videoConstraints を完全に削除（カメラIDのみで制御）
+            aspectRatio: 1.0,  // 1:1 アスペクト比
             // QRコードの文字コード自動検出を有効化
             formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
             experimentalFeatures: {
@@ -318,6 +329,20 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
             }
         );
         
+        // カメラ映像を中央に配置するためのスタイル調整
+        setTimeout(() => {
+            const videoElement = document.querySelector(`#${elementId} video`);
+            if (videoElement) {
+                videoElement.style.width = '100%';
+                videoElement.style.height = 'auto';
+                videoElement.style.maxHeight = '100%';
+                videoElement.style.objectFit = 'contain';
+            }
+        }, 100);
+        
+        // リサイズ監視を開始
+        setupResizeObserver(elementId);
+        
         return cameraId;
     } catch (error) {
         console.error('Failed to start QR scanner:', error);
@@ -330,11 +355,23 @@ window.startQrScanner = async function(elementId, cameraId = null, dotNetRef = n
  */
 window.stopQrScanner = async function() {
     try {
+        // リサイズ監視を停止
+        if (resizeObserver) {
+            window.removeEventListener('resize', resizeObserver);
+            resizeObserver = null;
+        }
+        
+        if (resizeTimeout) {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = null;
+        }
+        
         if (activeScanner) {
             await activeScanner.stop();
             activeScanner.clear();
             activeScanner = null;
             currentCameraId = null;
+            dotNetReference = null;
         }
     } catch (error) {
         console.error('Failed to stop QR scanner:', error);
@@ -360,6 +397,59 @@ window.switchQrScannerCamera = async function(elementId, cameraId, dotNetRef = n
 window.getCurrentCameraId = function() {
     return currentCameraId;
 };
+
+/**
+ * リサイズ監視を設定（ウィンドウサイズ変更時にスキャナーを再起動）
+ */
+function setupResizeObserver(elementId) {
+    // 既存の監視を停止
+    if (resizeObserver) {
+        window.removeEventListener('resize', resizeObserver);
+        resizeObserver = null;
+    }
+    
+    let lastWidth = window.innerWidth;
+    let lastHeight = window.innerHeight;
+    
+    // Window resizeイベントを使用してサイズ変更を検知
+    resizeObserver = async () => {
+        const newWidth = window.innerWidth;
+        const newHeight = window.innerHeight;
+        
+        // サイズが10px以上変わった場合のみ再起動
+        const widthDiff = Math.abs(newWidth - lastWidth);
+        const heightDiff = Math.abs(newHeight - lastHeight);
+        
+        if (widthDiff > 10 || heightDiff > 10) {
+            console.log(`Window resized: ${lastWidth}x${lastHeight} -> ${newWidth}x${newHeight}`);
+            
+            // デバウンス処理（連続したリサイズイベントを抑制）
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+            }
+            
+            resizeTimeout = setTimeout(async () => {
+                lastWidth = newWidth;
+                lastHeight = newHeight;
+                
+                // スキャナーを再起動（qr-shaded-regionも再計算される）
+                if (activeScanner && currentCameraId && dotNetReference) {
+                    console.log('Restarting scanner due to resize...');
+                    try {
+                        const savedCameraId = currentCameraId;
+                        const savedDotNetRef = dotNetReference;
+                        await window.stopQrScanner();
+                        await window.startQrScanner(elementId, savedCameraId, savedDotNetRef);
+                    } catch (error) {
+                        console.error('Failed to restart scanner on resize:', error);
+                    }
+                }
+            }, 500);
+        }
+    };
+    
+    window.addEventListener('resize', resizeObserver);
+}
 
 /**
  * ズーム機能のサポート状態を取得
