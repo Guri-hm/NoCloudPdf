@@ -2,6 +2,7 @@
 @using NoCloudPdf.Components
 @inject NavigationManager Nav
 
+@inject IJSRuntime JS
 <PageTitle>お問い合わせ-NoCloudPDF</PageTitle>
 
 <div class="max-w-4xl mx-auto px-4 py-8 md:py-12">
@@ -38,10 +39,6 @@
         <section>
             <h2 class="text-2xl font-bold text-gray-800 mb-4">GitHubでのお問い合わせ</h2>
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                <div class="flex items-center gap-3 mb-3">
-                    <GithubIcon Class="w-6 h-6 text-gray-800" />
-                    <h3 class="text-lg font-semibold text-gray-800">GitHub Issues</h3>
-                </div>
                 <p class="text-gray-700 mb-3">
                     バグ報告や機能要望は、GitHubのIssuesからも受け付けています：
                 </p>
@@ -61,15 +58,13 @@
 
         <section>
             <h2 class="text-2xl font-bold text-gray-800 mb-4">お問い合わせの際のお願い</h2>
-            <div class="bg-amber-50 border border-amber-200 rounded-lg p-6">
-                <p class="text-gray-700 mb-3">以下の情報を含めていただけると、迅速な対応が可能です：</p>
-                <ul class="list-disc list-inside ml-4 space-y-2 text-gray-700">
-                    <li>ご利用のブラウザ（Chrome、Firefox、Safariなど）</li>
-                    <li>ご利用のOS（Windows、Mac、iOS、Androidなど）</li>
-                    <li>発生した問題の詳細（エラーメッセージ、スクリーンショットなど）</li>
-                    <li>問題が発生した操作手順</li>
-                </ul>
-            </div>
+            <p class="text-gray-700 mb-3">以下の情報を含めていただけると、迅速な対応が可能です：</p>
+            <ul class="list-disc list-inside ml-4 space-y-2 text-gray-700">
+                <li>ご利用のブラウザ（Chrome、Firefox、Safariなど）</li>
+                <li>ご利用のOS（Windows、Mac、iOS、Androidなど）</li>
+                <li>発生した問題の詳細（エラーメッセージ、スクリーンショットなど）</li>
+                <li>問題が発生した操作手順</li>
+            </ul>
         </section>
 
         <section>
@@ -108,24 +103,22 @@
 
         <section>
             <h2 class="text-2xl font-bold text-gray-800 mb-4">開発者情報</h2>
-            <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                <p class="text-gray-700 mb-3">
-                    <strong>開発者:</strong> Guri-hm
-                </p>
-                <div class="flex items-center gap-4">
-                    <a href="https://github.com/Guri-hm" 
-                       target="_blank" 
-                       rel="noopener"
-                       class="inline-flex items-center gap-2 text-gray-800 hover:text-purple-700 transition">
-                        <GithubIcon Class="w-6 h-6" />
-                        <span class="font-semibold">GitHub</span>
-                    </a>
-                    <a href="mailto:contact@solopg.com" 
-                       class="inline-flex items-center gap-2 text-gray-800 hover:text-purple-700 transition">
-                        <MailIcon Class="w-6 h-6" />
-                        <span class="font-semibold">Email</span>
-                    </a>
-                </div>
+            <p class="text-gray-700 mb-3">
+                <strong>開発者:</strong> Guri-hm
+            </p>
+            <div class="flex items-center gap-4">
+                <a href="https://github.com/Guri-hm" 
+                   target="_blank" 
+                   rel="noopener"
+                   class="inline-flex items-center gap-2 text-gray-800 hover:text-purple-700 transition">
+                    <GithubIcon Class="w-6 h-6" />
+                    <span class="font-semibold">GitHub</span>
+                </a>
+                <a href="mailto:contact@solopg.com" 
+                   class="inline-flex items-center gap-2 text-gray-800 hover:text-purple-700 transition">
+                    <MailIcon Class="w-6 h-6" />
+                    <span class="font-semibold">Email</span>
+                </a>
             </div>
         </section>
     </div>
@@ -136,3 +129,18 @@
         </a>
     </div>
 </div>
+@code {
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("scrollToTop");
+            }
+            catch { }
+        }
+    }
+
+}
