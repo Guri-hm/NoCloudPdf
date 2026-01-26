@@ -661,3 +661,23 @@ main[b-zdpdkgcm98] {
     pointer-events: none;
     z-index: 5;
 }
+/* /Pages/QrCodeScanner.razor.rz.scp.css */
+.qr-scanner-layout[b-68u0pm5yz4] {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* モバイルでもデスクトップでも画面に収める */
+@media (max-width: 767px) {
+    .qr-scanner-layout[b-68u0pm5yz4] {
+        height: calc(100vh - 56px); /* NavMenuヘッダー分を引く */
+    }
+}
+
+@media (min-width: 768px) {
+    .qr-scanner-layout[b-68u0pm5yz4] {
+        height: 100%;
+    }
+}
