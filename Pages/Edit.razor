@@ -241,6 +241,9 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
 
         // ページ単位表示を強制
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
+
+        // 完了状態をリセット
+        CompletionState.Reset();
     }
 
     private void OnServiceChanged()
@@ -406,13 +409,17 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         {
             previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"ShowPreviewAsync error: {ex.Message}");
             // 失敗時はサムネイル表示
             previewImageUrl = DisplayItems[fileIndex].Thumbnail;
         }
-
-        isPreviewLoading = false;
+        finally
+        {
+            isPreviewLoading = false;
+            StateHasChanged();
+        }
     }
 
 
