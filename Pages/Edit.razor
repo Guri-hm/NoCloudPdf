@@ -241,6 +241,9 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
 
         // ページ単位表示を強制
         PdfDataService.SwitchDisplayMode(DisplayMode.Page);
+
+        // 完了状態をリセット
+        CompletionState.Reset();
     }
 
     private void OnServiceChanged()
