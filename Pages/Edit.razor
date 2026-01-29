@@ -409,13 +409,17 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         {
             previewImageUrl = await PdfDataService.GetPreviewImageAsync(DisplayItems[fileIndex].Id);
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"ShowPreviewAsync error: {ex.Message}");
             // 失敗時はサムネイル表示
             previewImageUrl = DisplayItems[fileIndex].Thumbnail;
         }
-
-        isPreviewLoading = false;
+        finally
+        {
+            isPreviewLoading = false;
+            StateHasChanged();
+        }
     }
 
 
