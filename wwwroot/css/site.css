@@ -84,7 +84,7 @@ input[type="submit"]:not([disabled]) {
   transform: rotate(-90deg);
 }
 .loading-progress circle:last-child {
-  stroke: #1b6ec2;
+  stroke: #3a0647;
   stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
   transition: stroke-dasharray 0.05s ease-in-out;
 }
