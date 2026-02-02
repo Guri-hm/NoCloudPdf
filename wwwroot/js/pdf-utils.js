@@ -1516,41 +1516,46 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
         let llx, lly, urx, ury;
 
         if (quant === 0) {
+            // 回転なし
             llx = nx * pageW;
             lly = pageH * (1 - ny - nh);
             urx = llx + (nw * pageW);
             ury = lly + (nh * pageH);
 
-        } else if (quant === 90) {
-            // 90°回転時の座標変換
-            // 表示：横長 (pageH × pageW)、元PDF：縦長 (pageW × pageH)
-            const sx = nx * pageH;  // 表示X座標（元PDFの高さ方向）
-            const sy = ny * pageW;  // 表示Y座標（元PDFの幅方向）
-            const sw = nw * pageH;  // 表示幅
-            const sh = nh * pageW;  // 表示高さ
+        } else if (quant === 90 || quant === 270) {
+            // 90度・270度回転時の座標変換
+            const displayW = pageH;  // 回転後の横幅
+            const displayH = pageW;  // 回転後の縦幅
+            
+            const sx = nx * displayW;  // 表示X座標
+            const sy = ny * displayH;  // 表示Y座標
+            const sw = nw * displayW;  // 表示幅
+            const sh = nh * displayH;  // 表示高さ
 
-            // PDF座標系への変換（90°時計回り回転の逆変換）
-            // 表示左上 (sx, sy) → PDF左下 (lly, llx)
-            llx = sy;                // 表示Y → PDF左端
-            lly = sx;                // 表示X → PDF下端
-            urx = sy + sh;           // 表示Y + 高さ → PDF右端
-            ury = sx + sw;           // 表示X + 幅 → PDF上端
+            if (quant === 90) {
+                // 90度時計回り
+                llx = displayH - sy - sh;
+                lly = sx;
+                urx = displayH - sy;
+                ury = sx + sw;
+            } else {
+                // 270度反時計回り
+                // 表示の左上 (0,0) → 元PDFの右上 (pageW, pageH)
+                // 表示X (→) → 元PDF Y (↓)
+                // 表示Y (↓) → 元PDF X (←)
+                
+                llx = displayH - sy - sh;  // 表示Y → 元PDF X（右から左へ、反転）
+                lly = displayW - sx - sw;  // 表示X → 元PDF Y（下から上へ、反転）
+                urx = displayH - sy;       // 表示Y+高さ → 元PDF X
+                ury = displayW - sx;       // 表示X+幅 → 元PDF Y
+            }
+
         } else if (quant === 180) {
+            // 180度回転
             llx = pageW * (1 - nx - nw);
             lly = pageH * ny;
             urx = pageW * (1 - nx);
             ury = pageH * (ny + nh);
-
-        } else if (quant === 270) {
-            const sx = nx * pageH;
-            const sy = ny * pageW;
-            const sw = nw * pageH;
-            const sh = nh * pageW;
-
-            llx = pageH - sy - sh;
-            lly = pageW - sx - sw;
-            urx = pageH - sy;
-            ury = pageW - sx;
         }
 
         const clampedLlX = Math.max(0, Math.min(pageW, Math.round(llx)));

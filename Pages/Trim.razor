@@ -1057,12 +1057,6 @@
                             return;
                         }
 
-                        // トリミング後のサイズを確認
-                        try
-                        {
-                            var croppedSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>("getPdfPageOriginalSize", pageDataToUse);
-                        }
-                        catch { }
                     }
                     catch (Exception ex)
                     {
