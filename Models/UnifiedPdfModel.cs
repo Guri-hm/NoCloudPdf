@@ -32,7 +32,9 @@ public class PageItem
     public int OriginalPageIndex { get; set; } = 0; // 元ファイル内でのページ番号（0始まり）
     public int OriginalPageNumber => OriginalPageIndex + 1; // 元ファイル内でのページ番号（1始まり）
     public string Thumbnail { get; set; } = ""; // サムネイル画像データ
-    public string PageData { get; set; } = ""; // PDFページデータ（Base64）
+    public string? PageData { get; set; } = ""; // PDFページデータ（Base64） - Nullable: ストレージ使用時はnull
+    public bool IsPageDataStoredInJs { get; set; } = false; // ページデータがJS側ストレージに保存されているか
+    public long PageDataSizeBytes { get; set; } = 0; // ページデータのサイズ（バイト単位）- メモリ追跡用
     public bool IsLoading { get; set; } = true; // ローディング中フラグ
     public bool HasThumbnailError { get; set; }
     public bool HasPageDataError { get; set; }

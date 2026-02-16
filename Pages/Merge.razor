@@ -486,8 +486,9 @@
 
             var mergeItems = PdfDataService.GetModel().Pages;
 
-            // 準備できていないページがある場合は中断
-            var notReadyCount = mergeItems.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            // 準備できていないページがある場合は中断（ストレージ対応版）
+            var notReadyCount = mergeItems.Count(item =>
+                (!item.IsPageDataStoredInJs && string.IsNullOrEmpty(item.PageData)) || item.HasError);
             if (notReadyCount > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
@@ -502,18 +503,35 @@
 
             _ = MessageService.HideAsync();
 
-            // JSに渡すためのデータを整形
-            var mergeData = mergeItems.Select(item => new MergePageDto
-            {
-                FileId = item.FileId,
-                FileName = item.FileName,
-                PageData = item.PageData,
-                IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
-                RotateAngle = item.RotateAngle % 360
-            }).ToList();
+            // ストレージ使用チェック
+            bool usingStorage = mergeItems.Any(p => p.IsPageDataStoredInJs);
 
-            //  JSで結合処理
-            mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+            if (usingStorage)
+            {
+                // 新しいストレージベースのマージ
+                var pageKeys = mergeItems.Select(p => new {
+                    fileId = p.FileId,
+                    pageIndex = p.OriginalPageIndex,
+                    rotateAngle = p.RotateAngle % 360
+                }).ToList();
+
+                mergedPdfUrl = await JSRuntime.InvokeAsync<string>(
+                    "mergePdfPagesFromStorage", pageKeys);
+            }
+            else
+            {
+                // レガシーBase64マージ（後方互換性のため保持）
+                var mergeData = mergeItems.Select(item => new MergePageDto
+                {
+                    FileId = item.FileId,
+                    FileName = item.FileName,
+                    PageData = item.PageData,
+                    IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
+                    RotateAngle = item.RotateAngle % 360
+                }).ToList();
+
+                mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+            }
 
             if (!string.IsNullOrEmpty(mergedPdfUrl))
             {

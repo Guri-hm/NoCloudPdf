@@ -1932,10 +1932,34 @@ private void RotateSelectedImageRight()
 
                 fileName = pageItem.FileName ?? "";
 
-                // ここで元データを保持
-                originalPageData = pageItem.PageData;
+                // ここで元データを保持（ストレージ対応版）
+                if (pageItem.IsPageDataStoredInJs)
+                {
+                    // ストレージから取得してBase64に変換
+                    var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                        "getStoredPageData",
+                        pageItem.FileId,
+                        pageItem.OriginalPageIndex
+                    );
 
-                cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
+                    if (pageBytes != null && pageBytes.Length > 0)
+                    {
+                        originalPageData = Convert.ToBase64String(pageBytes);
+                    }
+                    else
+                    {
+                        _ = MessageService.ShowAsync("ページデータの取得に失敗しました", MessageType.Error);
+                        Navigation.NavigateTo("/edit");
+                        return;
+                    }
+                }
+                else
+                {
+                    // レガシーBase64
+                    originalPageData = pageItem.PageData;
+                }
+
+                cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, originalPageData);
                 if (cachedPageSource == null)
                 {
                     cachedPageSource = new PageSourceInfo { 
@@ -2490,11 +2514,34 @@ private async void FitToHeight()
                     originalPageData, // extractPdfPageで取得したPDF Base64
                     editJson
                 );
-                pageItem.PageData = newPdfBase64;
+
+                // ストレージに保存（またはレガシーPageDataに保存）
+                if (pageItem.IsPageDataStoredInJs)
+                {
+                    // 結果をストレージに保存
+                    var resultBytes = Convert.FromBase64String(newPdfBase64);
+                    await JSRuntime.InvokeVoidAsync(
+                        "setStoredPageData",
+                        pageItem.FileId,
+                        pageItem.OriginalPageIndex,
+                        resultBytes
+                    );
+
+                    pageItem.IsPageDataStoredInJs = true;
+                    pageItem.PageDataSizeBytes = resultBytes.Length;
+                    pageItem.PageData = null; // 明示的にnull
+                }
+                else
+                {
+                    // レガシーBase64保存
+                    pageItem.PageData = newPdfBase64;
+                }
+
+                // サムネイル再生成
                 pageItem.Thumbnail = "";
-                
+
                 var newThumbnail = await JSRuntime.InvokeAsync<string>(
-                    "generatePdfThumbnailFromPageData", pageItem.PageData);
+                    "generatePdfThumbnailFromPageData", newPdfBase64);
                 pageItem.Thumbnail = newThumbnail;
 
                 _ = MessageService.ShowAsync($"変更を保存しました", type: MessageType.Success);

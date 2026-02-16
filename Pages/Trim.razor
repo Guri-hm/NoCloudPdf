@@ -1009,13 +1009,14 @@
                 pageInfos.Add((i, item, page, PdfDataService.GetTrimRect(i)));
             }
 
-            var notReady = pageInfos.Count(p => string.IsNullOrEmpty(p.Page.PageData) || p.Page.HasError);
+            var notReady = pageInfos.Count(p =>
+                (!p.Page.IsPageDataStoredInJs && string.IsNullOrEmpty(p.Page.PageData)) || p.Page.HasError);
             if (notReady > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
                 return;
             }
-            
+
             await MessageService.ShowLoadingAsync("トリミング中...");
             await Task.Yield();
 
@@ -1026,30 +1027,53 @@
                 var info = pageInfos[idx];
                 var page = info.Page;
 
-                if (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError)
+                // ストレージ対応：PageDataの有無チェック
+                if (!page.IsPageDataStoredInJs && (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError))
                 {
                     _ = MessageService.ShowAsync($"ページデータが不足しています: {info.Item.DisplayName}", MessageType.Error);
                     return;
                 }
 
-                string pageDataToUse = page.PageData;
+                string pageDataToUse;
 
+                // トリミングが必要な場合
                 if (info.Trim != null)
                 {
                     try
                     {
-                        var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
-
                         var rotate = page.RotateAngle % 360;
-                        pageDataToUse = await JSRuntime.InvokeAsync<string>(
-                            cropFunction,
-                            page.PageData,
-                            info.Trim.X,
-                            info.Trim.Y,
-                            info.Trim.Width,
-                            info.Trim.Height,
-                            rotate
-                        );
+
+                        if (page.IsPageDataStoredInJs)
+                        {
+                            // ストレージベースのトリミング（新しいJS関数が必要）
+                            var cropFunction = useRasterize ? "cropPdfPageRasterizedFromStorage" : "cropPdfPageVectorFromStorage";
+
+                            pageDataToUse = await JSRuntime.InvokeAsync<string>(
+                                cropFunction,
+                                page.FileId,
+                                page.OriginalPageIndex,
+                                info.Trim.X,
+                                info.Trim.Y,
+                                info.Trim.Width,
+                                info.Trim.Height,
+                                rotate
+                            );
+                        }
+                        else
+                        {
+                            // レガシーBase64トリミング
+                            var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
+
+                            pageDataToUse = await JSRuntime.InvokeAsync<string>(
+                                cropFunction,
+                                page.PageData,
+                                info.Trim.X,
+                                info.Trim.Y,
+                                info.Trim.Width,
+                                info.Trim.Height,
+                                rotate
+                            );
+                        }
 
                         if (string.IsNullOrEmpty(pageDataToUse))
                         {
@@ -1062,6 +1086,23 @@
                     {
                         _ = MessageService.ShowAsync($"トリミング処理に失敗しました: {ex.Message}", MessageType.Error);
                         return;
+                    }
+                }
+                else
+                {
+                    // トリミングなしの場合、ストレージから取得
+                    if (page.IsPageDataStoredInJs)
+                    {
+                        var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                            "getStoredPageData",
+                            page.FileId,
+                            page.OriginalPageIndex
+                        );
+                        pageDataToUse = Convert.ToBase64String(pageBytes);
+                    }
+                    else
+                    {
+                        pageDataToUse = page.PageData;
                     }
                 }
 

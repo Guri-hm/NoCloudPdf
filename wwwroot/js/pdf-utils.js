@@ -230,6 +230,76 @@ class PdfCacheManager {
 
 window._pdfCache = new PdfCacheManager();
 
+// ========================================
+// PDF ページストレージマネージャークラス
+// ========================================
+class PdfPageStorageManager {
+    constructor() {
+        this.storage = new Map(); // Key: "{fileId}_{pageIndex}" → Value: Uint8Array
+        this.metadata = new Map(); // Key: "{fileId}_{pageIndex}" → Value: { size, timestamp }
+    }
+
+    set(fileId, pageIndex, uint8Array) {
+        const key = `${fileId}_${pageIndex}`;
+        this.storage.set(key, uint8Array);
+        this.metadata.set(key, {
+            size: uint8Array.byteLength,
+            timestamp: Date.now()
+        });
+    }
+
+    get(fileId, pageIndex) {
+        const key = `${fileId}_${pageIndex}`;
+        return this.storage.get(key);
+    }
+
+    has(fileId, pageIndex) {
+        const key = `${fileId}_${pageIndex}`;
+        return this.storage.has(key);
+    }
+
+    delete(fileId, pageIndex) {
+        const key = `${fileId}_${pageIndex}`;
+        this.storage.delete(key);
+        this.metadata.delete(key);
+    }
+
+    deleteAllForFile(fileId) {
+        let count = 0;
+        for (const key of Array.from(this.storage.keys())) {
+            if (key.startsWith(`${fileId}_`)) {
+                this.storage.delete(key);
+                this.metadata.delete(key);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    clear() {
+        this.storage.clear();
+        this.metadata.clear();
+    }
+
+    getTotalSize() {
+        let total = 0;
+        for (const meta of this.metadata.values()) {
+            total += meta.size;
+        }
+        return total;
+    }
+
+    getStorageInfo() {
+        return {
+            pageCount: this.storage.size,
+            totalSizeBytes: this.getTotalSize(),
+            totalSizeMB: (this.getTotalSize() / 1024 / 1024).toFixed(2)
+        };
+    }
+}
+
+window._pdfPageStorage = new PdfPageStorageManager();
+
 // 後方互換性のためのエイリアス
 window._pdfLibCache = window._pdfCache.libCache;
 window._pdfLibFileRestricted = window._pdfCache.restrictedFiles;
@@ -754,6 +824,178 @@ window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
         console.error(`Error extracting PDF page ${pageIndex}:`, error);
         return await window.createBlankPage();
     }
+};
+
+// ========================================
+// ページ抽出してストレージに保存（Base64を返さない）
+// ========================================
+window.extractPdfPageToStorage = async function (pdfData, pageIndex, fileId) {
+    try {
+        const { PDFDocument } = PDFLib;
+        const uint8Array = toUint8Array(pdfData);
+
+        let srcPdfDoc = null;
+        if (fileId && window._pdfCache.has(fileId)) {
+            srcPdfDoc = window._pdfCache.get(fileId);
+        } else {
+            try {
+                srcPdfDoc = await PDFDocument.load(uint8Array);
+                if (fileId) {
+                    window._pdfCache.set(fileId, srcPdfDoc);
+                }
+            } catch (loadErr) {
+                return await extractAndStoreWithFallback(uint8Array, pageIndex, fileId);
+            }
+        }
+
+        const newPdf = await PDFDocument.create();
+
+        try {
+            if (fileId && window._pdfCache.isRestricted(fileId)) {
+                throw new Error('file-restricted-precheck');
+            }
+            const [copiedPage] = await newPdf.copyPages(srcPdfDoc, [pageIndex]);
+            newPdf.addPage(copiedPage);
+        } catch (copyError) {
+            return await extractAndStoreWithFallback(uint8Array, pageIndex, fileId);
+        }
+
+        const pdfBytes = await newPdf.save();
+        window._pdfPageStorage.set(fileId, pageIndex, pdfBytes);
+
+        return {
+            success: true,
+            sizeBytes: pdfBytes.byteLength,
+            isRestricted: fileId ? window._pdfCache.isRestricted(fileId) : false
+        };
+
+    } catch (error) {
+        console.error(`Error extracting page to storage:`, error);
+        return { success: false, error: error.message };
+    }
+};
+
+// 制限付きPDF用のフォールバック（ストレージ版）
+async function extractAndStoreWithFallback(uint8Array, pageIndex, fileId) {
+    if (fileId) {
+        window._pdfCache.markRestricted(fileId);
+    }
+
+    const pdf = await loadPdfDocument(uint8Array);
+    const page = await pdf.getPage(pageIndex + 1);
+
+    const scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
+    const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
+
+    const imgDataUrl = canvas.toDataURL('image/png');
+    const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
+
+    const { PDFDocument } = PDFLib;
+    const imgPdf = await PDFDocument.create();
+    const embedded = await imgPdf.embedPng(imgBytes);
+    imgPdf.addPage([canvas.width, canvas.height]);
+    const [imgPage] = imgPdf.getPages();
+    imgPage.drawImage(embedded, { x: 0, y: 0, width: canvas.width, height: canvas.height });
+
+    const pdfBytes = await imgPdf.save();
+    window._pdfPageStorage.set(fileId, pageIndex, pdfBytes);
+
+    return {
+        success: true,
+        sizeBytes: pdfBytes.byteLength,
+        isRestricted: true
+    };
+}
+
+// ========================================
+// ストレージ管理API
+// ========================================
+
+// ストレージからページデータを取得
+window.getStoredPageData = function (fileId, pageIndex) {
+    return window._pdfPageStorage.get(fileId, pageIndex);
+};
+
+// ストレージにページデータが存在するか確認
+window.hasStoredPageData = function (fileId, pageIndex) {
+    return window._pdfPageStorage.has(fileId, pageIndex);
+};
+
+// ストレージにページデータを設定（編集後の保存用）
+window.setStoredPageData = function (fileId, pageIndex, uint8Array) {
+    window._pdfPageStorage.set(fileId, pageIndex, uint8Array);
+    return { success: true, sizeBytes: uint8Array.byteLength };
+};
+
+// ストレージからページデータを削除
+window.deleteStoredPageData = function (fileId, pageIndex) {
+    return window._pdfPageStorage.delete(fileId, pageIndex);
+};
+
+// ファイルの全ページを削除
+window.deleteStoredPagesForFile = function (fileId) {
+    return window._pdfPageStorage.deleteAllForFile(fileId);
+};
+
+// ストレージ統計を取得
+window.getPageStorageInfo = function () {
+    return window._pdfPageStorage.getStorageInfo();
+};
+
+// ストレージクリア
+window._clearPageStorage = function () {
+    window._pdfPageStorage.clear();
+    return window._pdfPageStorage.getStorageInfo();
+};
+
+// ========================================
+// ストレージベースの結合操作
+// ========================================
+window.mergePdfPagesFromStorage = async function (pageKeys) {
+    const { PDFDocument, degrees } = PDFLib;
+    const mergedPdf = await PDFDocument.create();
+
+    for (let i = 0; i < pageKeys.length; i++) {
+        const key = pageKeys[i];
+        const { fileId, pageIndex, rotateAngle } = key;
+
+        const pageBytes = window._pdfPageStorage.get(fileId, pageIndex);
+        if (!pageBytes) {
+            console.error(`Page not found in storage: ${fileId}_${pageIndex}`);
+            continue;
+        }
+
+        try {
+            const pdfDoc = await PDFDocument.load(pageBytes);
+            const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
+
+            if (rotateAngle && rotateAngle % 360 !== 0) {
+                page.setRotation(degrees(rotateAngle));
+            }
+
+            mergedPdf.addPage(page);
+        } catch (error) {
+            console.error(`Error merging page ${i}:`, error);
+            throw error;
+        }
+    }
+
+    const mergedPdfBytes = await mergedPdf.save();
+    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+    return URL.createObjectURL(blob);
+};
+
+// ========================================
+// プレビュー生成（ストレージから）
+// ========================================
+window.generatePreviewFromStorage = async function (fileId, pageIndex, rotateAngle, scaleKey) {
+    const pageBytes = window._pdfPageStorage.get(fileId, pageIndex);
+    if (!pageBytes) {
+        throw new Error(`Page not found in storage: ${fileId}_${pageIndex}`);
+    }
+
+    const pdfBase64 = uint8ArrayToBase64(pageBytes);
+    return await window.generatePreviewImage(pdfBase64, rotateAngle, scaleKey);
 };
 
 // ========================================
@@ -1580,6 +1822,32 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
         console.error('[cropPdfPageToTrimVector] Error:', e);
         return pdfBase64 || "";
     }
+};
+
+// ========================================
+// トリミング操作（ストレージベース）
+// ========================================
+
+// ベクタートリミング（ストレージから）
+window.cropPdfPageVectorFromStorage = async function (fileId, pageIndex, normX, normY, normWidth, normHeight, rotateAngle = 0) {
+    const pageBytes = window._pdfPageStorage.get(fileId, pageIndex);
+    if (!pageBytes) {
+        throw new Error(`Page not found in storage: ${fileId}_${pageIndex}`);
+    }
+
+    const pdfBase64 = uint8ArrayToBase64(pageBytes);
+    return await window.cropPdfPageToTrimVector(pdfBase64, normX, normY, normWidth, normHeight, rotateAngle);
+};
+
+// ラスタライズトリミング（ストレージから）
+window.cropPdfPageRasterizedFromStorage = async function (fileId, pageIndex, normX, normY, normWidth, normHeight, rotateAngle = 0) {
+    const pageBytes = window._pdfPageStorage.get(fileId, pageIndex);
+    if (!pageBytes) {
+        throw new Error(`Page not found in storage: ${fileId}_${pageIndex}`);
+    }
+
+    const pdfBase64 = uint8ArrayToBase64(pageBytes);
+    return await window.cropPdfPageRasterized(pdfBase64, normX, normY, normWidth, normHeight, rotateAngle);
 };
 
 // ========================================

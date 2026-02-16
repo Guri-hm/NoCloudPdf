@@ -504,18 +504,39 @@ public class PdfDataService
                 lastIndex = x.Index;
             }
 
-            // PageData取得（従来通り）
+            // PageData取得（ストレージ利用）
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
             foreach (var pageItem in existingPageItems)
             {
-                if (!string.IsNullOrEmpty(pageItem.PageData) && !pageItem.HasPageDataError)
+                // PageDataがすでにJS ストレージに保存されているか、従来のBase64で保持されている場合はスキップ
+                if (pageItem.IsPageDataStoredInJs || (!string.IsNullOrEmpty(pageItem.PageData) && !pageItem.HasPageDataError))
                     continue;
 
                 try
                 {
-                    pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex, fileMetadata.FileId);
-                    pageItem.HasPageDataError = string.IsNullOrEmpty(pageItem.PageData);
+                    var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                        "extractPdfPageToStorage",
+                        fileMetadata.FileData,
+                        pageItem.OriginalPageIndex,
+                        fileMetadata.FileId
+                    );
+
+                    if (result.Success)
+                    {
+                        pageItem.IsPageDataStoredInJs = true;
+                        pageItem.PageDataSizeBytes = result.SizeBytes;
+                        pageItem.PageData = null; // 明示的にnull
+                        pageItem.HasPageDataError = false;
+                        pageItem.IsOperationRestricted = result.IsRestricted;
+                    }
+                    else
+                    {
+                        pageItem.HasPageDataError = true;
+                        Console.WriteLine($"PageData storage error: {result.Error}");
+                    }
+
                     pageItem.IsLoading = false;
+
                     try
                     {
                         if (!fileMetadata.IsOperationRestricted)
@@ -538,11 +559,12 @@ public class PdfDataService
                     }
                     await BufferedNotifyChangeAsync();
                 }
-                catch
+                catch (Exception ex)
                 {
                     pageItem.HasPageDataError = true;
-                    pageItem.PageData = "";
+                    pageItem.PageData = null;
                     pageItem.IsLoading = false;
+                    Console.WriteLine($"ExtractPageToStorage error: {ex.Message}");
                 }
             }
 
@@ -598,21 +620,45 @@ public class PdfDataService
                 }
 
                 string thumbnail = "";
-                string pageData = "";
                 bool thumbError = false;
                 bool dataError = false;
+                bool dataStoredInJs = false;
+                long dataSizeBytes = 0;
 
                 if (pageIndex == 0)
                 {
                     thumbnail = fileMetadata.CoverThumbnail;
                     // すでにPageDataがあれば再取得しない
-                    if (!string.IsNullOrEmpty(pageItem.PageData))
+                    if (pageItem.IsPageDataStoredInJs || !string.IsNullOrEmpty(pageItem.PageData))
                     {
-                        pageData = pageItem.PageData;
+                        dataStoredInJs = pageItem.IsPageDataStoredInJs;
+                        dataSizeBytes = pageItem.PageDataSizeBytes;
                     }
                     else
                     {
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                        var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                            "extractPdfPageToStorage",
+                            fileMetadata.FileData,
+                            pageIndex,
+                            fileMetadata.FileId
+                        );
+
+                        if (result.Success)
+                        {
+                            dataStoredInJs = true;
+                            dataSizeBytes = result.SizeBytes;
+                            dataError = false;
+
+                            if (result.IsRestricted)
+                            {
+                                fileMetadata.IsOperationRestricted = true;
+                                if (pageItem != null) pageItem.IsOperationRestricted = true;
+                            }
+                        }
+                        else
+                        {
+                            dataError = true;
+                        }
 
                         try
                         {
@@ -636,7 +682,7 @@ public class PdfDataService
                         }
                     }
                     thumbError = string.IsNullOrEmpty(thumbnail);
-                    dataError = string.IsNullOrEmpty(pageData);
+                    // dataError は既に設定済み（pageIndex == 0の場合）
                 }
                 else
                 {
@@ -669,44 +715,68 @@ public class PdfDataService
                     }
 
                     // PageDataは常に取得（既にあれば再取得しない）
-                    if (!string.IsNullOrEmpty(pageItem.PageData))
+                    if (pageItem.IsPageDataStoredInJs || !string.IsNullOrEmpty(pageItem.PageData))
                     {
-                        pageData = pageItem.PageData;
+                        dataStoredInJs = pageItem.IsPageDataStoredInJs;
+                        dataSizeBytes = pageItem.PageDataSizeBytes;
                     }
                     else
                     {
                         var dataCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                         try
                         {
-                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", dataCts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
-                            try
+                            var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                                "extractPdfPageToStorage",
+                                dataCts.Token,
+                                fileMetadata.FileData,
+                                pageIndex,
+                                fileMetadata.FileId
+                            );
+
+                            if (result.Success)
                             {
-                                if (!fileMetadata.IsOperationRestricted)
+                                dataStoredInJs = true;
+                                dataSizeBytes = result.SizeBytes;
+                                dataError = false;
+
+                                if (result.IsRestricted)
                                 {
-                                    var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
-                                    if (isRestricted)
+                                    fileMetadata.IsOperationRestricted = true;
+                                    if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                }
+
+                                try
+                                {
+                                    if (!fileMetadata.IsOperationRestricted)
                                     {
-                                        fileMetadata.IsOperationRestricted = true;
-                                        if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                        var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                                        if (isRestricted)
+                                        {
+                                            fileMetadata.IsOperationRestricted = true;
+                                            if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        pageItem.IsOperationRestricted = true;
                                     }
                                 }
-                                else
+                                catch
                                 {
-                                    pageItem.IsOperationRestricted = true;
+                                    // 無視（冗長問い合わせは失敗しても処理続行）
                                 }
                             }
-                            catch
+                            else
                             {
-                                // 無視（冗長問い合わせは失敗しても処理続行）
+                                dataError = true;
                             }
                         }
                         catch (OperationCanceledException)
                         {
                             Console.WriteLine($"Timeout extracting pageData for page {pageIndex + 1} of {fileMetadata.FileName}");
-                            pageData = "";
+                            dataError = true;
                         }
                     }
-                    dataError = string.IsNullOrEmpty(pageData);
                 }
 
                 if (pageItem == null)
@@ -716,7 +786,9 @@ public class PdfDataService
                 }
 
                 pageItem.Thumbnail = thumbnail;
-                pageItem.PageData = pageData;
+                pageItem.PageData = dataStoredInJs ? null : pageItem.PageData; // ストレージ使用時はnull
+                pageItem.IsPageDataStoredInJs = dataStoredInJs;
+                pageItem.PageDataSizeBytes = dataSizeBytes;
                 pageItem.IsLoading = false;
                 pageItem.HasThumbnailError = thumbError;
                 pageItem.HasPageDataError = dataError;
@@ -1132,11 +1204,27 @@ public class PdfDataService
             var pageToRemove = _model.Pages.FirstOrDefault(p => p.Id == item.Id);
             if (pageToRemove != null)
             {
+                // JS ストレージからも削除
+                if (pageToRemove.IsPageDataStoredInJs)
+                {
+                    _ = _jsRuntime.InvokeVoidAsync(
+                        "deleteStoredPageData",
+                        pageToRemove.FileId,
+                        pageToRemove.OriginalPageIndex
+                    );
+                }
+
                 _model.Pages.Remove(pageToRemove);
 
                 // そのファイルの他のページがなくなった場合、ファイルメタデータも削除
                 if (!_model.Pages.Any(p => p.FileId == pageToRemove.FileId))
                 {
+                    // ファイル全体のストレージもクリア
+                    _ = _jsRuntime.InvokeVoidAsync(
+                        "deleteStoredPagesForFile",
+                        pageToRemove.FileId
+                    );
+
                     _model.Files.Remove(pageToRemove.FileId);
                 }
             }
@@ -1170,6 +1258,12 @@ public class PdfDataService
                 // そのFileIdのページが0になったらファイルメタデータも削除
                 if (!_model.Pages.Any(p => p.FileId == fileId))
                 {
+                    // ファイル全体のストレージをクリア
+                    _ = _jsRuntime.InvokeVoidAsync(
+                        "deleteStoredPagesForFile",
+                        fileId
+                    );
+
                     _model.Files.Remove(fileId);
                 }
             }
@@ -1500,6 +1594,8 @@ public class PdfDataService
             // 呼び出しに await を使わないため戻り値は無視する
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibCacheClear");
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibFileRestrictedClear");
+            // JS ページストレージをクリア
+            _ = _jsRuntime.InvokeVoidAsync("_clearPageStorage");
         }
         catch { }
 
@@ -1549,7 +1645,11 @@ public class PdfDataService
             pageItem = _model.Pages.FirstOrDefault(p => p.Id == id);
         }
 
-        if (pageItem == null || string.IsNullOrEmpty(pageItem.PageData))
+        if (pageItem == null)
+            return null;
+
+        // ストレージ使用時とレガシーBase64の両方をサポート
+        if (!pageItem.IsPageDataStoredInJs && string.IsNullOrEmpty(pageItem.PageData))
             return null;
 
         var cacheKey = pageItem.Id;
@@ -1566,8 +1666,27 @@ public class PdfDataService
         // キャッシュになければ生成
         try
         {
-            var previewImage = await _jsRuntime.InvokeAsync<string>(
-            "generatePreviewImage", pageItem.PageData, pageItem.RotateAngle,scaleKey);
+            string previewImage;
+
+            if (pageItem.IsPageDataStoredInJs)
+            {
+                // ストレージからプレビュー生成
+                previewImage = await _jsRuntime.InvokeAsync<string>(
+                    "generatePreviewFromStorage",
+                    pageItem.FileId,
+                    pageItem.OriginalPageIndex,
+                    pageItem.RotateAngle,
+                    scaleKey);
+            }
+            else
+            {
+                // レガシーBase64プレビュー
+                previewImage = await _jsRuntime.InvokeAsync<string>(
+                    "generatePreviewImage",
+                    pageItem.PageData,
+                    pageItem.RotateAngle,
+                    scaleKey);
+            }
 
             if (string.IsNullOrEmpty(previewImage))
                 return null;
@@ -2169,5 +2288,16 @@ public class PdfDataService
             return null;
         }
     }
+}
+
+/// <summary>
+/// JS側ストレージ操作の結果
+/// </summary>
+public class StorageResult
+{
+    public bool Success { get; set; }
+    public long SizeBytes { get; set; }
+    public bool IsRestricted { get; set; }
+    public string? Error { get; set; }
 }
 
