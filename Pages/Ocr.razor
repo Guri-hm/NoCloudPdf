@@ -705,13 +705,28 @@
                     var rect = rects[rectIndex];
                     var rotate = normalizeRotationAngle(page.RotateAngle);
                     
-                    var imageDataUrl = await JSRuntime.InvokeAsync<string>(
-                        "cropPdfPageToImage",
-                        page.PageData,
-                        rect.X, rect.Y, rect.Width, rect.Height,
-                        rotate,
-                        exportDpi
-                    );
+                    string imageDataUrl;
+                    if (page.IsPageDataStoredInJs)
+                    {
+                        imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                            "cropPdfPageToImageFromStorage",
+                            page.FileId,
+                            page.OriginalPageIndex,
+                            rect.X, rect.Y, rect.Width, rect.Height,
+                            rotate,
+                            exportDpi
+                        );
+                    }
+                    else
+                    {
+                        imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                            "cropPdfPageToImage",
+                            page.PageData,
+                            rect.X, rect.Y, rect.Width, rect.Height,
+                            rotate,
+                            exportDpi
+                        );
+                    }
                     
                     if (!string.IsNullOrEmpty(imageDataUrl))
                     {

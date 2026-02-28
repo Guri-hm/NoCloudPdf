@@ -1874,6 +1874,17 @@ window.getImageSizeFromDataUrl = function (dataUrl) {
     });
 };
 
+// 画像トリミング（ストレージから）
+window.cropPdfPageToImageFromStorage = async function (fileId, pageIndex, normX, normY, normWidth, normHeight, rotateAngle = 0, dpi = 150) {
+    const pageBytes = window._pdfPageStorage.get(fileId, pageIndex);
+    if (!pageBytes) {
+        throw new Error(`Page not found in storage: ${fileId}_${pageIndex}`);
+    }
+
+    const pdfBase64 = uint8ArrayToBase64(pageBytes);
+    return await window.cropPdfPageToImage(pdfBase64, normX, normY, normWidth, normHeight, rotateAngle, dpi);
+};
+
 // ========================================
 // トリミング → 画像出力
 // ========================================
