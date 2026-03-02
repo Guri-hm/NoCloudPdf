@@ -1044,9 +1044,8 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
             byte[]? stampedPdfBytes;
             if (page.IsPageDataStoredInJs)
             {
-                var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                var pageBase64 = await JSRuntime.InvokeAsync<string>(
                     "getStoredPageData", page.FileId, page.OriginalPageIndex);
-                var pageBase64 = Convert.ToBase64String(pageBytes);
                 stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
                     "addStampsToPdf", pageBase64, stampData);
             }

@@ -1093,12 +1093,11 @@
                     // トリミングなしの場合、ストレージから取得
                     if (page.IsPageDataStoredInJs)
                     {
-                        var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                        pageDataToUse = await JSRuntime.InvokeAsync<string>(
                             "getStoredPageData",
                             page.FileId,
                             page.OriginalPageIndex
-                        );
-                        pageDataToUse = Convert.ToBase64String(pageBytes);
+                        ) ?? "";
                     }
                     else
                     {

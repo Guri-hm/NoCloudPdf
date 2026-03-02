@@ -433,7 +433,7 @@ public class PdfDataService
     // プレビュー画像の LRU キャッシュ（最大保持数を制限）
     private readonly LinkedList<string> _previewCacheOrder = new();
     private readonly Dictionary<string, string> _previewCache = new();
-    private const int MaxPreviewCacheSize = 5; // 最大5枚まで保持
+    private const int MaxPreviewCacheSize = 20; // 最大20枚まで保持
 
 
     /// <summary>

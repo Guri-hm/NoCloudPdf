@@ -911,9 +911,11 @@ async function extractAndStoreWithFallback(uint8Array, pageIndex, fileId) {
 // ストレージ管理API
 // ========================================
 
-// ストレージからページデータを取得
+// ストレージからページデータを取得（Base64文字列で返す）
 window.getStoredPageData = function (fileId, pageIndex) {
-    return window._pdfPageStorage.get(fileId, pageIndex);
+    const uint8Array = window._pdfPageStorage.get(fileId, pageIndex);
+    if (!uint8Array) return null;
+    return uint8ArrayToBase64(uint8Array);
 };
 
 // ストレージにページデータが存在するか確認
@@ -991,6 +993,7 @@ window.mergePdfPagesFromStorage = async function (pageKeys) {
 window.generatePreviewFromStorage = async function (fileId, pageIndex, rotateAngle, scaleKey) {
     const pageBytes = window._pdfPageStorage.get(fileId, pageIndex);
     if (!pageBytes) {
+        console.warn(`[generatePreviewFromStorage] Page not found in storage: fileId=${fileId}, pageIndex=${pageIndex}`);
         throw new Error(`Page not found in storage: ${fileId}_${pageIndex}`);
     }
 

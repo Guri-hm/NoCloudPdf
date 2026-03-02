@@ -32,6 +32,7 @@
     private string CanvasId => $"trim-preview-canvas-{Index}";
 
     private DotNetObjectReference<TrimPreviewItem>? _dotNetRef;
+    private double _attachToken = 0;
 
     protected override void OnInitialized()
     {
@@ -59,16 +60,16 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender) return;
+
+        isCanvasDrawn = false;
+        try
         {
-            try
-            {
-                await InitializeCanvasAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"InitializeCanvasAsync error idx={Index}: {ex.Message}");
-            }
+            await InitializeCanvasAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"InitializeCanvasAsync error idx={Index}: {ex.Message}");
         }
     }
 
@@ -91,11 +92,10 @@
             Dictionary<string, double>? originalSize = null;
             if (page.IsPageDataStoredInJs)
             {
-                var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                var pageBase64 = await JSRuntime.InvokeAsync<string>(
                     "getStoredPageData", page.FileId, page.OriginalPageIndex);
-                if (pageBytes != null && pageBytes.Length > 0)
+                if (!string.IsNullOrEmpty(pageBase64))
                 {
-                    var pageBase64 = Convert.ToBase64String(pageBytes);
                     originalSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>(
                         "getPdfPageOriginalSize", pageBase64);
                 }
@@ -106,8 +106,13 @@
                     "getPdfPageOriginalSize", page.PageData);
             }
 
-            // Canvas に直接描画
-            await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
+            // Canvas に直接描画（失敗時はリトライを OnServiceChanged に委ねる）
+            var drawn = await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
+            if (!drawn)
+            {
+                Console.WriteLine($"[TrimPreviewItem] drawImageToCanvasForPreview returned false idx={Index}, will retry via OnServiceChanged");
+                return;
+            }
 
             // Canvas に元PDFサイズを保存（data属性）
             if (originalSize != null)
@@ -154,7 +159,8 @@
         {
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
-            await JSRuntime.InvokeAsync<bool>("attachTrimListeners", CanvasId, _dotNetRef, "single", AllowMultipleRects);
+            // 戻り値はattach時のタイムスタンプ（detach時に自分のエントリか識別するために使用）
+            _attachToken = await JSRuntime.InvokeAsync<double>("attachTrimListeners", CanvasId, _dotNetRef, "single", AllowMultipleRects);
 
             await RedrawTrimOverlayAsync();
         }
@@ -276,7 +282,8 @@
     {
         try { PdfDataService.OnChange -= OnServiceChanged; } catch { }
         
-        try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId); } catch { }
+        // _attachToken を渡すことで、新インスタンスが既に attach している場合は detach しない
+        try { await JSRuntime.InvokeVoidAsync("detachTrimListeners", CanvasId, _attachToken); } catch { }
         try { _dotNetRef?.Dispose(); } catch { }
         _dotNetRef = null;
     }

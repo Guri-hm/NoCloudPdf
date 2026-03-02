@@ -1936,17 +1936,13 @@ private void RotateSelectedImageRight()
                 if (pageItem.IsPageDataStoredInJs)
                 {
                     // ストレージから取得してBase64に変換
-                    var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                    originalPageData = await JSRuntime.InvokeAsync<string>(
                         "getStoredPageData",
                         pageItem.FileId,
                         pageItem.OriginalPageIndex
                     );
 
-                    if (pageBytes != null && pageBytes.Length > 0)
-                    {
-                        originalPageData = Convert.ToBase64String(pageBytes);
-                    }
-                    else
+                    if (string.IsNullOrEmpty(originalPageData))
                     {
                         _ = MessageService.ShowAsync("ページデータの取得に失敗しました", MessageType.Error);
                         Navigation.NavigateTo("/edit");

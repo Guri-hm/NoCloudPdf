@@ -699,17 +699,13 @@ private async Task ProcessNUp()
                     // ストレージから取得してBase64に変換
                     try
                     {
-                        var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                        pageData = await JSRuntime.InvokeAsync<string>(
                             "getStoredPageData",
                             pageItem.FileId,
                             pageItem.OriginalPageIndex
                         );
 
-                        if (pageBytes != null && pageBytes.Length > 0)
-                        {
-                            pageData = Convert.ToBase64String(pageBytes);
-                        }
-                        else
+                        if (string.IsNullOrEmpty(pageData))
                         {
                             Console.WriteLine($"Page {pageItem.FileName} p.{pageItem.OriginalPageNumber}: Storage data is empty, skipping");
                             continue;
@@ -1242,19 +1238,17 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
                     // ストレージ対応：ページデータを取得
                     if (page.IsPageDataStoredInJs)
                     {
-                        var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                        pageData = await JSRuntime.InvokeAsync<string>(
                             "getStoredPageData",
                             page.FileId,
                             page.OriginalPageIndex
                         );
 
-                        if (pageBytes == null || pageBytes.Length == 0)
+                        if (string.IsNullOrEmpty(pageData))
                         {
                             Console.WriteLine($"Page {pageIndex + 1}: Storage data is empty, skipping");
                             continue;
                         }
-
-                        pageData = Convert.ToBase64String(pageBytes);
                     }
                     else
                     {
