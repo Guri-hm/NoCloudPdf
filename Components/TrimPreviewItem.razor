@@ -41,7 +41,7 @@
     private void OnServiceChanged()
     {
         if (!isCanvasDrawn && Item.RawData is PageItem page && 
-            !string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
+            (page.IsPageDataStoredInJs || !string.IsNullOrEmpty(page.PageData)) && !page.HasPageDataError)
         {
             _ = InvokeAsync(async () =>
             {
@@ -80,14 +80,31 @@
             if (Item.RawData is not PageItem page) return;
 
             string? src = null;
-            if (!string.IsNullOrEmpty(page.PageData) && !page.HasPageDataError)
+            if ((page.IsPageDataStoredInJs || !string.IsNullOrEmpty(page.PageData)) && !page.HasPageDataError)
             {
                 src = await PdfDataService.GetPreviewImageAsync(page.Id, null, "preview");
             }
 
             if (string.IsNullOrEmpty(src)) return;
 
-            var originalSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>("getPdfPageOriginalSize", page.PageData);
+            // ページ元サイズを取得（ストレージ対応）
+            Dictionary<string, double>? originalSize = null;
+            if (page.IsPageDataStoredInJs)
+            {
+                var pageBytes = await JSRuntime.InvokeAsync<byte[]>(
+                    "getStoredPageData", page.FileId, page.OriginalPageIndex);
+                if (pageBytes != null && pageBytes.Length > 0)
+                {
+                    var pageBase64 = Convert.ToBase64String(pageBytes);
+                    originalSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>(
+                        "getPdfPageOriginalSize", pageBase64);
+                }
+            }
+            else
+            {
+                originalSize = await JSRuntime.InvokeAsync<Dictionary<string, double>>(
+                    "getPdfPageOriginalSize", page.PageData);
+            }
 
             // Canvas に直接描画
             await JSRuntime.InvokeAsync<bool>("drawImageToCanvasForPreview", CanvasId, src, true);
