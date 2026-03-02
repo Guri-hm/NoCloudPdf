@@ -2211,7 +2211,11 @@ private async void FitToHeight()
         }
         var rotateAngle = pageItem.RotateAngle;
 
-        await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel, rotateAngle);
+        // IsPageDataStoredInJs の場合は pageItem.PageData が null のため、
+        // OnAfterRenderAsync で取得済みの originalPageData を使用する
+        var drawData = originalPageData ?? pageItem?.PageData ?? "";
+
+        await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, drawData, zoomLevel, rotateAngle);
     }
 
     private void SetTool(EditTool tool)
