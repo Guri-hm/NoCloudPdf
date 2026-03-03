@@ -135,7 +135,26 @@
 @if (!IsFilesLoaded && !CompletionState.ShowResult)
 {
     <!-- 初期画面：ファイル選択 -->
-    <SelectFilePanel OnOpenFileDialog="OpenFileDialog"/>
+    <div class="relative">
+        <SelectFilePanel OnOpenFileDialog="OpenFileDialog" />
+        <!-- 簡易読み込みモード トグル（右下に固定表示） -->
+        <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+            <label class="flex items-center gap-2 cursor-pointer select-none bg-white border border-gray-300 shadow-md rounded-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition">
+                <div class="relative inline-block w-9 h-5 flex-shrink-0">
+                    <input type="checkbox" class="sr-only peer" @bind="isSinglePageMode" />
+                    <div class="w-9 h-5 bg-gray-300 peer-checked:bg-blue-600 rounded-full transition-colors"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+                </div>
+                <span>特定ページのみ読み込む</span>
+            </label>
+            @if (isSinglePageMode)
+            {
+                <div class="bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-lg px-3 py-2 max-w-xs text-right shadow">
+                    ファイル選択後、ページ番号を指定します。指定したページのみ読み込まれます。
+                </div>
+            }
+        </div>
+    </div>
 }
 
 @if (CompletionState.ShowResult && slicedImages.Any())
@@ -244,6 +263,9 @@
 <MessageBar />
 
 <PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
+
+<!-- ページ番号指定ダイアログ（簡易読み込みモード用） -->
+<SinglePageSelectDialog IsOpen="@isSinglePageDialogOpen" TotalPages="@singlePageDialogTotalPages" OnClose="OnSinglePageDialogClose" />
 
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" multiple class="hidden" id="fileInput" />
@@ -519,21 +541,58 @@
     // 挿入用ファイル選択処理
     private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
     {
-        try{
-
+        try
+        {
             await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+
+            // 簡易読み込みモード：最初のPDFファイルだけページ番号ダイアログに渡す
+            if (isSinglePageMode && e.FileCount > 0)
+            {
+                var file = e.GetMultipleFiles().FirstOrDefault(
+                    f => Path.GetExtension(f.Name).ToLowerInvariant() == ".pdf");
+
+                if (file != null)
+                {
+                    const long maxFileSize = 100 * 1024 * 1024;
+                    using var stream = file.OpenReadStream(maxFileSize);
+                    using var ms = new MemoryStream();
+                    await stream.CopyToAsync(ms);
+                    var fileData = ms.ToArray();
+
+                    // ページ数を取得してダイアログに渡す
+                    int pageCount = await JSRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
+                    if (pageCount <= 0)
+                    {
+                        _ = MessageService.ShowAsync("PDFのページ数を取得できませんでした。", MessageType.Error);
+                        return;
+                    }
+
+                    _pendingSinglePageFile = (file.Name, fileData);
+                    singlePageDialogTotalPages = pageCount;
+                    isSinglePageDialogOpen = true;
+                    await MessageService.HideLoadingAsync();
+                    StateHasChanged();
+                    return;
+                }
+                // PDF以外のファイルは通常処理にフォールスルー
+            }
+
+            // 通常モード
             await PdfDataService.HandleFileInputAsync(
                 e,
                 insertPosition >= 0 ? insertPosition : null
             );
             insertPosition = -1;
-
-        }catch (Exception ex){
+        }
+        catch (Exception ex)
+        {
             Console.WriteLine($"An error occurred: {ex.Message}");
             _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
-
-        }finally{
-            await MessageService.HideLoadingAsync();
+        }
+        finally
+        {
+            if (!isSinglePageDialogOpen)
+                await MessageService.HideLoadingAsync();
         }
     }
 
@@ -854,6 +913,38 @@
         passwordTcs?.SetResult(password);
         passwordTcs = null;
         StateHasChanged();
+    }
+
+    // ---- 簡易読み込みモード ----
+    private bool isSinglePageMode = false;
+    private bool isSinglePageDialogOpen = false;
+    private int singlePageDialogTotalPages = 1;
+    // ファイル選択を一時保留するためのバッファ
+    private (string fileName, byte[] fileData)? _pendingSinglePageFile = null;
+
+    /// <summary>
+    /// ページ番号指定ダイアログが閉じられたときの処理
+    /// </summary>
+    private async Task OnSinglePageDialogClose(int? selectedPage)
+    {
+        isSinglePageDialogOpen = false;
+        if (selectedPage == null || _pendingSinglePageFile == null)
+        {
+            _pendingSinglePageFile = null;
+            await MessageService.HideLoadingAsync();
+            return;
+        }
+
+        var (fileName, fileData) = _pendingSinglePageFile.Value;
+        _pendingSinglePageFile = null;
+
+        int pageIndex = selectedPage.Value - 1; // 1始まり→0始まり
+        var ok = await PdfDataService.AddSinglePageFromPdfAsync(fileName, fileData, pageIndex);
+        if (!ok)
+        {
+            _ = MessageService.ShowAsync("ページの読み込みに失敗しました。", MessageType.Error);
+        }
+        await MessageService.HideLoadingAsync();
     }
 
     private bool _dropAreaRegistered = false;

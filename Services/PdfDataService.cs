@@ -313,6 +313,110 @@ public class PdfDataService
         }
     }
 
+    /// <summary>
+    /// PDFファイルの指定ページのみを読み込む（簡易読み込みモード）
+    /// 全ページの読み込みをスキップし、指定ページのサムネイルとPageDataのみ取得する。
+    /// </summary>
+    /// <param name="fileName">ファイル名</param>
+    /// <param name="fileData">ファイルのバイトデータ</param>
+    /// <param name="targetPageIndex">読み込むページインデックス（0始まり）</param>
+    /// <param name="insertPosition">挿入位置（nullなら末尾）</param>
+    /// <returns>成功した場合はtrue</returns>
+    public async Task<bool> AddSinglePageFromPdfAsync(string fileName, byte[] fileData, int targetPageIndex, int? insertPosition = null)
+    {
+        try
+        {
+            var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
+            if (!header.StartsWith("%PDF-"))
+                return false;
+
+            var fileId = $"{fileName}_{DateTime.Now.Ticks}";
+
+            // パスワード解除は呼び出し元で済ませる想定（必要なら拡張）
+            var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
+            if (pageCount <= 0)
+                return false;
+
+            // 指定ページのサムネイル生成
+            var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
+                "generatePdfThumbnailFromFileMetaData", fileData, targetPageIndex);
+            RegisterBlobUrl(renderResult.thumbnail);
+
+            if (renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail))
+                return false;
+
+            var fileMetadata = new FileMetadata
+            {
+                FileId = fileId,
+                FileName = fileName,
+                FileData = fileData,
+                PageCount = pageCount,
+                CoverThumbnail = renderResult.thumbnail,
+                IsFullyLoaded = false,
+                IsPasswordProtected = false,
+                IsOperationRestricted = renderResult.isOperationRestricted,
+                SecurityInfo = renderResult.securityInfo,
+                DefaultRotateAngle = renderResult.pageRotation
+            };
+            _model.Files[fileId] = fileMetadata;
+
+            // 指定ページのみ PageItem を作成
+            var pageItem = new PageItem
+            {
+                Id = $"{fileId}_p{targetPageIndex}",
+                FileId = fileId,
+                FileName = fileName,
+                OriginalPageIndex = targetPageIndex,
+                Thumbnail = renderResult.thumbnail,
+                IsLoading = true,
+                HasThumbnailError = false,
+                IsPageDataStoredInJs = false,
+                ColorHsl = GenerateColorHsl(fileId),
+                RotateAngle = fileMetadata.DefaultRotateAngle,
+                IsOperationRestricted = renderResult.isOperationRestricted,
+            };
+
+            int insertIdx = insertPosition ?? _model.Pages.Count;
+            _model.Pages.Insert(insertIdx, pageItem);
+
+            await InvokeOnChangeAsync();
+
+            // バックグラウンドで指定ページの PageData のみ取得
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                        "extractPdfPageToStorage",
+                        fileMetadata.FileData,
+                        targetPageIndex,
+                        fileId
+                    );
+                    pageItem.IsPageDataStoredInJs = result.Success;
+                    pageItem.IsOperationRestricted = result.IsRestricted || renderResult.isOperationRestricted;
+                    pageItem.IsLoading = false;
+                    if (result.IsRestricted)
+                        fileMetadata.IsOperationRestricted = true;
+                    await InvokeOnChangeAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"AddSinglePageFromPdfAsync: extractPdfPageToStorage failed: {ex.Message}");
+                    pageItem.IsLoading = false;
+                    pageItem.HasThumbnailError = true;
+                    await InvokeOnChangeAsync();
+                }
+            });
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AddSinglePageFromPdfAsync error for {fileName}: {ex.Message}");
+            return false;
+        }
+    }
+
     // しおりの一覧を平坦化してダイアログ経由で選択を受け、SplitInfo を更新する処理を切り出し
     private async Task HandleBookmarksForFileAsync(FileMetadata fileMetadata, int baseIndex)
     {

@@ -1,0 +1,79 @@
+@using Microsoft.AspNetCore.Components.Web
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
+        <div class="bg-white rounded-lg shadow-lg w-80 p-6 animate-fade-in">
+            <h2 class="text-lg font-bold mb-2 text-gray-800">ページ番号を指定</h2>
+            <div class="mb-3 text-sm text-gray-700">
+                読み込むページ番号を入力してください（1〜@TotalPages）。
+            </div>
+            <input type="number"
+                min="1"
+                max="@TotalPages"
+                class="w-full border border-gray-300 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                @bind="pageNumber"
+                @onkeyup="OnKeyUp"
+                placeholder="ページ番号"
+                autofocus />
+            @if (errorMessage != null)
+            {
+                <div class="text-red-600 text-xs mb-2">@errorMessage</div>
+            }
+            <div class="flex justify-end gap-2">
+                <button type="button"
+                    class="px-4 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+                    @onclick="Cancel">
+                    キャンセル
+                </button>
+                <button
+                    class="px-4 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
+                    @onclick="Submit">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public int TotalPages { get; set; } = 1;
+    /// <summary>選択されたページ番号（1始まり）。キャンセル時は null。</summary>
+    [Parameter] public EventCallback<int?> OnClose { get; set; }
+
+    private int pageNumber = 1;
+    private string? errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen)
+        {
+            pageNumber = 1;
+            errorMessage = null;
+        }
+    }
+
+    private async Task Submit()
+    {
+        if (pageNumber < 1 || pageNumber > TotalPages)
+        {
+            errorMessage = $"1〜{TotalPages} の範囲で入力してください。";
+            return;
+        }
+        errorMessage = null;
+        await OnClose.InvokeAsync(pageNumber);
+    }
+
+    private async Task Cancel()
+    {
+        errorMessage = null;
+        await OnClose.InvokeAsync(null);
+    }
+
+    private async Task OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Submit();
+        if (e.Key == "Escape") await Cancel();
+    }
+}
