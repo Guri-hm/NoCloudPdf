@@ -32,13 +32,10 @@ public class PageItem
     public int OriginalPageIndex { get; set; } = 0; // 元ファイル内でのページ番号（0始まり）
     public int OriginalPageNumber => OriginalPageIndex + 1; // 元ファイル内でのページ番号（1始まり）
     public string Thumbnail { get; set; } = ""; // サムネイル画像データ
-    public string? PageData { get; set; } = ""; // PDFページデータ（Base64） - Nullable: ストレージ使用時はnull
-    public bool IsPageDataStoredInJs { get; set; } = false; // ページデータがJS側ストレージに保存されているか
-    public long PageDataSizeBytes { get; set; } = 0; // ページデータのサイズ（バイト単位）- メモリ追跡用
     public bool IsLoading { get; set; } = true; // ローディング中フラグ
     public bool HasThumbnailError { get; set; }
-    public bool HasPageDataError { get; set; }
-    public bool HasError => HasThumbnailError || HasPageDataError; // エラーフラグ
+    public bool HasError => HasThumbnailError; // エラーフラグ
+    public bool IsPageDataStoredInJs { get; set; } = false; // JSストレージにページデータが登録済みかどうか
     public DateTime CreatedAt { get; set; } = DateTime.Now; // 作成日時（並び替えの参考用）
     public string ColorHsl { get; set; } = ""; // 色（HSL形式） - ファイルIDから生成
     public int RotateAngle { get; set; } = 0; // 0, 90, 180, 270

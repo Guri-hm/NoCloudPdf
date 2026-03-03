@@ -1099,7 +1099,7 @@
                 if (item.RawData is not PageItem page)
                     continue;
 
-                if (string.IsNullOrEmpty(page.PageData) && !page.IsPageDataStoredInJs || page.HasPageDataError)
+                if (!page.IsPageDataStoredInJs || page.HasError)
                     continue;
 
                 // 複数矩形を取得
@@ -1130,27 +1130,14 @@
                         else
                         {
                             // 通常のページ
-                            if (page.IsPageDataStoredInJs)
-                            {
-                                imageDataUrl = await JSRuntime.InvokeAsync<string>(
-                                    "cropPdfPageToImageFromStorage",
-                                    page.FileId,
-                                    page.OriginalPageIndex,
-                                    rect.X, rect.Y, rect.Width, rect.Height,
-                                    rotate,
-                                    exportDpi
-                                );
-                            }
-                            else
-                            {
-                                imageDataUrl = await JSRuntime.InvokeAsync<string>(
-                                    "cropPdfPageToImage",
-                                    page.PageData,
-                                    rect.X, rect.Y, rect.Width, rect.Height,
-                                    rotate,
-                                    exportDpi
-                                );
-                            }
+                            imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                                "cropPdfPageToImageFromStorage",
+                                page.FileId,
+                                page.OriginalPageIndex,
+                                rect.X, rect.Y, rect.Width, rect.Height,
+                                rotate,
+                                exportDpi
+                            );
                         }
                         
                         if (!string.IsNullOrEmpty(imageDataUrl))

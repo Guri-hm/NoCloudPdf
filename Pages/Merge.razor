@@ -488,7 +488,7 @@
 
             // 準備できていないページがある場合は中断（ストレージ対応版）
             var notReadyCount = mergeItems.Count(item =>
-                (!item.IsPageDataStoredInJs && string.IsNullOrEmpty(item.PageData)) || item.HasError);
+                !item.IsPageDataStoredInJs || item.HasError);
             if (notReadyCount > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
@@ -503,35 +503,15 @@
 
             _ = MessageService.HideAsync();
 
-            // ストレージ使用チェック
-            bool usingStorage = mergeItems.Any(p => p.IsPageDataStoredInJs);
+            // ストレージベースのマージ
+            var pageKeys = mergeItems.Select(p => new {
+                fileId = p.FileId,
+                pageIndex = p.OriginalPageIndex,
+                rotateAngle = p.RotateAngle % 360
+            }).ToList();
 
-            if (usingStorage)
-            {
-                // 新しいストレージベースのマージ
-                var pageKeys = mergeItems.Select(p => new {
-                    fileId = p.FileId,
-                    pageIndex = p.OriginalPageIndex,
-                    rotateAngle = p.RotateAngle % 360
-                }).ToList();
-
-                mergedPdfUrl = await JSRuntime.InvokeAsync<string>(
-                    "mergePdfPagesFromStorage", pageKeys);
-            }
-            else
-            {
-                // レガシーBase64マージ（後方互換性のため保持）
-                var mergeData = mergeItems.Select(item => new MergePageDto
-                {
-                    FileId = item.FileId,
-                    FileName = item.FileName,
-                    PageData = item.PageData,
-                    IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
-                    RotateAngle = item.RotateAngle % 360
-                }).ToList();
-
-                mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-            }
+            mergedPdfUrl = await JSRuntime.InvokeAsync<string>(
+                "mergePdfPagesFromStorage", pageKeys);
 
             if (!string.IsNullOrEmpty(mergedPdfUrl))
             {
@@ -1136,13 +1116,13 @@ OnClick = EventCallback.Factory.Create(this, () => SortByName(false))
     }
 
     private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
-        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+        item.RawData is PageItem pageItem && pageItem.HasThumbnailError);
         
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)
         {
-            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError)
             {
                 await ReloadPageItem(item);
             }

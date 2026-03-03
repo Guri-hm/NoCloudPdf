@@ -433,7 +433,9 @@
                 {
                      previewImageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
 
-                    PdfPageSize pdfSize = await JSRuntime.InvokeAsync<PdfPageSize>("getPdfPageSize", page.PageData);
+                    var pageDataForSize = await JSRuntime.InvokeAsync<string>(
+                        "getStoredPageData", page.FileId, page.OriginalPageIndex);
+                    PdfPageSize pdfSize = await JSRuntime.InvokeAsync<PdfPageSize>("getPdfPageSize", pageDataForSize);
                     double pdfWidth = (double)pdfSize.Width;
                     double containerWidth = 600.0;
                     previewScale = containerWidth / pdfWidth;

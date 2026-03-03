@@ -594,7 +594,7 @@
 
             // 準備できていないページがある場合は中断（ストレージ対応）
             var notReadyCount = allPages.Count(item =>
-                (!item.IsPageDataStoredInJs && string.IsNullOrEmpty(item.PageData)) || item.HasError);
+                !item.IsPageDataStoredInJs || item.HasError);
             if (notReadyCount > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
@@ -628,36 +628,15 @@
             int groupIndex = 1;
             foreach (var group in splitGroups)
             {
-                // ストレージ使用チェック
-                bool usingStorage = group.Any(p => p.IsPageDataStoredInJs);
-                string url;
+                // ストレージベースのマージ
+                var pageKeys = group.Select(p => new {
+                    fileId = p.FileId,
+                    pageIndex = p.OriginalPageIndex,
+                    rotateAngle = p.RotateAngle % 360
+                }).ToList();
 
-                if (usingStorage)
-                {
-                    // 新しいストレージベースのマージ
-                    var pageKeys = group.Select(p => new {
-                        fileId = p.FileId,
-                        pageIndex = p.OriginalPageIndex,
-                        rotateAngle = p.RotateAngle % 360
-                    }).ToList();
-
-                    url = await JSRuntime.InvokeAsync<string>(
-                        "mergePdfPagesFromStorage", pageKeys);
-                }
-                else
-                {
-                    // レガシーBase64マージ
-                    var mergeData = group.Select(item => new MergePageDto
-                    {
-                        FileId = item.FileId,
-                        FileName = item.FileName,
-                        PageData = item.PageData,
-                        IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
-                        RotateAngle = item.RotateAngle % 360
-                    }).ToList();
-
-                    url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-                }
+                string url = await JSRuntime.InvokeAsync<string>(
+                    "mergePdfPagesFromStorage", pageKeys);
                 if (!string.IsNullOrEmpty(url))
                 {
                     var name = $"split_{groupIndex}_{DateTime.Now:yyyyMMddHHmm}.pdf";
@@ -729,7 +708,7 @@
             }
 
             var notReadyCount = selectedPages.Count(item =>
-                (!item.IsPageDataStoredInJs && string.IsNullOrEmpty(item.PageData)) || item.HasError);
+                !item.IsPageDataStoredInJs || item.HasError);
             if (notReadyCount > 0)
             {
                 _ = MessageService.ShowAsync($"抽出対象に読み込み未完了またはエラーのページが {notReadyCount} ページあります。", MessageType.Warn);
@@ -743,40 +722,16 @@
                 int pageIndex = 1;
                 foreach (var page in selectedPages)
                 {
-                    // ストレージ使用チェック
-                    bool usingStorage = page.IsPageDataStoredInJs;
-                    string url;
+                    // ストレージベースのマージ（1ページのみ）
+                    var pageKeys = new[] {
+                        new {
+                            fileId = page.FileId,
+                            pageIndex = page.OriginalPageIndex,
+                            rotateAngle = page.RotateAngle % 360
+                        }
+                    };
 
-                    if (usingStorage)
-                    {
-                        // ストレージベースのマージ（1ページのみ）
-                        var pageKeys = new[] {
-                            new {
-                                fileId = page.FileId,
-                                pageIndex = page.OriginalPageIndex,
-                                rotateAngle = page.RotateAngle % 360
-                            }
-                        };
-
-                        url = await JSRuntime.InvokeAsync<string>("mergePdfPagesFromStorage", pageKeys);
-                    }
-                    else
-                    {
-                        // レガシーBase64マージ
-                        var mergeData = new List<MergePageDto>
-                        {
-                            new MergePageDto
-                            {
-                                FileId = page.FileId,
-                                FileName = page.FileName,
-                                PageData = page.PageData,
-                                IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
-                                RotateAngle = page.RotateAngle % 360
-                            }
-                        };
-
-                        url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-                    }
+                    string url = await JSRuntime.InvokeAsync<string>("mergePdfPagesFromStorage", pageKeys);
 
                     if (!string.IsNullOrEmpty(url))
                     {
@@ -801,35 +756,14 @@
             else
             {
                 // 結合して1つのPDFとして出力
-                // ストレージ使用チェック
-                bool usingStorage = selectedPages.Any(p => p.IsPageDataStoredInJs);
-                string url;
+                // ストレージベースのマージ
+                var pageKeys = selectedPages.Select(page => new {
+                    fileId = page.FileId,
+                    pageIndex = page.OriginalPageIndex,
+                    rotateAngle = page.RotateAngle % 360
+                }).ToList();
 
-                if (usingStorage)
-                {
-                    // ストレージベースのマージ
-                    var pageKeys = selectedPages.Select(page => new {
-                        fileId = page.FileId,
-                        pageIndex = page.OriginalPageIndex,
-                        rotateAngle = page.RotateAngle % 360
-                    }).ToList();
-
-                    url = await JSRuntime.InvokeAsync<string>("mergePdfPagesFromStorage", pageKeys);
-                }
-                else
-                {
-                    // レガシーBase64マージ
-                    var mergeData = selectedPages.Select(page => new MergePageDto
-                    {
-                        FileId = page.FileId,
-                        FileName = page.FileName,
-                        PageData = page.PageData,
-                        IsPdf = Path.GetExtension(page.FileName).ToLowerInvariant() == ".pdf",
-                        RotateAngle = page.RotateAngle % 360
-                    }).ToList();
-
-                    url = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-                }
+                string url = await JSRuntime.InvokeAsync<string>("mergePdfPagesFromStorage", pageKeys);
 
                 if (!string.IsNullOrEmpty(url))
                 {
@@ -1461,13 +1395,13 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
     }
 
     private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
-        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+        item.RawData is PageItem pageItem && pageItem.HasThumbnailError);
 
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)
         {
-            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError)
             {
                 await ReloadPageItem(item);
             }

@@ -1010,7 +1010,7 @@
             }
 
             var notReady = pageInfos.Count(p =>
-                (!p.Page.IsPageDataStoredInJs && string.IsNullOrEmpty(p.Page.PageData)) || p.Page.HasError);
+                !p.Page.IsPageDataStoredInJs || p.Page.HasError);
             if (notReady > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReady} ページあります。", MessageType.Warn);
@@ -1027,8 +1027,8 @@
                 var info = pageInfos[idx];
                 var page = info.Page;
 
-                // ストレージ対応：PageDataの有無チェック
-                if (!page.IsPageDataStoredInJs && (string.IsNullOrEmpty(page.PageData) || page.HasPageDataError))
+                // ストレージ未登録チェック
+                if (!page.IsPageDataStoredInJs)
                 {
                     _ = MessageService.ShowAsync($"ページデータが不足しています: {info.Item.DisplayName}", MessageType.Error);
                     return;
@@ -1042,38 +1042,18 @@
                     try
                     {
                         var rotate = page.RotateAngle % 360;
+                        var cropFunction = useRasterize ? "cropPdfPageRasterizedFromStorage" : "cropPdfPageVectorFromStorage";
 
-                        if (page.IsPageDataStoredInJs)
-                        {
-                            // ストレージベースのトリミング（新しいJS関数が必要）
-                            var cropFunction = useRasterize ? "cropPdfPageRasterizedFromStorage" : "cropPdfPageVectorFromStorage";
-
-                            pageDataToUse = await JSRuntime.InvokeAsync<string>(
-                                cropFunction,
-                                page.FileId,
-                                page.OriginalPageIndex,
-                                info.Trim.X,
-                                info.Trim.Y,
-                                info.Trim.Width,
-                                info.Trim.Height,
-                                rotate
-                            );
-                        }
-                        else
-                        {
-                            // レガシーBase64トリミング
-                            var cropFunction = useRasterize ? "cropPdfPageRasterized" : "cropPdfPageToTrimVector";
-
-                            pageDataToUse = await JSRuntime.InvokeAsync<string>(
-                                cropFunction,
-                                page.PageData,
-                                info.Trim.X,
-                                info.Trim.Y,
-                                info.Trim.Width,
-                                info.Trim.Height,
-                                rotate
-                            );
-                        }
+                        pageDataToUse = await JSRuntime.InvokeAsync<string>(
+                            cropFunction,
+                            page.FileId,
+                            page.OriginalPageIndex,
+                            info.Trim.X,
+                            info.Trim.Y,
+                            info.Trim.Width,
+                            info.Trim.Height,
+                            rotate
+                        );
 
                         if (string.IsNullOrEmpty(pageDataToUse))
                         {
@@ -1091,18 +1071,11 @@
                 else
                 {
                     // トリミングなしの場合、ストレージから取得
-                    if (page.IsPageDataStoredInJs)
-                    {
-                        pageDataToUse = await JSRuntime.InvokeAsync<string>(
-                            "getStoredPageData",
-                            page.FileId,
-                            page.OriginalPageIndex
-                        ) ?? "";
-                    }
-                    else
-                    {
-                        pageDataToUse = page.PageData;
-                    }
+                    pageDataToUse = await JSRuntime.InvokeAsync<string>(
+                        "getStoredPageData",
+                        page.FileId,
+                        page.OriginalPageIndex
+                    ) ?? "";
                 }
 
                 mergeData.Add(new

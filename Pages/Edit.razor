@@ -457,9 +457,9 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
 
             var mergeItems = PdfDataService.GetModel().Pages;
 
-            // 準備できていないページがある場合は中断（ストレージ対応）
+            // 準備できていないページがある場合は中断
             var notReadyCount = mergeItems.Count(item =>
-                (!item.IsPageDataStoredInJs && string.IsNullOrEmpty(item.PageData)) || item.HasError);
+                !item.IsPageDataStoredInJs || item.HasError);
             if (notReadyCount > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
@@ -472,36 +472,15 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
                 return;
             }
 
-            // JSに渡すためのデータを整形（ストレージ対応）
-            bool usingStorage = mergeItems.Any(p => p.IsPageDataStoredInJs);
+            // ストレージベースの結合
+            var pageKeys = mergeItems.Select(p => new {
+                fileId = p.FileId,
+                pageIndex = p.OriginalPageIndex,
+                rotateAngle = p.RotateAngle % 360
+            }).ToList();
 
-            if (usingStorage)
-            {
-                // ストレージベースの結合
-                var pageKeys = mergeItems.Select(p => new {
-                    fileId = p.FileId,
-                    pageIndex = p.OriginalPageIndex,
-                    rotateAngle = p.RotateAngle % 360
-                }).ToList();
-
-                mergedPdfUrl = await JSRuntime.InvokeAsync<string>(
-                    "mergePdfPagesFromStorage", pageKeys);
-            }
-            else
-            {
-                // レガシーBase64結合
-                var mergeData = mergeItems.Select(item => new MergePageDto
-                {
-                    FileId = item.FileId,
-                    FileName = item.FileName,
-                    PageData = item.PageData,
-                    IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
-                    RotateAngle = item.RotateAngle % 360
-                }).ToList();
-
-                //  JSで結合処理
-                mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
-            }
+            mergedPdfUrl = await JSRuntime.InvokeAsync<string>(
+                "mergePdfPagesFromStorage", pageKeys);
 
             if (!string.IsNullOrEmpty(mergedPdfUrl))
             {
@@ -1026,7 +1005,7 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
             await MessageService.ShowLoadingAsync($"スタンプ適用中... ({processedCount}/{totalPagesInRange})");
 
-            if ((string.IsNullOrEmpty(page.PageData) && !page.IsPageDataStoredInJs) || page.HasError)
+            if (!page.IsPageDataStoredInJs || page.HasError)
                 continue;
 
             // 範囲内のページインデックス（0始まり）
@@ -1040,20 +1019,12 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
                 startPage
             );
 
-            // ストレージ対応：ページデータを取得してスタンプ適用
+            // ストレージからページデータを取得してスタンプ適用
             byte[]? stampedPdfBytes;
-            if (page.IsPageDataStoredInJs)
-            {
-                var pageBase64 = await JSRuntime.InvokeAsync<string>(
-                    "getStoredPageData", page.FileId, page.OriginalPageIndex);
-                stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
-                    "addStampsToPdf", pageBase64, stampData);
-            }
-            else
-            {
-                stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
-                    "addStampsToPdf", page.PageData, stampData);
-            }
+            var pageBase64 = await JSRuntime.InvokeAsync<string>(
+                "getStoredPageData", page.FileId, page.OriginalPageIndex);
+            stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
+                "addStampsToPdf", pageBase64, stampData);
 
             // プレビューキャッシュをクリア
             // 変更直後にダイアログを再表示すると前回のキャッシュデータが利用されてしまうため
@@ -1061,17 +1032,9 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
             if (stampedPdfBytes != null && stampedPdfBytes.Length > 0)
             {
-                if (page.IsPageDataStoredInJs)
-                {
-                    // ストレージを更新
-                    await JSRuntime.InvokeAsync<object>(
-                        "setStoredPageData", page.FileId, page.OriginalPageIndex, stampedPdfBytes);
-                    page.PageDataSizeBytes = stampedPdfBytes.Length;
-                }
-                else
-                {
-                    page.PageData = Convert.ToBase64String(stampedPdfBytes);
-                }
+                // ストレージを更新
+                await JSRuntime.InvokeAsync<object>(
+                    "setStoredPageData", page.FileId, page.OriginalPageIndex, stampedPdfBytes);
 
                 var reloadError = await PdfDataService.ReloadThumbnailAsync(page.Id);
                 if (!string.IsNullOrEmpty(reloadError))
@@ -1248,13 +1211,13 @@ private List<object> CreateStampsForCoordinateTransform(
     }
 
     private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
-        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+        item.RawData is PageItem pageItem && pageItem.HasThumbnailError);
         
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)
         {
-            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError)
             {
                 await ReloadPageItem(item);
             }

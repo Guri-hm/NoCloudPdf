@@ -1932,27 +1932,18 @@ private void RotateSelectedImageRight()
 
                 fileName = pageItem.FileName ?? "";
 
-                // ここで元データを保持（ストレージ対応版）
-                if (pageItem.IsPageDataStoredInJs)
-                {
-                    // ストレージから取得してBase64に変換
-                    originalPageData = await JSRuntime.InvokeAsync<string>(
-                        "getStoredPageData",
-                        pageItem.FileId,
-                        pageItem.OriginalPageIndex
-                    );
+                // ストレージから元データを取得
+                originalPageData = await JSRuntime.InvokeAsync<string>(
+                    "getStoredPageData",
+                    pageItem.FileId,
+                    pageItem.OriginalPageIndex
+                );
 
-                    if (string.IsNullOrEmpty(originalPageData))
-                    {
-                        _ = MessageService.ShowAsync("ページデータの取得に失敗しました", MessageType.Error);
-                        Navigation.NavigateTo("/edit");
-                        return;
-                    }
-                }
-                else
+                if (string.IsNullOrEmpty(originalPageData))
                 {
-                    // レガシーBase64
-                    originalPageData = pageItem.PageData;
+                    _ = MessageService.ShowAsync("ページデータの取得に失敗しました", MessageType.Error);
+                    Navigation.NavigateTo("/edit");
+                    return;
                 }
 
                 cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, originalPageData);
@@ -2207,9 +2198,8 @@ private async void FitToHeight()
         }
         var rotateAngle = pageItem.RotateAngle;
 
-        // IsPageDataStoredInJs の場合は pageItem.PageData が null のため、
         // OnAfterRenderAsync で取得済みの originalPageData を使用する
-        var drawData = originalPageData ?? pageItem?.PageData ?? "";
+        var drawData = originalPageData ?? "";
 
         await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, drawData, zoomLevel, rotateAngle);
     }
@@ -2515,27 +2505,16 @@ private async void FitToHeight()
                     editJson
                 );
 
-                // ストレージに保存（またはレガシーPageDataに保存）
-                if (pageItem.IsPageDataStoredInJs)
-                {
-                    // 結果をストレージに保存
-                    var resultBytes = Convert.FromBase64String(newPdfBase64);
-                    await JSRuntime.InvokeVoidAsync(
-                        "setStoredPageData",
-                        pageItem.FileId,
-                        pageItem.OriginalPageIndex,
-                        resultBytes
-                    );
+                // 結果をストレージに保存
+                var resultBytes = Convert.FromBase64String(newPdfBase64);
+                await JSRuntime.InvokeVoidAsync(
+                    "setStoredPageData",
+                    pageItem.FileId,
+                    pageItem.OriginalPageIndex,
+                    resultBytes
+                );
 
-                    pageItem.IsPageDataStoredInJs = true;
-                    pageItem.PageDataSizeBytes = resultBytes.Length;
-                    pageItem.PageData = null; // 明示的にnull
-                }
-                else
-                {
-                    // レガシーBase64保存
-                    pageItem.PageData = newPdfBase64;
-                }
+                pageItem.IsPageDataStoredInJs = true;
 
                 // サムネイル再生成
                 pageItem.Thumbnail = "";

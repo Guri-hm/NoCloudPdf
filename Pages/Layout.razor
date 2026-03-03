@@ -654,7 +654,7 @@ private async Task ProcessNUp()
 
         // 準備できていないページがある場合は中断（ストレージ対応）
         var notReadyCount = allPages.Count(item =>
-            (!item.IsPageDataStoredInJs && string.IsNullOrEmpty(item.PageData)) || item.HasError);
+            !item.IsPageDataStoredInJs || item.HasError);
 
         if (notReadyCount > 0)
         {
@@ -688,44 +688,30 @@ private async Task ProcessNUp()
             // 並び方向に応じてページを並び替え
             var orderedPageItems = ReorderPagesForNUp(actualPageItems);
 
-            // PageData を準備（ストレージ対応）
+            // PageData を準備（ストレージから取得）
             var mergeData = new List<MergePageDto>();
             foreach (var pageItem in orderedPageItems)
             {
                 string pageData;
 
-                if (pageItem.IsPageDataStoredInJs)
+                try
                 {
-                    // ストレージから取得してBase64に変換
-                    try
-                    {
-                        pageData = await JSRuntime.InvokeAsync<string>(
-                            "getStoredPageData",
-                            pageItem.FileId,
-                            pageItem.OriginalPageIndex
-                        );
+                    pageData = await JSRuntime.InvokeAsync<string>(
+                        "getStoredPageData",
+                        pageItem.FileId,
+                        pageItem.OriginalPageIndex
+                    );
 
-                        if (string.IsNullOrEmpty(pageData))
-                        {
-                            Console.WriteLine($"Page {pageItem.FileName} p.{pageItem.OriginalPageNumber}: Storage data is empty, skipping");
-                            continue;
-                        }
-                    }
-                    catch (Exception ex)
+                    if (string.IsNullOrEmpty(pageData))
                     {
-                        Console.WriteLine($"Page {pageItem.FileName} p.{pageItem.OriginalPageNumber}: Error retrieving from storage: {ex.Message}");
+                        Console.WriteLine($"Page {pageItem.FileName} p.{pageItem.OriginalPageNumber}: Storage data is empty, skipping");
                         continue;
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    // レガシーBase64データ
-                    if (string.IsNullOrEmpty(pageItem.PageData))
-                    {
-                        Console.WriteLine($"Page {pageItem.FileName} p.{pageItem.OriginalPageNumber}: PageData is empty, skipping");
-                        continue;
-                    }
-                    pageData = pageItem.PageData;
+                    Console.WriteLine($"Page {pageItem.FileName} p.{pageItem.OriginalPageNumber}: Error retrieving from storage: {ex.Message}");
+                    continue;
                 }
 
                 mergeData.Add(new MergePageDto
@@ -1213,7 +1199,7 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
             var allPages = PdfDataService.GetModel().Pages;
             // 準備できていないページがある場合は中断（ストレージ対応）
             var notReadyCount = allPages.Count(item =>
-                (!item.IsPageDataStoredInJs && string.IsNullOrEmpty(item.PageData)) || item.HasError);
+                !item.IsPageDataStoredInJs || item.HasError);
             if (notReadyCount > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
@@ -1235,29 +1221,17 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
                 {
                     string pageData;
 
-                    // ストレージ対応：ページデータを取得
-                    if (page.IsPageDataStoredInJs)
-                    {
-                        pageData = await JSRuntime.InvokeAsync<string>(
-                            "getStoredPageData",
-                            page.FileId,
-                            page.OriginalPageIndex
-                        );
+                    // ストレージからページデータを取得
+                    pageData = await JSRuntime.InvokeAsync<string>(
+                        "getStoredPageData",
+                        page.FileId,
+                        page.OriginalPageIndex
+                    );
 
-                        if (string.IsNullOrEmpty(pageData))
-                        {
-                            Console.WriteLine($"Page {pageIndex + 1}: Storage data is empty, skipping");
-                            continue;
-                        }
-                    }
-                    else
+                    if (string.IsNullOrEmpty(pageData))
                     {
-                        if (string.IsNullOrEmpty(page.PageData))
-                        {
-                            Console.WriteLine($"Page {pageIndex + 1}: PageData is empty, skipping");
-                            continue;
-                        }
-                        pageData = page.PageData;
+                        Console.WriteLine($"Page {pageIndex + 1}: Storage data is empty, skipping");
+                        continue;
                     }
 
                     // 各ページを指定された数に分割
@@ -2154,13 +2128,13 @@ OnClick = EventCallback.Factory.Create(this, () => InsertPdfAtPosition(DisplayIt
     }
 
     private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
-        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+        item.RawData is PageItem pageItem && pageItem.HasThumbnailError);
 
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)
         {
-            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+        if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError)
             {
                 await ReloadPageItem(item);
             }
