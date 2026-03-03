@@ -843,12 +843,12 @@ public class PdfDataService
                                         if (isRestricted)
                                         {
                                             fileMetadata.IsOperationRestricted = true;
-                                            if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                            pageItem?.IsOperationRestricted = true;
                                         }
                                     }
                                     else
                                     {
-                                        pageItem.IsOperationRestricted = true;
+                                        pageItem?.IsOperationRestricted = true;
                                     }
                                 }
                                 catch
