@@ -1413,18 +1413,24 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 container.addEventListener('scroll', trimState.internal.containerScroll, { passive: true });
             }
 
-            return true;
+            // attach時のタイムスタンプを返す（detach時の識別に使用）
+            return trimState.internal.lastAttachedAt;
         } catch (e) {
             console.error('attachTrimListeners error', e);
             return false;
         }
     };
 
-    window.detachTrimListeners = function (canvasId) {
+    window.detachTrimListeners = function (canvasId, attachToken) {
         try {
             const trimState = window._simpleTrim?.[canvasId];
             if (!trimState) {
                 cleanupTrimEntry(canvasId);
+                return false;
+            }
+            // attachToken が指定されている場合、自分が登録したエントリのみ削除する
+            // （新インスタンスが既に attach していれば lastAttachedAt が異なる）
+            if (attachToken != null && trimState.internal?.lastAttachedAt !== attachToken) {
                 return false;
             }
             cleanupTrimEntry(canvasId);
@@ -1455,7 +1461,10 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
     return new Promise((resolve) => {
         try {
             const canvas = document.getElementById(canvasId);
-            if (!canvas) { resolve(false); return; }
+            if (!canvas) {
+                console.warn(`[drawImageToCanvasForPreview] canvas not found: ${canvasId}`);
+                resolve(false); return;
+            }
             const ctx = canvas.getContext('2d');
             if (!ctx) { resolve(false); return; }
 
@@ -1464,6 +1473,12 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
 
             img.onload = function () {
                 try {
+                    // canvasがまだDOMに存在するか再確認（DisposeAsyncとの競合対策）
+                    if (!document.getElementById(canvasId)) {
+                        console.warn(`[drawImageToCanvasForPreview] canvas removed before draw: ${canvasId}`);
+                        resolve(false); return;
+                    }
+
                     const iw = Math.max(1, Math.round(img.naturalWidth));
                     const ih = Math.max(1, Math.round(img.naturalHeight));
                     const dpr = useDevicePixelRatio ? (window.devicePixelRatio || 1) : 1;
@@ -1491,7 +1506,7 @@ window.drawImageToCanvasForPreview = function (canvasId, imageUrl, useDevicePixe
             };
 
             img.onerror = function (e) {
-                console.error('drawImageToCanvasForPreview image load error', e, imageUrl);
+                console.error('drawImageToCanvasForPreview image load error', e, imageUrl?.substring(0, 50));
                 resolve(false);
             };
 
