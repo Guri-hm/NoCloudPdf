@@ -648,7 +648,8 @@
         }
         catch (Exception ex)
         {
-            await MessageService.ShowAsync($"コピー失敗: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"CopyToClipboard error: {ex.Message}");
+            await MessageService.ShowAsync("コピーに失敗しました。", MessageType.Error);
         }
     }
 

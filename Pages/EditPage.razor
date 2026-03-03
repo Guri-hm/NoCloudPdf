@@ -2528,8 +2528,8 @@ private async void FitToHeight()
             }
             catch (Exception ex)
             {
-                _ = MessageService.ShowAsync($"保存時エラー: {ex.Message}",type: MessageType.Error);
                 Console.WriteLine($"保存時エラー: {ex}");
+                _ = MessageService.ShowAsync("保存時にエラーが発生しました。",type: MessageType.Error);
             }
             finally
             {

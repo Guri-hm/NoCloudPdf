@@ -967,7 +967,8 @@ public class PdfDataService
         }
         catch (Exception ex)
         {
-            await _messageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Warn);
+            Console.WriteLine($"OpenInsertPdfDialogAsync error: {ex.Message}");
+            await _messageService.ShowAsync("ファイル選択ダイアログの表示に失敗しました。", MessageType.Warn);
             return false;
         }
     }
@@ -2082,7 +2083,8 @@ public class PdfDataService
             }
             catch (Exception ex)
             {
-                await _messageService.ShowAsync($"ファイル処理エラー: {file.Name} - {ex.Message}", MessageType.Error);
+                Console.WriteLine($"HandleFileInputAsync file error: {file.Name} - {ex.Message}");
+                await _messageService.ShowAsync($"ファイルの処理に失敗しました: {file.Name}", MessageType.Error);
             }
         }
 
