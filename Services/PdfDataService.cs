@@ -266,10 +266,8 @@ public class PdfDataService
                     FileName = fileName,
                     OriginalPageIndex = i,
                     Thumbnail = i == 0 ? renderResult.thumbnail : "", // 1ページ目は表紙
-                    PageData = "",
                     IsLoading = true,
                     HasThumbnailError = false,
-                    HasPageDataError = false,
                     ColorHsl = GenerateColorHsl(fileId),
                     RotateAngle = fileMetadata.DefaultRotateAngle,
                     IsPasswordProtected = wasPasswordProtected,
@@ -311,6 +309,110 @@ public class PdfDataService
         catch (Exception ex)
         {
             Console.WriteLine($"Error adding/inserting PDF file {fileName}: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// PDFファイルの指定ページのみを読み込む（簡易読み込みモード）
+    /// 全ページの読み込みをスキップし、指定ページのサムネイルとPageDataのみ取得する。
+    /// </summary>
+    /// <param name="fileName">ファイル名</param>
+    /// <param name="fileData">ファイルのバイトデータ</param>
+    /// <param name="targetPageIndex">読み込むページインデックス（0始まり）</param>
+    /// <param name="insertPosition">挿入位置（nullなら末尾）</param>
+    /// <returns>成功した場合はtrue</returns>
+    public async Task<bool> AddSinglePageFromPdfAsync(string fileName, byte[] fileData, int targetPageIndex, int? insertPosition = null)
+    {
+        try
+        {
+            var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
+            if (!header.StartsWith("%PDF-"))
+                return false;
+
+            var fileId = $"{fileName}_{DateTime.Now.Ticks}";
+
+            // パスワード解除は呼び出し元で済ませる想定（必要なら拡張）
+            var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
+            if (pageCount <= 0)
+                return false;
+
+            // 指定ページのサムネイル生成
+            var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
+                "generatePdfThumbnailFromFileMetaData", fileData, targetPageIndex);
+            RegisterBlobUrl(renderResult.thumbnail);
+
+            if (renderResult.isError || string.IsNullOrEmpty(renderResult.thumbnail))
+                return false;
+
+            var fileMetadata = new FileMetadata
+            {
+                FileId = fileId,
+                FileName = fileName,
+                FileData = fileData,
+                PageCount = pageCount,
+                CoverThumbnail = renderResult.thumbnail,
+                IsFullyLoaded = false,
+                IsPasswordProtected = false,
+                IsOperationRestricted = renderResult.isOperationRestricted,
+                SecurityInfo = renderResult.securityInfo,
+                DefaultRotateAngle = renderResult.pageRotation
+            };
+            _model.Files[fileId] = fileMetadata;
+
+            // 指定ページのみ PageItem を作成
+            var pageItem = new PageItem
+            {
+                Id = $"{fileId}_p{targetPageIndex}",
+                FileId = fileId,
+                FileName = fileName,
+                OriginalPageIndex = targetPageIndex,
+                Thumbnail = renderResult.thumbnail,
+                IsLoading = true,
+                HasThumbnailError = false,
+                IsPageDataStoredInJs = false,
+                ColorHsl = GenerateColorHsl(fileId),
+                RotateAngle = fileMetadata.DefaultRotateAngle,
+                IsOperationRestricted = renderResult.isOperationRestricted,
+            };
+
+            int insertIdx = insertPosition ?? _model.Pages.Count;
+            _model.Pages.Insert(insertIdx, pageItem);
+
+            await InvokeOnChangeAsync();
+
+            // バックグラウンドで指定ページの PageData のみ取得
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                        "extractPdfPageToStorage",
+                        fileMetadata.FileData,
+                        targetPageIndex,
+                        fileId
+                    );
+                    pageItem.IsPageDataStoredInJs = result.Success;
+                    pageItem.IsOperationRestricted = result.IsRestricted || renderResult.isOperationRestricted;
+                    pageItem.IsLoading = false;
+                    if (result.IsRestricted)
+                        fileMetadata.IsOperationRestricted = true;
+                    await InvokeOnChangeAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"AddSinglePageFromPdfAsync: extractPdfPageToStorage failed: {ex.Message}");
+                    pageItem.IsLoading = false;
+                    pageItem.HasThumbnailError = true;
+                    await InvokeOnChangeAsync();
+                }
+            });
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AddSinglePageFromPdfAsync error for {fileName}: {ex.Message}");
             return false;
         }
     }
@@ -433,7 +535,7 @@ public class PdfDataService
     // プレビュー画像の LRU キャッシュ（最大保持数を制限）
     private readonly LinkedList<string> _previewCacheOrder = new();
     private readonly Dictionary<string, string> _previewCache = new();
-    private const int MaxPreviewCacheSize = 5; // 最大5枚まで保持
+    private const int MaxPreviewCacheSize = 20; // 最大20枚まで保持
 
 
     /// <summary>
@@ -504,18 +606,35 @@ public class PdfDataService
                 lastIndex = x.Index;
             }
 
-            // PageData取得（従来通り）
+            // PageData取得（ストレージ利用）
             var existingPageItems = _model.Pages.Where(p => p.FileId == fileId).ToList();
             foreach (var pageItem in existingPageItems)
             {
-                if (!string.IsNullOrEmpty(pageItem.PageData) && !pageItem.HasPageDataError)
+                // すでにJS ストレージに保存済みの場合はスキップ
+                if (pageItem.IsPageDataStoredInJs)
                     continue;
 
                 try
                 {
-                    pageItem.PageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageItem.OriginalPageIndex, fileMetadata.FileId);
-                    pageItem.HasPageDataError = string.IsNullOrEmpty(pageItem.PageData);
+                    var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                        "extractPdfPageToStorage",
+                        fileMetadata.FileData,
+                        pageItem.OriginalPageIndex,
+                        fileMetadata.FileId
+                    );
+
+                    if (result.Success)
+                    {
+                        pageItem.IsPageDataStoredInJs = true;
+                        pageItem.IsOperationRestricted = result.IsRestricted;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"PageData storage error: {result.Error}");
+                    }
+
                     pageItem.IsLoading = false;
+
                     try
                     {
                         if (!fileMetadata.IsOperationRestricted)
@@ -538,11 +657,10 @@ public class PdfDataService
                     }
                     await BufferedNotifyChangeAsync();
                 }
-                catch
+                catch (Exception ex)
                 {
-                    pageItem.HasPageDataError = true;
-                    pageItem.PageData = "";
                     pageItem.IsLoading = false;
+                    Console.WriteLine($"ExtractPageToStorage error: {ex.Message}");
                 }
             }
 
@@ -576,43 +694,63 @@ public class PdfDataService
                     continue;
                 }
 
-                // ページ単位表示時：PageDataがあり、サムネイルもあり、エラーもなければ何もしない
+                // ページ単位表示時：サムネイルがあり、ストレージに保存済みでエラーもなければ何もしない
                 if (loadThumbnails)
                 {
-                    if (!string.IsNullOrEmpty(pageItem.PageData) &&
+                    if (pageItem.IsPageDataStoredInJs &&
                         !string.IsNullOrEmpty(pageItem.Thumbnail) &&
-                        !pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+                        !pageItem.HasThumbnailError)
                     {
                         continue;
                     }
                 }
                 else
                 {
-                    // ファイル単位表示時：PageDataがあり、サムネイル（先頭のみ）があれば何もしない
-                    if (!string.IsNullOrEmpty(pageItem.PageData) &&
-                        (pageIndex != 0 || !string.IsNullOrEmpty(pageItem.Thumbnail)) &&
-                        !pageItem.HasPageDataError)
+                    // ファイル単位表示時：ストレージに保存済みで、サムネイル（先頭のみ）があれば何もしない
+                    if (pageItem.IsPageDataStoredInJs &&
+                        (pageIndex != 0 || !string.IsNullOrEmpty(pageItem.Thumbnail)))
                     {
                         continue;
                     }
                 }
 
                 string thumbnail = "";
-                string pageData = "";
                 bool thumbError = false;
                 bool dataError = false;
+                bool dataStoredInJs = false;
 
                 if (pageIndex == 0)
                 {
                     thumbnail = fileMetadata.CoverThumbnail;
-                    // すでにPageDataがあれば再取得しない
-                    if (!string.IsNullOrEmpty(pageItem.PageData))
+                    // すでにストレージに保存済みなら再取得しない
+                    if (pageItem.IsPageDataStoredInJs)
                     {
-                        pageData = pageItem.PageData;
+                        // 既にストレージ保存済み、何もしない
                     }
                     else
                     {
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
+                        var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                            "extractPdfPageToStorage",
+                            fileMetadata.FileData,
+                            pageIndex,
+                            fileMetadata.FileId
+                        );
+
+                        if (result.Success)
+                        {
+                            dataStoredInJs = true;
+                            dataError = false;
+
+                            if (result.IsRestricted)
+                            {
+                                fileMetadata.IsOperationRestricted = true;
+                                if (pageItem != null) pageItem.IsOperationRestricted = true;
+                            }
+                        }
+                        else
+                        {
+                            dataError = true;
+                        }
 
                         try
                         {
@@ -636,7 +774,7 @@ public class PdfDataService
                         }
                     }
                     thumbError = string.IsNullOrEmpty(thumbnail);
-                    dataError = string.IsNullOrEmpty(pageData);
+                    // dataError は既に設定済み（pageIndex == 0の場合）
                 }
                 else
                 {
@@ -668,45 +806,67 @@ public class PdfDataService
                         }
                     }
 
-                    // PageDataは常に取得（既にあれば再取得しない）
-                    if (!string.IsNullOrEmpty(pageItem.PageData))
+                    // PageDataは常に取得（既にストレージ保存済みなら再取得しない）
+                    if (pageItem.IsPageDataStoredInJs)
                     {
-                        pageData = pageItem.PageData;
+                        dataStoredInJs = true;
                     }
                     else
                     {
                         var dataCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                         try
                         {
-                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", dataCts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
-                            try
+                            var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                                "extractPdfPageToStorage",
+                                dataCts.Token,
+                                fileMetadata.FileData,
+                                pageIndex,
+                                fileMetadata.FileId
+                            );
+
+                            if (result.Success)
                             {
-                                if (!fileMetadata.IsOperationRestricted)
+                                dataStoredInJs = true;
+                                dataError = false;
+
+                                if (result.IsRestricted)
                                 {
-                                    var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
-                                    if (isRestricted)
+                                    fileMetadata.IsOperationRestricted = true;
+                                    if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                }
+
+                                try
+                                {
+                                    if (!fileMetadata.IsOperationRestricted)
                                     {
-                                        fileMetadata.IsOperationRestricted = true;
-                                        if (pageItem != null) pageItem.IsOperationRestricted = true;
+                                        var isRestricted = await _jsRuntime.InvokeAsync<bool>("_pdfLibFileIsRestricted", fileMetadata.FileId);
+                                        if (isRestricted)
+                                        {
+                                            fileMetadata.IsOperationRestricted = true;
+                                            pageItem?.IsOperationRestricted = true;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        pageItem?.IsOperationRestricted = true;
                                     }
                                 }
-                                else
+                                catch
                                 {
-                                    pageItem.IsOperationRestricted = true;
+                                    // 無視（冗長問い合わせは失敗しても処理続行）
                                 }
                             }
-                            catch
+                            else
                             {
-                                // 無視（冗長問い合わせは失敗しても処理続行）
+                                dataError = true;
                             }
                         }
                         catch (OperationCanceledException)
                         {
                             Console.WriteLine($"Timeout extracting pageData for page {pageIndex + 1} of {fileMetadata.FileName}");
-                            pageData = "";
+                            dataError = true;
                         }
                     }
-                    dataError = string.IsNullOrEmpty(pageData);
                 }
 
                 if (pageItem == null)
@@ -716,10 +876,9 @@ public class PdfDataService
                 }
 
                 pageItem.Thumbnail = thumbnail;
-                pageItem.PageData = pageData;
+                pageItem.IsPageDataStoredInJs = dataStoredInJs;
                 pageItem.IsLoading = false;
                 pageItem.HasThumbnailError = thumbError;
-                pageItem.HasPageDataError = dataError;
 
                 if (!thumbError && !dataError)
                 {
@@ -753,9 +912,9 @@ public class PdfDataService
             }
             await InvokeOnChangeAsync();
 
-            // 全ページのPageDataとサムネイルが揃っている場合のみIsFullyLoadedをtrueに
+            // 全ページのストレージ保存とサムネイルが揃っている場合のみIsFullyLoadedをtrueに
             var allPages = _model.Pages.Where(p => p.FileId == fileId).ToList();
-            bool allPageDataReady = allPages.All(p => !string.IsNullOrEmpty(p.PageData));
+            bool allPageDataReady = allPages.All(p => p.IsPageDataStoredInJs);
             bool allThumbnailsReadyFinal = allPages.All(p => !string.IsNullOrEmpty(p.Thumbnail));
             fileMetadata.IsFullyLoaded = allPageDataReady && allThumbnailsReadyFinal;
 
@@ -770,9 +929,7 @@ public class PdfDataService
             {
                 item.IsLoading = false;
                 item.HasThumbnailError = true;
-                item.HasPageDataError = true;
                 item.Thumbnail = "";
-                item.PageData = "";
             }
         }
     }
@@ -810,7 +967,8 @@ public class PdfDataService
         }
         catch (Exception ex)
         {
-            await _messageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Warn);
+            Console.WriteLine($"OpenInsertPdfDialogAsync error: {ex.Message}");
+            await _messageService.ShowAsync("ファイル選択ダイアログの表示に失敗しました。", MessageType.Warn);
             return false;
         }
     }
@@ -826,24 +984,32 @@ public class PdfDataService
         {
             pageItem.IsLoading = true;
             pageItem.HasThumbnailError = false;
-            pageItem.HasPageDataError = false;
             pageItem.Thumbnail = "";
-            pageItem.PageData = "";
             await InvokeOnChangeAsync();
 
             string thumbnail = "";
-            string pageData = "";
             bool thumbError = false;
             bool dataError = false;
 
             // 白紙ページの場合は再生成
             if (pageItem.IsBlankPage)
             {
-                pageData = await _jsRuntime.InvokeAsync<string>("createBlankPage");
-                thumbnail = await _jsRuntime.InvokeAsync<string>("generatePdfThumbnailFromPageData", pageData);
+                var blankPageData = await _jsRuntime.InvokeAsync<string>("createBlankPage");
+                thumbnail = await _jsRuntime.InvokeAsync<string>("generatePdfThumbnailFromPageData", blankPageData);
                 RegisterBlobUrl(thumbnail);
                 thumbError = string.IsNullOrEmpty(thumbnail);
-                dataError = string.IsNullOrEmpty(pageData);
+                dataError = string.IsNullOrEmpty(blankPageData);
+                if (!dataError)
+                {
+                    // 白紙ページをストレージに保存
+                    var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                        "extractPdfPageToStorage",
+                        Convert.FromBase64String(blankPageData),
+                        0,
+                        pageItem.FileId
+                    );
+                    pageItem.IsPageDataStoredInJs = result.Success;
+                }
             }
             else if (!_model.Files.TryGetValue(fileId, out var fileMetadata))
             {
@@ -858,18 +1024,40 @@ public class PdfDataService
                     // 画像ファイルの場合はPDF化
                     string base64 = Convert.ToBase64String(fileMetadata.FileData);
                     thumbnail = fileMetadata.CoverThumbnail;
-                    pageData = await _jsRuntime.InvokeAsync<string>("embedImageAsPdf", base64, ext);
+                    var imgPageData = await _jsRuntime.InvokeAsync<string>("embedImageAsPdf", base64, ext);
                     thumbError = string.IsNullOrEmpty(thumbnail);
-                    dataError = string.IsNullOrEmpty(pageData);
+                    dataError = string.IsNullOrEmpty(imgPageData);
+                    if (!dataError)
+                    {
+                        var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                            "extractPdfPageToStorage",
+                            Convert.FromBase64String(imgPageData),
+                            0,
+                            pageItem.FileId
+                        );
+                        pageItem.IsPageDataStoredInJs = result.Success;
+                        dataError = !result.Success;
+                    }
                 }
                 else if (SupportedPdfExtensions.Contains(ext))
                 {
                     if (pageIndex == 0)
                     {
                         thumbnail = fileMetadata.CoverThumbnail;
-                        pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", fileMetadata.FileData, pageIndex, fileMetadata.FileId);
                         thumbError = string.IsNullOrEmpty(thumbnail);
-                        dataError = string.IsNullOrEmpty(pageData);
+
+                        var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                            "extractPdfPageToStorage",
+                            fileMetadata.FileData,
+                            pageIndex,
+                            fileMetadata.FileId
+                        );
+                        dataError = !result.Success;
+                        if (result.Success)
+                        {
+                            pageItem.IsPageDataStoredInJs = true;
+                            if (result.IsRestricted) fileMetadata.IsOperationRestricted = true;
+                        }
 
                         if (!fileMetadata.IsOperationRestricted)
                         {
@@ -882,14 +1070,10 @@ public class PdfDataService
                                     pageItem.IsOperationRestricted = true;
                                 }
                             }
-                            catch
-                            {
-                                // 無視
-                            }
+                            catch { }
                         }
                         else
                         {
-                            // 既に制限フラグが立っているなら pageItem にも反映しておく
                             pageItem.IsOperationRestricted = true;
                         }
                     }
@@ -903,8 +1087,19 @@ public class PdfDataService
                             RegisterBlobUrl(thumbnail);
                             thumbError = renderResult.isError || string.IsNullOrEmpty(thumbnail);
 
-                            pageData = await _jsRuntime.InvokeAsync<string>("extractPdfPage", cts.Token, fileMetadata.FileData, pageIndex, fileMetadata.FileId);
-                            dataError = string.IsNullOrEmpty(pageData);
+                            var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                                "extractPdfPageToStorage",
+                                cts.Token,
+                                fileMetadata.FileData,
+                                pageIndex,
+                                fileMetadata.FileId
+                            );
+                            dataError = !result.Success;
+                            if (result.Success)
+                            {
+                                pageItem.IsPageDataStoredInJs = true;
+                                if (result.IsRestricted) fileMetadata.IsOperationRestricted = true;
+                            }
 
                             if (!fileMetadata.IsOperationRestricted)
                             {
@@ -917,14 +1112,10 @@ public class PdfDataService
                                         pageItem.IsOperationRestricted = true;
                                     }
                                 }
-                                catch
-                                {
-                                    // 無視
-                                }
+                                catch { }
                             }
                             else
                             {
-                                // 既に制限フラグが立っているなら pageItem にも反映しておく
                                 pageItem.IsOperationRestricted = true;
                             }
                         }
@@ -944,14 +1135,12 @@ public class PdfDataService
             }
 
             pageItem.Thumbnail = thumbnail;
-            pageItem.PageData = pageData;
             pageItem.IsLoading = false;
             pageItem.HasThumbnailError = thumbError;
-            pageItem.HasPageDataError = dataError;
 
             await InvokeOnChangeAsync();
 
-            if (pageItem.HasPageDataError)
+            if (dataError)
                 return "ページデータの取得に失敗しました。このページは再読み込みできません。";
             if (pageItem.HasThumbnailError)
                 return "サムネイルの取得に失敗しました。";
@@ -962,9 +1151,7 @@ public class PdfDataService
         {
             pageItem.IsLoading = false;
             pageItem.HasThumbnailError = true;
-            pageItem.HasPageDataError = true;
             pageItem.Thumbnail = "";
-            pageItem.PageData = "";
             await InvokeOnChangeAsync();
             Console.WriteLine($"Error reloading page {pageIndex + 1} of {pageItem.FileName}: {ex.Message}");
             return "ページの再読み込み中にエラーが発生しました。";
@@ -972,17 +1159,17 @@ public class PdfDataService
     }
 
     /// <summary>
-    /// 指定ページのサムネイルを PageData から強制再生成
+    /// 指定ページのサムネイルをストレージから強制再生成
     /// </summary>
     public async Task<string?> ReloadThumbnailAsync(string pageId)
     {
         var pageItem = _model.Pages.FirstOrDefault(p => p.Id == pageId);
         if (pageItem == null)
             return "ページ情報が見つかりませんでした。";
-    
-        if (string.IsNullOrEmpty(pageItem.PageData))
-            return "PageData が存在しません。";
-    
+
+        if (!pageItem.IsPageDataStoredInJs)
+            return "ページデータがストレージに存在しません。";
+
         try
         {
             // サムネイル再生成中状態に設定
@@ -990,23 +1177,36 @@ public class PdfDataService
             string oldThumbnail = pageItem.Thumbnail;
 
             // 状態遷移を明示的にし、確実な更新を保証
-            pageItem.Thumbnail = ""; 
+            pageItem.Thumbnail = "";
             await InvokeOnChangeAsync();
-    
+
             string thumbnail = "";
             bool thumbError = false;
-    
+
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try
             {
-                // PageData から直接サムネイルを生成（スタンプが反映される）
-                thumbnail = await _jsRuntime.InvokeAsync<string>(
-                    "generatePdfThumbnailFromPageData",
+                // ストレージからBase64を取得してサムネイルを生成（スタンプが反映される）
+                var pageBase64 = await _jsRuntime.InvokeAsync<string>(
+                    "getStoredPageData",
                     cts.Token,
-                    pageItem.PageData
+                    pageItem.FileId,
+                    pageItem.OriginalPageIndex
                 );
-                RegisterBlobUrl(thumbnail);
-                thumbError = string.IsNullOrEmpty(thumbnail);
+                if (!string.IsNullOrEmpty(pageBase64))
+                {
+                    thumbnail = await _jsRuntime.InvokeAsync<string>(
+                        "generatePdfThumbnailFromPageData",
+                        cts.Token,
+                        pageBase64
+                    );
+                    RegisterBlobUrl(thumbnail);
+                    thumbError = string.IsNullOrEmpty(thumbnail);
+                }
+                else
+                {
+                    thumbError = true;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -1014,15 +1214,15 @@ public class PdfDataService
                 thumbnail = oldThumbnail; // 失敗時は元に戻す
                 thumbError = true;
             }
-    
+
             pageItem.Thumbnail = thumbnail;
             pageItem.HasThumbnailError = thumbError;
-    
+
             await InvokeOnChangeAsync();
-    
+
             if (thumbError)
                 return "サムネイルの取得に失敗しました。";
-    
+
             return null;
         }
         catch (Exception ex)
@@ -1132,11 +1332,24 @@ public class PdfDataService
             var pageToRemove = _model.Pages.FirstOrDefault(p => p.Id == item.Id);
             if (pageToRemove != null)
             {
+                // JS ストレージからも削除
+                _ = _jsRuntime.InvokeVoidAsync(
+                    "deleteStoredPageData",
+                    pageToRemove.FileId,
+                    pageToRemove.OriginalPageIndex
+                );
+
                 _model.Pages.Remove(pageToRemove);
 
                 // そのファイルの他のページがなくなった場合、ファイルメタデータも削除
                 if (!_model.Pages.Any(p => p.FileId == pageToRemove.FileId))
                 {
+                    // ファイル全体のストレージもクリア
+                    _ = _jsRuntime.InvokeVoidAsync(
+                        "deleteStoredPagesForFile",
+                        pageToRemove.FileId
+                    );
+
                     _model.Files.Remove(pageToRemove.FileId);
                 }
             }
@@ -1170,6 +1383,12 @@ public class PdfDataService
                 // そのFileIdのページが0になったらファイルメタデータも削除
                 if (!_model.Pages.Any(p => p.FileId == fileId))
                 {
+                    // ファイル全体のストレージをクリア
+                    _ = _jsRuntime.InvokeVoidAsync(
+                        "deleteStoredPagesForFile",
+                        fileId
+                    );
+
                     _model.Files.Remove(fileId);
                 }
             }
@@ -1264,6 +1483,14 @@ public class PdfDataService
             };
             _model.Files[fileId] = fileMetadata;
 
+            // ストレージに保存
+            var storageResult = await _jsRuntime.InvokeAsync<StorageResult>(
+                "extractPdfPageToStorage",
+                fileMetadata.FileData,
+                0,
+                fileId
+            );
+
             // ページアイテムを作成
             var pageItem = new PageItem
             {
@@ -1272,10 +1499,9 @@ public class PdfDataService
                 FileName = fileName,
                 OriginalPageIndex = 0,
                 Thumbnail = blankThumbnail,
-                PageData = blankPageData,
+                IsPageDataStoredInJs = storageResult.Success,
                 IsLoading = false,
                 HasThumbnailError = false,
-                HasPageDataError = false,
                 IsBlankPage = true,
                 ColorHsl = GenerateColorHsl(fileId)
             };
@@ -1294,30 +1520,17 @@ public class PdfDataService
     }
 
     /// <summary>
-    /// 結合用のページデータリストを取得
+    /// 結合用のページデータリストを取得（ストレージキー情報のみ）
     /// </summary>
     public List<object> GetMergeData()
     {
-        foreach (var page in _model.Pages)
-        {
-            if (!IsBase64String(page.PageData))
-            {
-                Console.WriteLine($"[Base64Check] NG: {page.FileName}");
-            }
-        }
         return _model.Pages.Select(page => new
         {
             FileName = page.FileName,
             PageIndex = page.OriginalPageIndex,
             ThumbnailData = page.Thumbnail,
-            PageData = page.PageData
+            FileId = page.FileId
         }).Cast<object>().ToList();
-    }
-    private bool IsBase64String(string s)
-    {
-        if (string.IsNullOrEmpty(s)) return false;
-        Span<byte> buffer = new Span<byte>(new byte[s.Length]);
-        return Convert.TryFromBase64String(s, buffer, out _);
     }
     public async Task DuplicateItemAsync(string id, bool isFile, int insertIndex)
     {
@@ -1373,10 +1586,9 @@ public class PdfDataService
                     FileName = page.FileName,
                     OriginalPageIndex = page.OriginalPageIndex,
                     Thumbnail = page.Thumbnail,
-                    PageData = page.PageData,
-                    IsLoading = false,
+                    IsPageDataStoredInJs = false, // ストレージへの再登録が必要
+                    IsLoading = true,
                     HasThumbnailError = false,
-                    HasPageDataError = false,
                     ColorHsl = GenerateColorHsl(newFileId)
                 };
                 _model.Pages.Insert(pageInsertIndex++, copy);
@@ -1395,10 +1607,9 @@ public class PdfDataService
                 FileName = page.FileName,
                 OriginalPageIndex = page.OriginalPageIndex,
                 Thumbnail = page.Thumbnail,
-                PageData = page.PageData,
+                IsPageDataStoredInJs = page.IsPageDataStoredInJs,
                 IsLoading = false,
                 HasThumbnailError = false,
-                HasPageDataError = false,
                 ColorHsl = page.ColorHsl
             };
             int pageIndex = _model.Pages.FindIndex(p => p.Id == id);
@@ -1500,6 +1711,8 @@ public class PdfDataService
             // 呼び出しに await を使わないため戻り値は無視する
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibCacheClear");
             _ = _jsRuntime.InvokeVoidAsync("_pdfLibFileRestrictedClear");
+            // JS ページストレージをクリア
+            _ = _jsRuntime.InvokeVoidAsync("_clearPageStorage");
         }
         catch { }
 
@@ -1549,7 +1762,11 @@ public class PdfDataService
             pageItem = _model.Pages.FirstOrDefault(p => p.Id == id);
         }
 
-        if (pageItem == null || string.IsNullOrEmpty(pageItem.PageData))
+        if (pageItem == null)
+            return null;
+
+        // ストレージ未登録の場合は null を返す
+        if (!pageItem.IsPageDataStoredInJs)
             return null;
 
         var cacheKey = pageItem.Id;
@@ -1566,8 +1783,15 @@ public class PdfDataService
         // キャッシュになければ生成
         try
         {
-            var previewImage = await _jsRuntime.InvokeAsync<string>(
-            "generatePreviewImage", pageItem.PageData, pageItem.RotateAngle,scaleKey);
+            string previewImage;
+
+            // ストレージからプレビュー生成
+            previewImage = await _jsRuntime.InvokeAsync<string>(
+                "generatePreviewFromStorage",
+                pageItem.FileId,
+                pageItem.OriginalPageIndex,
+                pageItem.RotateAngle,
+                scaleKey);
 
             if (string.IsNullOrEmpty(previewImage))
                 return null;
@@ -1705,6 +1929,14 @@ public class PdfDataService
             };
             _model.Files[fileId] = fileMetadata;
 
+            // ストレージに保存
+            var storageResult = await _jsRuntime.InvokeAsync<StorageResult>(
+                "extractPdfPageToStorage",
+                Convert.FromBase64String(pdfBase64),
+                0,
+                fileId
+            );
+
             var pageItem = new PageItem
             {
                 Id = $"{fileId}_p0",
@@ -1712,10 +1944,9 @@ public class PdfDataService
                 FileName = fileName,
                 OriginalPageIndex = 0,
                 Thumbnail = dataUrl,
-                PageData = pdfBase64,
+                IsPageDataStoredInJs = storageResult.Success,
                 IsLoading = false,
                 HasThumbnailError = false,
-                HasPageDataError = false,
                 ColorHsl = GenerateColorHsl(fileId)
             };
 
@@ -1852,7 +2083,8 @@ public class PdfDataService
             }
             catch (Exception ex)
             {
-                await _messageService.ShowAsync($"ファイル処理エラー: {file.Name} - {ex.Message}", MessageType.Error);
+                Console.WriteLine($"HandleFileInputAsync file error: {file.Name} - {ex.Message}");
+                await _messageService.ShowAsync($"ファイルの処理に失敗しました: {file.Name}", MessageType.Error);
             }
         }
 
@@ -2169,5 +2401,16 @@ public class PdfDataService
             return null;
         }
     }
+}
+
+/// <summary>
+/// JS側ストレージ操作の結果
+/// </summary>
+public class StorageResult
+{
+    public bool Success { get; set; }
+    public long SizeBytes { get; set; }
+    public bool IsRestricted { get; set; }
+    public string? Error { get; set; }
 }
 

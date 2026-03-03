@@ -1932,10 +1932,21 @@ private void RotateSelectedImageRight()
 
                 fileName = pageItem.FileName ?? "";
 
-                // ここで元データを保持
-                originalPageData = pageItem.PageData;
+                // ストレージから元データを取得
+                originalPageData = await JSRuntime.InvokeAsync<string>(
+                    "getStoredPageData",
+                    pageItem.FileId,
+                    pageItem.OriginalPageIndex
+                );
 
-                cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, pageItem.PageData);
+                if (string.IsNullOrEmpty(originalPageData))
+                {
+                    _ = MessageService.ShowAsync("ページデータの取得に失敗しました", MessageType.Error);
+                    Navigation.NavigateTo("/edit");
+                    return;
+                }
+
+                cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, originalPageData);
                 if (cachedPageSource == null)
                 {
                     cachedPageSource = new PageSourceInfo { 
@@ -2187,7 +2198,10 @@ private async void FitToHeight()
         }
         var rotateAngle = pageItem.RotateAngle;
 
-        await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, pageItem?.PageData ?? "", zoomLevel, rotateAngle);
+        // OnAfterRenderAsync で取得済みの originalPageData を使用する
+        var drawData = originalPageData ?? "";
+
+        await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, drawData, zoomLevel, rotateAngle);
     }
 
     private void SetTool(EditTool tool)
@@ -2490,11 +2504,23 @@ private async void FitToHeight()
                     originalPageData, // extractPdfPageで取得したPDF Base64
                     editJson
                 );
-                pageItem.PageData = newPdfBase64;
+
+                // 結果をストレージに保存
+                var resultBytes = Convert.FromBase64String(newPdfBase64);
+                await JSRuntime.InvokeVoidAsync(
+                    "setStoredPageData",
+                    pageItem.FileId,
+                    pageItem.OriginalPageIndex,
+                    resultBytes
+                );
+
+                pageItem.IsPageDataStoredInJs = true;
+
+                // サムネイル再生成
                 pageItem.Thumbnail = "";
-                
+
                 var newThumbnail = await JSRuntime.InvokeAsync<string>(
-                    "generatePdfThumbnailFromPageData", pageItem.PageData);
+                    "generatePdfThumbnailFromPageData", newPdfBase64);
                 pageItem.Thumbnail = newThumbnail;
 
                 _ = MessageService.ShowAsync($"変更を保存しました", type: MessageType.Success);
@@ -2502,8 +2528,8 @@ private async void FitToHeight()
             }
             catch (Exception ex)
             {
-                _ = MessageService.ShowAsync($"保存時エラー: {ex.Message}",type: MessageType.Error);
                 Console.WriteLine($"保存時エラー: {ex}");
+                _ = MessageService.ShowAsync("保存時にエラーが発生しました。",type: MessageType.Error);
             }
             finally
             {

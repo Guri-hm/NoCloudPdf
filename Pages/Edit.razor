@@ -458,7 +458,8 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
             var mergeItems = PdfDataService.GetModel().Pages;
 
             // 準備できていないページがある場合は中断
-            var notReadyCount = mergeItems.Count(item => string.IsNullOrEmpty(item.PageData) || item.HasError);
+            var notReadyCount = mergeItems.Count(item =>
+                !item.IsPageDataStoredInJs || item.HasError);
             if (notReadyCount > 0)
             {
                 _ = MessageService.ShowAsync($"PDFの読み込みが完了していないページが {notReadyCount} ページあります。", MessageType.Warn);
@@ -471,18 +472,15 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
                 return;
             }
 
-            // JSに渡すためのデータを整形
-            var mergeData = mergeItems.Select(item => new MergePageDto
-            {
-                FileId = item.FileId,
-                FileName = item.FileName,
-                PageData = item.PageData,
-                IsPdf = Path.GetExtension(item.FileName).ToLowerInvariant() == ".pdf",
-                RotateAngle = item.RotateAngle % 360
+            // ストレージベースの結合
+            var pageKeys = mergeItems.Select(p => new {
+                fileId = p.FileId,
+                pageIndex = p.OriginalPageIndex,
+                rotateAngle = p.RotateAngle % 360
             }).ToList();
 
-            //  JSで結合処理
-            mergedPdfUrl = await JSRuntime.InvokeAsync<string>("mergePDFPages", mergeData);
+            mergedPdfUrl = await JSRuntime.InvokeAsync<string>(
+                "mergePdfPagesFromStorage", pageKeys);
 
             if (!string.IsNullOrEmpty(mergedPdfUrl))
             {
@@ -515,7 +513,7 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         catch (Exception ex)
         {
             Console.WriteLine($"Error removing item {index}: {ex.Message}");
-            _ = MessageService.ShowAsync($"削除に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("削除に失敗しました。", MessageType.Error);
         }
     }
 
@@ -530,7 +528,7 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         catch (Exception ex)
         {
             Console.WriteLine($"Error opening file dialog: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("ファイル選択ダイアログの表示に失敗しました。", MessageType.Error);
         }
     }
 
@@ -562,7 +560,8 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"サムネイルの入れ替えに失敗しました: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"SwapWithNext error: {ex.Message}");
+            _ = MessageService.ShowAsync("サムネイルの入れ替えに失敗しました。", MessageType.Error);
         }
     }
 
@@ -578,7 +577,7 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
             catch (Exception ex)
             {
                 Console.WriteLine($"Error rotating item {index}: {ex.Message}");
-                _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました: {ex.Message}", MessageType.Error);
+                _ = MessageService.ShowAsync($"アイテム {index + 1} の回転に失敗しました。", MessageType.Error);
             }
         }
         return Task.CompletedTask;
@@ -600,7 +599,8 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
             _ = MessageService.ShowAsync($"回転が完了しました", MessageType.Success);
 
         }catch(Exception ex){
-            _ = MessageService.ShowAsync($"回転中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"RotateAll error: {ex.Message}");
+            _ = MessageService.ShowAsync("回転中にエラーが発生しました。", MessageType.Error);
         }finally{
         }
 
@@ -696,7 +696,7 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
         catch (Exception ex)
         {
             Console.WriteLine($"Error in UpdateOrder: {ex.Message}");
-            _ = MessageService.ShowAsync($"並び替えに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("並び替えに失敗しました。", MessageType.Error);
         }finally{
             sortVersion++; 
             await InvokeAsync(StateHasChanged);
@@ -737,7 +737,7 @@ TotalPages="@(DisplayItems?.Count ?? 0)"
 
         }catch (Exception ex){
             Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("ファイルの読み込み中にエラーが発生しました。", MessageType.Error);
 
         }finally{
             await MessageService.HideLoadingAsync();
@@ -856,7 +856,7 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         }
         catch (Exception ex) {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync($"逆順中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("逆順中にエラーが発生しました。", MessageType.Error);
         }finally{
             await MessageService.HideLoadingAsync();
         }
@@ -886,7 +886,7 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync($"ソート中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("ソート中にエラーが発生しました。", MessageType.Error);
             return;
         }
         finally
@@ -904,7 +904,7 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         }catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("ファイルの読み込み中にエラーが発生しました。", MessageType.Error);
         }   
         finally
         {
@@ -1007,11 +1007,8 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
             await MessageService.ShowLoadingAsync($"スタンプ適用中... ({processedCount}/{totalPagesInRange})");
 
-            if (string.IsNullOrEmpty(page.PageData) || page.HasError)
+            if (!page.IsPageDataStoredInJs || page.HasError)
                 continue;
-
-            // 処理前のサイズを記録
-            var beforeSize = page.PageData.Length;
 
             // 範囲内のページインデックス（0始まり）
             var pageIndexInRange = i - (startPage - 1);
@@ -1024,11 +1021,12 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
                 startPage
             );
 
-            var stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
-                "addStampsToPdf", 
-                page.PageData, 
-                stampData
-            );
+            // ストレージからページデータを取得してスタンプ適用
+            byte[]? stampedPdfBytes;
+            var pageBase64 = await JSRuntime.InvokeAsync<string>(
+                "getStoredPageData", page.FileId, page.OriginalPageIndex);
+            stampedPdfBytes = await JSRuntime.InvokeAsync<byte[]>(
+                "addStampsToPdf", pageBase64, stampData);
 
             // プレビューキャッシュをクリア
             // 変更直後にダイアログを再表示すると前回のキャッシュデータが利用されてしまうため
@@ -1036,7 +1034,9 @@ private async Task ApplyHeaderFooter(HeaderFooterSetting setting)
 
             if (stampedPdfBytes != null && stampedPdfBytes.Length > 0)
             {
-                page.PageData = Convert.ToBase64String(stampedPdfBytes);
+                // ストレージを更新
+                await JSRuntime.InvokeAsync<object>(
+                    "setStoredPageData", page.FileId, page.OriginalPageIndex, stampedPdfBytes);
 
                 var reloadError = await PdfDataService.ReloadThumbnailAsync(page.Id);
                 if (!string.IsNullOrEmpty(reloadError))
@@ -1182,7 +1182,8 @@ private List<object> CreateStampsForCoordinateTransform(
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"PDFのダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"DownloadMergedPdf error: {ex.Message}");
+            _ = MessageService.ShowAsync("PDFのダウンロードに失敗しました。", MessageType.Error);
         }
     }
 
@@ -1207,19 +1208,20 @@ private List<object> CreateStampsForCoordinateTransform(
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"PNGダウンロードに失敗しました: {ex.Message}",MessageType.Error);
+            Console.WriteLine($"DownloadMergedPng error: {ex.Message}");
+            _ = MessageService.ShowAsync("PNGダウンロードに失敗しました。",MessageType.Error);
             StateHasChanged();
         }
     }
 
     private bool HasAnyPageOrThumbnailError => DisplayItems.Any(item =>
-        item.RawData is PageItem pageItem && (pageItem.HasThumbnailError || pageItem.HasPageDataError));
+        item.RawData is PageItem pageItem && pageItem.HasThumbnailError);
         
     private async Task ReloadAllThumbnailsAsync()
     {
         foreach (var item in DisplayItems)
         {
-            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError && !pageItem.HasPageDataError)
+            if (item.RawData is PageItem pageItem && pageItem.HasThumbnailError)
             {
                 await ReloadPageItem(item);
             }

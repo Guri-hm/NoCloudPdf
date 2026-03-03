@@ -705,9 +705,11 @@
                     var rect = rects[rectIndex];
                     var rotate = normalizeRotationAngle(page.RotateAngle);
                     
-                    var imageDataUrl = await JSRuntime.InvokeAsync<string>(
-                        "cropPdfPageToImage",
-                        page.PageData,
+                    string imageDataUrl;
+                    imageDataUrl = await JSRuntime.InvokeAsync<string>(
+                        "cropPdfPageToImageFromStorage",
+                        page.FileId,
+                        page.OriginalPageIndex,
                         rect.X, rect.Y, rect.Width, rect.Height,
                         rotate,
                         exportDpi
@@ -740,7 +742,8 @@
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"プレビュー作成に失敗しました: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"CreatePreview error: {ex.Message}");
+            _ = MessageService.ShowAsync("プレビュー作成に失敗しました。", MessageType.Error);
         }
         finally
         {
@@ -867,7 +870,8 @@
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"OCR処理中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"ExecuteOcr error: {ex.Message}");
+            _ = MessageService.ShowAsync("OCR処理中にエラーが発生しました。", MessageType.Error);
         }
         finally
         {
@@ -980,7 +984,8 @@
         }
         catch (Exception ex)
         {
-            _ = MessageService.ShowAsync($"ダウンロードに失敗しました: {ex.Message}", MessageType.Error);
+            Console.WriteLine($"DownloadAllOcrResultsAsText error: {ex.Message}");
+            _ = MessageService.ShowAsync("ダウンロードに失敗しました。", MessageType.Error);
         }
     }
 
@@ -1291,7 +1296,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error opening file dialog: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイル選択ダイアログの表示に失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("ファイル選択ダイアログの表示に失敗しました。", MessageType.Error);
         }
     }
 
@@ -1369,7 +1374,7 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error handling file selection: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイルの読み込みに失敗しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("ファイルの読み込みに失敗しました。", MessageType.Error);
         }finally
         {
             await MessageService.HideLoadingAsync();
@@ -1578,7 +1583,7 @@
         }catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
-            _ = MessageService.ShowAsync($"ファイルの読み込み中にエラーが発生しました: {ex.Message}", MessageType.Error);
+            _ = MessageService.ShowAsync("ファイルの読み込み中にエラーが発生しました。", MessageType.Error);
         }   
         finally
         {

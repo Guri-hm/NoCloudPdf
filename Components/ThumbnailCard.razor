@@ -93,20 +93,6 @@
                 }
                 else if (Item.HasError)
                 {
-                    @if (pageItem != null && pageItem.HasPageDataError)
-                    {
-                        <div class="page-error w-full h-full flex flex-col items-center justify-center bg-gray-100 text-red-700" title="クリックで再読み込み" 
-                        @onclick="() => OnReloadPageItem.InvokeAsync(Item)"
-                        @onclick:stopPropagation>
-                            <ErrorPdfIcon class="mb-1 w-8 h-8 text-red-600" />
-                            <div class="font-bold text-xs">データなし</div>
-                            <div class="flex items-center text-blue-600 text-xs mt-1 underline">
-                            <RotateLeftIcon class="w-4 h-4"></RotateLeftIcon>
-                            再読み込み
-                            </div>
-                        </div>
-                    }else{
-
                     <div class="page-error w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-red-100 transition"
                         title="クリックで再読み込み"
                         @onclick="() => OnReloadPageItem.InvokeAsync(Item)"
@@ -118,7 +104,6 @@
                             再読み込み
                         </div>
                     </div>
-                    }
                 }
                 else if (!string.IsNullOrEmpty(Item.Thumbnail))
                 {
