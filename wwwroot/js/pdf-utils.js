@@ -595,34 +595,6 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
     }
 };
 
-/**
- * 指定ページの高解像度プレビュー画像を生成（QRコード検出＋表示用）
- * @param {Uint8Array|string} pdfFileData - PDFファイルデータ
- * @param {number} pageIndex - ページインデックス（0始まり）
- * @returns {Promise<string>} Blob URL
- */
-window.generateHighResPagePreview = async function (pdfFileData, pageIndex) {
-    try {
-        const uint8Array = toUint8Array(pdfFileData);
-        const pdf = await loadPdfDocument(uint8Array);
-
-        const page = await pdf.getPage(pageIndex + 1);
-        
-        // 高解像度プレビュー生成（renderFirstPDFPageと同じ）
-        const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
-        const targetWidth = 800; // QR読み取りに十分な解像度
-        const scale = targetWidth / viewport.width;
-        
-        const canvas = await renderPageToCanvas(page, scale, 0);
-        const blobUrl = await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
-
-        return blobUrl;
-    } catch (error) {
-        console.error('generateHighResPagePreview error:', error);
-        throw error;
-    }
-};
-
 // ========================================
 // 画像変換ヘルパー
 // ========================================
@@ -667,7 +639,7 @@ window.getPDFPageCount = async function (pdfData) {
 // ========================================
 // 画像フォールバック処理
 // ========================================
-async function imageFallbackPdf(uint8Array, pageIndex, cacheKey = null) {
+async function imageFallbackPdf(uint8Array, pageIndex, cacheKey = null, hq = false) {
     if (cacheKey) {
         window._pdfCache.markRestricted(cacheKey);
     }
@@ -675,7 +647,12 @@ async function imageFallbackPdf(uint8Array, pageIndex, cacheKey = null) {
     const pdf = await loadPdfDocument(uint8Array);
     const page = await pdf.getPage(pageIndex + 1);
 
-    const scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
+    let scale;
+    if (hq) {
+        scale = pdfConfig?.pdfSettings?.scales?.unlock_hq || 4.17;
+    } else {
+        scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
+    }
     const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
 
     const imgDataUrl = canvas.toDataURL('image/png');
@@ -783,50 +760,6 @@ window.createBlankPage = async function () {
 }
 
 // ========================================
-// PDFページ抽出
-// ========================================
-window.extractPdfPage = async function (pdfData, pageIndex, cacheKey = null) {
-    try {
-        const { PDFDocument } = PDFLib;
-        const uint8Array = toUint8Array(pdfData);
-
-        let srcPdfDoc = null;
-        if (cacheKey && window._pdfCache.has(cacheKey)) {
-            srcPdfDoc = window._pdfCache.get(cacheKey);
-        } else {
-            try {
-                srcPdfDoc = await PDFDocument.load(uint8Array);
-                if (cacheKey) {
-                    window._pdfCache.set(cacheKey, srcPdfDoc);
-                }
-            } catch (loadErr) {
-                // 制限付きのPDFの場合，ここで画像化する
-                return await imageFallbackPdf(uint8Array, pageIndex, cacheKey);
-            }
-        }
-
-        const newPdf = await PDFDocument.create();
-
-        try {
-            if (cacheKey && window._pdfCache.isRestricted(cacheKey)) {
-                throw new Error('file-restricted-precheck');
-            }
-            const [copiedPage] = await newPdf.copyPages(srcPdfDoc, [pageIndex]);
-            newPdf.addPage(copiedPage);
-        } catch (copyError) {
-            return await imageFallbackPdf(uint8Array, pageIndex, cacheKey);
-        }
-
-        const pdfBytes = await newPdf.save();
-        return uint8ArrayToBase64(pdfBytes);
-
-    } catch (error) {
-        console.error(`Error extracting PDF page ${pageIndex}:`, error);
-        return await window.createBlankPage();
-    }
-};
-
-// ========================================
 // ページ抽出してストレージに保存（Base64を返さない）
 // ========================================
 window.extractPdfPageToStorage = async function (pdfData, pageIndex, fileId) {
@@ -884,7 +817,9 @@ async function extractAndStoreWithFallback(uint8Array, pageIndex, fileId) {
     const pdf = await loadPdfDocument(uint8Array);
     const page = await pdf.getPage(pageIndex + 1);
 
-    const scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
+    // 制限付きPDFは後からスライス時に高解像度で再レンダリングできないため、
+    // ストレージ保存段階から高品質スケール（unlock_hq ≒ 300dpi）で画像化する
+    const scale = pdfConfig?.pdfSettings?.scales?.unlock_hq || 4.17;
     const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
 
     const imgDataUrl = canvas.toDataURL('image/png');
