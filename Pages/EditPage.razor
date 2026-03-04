@@ -2498,10 +2498,10 @@ private async void FitToHeight()
                 var elementsForSave = GetElementsForSave(pageWidth, pageHeight, pageItem.RotateAngle);
                 var editJson = JsonSerializer.Serialize(elementsForSave);
 
-                // 元データ（originalPageData）に編集要素を追加して新PDF生成
+                // 元データ（ストレージから取得したPDF Base64）に編集要素を追加して新PDF生成
                 var newPdfBase64 = await JSRuntime.InvokeAsync<string>(
                     "editPdfPageWithElements",
-                    originalPageData, // extractPdfPageで取得したPDF Base64
+                    originalPageData, // getStoredPageDataで取得したPDF Base64
                     editJson
                 );
 
