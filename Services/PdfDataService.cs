@@ -417,6 +417,158 @@ public class PdfDataService
         }
     }
 
+    /// <summary>
+    /// 複数の指定ページインデックスを PDF から読み込んで追加する。
+    /// 各ページは独立した PageItem として追加される。
+    /// 全件のプレースホルダーを先に挿入してからバックグラウンドで順次サムネイル・ページデータを取得する。
+    /// </summary>
+    /// <param name="fileName">ファイル名</param>
+    /// <param name="fileData">ファイルのバイトデータ</param>
+    /// <param name="targetPageIndices">読み込むページインデックスのリスト（0始まり）</param>
+    /// <param name="insertPosition">挿入開始位置（nullなら末尾）</param>
+    /// <returns>少なくとも1ページ追加できた場合は true</returns>
+    public async Task<bool> AddMultiplePagesFromPdfAsync(string fileName, byte[] fileData, IList<int> targetPageIndices, int? insertPosition = null)
+    {
+        if (targetPageIndices == null || targetPageIndices.Count == 0) return false;
+        try
+        {
+            var header = System.Text.Encoding.ASCII.GetString(fileData.Take(8).ToArray());
+            if (!header.StartsWith("%PDF-"))
+                return false;
+
+            var fileId = $"{fileName}_{DateTime.Now.Ticks}";
+            var colorHsl = GenerateColorHsl(fileId);
+
+            var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
+            if (pageCount <= 0) return false;
+
+            // 有効なページインデックスのみ絞り込む
+            var validIndices = targetPageIndices
+                .Where(idx => idx >= 0 && idx < pageCount)
+                .ToList();
+            if (validIndices.Count == 0) return false;
+
+            // ---- Step 1: 全件分のプレースホルダーを先に一括挿入してUIに即反映 ----
+            // ファイルメタデータは暫定値で登録（サムネイルは後で更新）
+            var fileMetadata = new FileMetadata
+            {
+                FileId = fileId,
+                FileName = fileName,
+                FileData = fileData,
+                PageCount = pageCount,
+                CoverThumbnail = "",
+                IsFullyLoaded = false,
+                IsPasswordProtected = false,
+            };
+            _model.Files[fileId] = fileMetadata;
+
+            var pageItems = new List<PageItem>(validIndices.Count);
+            for (int i = 0; i < validIndices.Count; i++)
+            {
+                var targetIdx = validIndices[i];
+                var pageItem = new PageItem
+                {
+                    Id = $"{fileId}_p{targetIdx}",
+                    FileId = fileId,
+                    FileName = fileName,
+                    OriginalPageIndex = targetIdx,
+                    Thumbnail = "",       // サムネイルは後で設定
+                    IsLoading = true,     // ローディング中として表示
+                    HasThumbnailError = false,
+                    IsPageDataStoredInJs = false,
+                    ColorHsl = colorHsl,
+                    RotateAngle = 0,
+                };
+                int insertIdx = insertPosition.HasValue ? insertPosition.Value + i : _model.Pages.Count;
+                _model.Pages.Insert(insertIdx, pageItem);
+                pageItems.Add(pageItem);
+            }
+
+            // 全プレースホルダーを一括でUIに反映 → サムネイルエリアに全カードが表示される
+            await InvokeOnChangeAsync();
+
+            // ---- Step 2: バックグラウンドで各ページのサムネイルとデータを取得 ----
+            // LoadAllPagesForFileAsync と同様に動的バッチサイズで再描画頻度を抑制する
+            int batchSize = GetDynamicBatchSize(validIndices.Count);
+            _ = Task.Run(async () =>
+            {
+                bool coverSet = false;
+                for (int i = 0; i < validIndices.Count; i++)
+                {
+                    var capturedTargetIdx = validIndices[i];
+                    var capturedPageItem = pageItems[i];
+                    try
+                    {
+                        // サムネイル取得
+                        var renderResult = await _jsRuntime.InvokeAsync<RenderResult>(
+                            "generatePdfThumbnailFromFileMetaData", fileData, capturedTargetIdx);
+                        RegisterBlobUrl(renderResult.thumbnail);
+
+                        capturedPageItem.Thumbnail = renderResult.isError ? "" : renderResult.thumbnail;
+                        capturedPageItem.HasThumbnailError = renderResult.isError;
+                        capturedPageItem.IsOperationRestricted = renderResult.isOperationRestricted;
+                        capturedPageItem.RotateAngle = fileMetadata.DefaultRotateAngle != 0
+                            ? fileMetadata.DefaultRotateAngle
+                            : renderResult.pageRotation;
+
+                        if (!coverSet)
+                        {
+                            fileMetadata.CoverThumbnail = capturedPageItem.Thumbnail;
+                            fileMetadata.IsOperationRestricted = renderResult.isOperationRestricted;
+                            fileMetadata.SecurityInfo = renderResult.securityInfo;
+                            fileMetadata.DefaultRotateAngle = renderResult.pageRotation;
+                            coverSet = true;
+                        }
+
+                        // ページデータをストレージに格納
+                        var result = await _jsRuntime.InvokeAsync<StorageResult>(
+                            "extractPdfPageToStorage",
+                            fileMetadata.FileData,
+                            capturedTargetIdx,
+                            fileId
+                        );
+                        capturedPageItem.IsPageDataStoredInJs = result.Success;
+                        capturedPageItem.IsOperationRestricted |= result.IsRestricted;
+                        capturedPageItem.IsLoading = false;
+                        if (result.IsRestricted)
+                            fileMetadata.IsOperationRestricted = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"AddMultiplePagesFromPdfAsync: failed for page {capturedTargetIdx}: {ex.Message}");
+                        capturedPageItem.IsLoading = false;
+                        capturedPageItem.HasThumbnailError = true;
+                    }
+
+                    // batchSize 件処理が完了するごとに1回 UI 更新（頻繁な再描画を抑制）
+                    lock (_renderLock)
+                    {
+                        _pendingRenders++;
+                        if (_pendingRenders >= batchSize)
+                        {
+                            _pendingRenders = 0;
+                            _ = InvokeOnChangeAsync();
+                        }
+                    }
+                }
+
+                // 残りの未反映分を最後にまとめて更新
+                lock (_renderLock)
+                {
+                    _pendingRenders = 0;
+                }
+                await InvokeOnChangeAsync();
+            });
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AddMultiplePagesFromPdfAsync error for {fileName}: {ex.Message}");
+            return false;
+        }
+    }
+
     // しおりの一覧を平坦化してダイアログ経由で選択を受け、SplitInfo を更新する処理を切り出し
     private async Task HandleBookmarksForFileAsync(FileMetadata fileMetadata, int baseIndex)
     {

@@ -926,10 +926,10 @@
     /// <summary>
     /// ページ番号指定ダイアログが閉じられたときの処理
     /// </summary>
-    private async Task OnSinglePageDialogClose(int? selectedPage)
+    private async Task OnSinglePageDialogClose(List<int>? selectedPages)
     {
         isSinglePageDialogOpen = false;
-        if (selectedPage == null || _pendingSinglePageFile == null)
+        if (selectedPages == null || selectedPages.Count == 0 || _pendingSinglePageFile == null)
         {
             _pendingSinglePageFile = null;
             await MessageService.HideLoadingAsync();
@@ -939,8 +939,19 @@
         var (fileName, fileData) = _pendingSinglePageFile.Value;
         _pendingSinglePageFile = null;
 
-        int pageIndex = selectedPage.Value - 1; // 1始まり→0始まり
-        var ok = await PdfDataService.AddSinglePageFromPdfAsync(fileName, fileData, pageIndex);
+        // 1始まり→0始まりに変換
+        var pageIndices = selectedPages.Select(p => p - 1).ToList();
+
+        bool ok;
+        if (pageIndices.Count == 1)
+        {
+            ok = await PdfDataService.AddSinglePageFromPdfAsync(fileName, fileData, pageIndices[0]);
+        }
+        else
+        {
+            ok = await PdfDataService.AddMultiplePagesFromPdfAsync(fileName, fileData, pageIndices);
+        }
+
         if (!ok)
         {
             _ = MessageService.ShowAsync("ページの読み込みに失敗しました。", MessageType.Error);
