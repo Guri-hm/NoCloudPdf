@@ -1306,7 +1306,24 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
     {
         try
         {
+            if (isSinglePageMode && System.IO.Path.GetExtension(fileName).ToLowerInvariant() == ".pdf")
+            {
+                var fileData = Convert.FromBase64String(base64Data);
+                int pageCount = await JSRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
+                if (pageCount <= 0)
+                {
+                    _ = MessageService.ShowAsync("PDFのページ数を取得できませんでした。", MessageType.Error);
+                    return;
+                }
+                _pendingSinglePageFile = (fileName, fileData);
+                singlePageDialogTotalPages = pageCount;
+                isSinglePageDialogOpen = true;
+                await MessageService.HideLoadingAsync();
+                StateHasChanged();
+                return;
+            }
             await PdfDataService.HandleDroppedFileAsync(fileName, base64Data);
+            StateHasChanged();
         }catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
@@ -1314,7 +1331,8 @@ OnClick = EventCallback.Factory.Create(this, () => SelectSort(false))
         }   
         finally
         {
-            await MessageService.HideLoadingAsync();
+            if (!isSinglePageDialogOpen)
+                await MessageService.HideLoadingAsync();
         }
     }
 
