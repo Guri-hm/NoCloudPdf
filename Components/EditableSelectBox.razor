@@ -1,7 +1,7 @@
 @using Microsoft.AspNetCore.Components
 @using NoCloudPdf.Models
 
-<div class="@(IsHorizontal ? "flex items-center gap-1" : "space-y-2")">
+<div class="@(IsHorizontal ? "flex items-center gap-1" : "space-y-2")" @onmousedown="HandleRootMouseDown" @onmousedown:stopPropagation>
     @if (!string.IsNullOrEmpty(Label))
     {
         <label class="@LabelClass" for="@_inputId">
@@ -28,8 +28,7 @@
                 @onfocus="OnInputFocus"
                 @onblur="OnInputBlurDelayed"
                 disabled="@IsDisabled"
-                @onclick:stopPropagation
-                @onmousedown:stopPropagation />
+                @onclick:stopPropagation />
             
             <!-- ドロップダウンボタン -->
             <button
@@ -38,7 +37,6 @@
                 style="@GetButtonStyle()"
                 @onclick="ToggleDropdown"
                 @onclick:stopPropagation
-                @onmousedown:stopPropagation
                 disabled="@IsDisabled">
                 @if (IconFragment != null)
                 {
@@ -56,14 +54,12 @@
         {
             <div class="absolute z-50 @DropdownWidthClass mt-1 border border-gray-300 rounded-md shadow-lg @DropdownMaxHeightClass overflow-auto custom-scrollbar"
                  style="@GetDropdownStyle()"
-                 @onclick:stopPropagation
-                 @onmousedown:stopPropagation>
+                 @onclick:stopPropagation>
                 @foreach (var option in FilteredOptions)
                 {
                     <div class="@OptionClass px-3 py-2 cursor-pointer hover:bg-blue-100 @(option.Value == Value ? "bg-blue-50 font-medium" : "")"
                          style="@GetOptionStyle()"
-                         @onclick="() => SelectOption(option)"
-                         @onmousedown:stopPropagation>
+                         @onclick="() => SelectOption(option)">
                         @option.Text
                     </div>
                 }
@@ -250,6 +246,14 @@
         {
             await ValueChanged.InvokeAsync(Value);
         }
+    }
+
+    [Parameter] public EventCallback OnMouseDown { get; set; }
+
+    private async Task HandleRootMouseDown()
+    {
+        if (OnMouseDown.HasDelegate)
+            await OnMouseDown.InvokeAsync();
     }
 
     private async Task OnInputBlur(ChangeEventArgs e)
