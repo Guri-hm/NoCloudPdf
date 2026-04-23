@@ -61,7 +61,8 @@
                                 <EditableSelectBox 
                                     Label=""
                                     IsHorizontal="true"
-                                    Value="@(editElements.FirstOrDefault(el => el.IsEditing)?.FontSize.ToString() ?? fontSize.ToString())"
+                                    Value="@((editElements.FirstOrDefault(el => el.IsEditing) ?? editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id) && el.Type == ElementType.Text))?.FontSize.ToString() ?? fontSize.ToString())"
+                                    OnMouseDown="() => ignoreTextBlur = true"
                                     ValueChanged="@OnFontSizeChangedFromSelect"
                                     Options="@fontSizeOptions"
                                     InputType="EditableSelectBox.EditableInputType.Number"
@@ -946,9 +947,10 @@
     private const string FontFamilyNotoSans = "NotoSansJP, sans-serif";
     private const string FontFamilyNotoSerif = "NotoSerifJP, serif";
     private int _fontSize = DefaultFontSize;
+    private int _userDefaultFontSize = DefaultFontSize;
     private void ResetFontToDefault()
     {
-        _fontSize = DefaultFontSize;
+        _fontSize = _userDefaultFontSize;
         fontFamily = DefaultFontFamily;
         _isBoldDefault = false;
         StateHasChanged();
@@ -1099,6 +1101,8 @@
         if (editingElement != null)
         {
             editingElement.FontSize = value;
+            _fontSize = value;
+            _userDefaultFontSize = value;
             if (editingElement.FitTextToArea)
             {
                 var maxLineWidth = await JSRuntime.InvokeAsync<double>(
@@ -1126,9 +1130,12 @@
                     el.Width = (maxLineWidth / zoomLevel) + (el.FontSize * 0.5);
                 }
             }
+            _fontSize = value;
+            _userDefaultFontSize = value;
         }
         else
         {
+            _userDefaultFontSize = value;
             fontSize = value;
         }
         StateHasChanged();
@@ -2306,6 +2313,8 @@ private async void FitToHeight()
                 IsBold = _isBoldDefault
             };
             editElements.Add(element);
+            selectedElementIds.Clear();
+            selectedElementIds.Add(element.Id);
 
             // 実行しないと新規作成したテキストボックスが文字列が初期状態で選択されない
             StateHasChanged();
@@ -2363,6 +2372,7 @@ private async void FitToHeight()
             if (selected.Type == ElementType.Text)
             {
                 _fontSize = selected.FontSize;
+                _userDefaultFontSize = selected.FontSize;
                 uiFitTextToArea = selected.FitTextToArea;
                 _isBoldDefault = selected.IsBold;
             }
@@ -2381,6 +2391,7 @@ private async void FitToHeight()
         }
 
         element.IsEditing = false;
+        _userDefaultFontSize = element.FontSize;
         fontFamily = ResolveFontForText(element.Text, element.FontFamily);
 
         // blur直後のクリックを1回だけ無視
