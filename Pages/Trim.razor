@@ -241,13 +241,13 @@
 
     private void PrevPage() => displayedPageNumber = Math.Max(1, displayedPageNumber - 1);
     private void NextPage() => displayedPageNumber = Math.Min(DisplayItems.Count, displayedPageNumber + 1);
-    private Task OnBottomPageInputChanged(ChangeEventArgs e)
+    // 上部バーの入力でページ移動
+    private Task OnTopBarPageInputChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e?.Value?.ToString(), out var v))
         {
             var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
             displayedPageNumber = target;
-            var targetIndex = target - 1;
         }
         return Task.CompletedTask;
     }
@@ -293,17 +293,6 @@
         return Task.CompletedTask;
     }
 
-    // 上部バーの入力でページ移動
-    private Task OnTopBarPageInputChanged(ChangeEventArgs e)
-    {
-        if (int.TryParse(e?.Value?.ToString(), out var v))
-        {
-            var target = Math.Max(1, Math.Min(Math.Max(1, DisplayItems.Count), v));
-            displayedPageNumber = target;
-            var targetIndex = target - 1;
-        }
-        return Task.CompletedTask;
-    }
     public async ValueTask DisposeAsync()
     {
         await PageDisposeHelper.DisposePageAsync(
@@ -788,7 +777,7 @@
         }
 
         // 初期画面のときのみ登録
-        if (!IsFilesLoaded && !CompletionState.ShowResult)
+        if (firstRender && !IsFilesLoaded && !CompletionState.ShowResult)
         {
             await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
         }
