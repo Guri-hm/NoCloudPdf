@@ -230,10 +230,12 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
             const innerW = cssW - paddingLeft - paddingRight;
             const innerH = cssH - paddingTop - paddingBottom;
 
-            const rectX = Math.round(paddingLeft + normX * innerW);
-            const rectY = Math.round(paddingTop + normY * innerH);
-            const rectW = Math.round(normW * innerW);
-            const rectH = Math.round(normH * innerH);
+            // SVG はサブピクセル座標をそのまま扱えるため Math.round しない
+            // （丸めると最大±0.5px のズレが生じる）
+            const rectX = paddingLeft + normX * innerW;
+            const rectY = paddingTop + normY * innerH;
+            const rectW = normW * innerW;
+            const rectH = normH * innerH;
 
             const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             g.setAttribute('data-rect-index', String(rectIndex));

@@ -439,11 +439,30 @@ window.setPreviewZoom = function (zoom, mode = 'contain') {
         if (canvasId && window._simpleTrim && window._simpleTrim[canvasId]) {
             const trimState = window._simpleTrim[canvasId];
             if (trimState.currentRectsPx && trimState.currentRectsPx.length > 0) {
+                // 新しいキャンバスサイズに合わせた inner 幅・高さを計算
+                const newInnerW = newW - paddingLeft - paddingRight;
+                const newInnerH = newH - paddingTop - paddingBottom;
+
+                // currentRectsPx を新サイズに同期スケール
+                // （連続ズーム操作時に rAF より先に次の setPreviewZoom が呼ばれても
+                //   正しい座標ベースで正規化できるようにする）
+                if (oldInnerW > 0 && oldInnerH > 0 && newInnerW > 0 && newInnerH > 0) {
+                    trimState.currentRectsPx = trimState.currentRectsPx.map(r => ({
+                        x: r.x / oldInnerW * newInnerW,
+                        y: r.y / oldInnerH * newInnerH,
+                        w: r.w / oldInnerW * newInnerW,
+                        h: r.h / oldInnerH * newInnerH
+                    }));
+                    if (trimState.currentRectPx) {
+                        trimState.currentRectPx = { ...trimState.currentRectsPx[trimState.currentRectsPx.length - 1] };
+                    }
+                }
+
                 const rectsToRender = trimState.currentRectsPx.map(r => ({
-                    X: r.x / oldInnerW,
-                    Y: r.y / oldInnerH,
-                    Width: r.w / oldInnerW,
-                    Height: r.h / oldInnerH
+                    X: r.x / newInnerW,
+                    Y: r.y / newInnerH,
+                    Width: r.w / newInnerW,
+                    Height: r.h / newInnerH
                 }));
                 
                 requestAnimationFrame(() => {
