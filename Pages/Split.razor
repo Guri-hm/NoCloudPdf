@@ -753,7 +753,7 @@
                         }
                     };
 
-                    string url = await JSRuntime.InvokeAsync<string>("mergePdfPagesFromStorage", pageKeys);
+                    string url = await JSRuntime.InvokeAsync<string>("mergePdfPagesFromStorage", (object)pageKeys);
 
                     if (!string.IsNullOrEmpty(url))
                     {

@@ -2420,7 +2420,7 @@ window.generatePdfThumbnailUrl = async function (pdfBlobUrl) {
 
         const pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
-        const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, 0);
+        const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, page.rotate);
 
         return await canvasToBlobUrl(canvas, 'image/jpeg', 0.8);
     } catch (error) {
