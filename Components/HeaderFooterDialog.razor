@@ -417,10 +417,15 @@
         return Regex.IsMatch(text, @"[\u3000-\u30FF\u4E00-\u9FFF\uFF01-\uFF60]");
     }
 
+    private TrimRectInfo? _currentTrimRect = null;
+    private bool _previewHasCropBox = false;
+
     private async Task LoadPreviewAsync()
     {
         isLoadingPreview = true;
         previewImageUrl = null;
+        _currentTrimRect = null;
+        _previewHasCropBox = false;
         StateHasChanged();
 
         try
@@ -431,14 +436,64 @@
                 var item = displayItems[previewPageNumber - 1];
                 if (item.RawData is PageItem page)
                 {
-                     previewImageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
+                    var pageIndex = previewPageNumber - 1;
+                    _currentTrimRect = PdfDataService.GetTrimRect(pageIndex);
 
+                    // フルページプレビュー画像（pdf.js は CropBox を自動適用して描画する）
+                    var fullImageUrl = await PdfDataService.GetPreviewImageAsync(page.Id);
+
+                    // MediaBox + CropBox を考慮した実際の表示サイズを取得
                     var pageDataForSize = await JSRuntime.InvokeAsync<string>(
                         "getStoredPageData", page.FileId, page.OriginalPageIndex);
-                    PdfPageSize pdfSize = await JSRuntime.InvokeAsync<PdfPageSize>("getPdfPageSize", pageDataForSize);
-                    double pdfWidth = (double)pdfSize.Width;
+                    PdfVisiblePageSize visSize = await JSRuntime.InvokeAsync<PdfVisiblePageSize>(
+                        "getPdfVisiblePageSize", pageDataForSize);
+
                     double containerWidth = 600.0;
-                    previewScale = containerWidth / pdfWidth;
+                    int rotAngle = ((page.RotateAngle % 360) + 360) % 360;
+
+                    if (_currentTrimRect != null && !string.IsNullOrEmpty(fullImageUrl))
+                    {
+                        // TrimRects が設定されている場合 → プレビュー画像をクロップして表示
+                        // (pdf.js は TrimRects を知らないのでフルページを返してくる)
+                        try
+                        {
+                            previewImageUrl = await JSRuntime.InvokeAsync<string>(
+                                "cropImageByNormalizedRect",
+                                fullImageUrl,
+                                _currentTrimRect.X,
+                                _currentTrimRect.Y,
+                                _currentTrimRect.Width,
+                                _currentTrimRect.Height);
+                        }
+                        catch
+                        {
+                            previewImageUrl = fullImageUrl;
+                        }
+
+                        // トリミング後のビジュアル幅（PDF 座標）でスケールを計算
+                        double trimmedVisualWidth = (rotAngle == 90 || rotAngle == 270)
+                            ? _currentTrimRect.Width * visSize.Height
+                            : _currentTrimRect.Width * visSize.Width;
+                        previewScale = containerWidth / trimmedVisualWidth;
+                    }
+                    else if (visSize.HasCropBox)
+                    {
+                        // CropBox が設定済みの PDF（Trim ページで処理済み等）
+                        // pdf.js が既に CropBox 領域のみ描画した画像を返しているので、そのまま使う
+                        _previewHasCropBox = true;
+                        previewImageUrl = fullImageUrl;
+                        // CropBox のビジュアル幅でスケールを計算（回転を考慮）
+                        double cropVisualWidth = (rotAngle == 90 || rotAngle == 270)
+                            ? visSize.CropHeight
+                            : visSize.CropWidth;
+                        previewScale = containerWidth / cropVisualWidth;
+                    }
+                    else
+                    {
+                        // トリミングなし
+                        previewImageUrl = fullImageUrl;
+                        previewScale = containerWidth / visSize.Width;
+                    }
                 }
             }
         }
@@ -453,10 +508,13 @@
         }
     }
 
-    private class PdfPageSize
+    private class PdfVisiblePageSize
     {
         public double Width { get; set; }
         public double Height { get; set; }
+        public double CropWidth { get; set; }
+        public double CropHeight { get; set; }
+        public bool HasCropBox { get; set; }
     }
 
     private async Task OnPreviewPageChanged(ChangeEventArgs e)

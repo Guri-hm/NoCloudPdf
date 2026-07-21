@@ -1333,10 +1333,64 @@ window.getPdfPageSize = async function (pdfBase64) {
     }
 };
 
+// MediaBox と CropBox の両方を考慮した「実際に表示される」ページサイズを返す。
+// pdf.js の page.view を使って CropBox を確実に検出する。
+window.getPdfVisiblePageSize = async function (pdfBase64) {
+    try {
+        const uint8Array = base64ToUint8Array(pdfBase64);
+        // MediaBox dimensions via pdf-lib
+        const pdfDoc = await PDFLib.PDFDocument.load(uint8Array);
+        const page = pdfDoc.getPage(0);
+        const { width, height } = page.getSize();
+        // Visible area via pdf.js page.view
+        try {
+            const pdfJsDoc = await loadPdfDocument(uint8Array, { verbosity: 0 });
+            const pdfJsPage = await pdfJsDoc.getPage(1);
+            const view = pdfJsPage.view; // [x1, y1, x2, y2]
+            if (view && view.length >= 4) {
+                const [llx, lly, urx, ury] = view;
+                const cw = urx - llx;
+                const ch = ury - lly;
+                if (llx > 0.5 || lly > 0.5 || urx < width - 0.5 || ury < height - 0.5) {
+                    return { width, height, cropWidth: cw, cropHeight: ch, hasCropBox: true };
+                }
+            }
+        } catch (_) {}
+        return { width, height, cropWidth: width, cropHeight: height, hasCropBox: false };
+    } catch (error) {
+        console.error('Error getting PDF visible page size:', error);
+        return { width: 595, height: 842, cropWidth: 595, cropHeight: 842, hasCropBox: false };
+    }
+};
+
 // ========================================
 // スタンプ追加
 // ========================================
-window.addStampsToPdf = async function (pdfBytes, stamps) {
+// 表示済み画像（回転考慮済み）を正規化座標でクロップして data URL を返す
+window.cropImageByNormalizedRect = function (imageDataUrl, nx, ny, nw, nh) {
+    return new Promise((resolve, reject) => {
+        if (!imageDataUrl) { reject(new Error('No image')); return; }
+        const img = new Image();
+        img.onload = function () {
+            const sw = Math.max(1, Math.round(nw * img.naturalWidth));
+            const sh = Math.max(1, Math.round(nh * img.naturalHeight));
+            const sx = Math.round(nx * img.naturalWidth);
+            const sy = Math.round(ny * img.naturalHeight);
+            const canvas = document.createElement('canvas');
+            canvas.width = sw;
+            canvas.height = sh;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, sw, sh);
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = imageDataUrl;
+    });
+};
+
+window.addStampsToPdf = async function (pdfBytes, stamps, trimRect = null) {
     const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
 
     if (!PDFLib._fontkitRegistered) {
@@ -1351,125 +1405,202 @@ window.addStampsToPdf = async function (pdfBytes, stamps) {
     const rotateAngle = stamps.length > 0 ? (stamps[0].rotateAngle || 0) : 0;
     const normalizedAngle = ((rotateAngle % 360) + 360) % 360;
 
+    // ── 1. Load PDF and get MediaBox dimensions ──────────────────────────────
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const page = pdfDoc.getPage(0);
     const { width, height } = page.getSize();
 
+    // ── 2. Determine effective visible area (TrimRect or CropBox) ────────────
+    // TrimRect is passed explicitly when pages have TrimRects set in C#.
+    // Otherwise, auto-detect a CropBox using pdf.js's page.view (reliable).
+    let nx = (trimRect && trimRect.x     != null) ? Math.max(0, Math.min(1, Number(trimRect.x)))      : 0;
+    let ny = (trimRect && trimRect.y     != null) ? Math.max(0, Math.min(1, Number(trimRect.y)))      : 0;
+    let nw = (trimRect && trimRect.width != null) ? Math.max(0, Math.min(1, Number(trimRect.width)))  : 1;
+    let nh = (trimRect && trimRect.height!= null) ? Math.max(0, Math.min(1, Number(trimRect.height))) : 1;
+
+    if (!trimRect) {
+        // Use pdf.js page.view which correctly returns [x1,y1,x2,y2] of
+        // the CropBox (or MediaBox when no CropBox is set).
+        try {
+            const pdfJsBytes = base64ToUint8Array(pdfBytes);
+            const pdfJsDoc = await loadPdfDocument(pdfJsBytes, { verbosity: 0 });
+            const pdfJsPage = await pdfJsDoc.getPage(1);
+            const view = pdfJsPage.view; // [llx, lly, urx, ury] in PDF user space
+            if (view && view.length >= 4) {
+                const llx = view[0], lly = view[1], urx = view[2], ury = view[3];
+                // Only adjust when view is strictly smaller than the full page
+                if (llx > 0.5 || lly > 0.5 || urx < width - 0.5 || ury < height - 0.5) {
+                    // Convert CropBox (PDF coords) → normalized TrimRect (visual/display coords)
+                    if (normalizedAngle === 0) {
+                        nx = llx / width;
+                        ny = (height - ury) / height;
+                        nw = (urx - llx) / width;
+                        nh = (ury - lly) / height;
+                    } else if (normalizedAngle === 90) {
+                        // /Rotate 90 CCW: visual-x = PDF-y, visual-y = PDF-x
+                        nx = lly / height;
+                        ny = llx / width;
+                        nw = (ury - lly) / height;
+                        nh = (urx - llx) / width;
+                    } else if (normalizedAngle === 180) {
+                        nx = (width  - urx) / width;
+                        ny = (height - ury) / height;
+                        nw = (urx - llx) / width;
+                        nh = (ury - lly) / height;
+                    } else if (normalizedAngle === 270) {
+                        // /Rotate 270 CCW (= 90 CW): visual-x = H-PDF-y, visual-y = W-PDF-x
+                        nx = (height - ury) / height;
+                        ny = (width  - urx) / width;
+                        nw = (ury - lly) / height;
+                        nh = (urx - llx) / width;
+                    }
+                }
+            }
+        } catch (e) {
+            // pdf.js detection failed – nx/ny/nw/nh remain at defaults (full page)
+        }
+    }
+
+    // Calculates the PDF coordinate for a stamp given its visual corner/offset,
+    // the page rotation, and the trimmed area (nx,ny,nw,nh in normalized visual coords).
+    //
+    // Coordinate derivation per rotation:
+    //   angle=0:   visual(vx,vy_top) → pdf(vx, H-vy_top)
+    //   angle=90:  visual(vx,vy_top) → pdf(vy_top, vx)          [/Rotate 90 CCW: dispW=H, dispH=W]
+    //   angle=180: visual(vx,vy_top) → pdf(W-vx, vy_top)
+    //   angle=270: visual(vx,vy_top) → pdf(W-vy_top, H-vx)     [/Rotate 270 CCW: dispW=H, dispH=W]
     function transformCoordinates(corner, offsetX, offsetY, rotateAngle, pageWidth, pageHeight, textWidth, fontSize) {
         let x = 0, y = 0;
         let textRotation = 0;
+        const W = pageWidth, H = pageHeight;
 
         const angle = ((rotateAngle % 360) + 360) % 360;
 
         if (angle === 0) {
+            // visual-left  = nx*W,       visual-right  = (nx+nw)*W
+            // visual-top   = (1-ny)*H,   visual-bottom = (1-ny-nh)*H  [PDF y-up]
             switch (corner) {
                 case 'TopLeft':
-                    x = offsetX;
-                    y = pageHeight - offsetY - fontSize;
+                    x = nx * W + offsetX;
+                    y = (1 - ny) * H - offsetY - fontSize;
                     break;
                 case 'Top':
-                    x = pageWidth / 2 - textWidth / 2;
-                    y = pageHeight - offsetY - fontSize;
+                    x = (nx + nw / 2) * W - textWidth / 2;
+                    y = (1 - ny) * H - offsetY - fontSize;
                     break;
                 case 'TopRight':
-                    x = pageWidth - offsetX - textWidth;
-                    y = pageHeight - offsetY - fontSize;
+                    x = (nx + nw) * W - offsetX - textWidth;
+                    y = (1 - ny) * H - offsetY - fontSize;
                     break;
                 case 'BottomLeft':
-                    x = offsetX;
-                    y = offsetY;
+                    x = nx * W + offsetX;
+                    y = (1 - ny - nh) * H + offsetY;
                     break;
                 case 'Bottom':
-                    x = pageWidth / 2 - textWidth / 2;
-                    y = offsetY;
+                    x = (nx + nw / 2) * W - textWidth / 2;
+                    y = (1 - ny - nh) * H + offsetY;
                     break;
                 case 'BottomRight':
-                    x = pageWidth - offsetX - textWidth;
-                    y = offsetY;
+                    x = (nx + nw) * W - offsetX - textWidth;
+                    y = (1 - ny - nh) * H + offsetY;
                     break;
             }
             textRotation = 0;
         } else if (angle === 90) {
+            // /Rotate 90 (CCW): dispW=H, dispH=W
+            // visual-left  (small vx) → small PDF-y:  py = nx*H
+            // visual-right (large vx) → large PDF-y:  py = (nx+nw)*H
+            // visual-top   (small vy) → small PDF-x:  px = ny*W
+            // visual-bottom(large vy) → large PDF-x:  px = (ny+nh)*W
             switch (corner) {
                 case 'TopLeft':
-                    x = offsetY;
-                    y = offsetX;
+                    x = ny * W + offsetY;
+                    y = nx * H + offsetX;
                     break;
                 case 'Top':
-                    x = offsetY;
-                    y = pageHeight / 2 - textWidth / 2;
+                    x = ny * W + offsetY;
+                    y = (nx + nw / 2) * H - textWidth / 2;
                     break;
                 case 'TopRight':
-                    x = offsetY;
-                    y = pageHeight - offsetX - textWidth;
+                    x = ny * W + offsetY;
+                    y = (nx + nw) * H - offsetX - textWidth;
                     break;
                 case 'BottomLeft':
-                    x = pageWidth - offsetY;
-                    y = offsetX;
+                    x = (ny + nh) * W - offsetY;
+                    y = nx * H + offsetX;
                     break;
                 case 'Bottom':
-                    x = pageWidth - offsetY;
-                    y = pageHeight / 2 - textWidth / 2;
+                    x = (ny + nh) * W - offsetY;
+                    y = (nx + nw / 2) * H - textWidth / 2;
                     break;
                 case 'BottomRight':
-                    x = pageWidth - offsetY;
-                    y = pageHeight - offsetX - textWidth;
+                    x = (ny + nh) * W - offsetY;
+                    y = (nx + nw) * H - offsetX - textWidth;
                     break;
             }
             textRotation = 90;
         } else if (angle === 180) {
+            // visual-left  (small vx) → large PDF-x:  px = (1-nx)*W
+            // visual-right (large vx) → small PDF-x:  px = (1-nx-nw)*W
+            // visual-top   (small vy) → small PDF-y:  py = ny*H
+            // visual-bottom(large vy) → large PDF-y:  py = (ny+nh)*H
             switch (corner) {
                 case 'TopLeft':
-                    x = pageWidth - offsetX;
-                    y = offsetY;
+                    x = (1 - nx) * W - offsetX;
+                    y = ny * H + offsetY;
                     break;
                 case 'Top':
-                    x = pageWidth / 2 - textWidth / 2;
-                    y = offsetY;
+                    x = (1 - nx - nw / 2) * W - textWidth / 2;
+                    y = ny * H + offsetY;
                     break;
                 case 'TopRight':
-                    x = offsetX + textWidth;
-                    y = offsetY;
+                    x = (1 - nx - nw) * W + offsetX + textWidth;
+                    y = ny * H + offsetY;
                     break;
                 case 'BottomLeft':
-                    x = pageWidth - offsetX;
-                    y = pageHeight - offsetY;
+                    x = (1 - nx) * W - offsetX;
+                    y = (ny + nh) * H - offsetY;
                     break;
                 case 'Bottom':
-                    x = pageWidth / 2 - textWidth / 2;
-                    y = pageHeight - offsetY;
+                    x = (1 - nx - nw / 2) * W - textWidth / 2;
+                    y = (ny + nh) * H - offsetY;
                     break;
                 case 'BottomRight':
-                    x = offsetX + textWidth;
-                    y = pageHeight - offsetY;
+                    x = (1 - nx - nw) * W + offsetX + textWidth;
+                    y = (ny + nh) * H - offsetY;
                     break;
             }
             textRotation = 180;
         } else if (angle === 270) {
+            // /Rotate 270 (CCW = 90 CW): dispW=H, dispH=W
+            // visual-left  (small vx) → large PDF-y:  py = (1-nx)*H
+            // visual-right (large vx) → small PDF-y:  py = (1-nx-nw)*H
+            // visual-top   (small vy) → large PDF-x:  px = (1-ny)*W
+            // visual-bottom(large vy) → small PDF-x:  px = (1-ny-nh)*W
             switch (corner) {
                 case 'TopLeft':
-                    x = pageWidth - offsetY;
-                    y = pageHeight - offsetX;
+                    x = (1 - ny) * W - offsetY;
+                    y = (1 - nx) * H - offsetX;
                     break;
                 case 'Top':
-                    x = pageWidth - offsetY;
-                    y = pageHeight / 2 - textWidth / 2;
+                    x = (1 - ny) * W - offsetY;
+                    y = (1 - nx - nw / 2) * H - textWidth / 2;
                     break;
                 case 'TopRight':
-                    x = pageWidth - offsetY;
-                    y = offsetX + textWidth;
+                    x = (1 - ny) * W - offsetY;
+                    y = (1 - nx - nw) * H + offsetX + textWidth;
                     break;
                 case 'BottomLeft':
-                    x = offsetY;
-                    y = pageHeight - offsetX;
+                    x = (1 - ny - nh) * W + offsetY;
+                    y = (1 - nx) * H - offsetX;
                     break;
                 case 'Bottom':
-                    x = offsetY;
-                    y = pageHeight / 2 - textWidth / 2;
+                    x = (1 - ny - nh) * W + offsetY;
+                    y = (1 - nx - nw / 2) * H - textWidth / 2;
                     break;
                 case 'BottomRight':
-                    x = offsetY;
-                    y = offsetX + textWidth;
+                    x = (1 - ny - nh) * W + offsetY;
+                    y = (1 - nx - nw) * H + offsetX + textWidth;
                     break;
             }
             textRotation = -90;
