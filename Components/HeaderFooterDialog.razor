@@ -418,14 +418,12 @@
     }
 
     private TrimRectInfo? _currentTrimRect = null;
-    private bool _previewHasCropBox = false;
 
     private async Task LoadPreviewAsync()
     {
         isLoadingPreview = true;
         previewImageUrl = null;
         _currentTrimRect = null;
-        _previewHasCropBox = false;
         StateHasChanged();
 
         try
@@ -480,7 +478,6 @@
                     {
                         // CropBox が設定済みの PDF（Trim ページで処理済み等）
                         // pdf.js が既に CropBox 領域のみ描画した画像を返しているので、そのまま使う
-                        _previewHasCropBox = true;
                         previewImageUrl = fullImageUrl;
                         // CropBox のビジュアル幅でスケールを計算（回転を考慮）
                         double cropVisualWidth = (rotAngle == 90 || rotAngle == 270)
