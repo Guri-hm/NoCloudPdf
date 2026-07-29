@@ -1805,9 +1805,10 @@ window.addStampsToPdf = async function (pdfBytes, stamps, trimRect = null) {
 // トリミング（ラスタ化版）
 // ========================================
 window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidth, normHeight, rotateAngle = 0) {
+    let pdf = null;
     try {
         const uint8Array = base64ToUint8Array(pdfBase64);
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
 
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
@@ -1864,6 +1865,8 @@ window.cropPdfPageRasterized = async function (pdfBase64, normX, normY, normWidt
     } catch (e) {
         console.error('[cropPdfPageRasterized] Error:', e);
         return pdfBase64 || "";
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -2021,9 +2024,10 @@ window.cropPdfPageToImageFromStorage = async function (fileId, pageIndex, normX,
 // トリミング → 画像出力
 // ========================================
 window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWidth, normHeight, rotateAngle = 0, dpi = 150) {
+    let pdf = null;
     try {
         const uint8Array = base64ToUint8Array(pageDataBase64);
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
 
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
@@ -2080,6 +2084,8 @@ window.cropPdfPageToImage = async function (pageDataBase64, normX, normY, normWi
     } catch (error) {
         console.error('[cropPdfPageToImage] error:', error);
         throw error;
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -2485,8 +2491,9 @@ async function createVectorTile(srcPdf, x, y, w, h) {
  * ラスタ化タイル生成（画像化）
  */
 async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeight) {
+    let pdf = null;
     try {
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
 
         const scale = 2.0; // 高解像度
@@ -2534,6 +2541,8 @@ async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeigh
     } catch (error) {
         console.error('createRasterizedTile error:', error);
         return null;
+    } finally {
+        destroyPdfDocument(pdf);
     }
 }
 
@@ -2607,12 +2616,13 @@ window.fetchBlobAsBytes = async function (blobUrl) {
  * PDF の Blob URL からサムネイル Blob URL を生成
  */
 window.generatePdfThumbnailUrl = async function (pdfBlobUrl) {
+    let pdf = null;
     try {
         const response = await fetch(pdfBlobUrl);
         const arrayBuffer = await response.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail, page.rotate);
 
@@ -2620,6 +2630,8 @@ window.generatePdfThumbnailUrl = async function (pdfBlobUrl) {
     } catch (error) {
         console.error('generatePdfThumbnailUrl error:', error);
         return "";
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
