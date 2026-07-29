@@ -66,6 +66,20 @@ async function loadPdfDocument(uint8Array, options = {}) {
 }
 
 /**
+ * PDF.js の PDFDocumentProxy を破棄し、専用Workerを解放するヘルパー
+ * (呼び出し忘れによる pdf.worker.mjs の増殖・メモリリークを防ぐ)
+ */
+function destroyPdfDocument(pdf) {
+    if (pdf && typeof pdf.destroy === 'function') {
+        try {
+            pdf.destroy();
+        } catch (e) {
+            console.warn('pdf.destroy() error', e);
+        }
+    }
+}
+
+/**
  * Canvas レンダリングヘルパー
  */
 async function renderPageToCanvas(page, scale, rotation = 0, options = {}) {
@@ -412,6 +426,7 @@ window.mergePDFPages = async function (pdfPageDataList) {
 // PDF情報取得（サムネイル・ブックマーク等）
 // ========================================
 window.renderFirstPDFPage = async function (fileData, password) {
+    let pdf = null;
     try {
         const uint8Array = toUint8Array(fileData);
 
@@ -424,7 +439,6 @@ window.renderFirstPDFPage = async function (fileData, password) {
             throw new Error(`Invalid PDF header: ${header}`);
         }
 
-        let pdf = null;
         let isPasswordProtected = false;
         let lastError = null;
 
@@ -563,6 +577,8 @@ window.renderFirstPDFPage = async function (fileData, password) {
     } catch (error) {
         console.error('renderFirstPDFPage error:', error);
         return handlePdfError(error, 'renderFirstPDFPage');
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -570,9 +586,10 @@ window.renderFirstPDFPage = async function (fileData, password) {
 // 指定ページのサムネイル生成
 // ========================================
 window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageIndex) {
+    let pdf = null;
     try {
         const uint8Array = toUint8Array(pdfFileData);
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
 
         const page = await pdf.getPage(pageIndex + 1);
         
@@ -592,6 +609,8 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
         };
     } catch (error) {
         return handlePdfError(error, 'generatePdfThumbnailFromFileMetaData');
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -626,13 +645,16 @@ window.convertImageToPngBase64AndSize = function (base64OrDataUrl, mime) {
 // PDFページ数取得
 // ========================================
 window.getPDFPageCount = async function (pdfData) {
+    let pdf = null;
     try {
         const uint8Array = toUint8Array(pdfData);
-        const pdf = await loadPdfDocument(uint8Array, { stopAtErrors: false, verbosity: 1 });
+        pdf = await loadPdfDocument(uint8Array, { stopAtErrors: false, verbosity: 1 });
         return pdf.numPages;
     } catch (error) {
         console.error('Error in getPDFPageCount:', error);
         throw error;
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -644,29 +666,34 @@ async function imageFallbackPdf(uint8Array, pageIndex, cacheKey = null, hq = fal
         window._pdfCache.markRestricted(cacheKey);
     }
 
-    const pdf = await loadPdfDocument(uint8Array);
-    const page = await pdf.getPage(pageIndex + 1);
+    let pdf = null;
+    try {
+        pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(pageIndex + 1);
 
-    let scale;
-    if (hq) {
-        scale = pdfConfig?.pdfSettings?.scales?.unlock_hq || 4.17;
-    } else {
-        scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
+        let scale;
+        if (hq) {
+            scale = pdfConfig?.pdfSettings?.scales?.unlock_hq || 4.17;
+        } else {
+            scale = pdfConfig?.pdfSettings?.scales?.unlock || 1.5;
+        }
+        const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
+
+        const imgDataUrl = canvas.toDataURL('image/png');
+        const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
+
+        const { PDFDocument } = PDFLib;
+        const imgPdf = await PDFDocument.create();
+        const embedded = await imgPdf.embedPng(imgBytes);
+        imgPdf.addPage([canvas.width, canvas.height]);
+        const [imgPage] = imgPdf.getPages();
+        imgPage.drawImage(embedded, { x: 0, y: 0, width: canvas.width, height: canvas.height });
+
+        const newPdfBytes = await imgPdf.save();
+        return uint8ArrayToBase64(newPdfBytes);
+    } finally {
+        destroyPdfDocument(pdf);
     }
-    const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
-
-    const imgDataUrl = canvas.toDataURL('image/png');
-    const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
-
-    const { PDFDocument } = PDFLib;
-    const imgPdf = await PDFDocument.create();
-    const embedded = await imgPdf.embedPng(imgBytes);
-    imgPdf.addPage([canvas.width, canvas.height]);
-    const [imgPage] = imgPdf.getPages();
-    imgPage.drawImage(embedded, { x: 0, y: 0, width: canvas.width, height: canvas.height });
-
-    const newPdfBytes = await imgPdf.save();
-    return uint8ArrayToBase64(newPdfBytes);
 }
 
 /**
@@ -679,9 +706,10 @@ window.cropRestrictedPdfPageToImage = async function (
     rotateAngle = 0,
     dpi = 300
 ) {
+    let pdf = null;
     try {
         const uint8Array = toUint8Array(fileData);
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(pageIndex + 1);
 
         const originalViewport = page.getViewport({ scale: 1.0, rotation: 0 });
@@ -740,6 +768,8 @@ window.cropRestrictedPdfPageToImage = async function (
     } catch (error) {
         console.error('[cropRestrictedPdfPageToImage] error:', error);
         throw error;
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -814,32 +844,37 @@ async function extractAndStoreWithFallback(uint8Array, pageIndex, fileId) {
         window._pdfCache.markRestricted(fileId);
     }
 
-    const pdf = await loadPdfDocument(uint8Array);
-    const page = await pdf.getPage(pageIndex + 1);
+    let pdf = null;
+    try {
+        pdf = await loadPdfDocument(uint8Array);
+        const page = await pdf.getPage(pageIndex + 1);
 
-    // 制限付きPDFは後からスライス時に高解像度で再レンダリングできないため、
-    // ストレージ保存段階から高品質スケール（unlock_hq ≒ 300dpi）で画像化する
-    const scale = pdfConfig?.pdfSettings?.scales?.unlock_hq || 4.17;
-    const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
+        // 制限付きPDFは後からスライス時に高解像度で再レンダリングできないため、
+        // ストレージ保存段階から高品質スケール（unlock_hq ≒ 300dpi）で画像化する
+        const scale = pdfConfig?.pdfSettings?.scales?.unlock_hq || 4.17;
+        const canvas = await renderPageToCanvas(page, scale, 0, { fillWhite: true });
 
-    const imgDataUrl = canvas.toDataURL('image/png');
-    const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
+        const imgDataUrl = canvas.toDataURL('image/png');
+        const imgBytes = base64ToUint8Array(imgDataUrl.split(',')[1]);
 
-    const { PDFDocument } = PDFLib;
-    const imgPdf = await PDFDocument.create();
-    const embedded = await imgPdf.embedPng(imgBytes);
-    imgPdf.addPage([canvas.width, canvas.height]);
-    const [imgPage] = imgPdf.getPages();
-    imgPage.drawImage(embedded, { x: 0, y: 0, width: canvas.width, height: canvas.height });
+        const { PDFDocument } = PDFLib;
+        const imgPdf = await PDFDocument.create();
+        const embedded = await imgPdf.embedPng(imgBytes);
+        imgPdf.addPage([canvas.width, canvas.height]);
+        const [imgPage] = imgPdf.getPages();
+        imgPage.drawImage(embedded, { x: 0, y: 0, width: canvas.width, height: canvas.height });
 
-    const pdfBytes = await imgPdf.save();
-    window._pdfPageStorage.set(fileId, pageIndex, pdfBytes);
+        const pdfBytes = await imgPdf.save();
+        window._pdfPageStorage.set(fileId, pageIndex, pdfBytes);
 
-    return {
-        success: true,
-        sizeBytes: pdfBytes.byteLength,
-        isRestricted: true
-    };
+        return {
+            success: true,
+            sizeBytes: pdfBytes.byteLength,
+            isRestricted: true
+        };
+    } finally {
+        destroyPdfDocument(pdf);
+    }
 }
 
 // ========================================
@@ -940,15 +975,18 @@ window.generatePreviewFromStorage = async function (fileId, pageIndex, rotateAng
 // 単一PDFページサムネイル生成(EditPage向け)
 // ========================================
 window.generatePdfThumbnailFromPageData = async function (pdfData) {
+    let pdf = null;
     try {
         const uint8Array = base64ToUint8Array(pdfData);
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
         const canvas = await renderPageToCanvas(page, pdfConfig.pdfSettings.scales.thumbnail);
         return canvas.toDataURL('image/png');
     } catch (error) {
         console.error('Error rendering single PDF page:', error);
         return '';
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -958,27 +996,32 @@ window.generatePdfThumbnailFromPageData = async function (pdfData) {
 window.generatePreviewImage = async function (pdfBase64, rotateAngle, scaleKey = "normal") {
     const uint8Array = base64ToUint8Array(pdfBase64);
 
-    // 埋め込み画像が大きいと制限にかかるため，maxImageSize を明示的に -1 に設定（ない場合は自動で無制限になるが，ここでは明示的にする）
-    const pdf = await loadPdfDocument(uint8Array, {
-        maxImageSize: -1,
-        verbosity: 0
-    });
-    const page = await pdf.getPage(1);
+    let pdf = null;
+    try {
+        // 埋め込み画像が大きいと制限にかかるため，maxImageSize を明示的に -1 に設定（ない場合は自動で無制限になるが，ここでは明示的にする）
+        pdf = await loadPdfDocument(uint8Array, {
+            maxImageSize: -1,
+            verbosity: 0
+        });
+        const page = await pdf.getPage(1);
 
-    const scales = pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales ? pdfConfig.pdfSettings.scales : null;
-    const normal = scales && scales.normal ? scales.normal : 1.0;
+        const scales = pdfConfig && pdfConfig.pdfSettings && pdfConfig.pdfSettings.scales ? pdfConfig.pdfSettings.scales : null;
+        const normal = scales && scales.normal ? scales.normal : 1.0;
 
-    let previewScale;
-    if (scales && typeof scales[scaleKey] !== "undefined") {
-        previewScale = scales[scaleKey];
-    } else if (scales && typeof scales.preview !== "undefined") {
-        previewScale = scales.preview;
-    } else {
-        previewScale = normal;
+        let previewScale;
+        if (scales && typeof scales[scaleKey] !== "undefined") {
+            previewScale = scales[scaleKey];
+        } else if (scales && typeof scales.preview !== "undefined") {
+            previewScale = scales.preview;
+        } else {
+            previewScale = normal;
+        }
+
+        const canvas = await renderPageToCanvas(page, previewScale, rotateAngle || 0);
+        return canvas.toDataURL('image/jpeg', 0.85);
+    } finally {
+        destroyPdfDocument(pdf);
     }
-
-    const canvas = await renderPageToCanvas(page, previewScale, rotateAngle || 0);
-    return canvas.toDataURL('image/jpeg', 0.85);
 };
 
 // ========================================
@@ -995,9 +1038,10 @@ window.getPdfFileSize = async function (url) {
  * PDFページの元サイズ（pt単位）を取得
  */
 window.getPdfPageOriginalSize = async function (pdfBase64) {
+    let pdf = null;
     try {
         const uint8Array = base64ToUint8Array(pdfBase64);
-        const pdf = await loadPdfDocument(uint8Array);
+        pdf = await loadPdfDocument(uint8Array);
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 1.0, rotation: 0 });
 
@@ -1008,6 +1052,8 @@ window.getPdfPageOriginalSize = async function (pdfBase64) {
     } catch (e) {
         console.error('getPdfPageOriginalSize error', e);
         return null;
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -1033,18 +1079,23 @@ window.renderPdfPages = async function (pdfUrl, canvasIds) {
         return;
     }
 
-    const pdf = await loadPdfDocument(await fetch(pdfUrl).then(r => r.arrayBuffer()).then(b => new Uint8Array(b)));
+    let pdf = null;
+    try {
+        pdf = await loadPdfDocument(await fetch(pdfUrl).then(r => r.arrayBuffer()).then(b => new Uint8Array(b)));
 
-    for (let i = 0; i < canvasIds.length; i++) {
-        const page = await pdf.getPage(i + 1);
-        const canvas = document.getElementById(canvasIds[i]);
-        if (!canvas) continue;
+        for (let i = 0; i < canvasIds.length; i++) {
+            const page = await pdf.getPage(i + 1);
+            const canvas = document.getElementById(canvasIds[i]);
+            if (!canvas) continue;
 
-        const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.normal });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const context = canvas.getContext('2d');
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
+            const viewport = page.getViewport({ scale: pdfConfig.pdfSettings.scales.normal });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const context = canvas.getContext('2d');
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+        }
+    } finally {
+        destroyPdfDocument(pdf);
     }
 };
 
@@ -1060,31 +1111,36 @@ window.checkCanvasExists = function (canvasId) {
 // ========================================
 window.unlockPdf = async function (pdfData, password) {
     const uint8Array = toUint8Array(pdfData);
-    const pdf = await loadPdfDocument(uint8Array, { password });
+    let pdf = null;
+    try {
+        pdf = await loadPdfDocument(uint8Array, { password });
 
-    const { PDFDocument } = PDFLib;
-    const unlockedPdf = await PDFDocument.create();
+        const { PDFDocument } = PDFLib;
+        const unlockedPdf = await PDFDocument.create();
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const canvas = await renderPageToCanvas(
-            page,
-            pdfConfig.pdfSettings.scales.unlock,
-            0,
-            { fillWhite: true }
-        );
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const canvas = await renderPageToCanvas(
+                page,
+                pdfConfig.pdfSettings.scales.unlock,
+                0,
+                { fillWhite: true }
+            );
 
-        const imgData = canvas.toDataURL('image/png');
-        const img = await unlockedPdf.embedPng(imgData);
-        const pdfPage = unlockedPdf.addPage([canvas.width, canvas.height]);
-        pdfPage.drawImage(img, {
-            x: 0, y: 0,
-            width: canvas.width,
-            height: canvas.height
-        });
+            const imgData = canvas.toDataURL('image/png');
+            const img = await unlockedPdf.embedPng(imgData);
+            const pdfPage = unlockedPdf.addPage([canvas.width, canvas.height]);
+            pdfPage.drawImage(img, {
+                x: 0, y: 0,
+                width: canvas.width,
+                height: canvas.height
+            });
+        }
+
+        return uint8ArrayToBase64(await unlockedPdf.save());
+    } finally {
+        destroyPdfDocument(pdf);
     }
-
-    return uint8ArrayToBase64(await unlockedPdf.save());
 };
 
 // ========================================
@@ -1343,8 +1399,9 @@ window.getPdfVisiblePageSize = async function (pdfBase64) {
         const page = pdfDoc.getPage(0);
         const { width, height } = page.getSize();
         // Visible area via pdf.js page.view
+        let pdfJsDoc = null;
         try {
-            const pdfJsDoc = await loadPdfDocument(uint8Array, { verbosity: 0 });
+            pdfJsDoc = await loadPdfDocument(uint8Array, { verbosity: 0 });
             const pdfJsPage = await pdfJsDoc.getPage(1);
             const view = pdfJsPage.view; // [x1, y1, x2, y2]
             if (view && view.length >= 4) {
@@ -1355,7 +1412,10 @@ window.getPdfVisiblePageSize = async function (pdfBase64) {
                     return { width, height, cropWidth: cw, cropHeight: ch, hasCropBox: true };
                 }
             }
-        } catch (_) {}
+        } catch (_) {
+        } finally {
+            destroyPdfDocument(pdfJsDoc);
+        }
         return { width, height, cropWidth: width, cropHeight: height, hasCropBox: false };
     } catch (error) {
         console.error('Error getting PDF visible page size:', error);
@@ -1421,9 +1481,10 @@ window.addStampsToPdf = async function (pdfBytes, stamps, trimRect = null) {
     if (!trimRect) {
         // Use pdf.js page.view which correctly returns [x1,y1,x2,y2] of
         // the CropBox (or MediaBox when no CropBox is set).
+        let pdfJsDoc = null;
         try {
             const pdfJsBytes = base64ToUint8Array(pdfBytes);
-            const pdfJsDoc = await loadPdfDocument(pdfJsBytes, { verbosity: 0 });
+            pdfJsDoc = await loadPdfDocument(pdfJsBytes, { verbosity: 0 });
             const pdfJsPage = await pdfJsDoc.getPage(1);
             const view = pdfJsPage.view; // [llx, lly, urx, ury] in PDF user space
             if (view && view.length >= 4) {
@@ -1458,6 +1519,8 @@ window.addStampsToPdf = async function (pdfBytes, stamps, trimRect = null) {
             }
         } catch (e) {
             // pdf.js detection failed – nx/ny/nw/nh remain at defaults (full page)
+        } finally {
+            destroyPdfDocument(pdfJsDoc);
         }
     }
 

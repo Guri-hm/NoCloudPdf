@@ -23,9 +23,15 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
                 wasmUrl: pdfjsLib.GlobalWorkerOptions.wasmUrl,
                 openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
             }).promise;
-            const page = await pdf.getPage(1);
-            const baseViewport = page.getViewport({ scale: 1.0 });
-            return { origW: baseViewport.width, origH: baseViewport.height, dpr: dpr };
+            try {
+                const page = await pdf.getPage(1);
+                const baseViewport = page.getViewport({ scale: 1.0 });
+                return { origW: baseViewport.width, origH: baseViewport.height, dpr: dpr };
+            } finally {
+                if (pdf && typeof pdf.destroy === 'function') {
+                    try { pdf.destroy(); } catch (e) { console.warn('pdf.destroy() error', e); }
+                }
+            }
         } catch (pdfErr) {
             // not PDF -> try image
             try {
@@ -76,39 +82,45 @@ window.drawPdfPageToCanvas = async function (id, pageData, zoomLevel = 1.0, rota
             openjpegJsUrl: pdfjsLib.GlobalWorkerOptions.openjpegJsUrl
         });
         const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
+        try {
+            const page = await pdf.getPage(1);
 
-        // 回転・ズームを反映したviewport
-        const dpr = window.getDevicePixelRatio();
-        const effectiveDpr = zoomLevel < 1 ? 1 : dpr;
-        const targetScale = zoomLevel * effectiveDpr;
-        const viewport = page.getViewport({ scale: targetScale, rotation: rotateAngle });
+            // 回転・ズームを反映したviewport
+            const dpr = window.getDevicePixelRatio();
+            const effectiveDpr = zoomLevel < 1 ? 1 : dpr;
+            const targetScale = zoomLevel * effectiveDpr;
+            const viewport = page.getViewport({ scale: targetScale, rotation: rotateAngle });
 
-        canvas.width = Math.round(viewport.width);
-        canvas.height = Math.round(viewport.height);
-        // オフスクリーンcanvasでPDFを描画
-        const off = document.createElement('canvas');
-        off.width = Math.max(1, Math.round(viewport.width));
-        off.height = Math.max(1, Math.round(viewport.height));
-        const offCtx = off.getContext('2d');
-        if (offCtx && offCtx.setTransform) offCtx.setTransform(1, 0, 0, 1, 0, 0);
+            canvas.width = Math.round(viewport.width);
+            canvas.height = Math.round(viewport.height);
+            // オフスクリーンcanvasでPDFを描画
+            const off = document.createElement('canvas');
+            off.width = Math.max(1, Math.round(viewport.width));
+            off.height = Math.max(1, Math.round(viewport.height));
+            const offCtx = off.getContext('2d');
+            if (offCtx && offCtx.setTransform) offCtx.setTransform(1, 0, 0, 1, 0, 0);
 
-        window._pdfRenderTask = page.render({ canvasContext: offCtx, viewport: viewport });
-        await window._pdfRenderTask.promise;
+            window._pdfRenderTask = page.render({ canvasContext: offCtx, viewport: viewport });
+            await window._pdfRenderTask.promise;
 
-        // メインcanvasに転送
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // メインcanvasに転送
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 中央に配置
-        const dx = Math.round((canvas.width - off.width) / 2);
-        const dy = Math.round((canvas.height - off.height) / 2);
-        ctx.drawImage(off, 0, 0, off.width, off.height, dx, dy, off.width, off.height);
+            // 中央に配置
+            const dx = Math.round((canvas.width - off.width) / 2);
+            const dy = Math.round((canvas.height - off.height) / 2);
+            ctx.drawImage(off, 0, 0, off.width, off.height, dx, dy, off.width, off.height);
 
-        // CSSズーム用のtransform（必要なら）
-        if (ctx.setTransform) ctx.setTransform(effectiveDpr, 0, 0, effectiveDpr, 0, 0);
+            // CSSズーム用のtransform（必要なら）
+            if (ctx.setTransform) ctx.setTransform(effectiveDpr, 0, 0, effectiveDpr, 0, 0);
+        } finally {
+            if (pdf && typeof pdf.destroy === 'function') {
+                try { pdf.destroy(); } catch (e) { console.warn('pdf.destroy() error', e); }
+            }
+        }
     } catch (err) {
         if (err && err.name === "RenderingCancelledException") return;
         console.error("drawPdfPageToCanvas error", err);
