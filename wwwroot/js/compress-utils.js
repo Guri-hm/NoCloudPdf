@@ -51,18 +51,83 @@ function getFilters(ctx, dict) {
     return [nameOf(filter)];
 }
 
-function getComponentCount(ctx, dict) {
+function getBaseComponentCount(ctx, cs) {
     const { PDFName, PDFArray } = PDFLib;
-    const cs = dict.lookup(PDFName.of('ColorSpace'));
     const name = nameOf(cs);
     if (name === '/DeviceRGB') return 3;
     if (name === '/DeviceGray') return 1;
+    if (name === '/DeviceCMYK') return 4;
     if (cs instanceof PDFArray && nameOf(ctx.lookup(cs.get(0))) === '/ICCBased') {
         const profile = ctx.lookup(cs.get(1));
         const n = profile && profile.dict ? numberOf(profile.dict.lookup(PDFName.of('N'))) : null;
-        if (n === 3 || n === 1) return n;
+        if (n === 3 || n === 1 || n === 4) return n;
     }
     return 0;
+}
+
+// 1画素あたりのサンプル数と、Indexed(索引色)の場合はパレット情報を返す。非対応の色空間は null
+function getColorInfo(ctx, dict) {
+    const { PDFName, PDFArray } = PDFLib;
+    const cs = dict.lookup(PDFName.of('ColorSpace'));
+    if (cs instanceof PDFArray && nameOf(ctx.lookup(cs.get(0))) === '/Indexed') {
+        const baseComps = getBaseComponentCount(ctx, ctx.lookup(cs.get(1)));
+        const hival = numberOf(ctx.lookup(cs.get(2)));
+        const lookup = ctx.lookup(cs.get(3));
+        if (!baseComps || hival === null || !lookup) return null;
+        return { comps: 1, palette: { baseComps, hival, lookup } };
+    }
+    const comps = getBaseComponentCount(ctx, cs);
+    return comps ? { comps, palette: null } : null;
+}
+
+function getDecodeArray(ctx, dict) {
+    const decode = dict.lookup(PDFLib.PDFName.of('Decode'));
+    if (!(decode instanceof PDFLib.PDFArray)) return null;
+    return decode.asArray().map(o => numberOf(ctx.lookup(o)));
+}
+
+function isDefaultDecode(decode, comps, indexed, bpc) {
+    if (!decode) return true;
+    if (decode.length !== comps * 2) return false;
+    const max = indexed ? (1 << bpc) - 1 : 1;
+    return decode.every((v, i) => v === (i % 2 === 0 ? 0 : max));
+}
+
+// ブラウザのCMYK JPEGデコードはAdobe形式の扱いがPDFと異なり色が反転するため、
+// 画像1枚だけのPDFを作ってpdf.jsで描画し、PDFと同じ見た目の画素を得る
+async function decodeCmykJpegWithPdfJs(image) {
+    const { PDFDocument, PDFName, PDFRawStream, pushGraphicsState, popGraphicsState, concatTransformationMatrix, drawObject } = PDFLib;
+    const pdfjsLib = window.pdfjsLib;
+    const doc = await PDFDocument.create();
+    const dict = image.obj.dict.clone(doc.context);
+    dict.delete(PDFName.of('SMask'));
+    dict.delete(PDFName.of('Mask'));
+    dict.set(PDFName.of('ColorSpace'), PDFName.of('DeviceCMYK'));
+    const ref = doc.context.register(PDFRawStream.of(dict, image.obj.contents));
+    const page = doc.addPage([image.width, image.height]);
+    const key = page.node.newXObject('Im', ref);
+    page.pushOperators(
+        pushGraphicsState(),
+        concatTransformationMatrix(image.width, 0, 0, image.height, 0, 0),
+        drawObject(key),
+        popGraphicsState(),
+    );
+    const data = await doc.save({ useObjectStreams: false });
+
+    if (!session.pdfjsWorker) session.pdfjsWorker = new pdfjsLib.PDFWorker();
+    const task = pdfjsLib.getDocument({ data, worker: session.pdfjsWorker, verbosity: 0 });
+    try {
+        const pdf = await task.promise;
+        const pdfPage = await pdf.getPage(1);
+        const canvas = createCanvas(image.width, image.height);
+        const g = canvas.getContext('2d');
+        g.fillStyle = '#fff';
+        g.fillRect(0, 0, image.width, image.height);
+        await pdfPage.render({ canvasContext: g, viewport: pdfPage.getViewport({ scale: 1 }) }).promise;
+        return await createImageBitmap(canvas);
+    } finally {
+        await task.destroy();
+    }
 }
 
 function getPredictorParams(ctx, dict) {
@@ -105,17 +170,26 @@ function collectImages(pdfDoc) {
         const imageMask = dict.lookup(PDFName.of('ImageMask'));
         if (imageMask instanceof PDFBool && imageMask.asBoolean()) { skip('mask'); continue; }
         if (bpc !== 8) { skip('bpc' + bpc); continue; }
-        if (dict.has(PDFName.of('Mask')) || dict.has(PDFName.of('Decode'))) { skip('mask/decode'); continue; }
+        if (dict.has(PDFName.of('Mask'))) { skip('mask'); continue; }
 
-        const comps = getComponentCount(ctx, dict);
-        if (!comps) { skip('colorspace'); continue; }
+        const color = getColorInfo(ctx, dict);
+        if (!color) { skip('colorspace'); continue; }
+        const { comps, palette } = color;
 
+        const decode = getDecodeArray(ctx, dict);
         const filters = getFilters(ctx, dict);
         const kind = filters.length === 1 && filters[0] === '/DCTDecode' ? 'jpeg'
             : filters.length === 1 && filters[0] === '/FlateDecode' ? 'flate' : null;
         if (!kind) { skip('filter:' + filters.join('+')); continue; }
+        if (kind === 'jpeg' && palette) { skip('jpeg-indexed'); continue; }
 
-        const image = { ref, obj, width, height, comps, kind, origBytes: obj.contents.length, source: null };
+        // CMYK JPEG は pdf.js でデコードするためDecodeも解釈される。それ以外は既定値のみ対応
+        if (!(comps === 4 && kind === 'jpeg') && !isDefaultDecode(decode, comps, !!palette, bpc)) {
+            skip('decode');
+            continue;
+        }
+
+        const image = { ref, obj, width, height, comps, palette, kind, origBytes: obj.contents.length, source: null };
         if (kind === 'flate') {
             const p = getPredictorParams(ctx, dict);
             if (p.predictor === 2 || (p.predictor >= 10 && (p.bpc !== 8 || p.colors !== comps || p.columns !== width))) {
@@ -167,13 +241,31 @@ function undoPngPredictor(data, rowBytes, bpp, rows) {
     return out;
 }
 
+async function getPaletteBytes(palette) {
+    const { lookup } = palette;
+    if (lookup instanceof PDFLib.PDFString || lookup instanceof PDFLib.PDFHexString) return lookup.asBytes();
+    if (lookup instanceof PDFLib.PDFRawStream) {
+        const filter = lookup.dict.lookup(PDFLib.PDFName.of('Filter'));
+        return filter ? await inflate(lookup.contents) : lookup.contents;
+    }
+    throw new Error('unsupported palette');
+}
+
+function cmykToRgb(c, m, y, k, out, q) {
+    const nk = 255 - k;
+    out[q] = ((255 - c) * nk / 255) | 0;
+    out[q + 1] = ((255 - m) * nk / 255) | 0;
+    out[q + 2] = ((255 - y) * nk / 255) | 0;
+}
+
 async function decodeImage(image) {
     if (image.kind === 'jpeg') {
+        if (image.comps === 4) return await decodeCmykJpegWithPdfJs(image);
         const blob = new Blob([image.obj.contents], { type: 'image/jpeg' });
         return await createImageBitmap(blob, { imageOrientation: 'none', colorSpaceConversion: 'none' });
     }
 
-    const { width, height, comps } = image;
+    const { width, height, comps, palette } = image;
     let raw = await inflate(image.obj.contents);
     if (image.predictor >= 10) {
         raw = undoPngPredictor(raw, width * comps, comps, height);
@@ -181,14 +273,34 @@ async function decodeImage(image) {
     if (raw.length < width * height * comps) throw new Error('unexpected image data length');
 
     const rgba = new Uint8ClampedArray(width * height * 4);
-    for (let i = 0, p = 0, q = 0; i < width * height; i++, q += 4) {
-        if (comps === 3) {
-            rgba[q] = raw[p]; rgba[q + 1] = raw[p + 1]; rgba[q + 2] = raw[p + 2];
-            p += 3;
-        } else {
-            rgba[q] = rgba[q + 1] = rgba[q + 2] = raw[p++];
+    const pixels = width * height;
+    if (palette) {
+        const table = await getPaletteBytes(palette);
+        const n = palette.baseComps;
+        for (let i = 0, q = 0; i < pixels; i++, q += 4) {
+            const idx = Math.min(raw[i], palette.hival) * n;
+            if (n === 3) {
+                rgba[q] = table[idx]; rgba[q + 1] = table[idx + 1]; rgba[q + 2] = table[idx + 2];
+            } else if (n === 1) {
+                rgba[q] = rgba[q + 1] = rgba[q + 2] = table[idx];
+            } else {
+                cmykToRgb(table[idx], table[idx + 1], table[idx + 2], table[idx + 3], rgba, q);
+            }
+            rgba[q + 3] = 255;
         }
-        rgba[q + 3] = 255;
+    } else {
+        for (let i = 0, p = 0, q = 0; i < pixels; i++, q += 4) {
+            if (comps === 3) {
+                rgba[q] = raw[p]; rgba[q + 1] = raw[p + 1]; rgba[q + 2] = raw[p + 2];
+                p += 3;
+            } else if (comps === 4) {
+                cmykToRgb(raw[p], raw[p + 1], raw[p + 2], raw[p + 3], rgba, q);
+                p += 4;
+            } else {
+                rgba[q] = rgba[q + 1] = rgba[q + 2] = raw[p++];
+            }
+            rgba[q + 3] = 255;
+        }
     }
     return await createImageBitmap(new ImageData(rgba, width, height));
 }
@@ -371,6 +483,9 @@ async function openSession(data) {
 
 async function closeSessionInternal() {
     releaseSources();
+    if (session && session.pdfjsWorker) {
+        try { session.pdfjsWorker.destroy(); } catch { /* 無視 */ }
+    }
     session = null;
 }
 
@@ -462,11 +577,20 @@ async function compressRasterToTarget(targetBytes) {
     });
 }
 
+// 圧縮率(0-100)に応じた段階でページを画像化する
+async function compressRasterByStrength(strength) {
+    const index = Math.round(Math.min(100, Math.max(0, strength)) / 100 * (RASTER_LEVELS.length - 1));
+    const level = RASTER_LEVELS[index];
+    const bytes = await renderRaster(level);
+    return finalize(bytes, { mode: 'raster', dpi: level.dpi, reached: true });
+}
+
 window.pdfCompress = {
     open: (data) => enqueue(() => openSession(data)),
     estimate: () => enqueue(estimate),
     compress: (strength) => enqueue(() => compressByStrength(strength)),
     compressToTarget: (targetBytes) => enqueue(() => compressToTarget(targetBytes)),
     compressRasterToTarget: (targetBytes) => enqueue(() => compressRasterToTarget(targetBytes)),
+    compressRaster: (strength) => enqueue(() => compressRasterByStrength(strength)),
     close: () => enqueue(closeSessionInternal),
 };

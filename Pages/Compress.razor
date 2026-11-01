@@ -196,13 +196,13 @@ else if (file != null && analysis != null)
                                 <p class="font-bold">このPDFは、圧縮率を変えてもほとんど小さくなりません。</p>
                                 @if (analysis.skippedCount > 0)
                                 {
-                                    <p>再圧縮に対応していない画像が @analysis.skippedCount 点（合計 @FormatSize(analysis.skippedBytes)）含まれています（白黒画像・索引色・JBIG2など）。</p>
+                                    <p>再圧縮に対応していない画像が @analysis.skippedCount 点（合計 @FormatSize(analysis.skippedBytes)）含まれています（白黒画像・JBIG2など）。</p>
                                 }
                                 else
                                 {
                                     <p>再圧縮できる画像がほとんど含まれていません。</p>
                                 }
-                                <p>「目標サイズで指定」を使うと、ページを画像化して小さくできる場合があります（テキストは画像になります）。</p>
+                                <p>下の「ページを画像化して圧縮」を使うと小さくできる場合があります（テキストは画像になります）。</p>
                             </div>
                         </div>
                     }
@@ -232,6 +232,22 @@ else if (file != null && analysis != null)
                         }
                     </div>
                     }
+
+                    <div class="border-t border-gray-200 pt-4 space-y-2">
+                        @if (IsVectorLimited)
+                        {
+                            <p class="text-sm text-yellow-800 font-bold">
+                                このPDFは画像以外（フォントなど）の割合が大きく、圧縮率を最大にしても約 @FormatSize(estimates![^1].size) までしか小さくなりません。
+                            </p>
+                        }
+                        <p class="text-xs text-gray-600">
+                            さらに小さくしたい場合は、各ページを画像化する方法があります（上の圧縮率が画質に反映されます）。テキストの選択・検索はできなくなります。
+                        </p>
+                        <button type="button" disabled="@isBusy" @onclick="CompressRasterByStrengthAsync"
+                                class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white font-bold rounded-lg text-sm">
+                            ページを画像化して圧縮
+                        </button>
+                    </div>
                 </div>
             }
             else
@@ -425,6 +441,8 @@ else
     // どの強さでも予想サイズがほぼ同じ（＝画像の再圧縮では小さくならない）
     private bool IsEstimateFlat => analysis != null && estimates is { Count: > 0 }
         && estimates.Max(e => e.size) - estimates.Min(e => e.size) < analysis.size * 0.02;
+    private bool IsVectorLimited => analysis != null && estimates is { Count: > 0 }
+        && estimates[^1].size > analysis.size * 0.7;
     private bool CanCompress => mode == "ratio" ? !analysis!.encrypted : IsTargetValid;
 
     private string ResultSizeText => analysis == null || result == null
@@ -656,6 +674,28 @@ else
         {
             await MessageService.ShowLoadingAsync("ページを画像化して圧縮中...");
             var res = await JSRuntime.InvokeAsync<CompressResult>("pdfCompress.compressRasterToTarget", TargetBytes);
+            await ShowResultAsync(res);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress raster error: {ex.Message}");
+            _ = MessageService.ShowAsync("圧縮中にエラーが発生しました。", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+            isBusy = false;
+        }
+    }
+
+    private async Task CompressRasterByStrengthAsync()
+    {
+        if (isBusy || analysis == null) return;
+        isBusy = true;
+        try
+        {
+            await MessageService.ShowLoadingAsync("ページを画像化して圧縮中...");
+            var res = await JSRuntime.InvokeAsync<CompressResult>("pdfCompress.compressRaster", strength);
             await ShowResultAsync(res);
         }
         catch (Exception ex)
