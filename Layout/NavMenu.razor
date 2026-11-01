@@ -60,6 +60,11 @@
                 <SliceIcon Class="w-8 h-8" />
                 <span class="text-[10px] mt-1 opacity-80">スライス</span>
             </NavLink>
+            <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("compress")"
+                href="compress">
+                <CompressIcon Class="w-8 h-8" />
+                <span class="text-[10px] mt-1 opacity-80">圧縮</span>
+            </NavLink>
             <NavLink @onclick="CloseNavMenu" class="@GetNavLinkClass("ocr")"
                 href="ocr">
                 <OcrIcon Class="w-8 h-8" />
@@ -107,6 +112,7 @@
         if (uri.EndsWith("/trim")) return "トリミング";
         if (uri.EndsWith("/layout")) return "レイアウト";
         if (uri.EndsWith("/slice")) return "スライス";
+        if (uri.EndsWith("/compress")) return "圧縮";
         if (uri.EndsWith("/ocr")) return "文字認識";
         if (uri.Contains("/qrcode")) return "QRコード";
         if (uri.EndsWith("/") || uri.EndsWith("")) return "NoCloudPDF";

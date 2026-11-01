@@ -1,0 +1,92 @@
+@inject IJSRuntime JSRuntime
+@inject PdfDataService PdfDataService
+@inject CompletionStateService CompletionState
+@inject MessageService MessageService
+@inject NavigationManager Navigation
+@using NoCloudPdf.Services
+
+<div class="w-full">
+    <button type="button"
+            class="w-full bg-white hover:bg-gray-100 border border-solid border-gray-300 font-bold py-2 px-6 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+            disabled="@isBusy"
+            aria-expanded="@isOpen"
+            @onclick="() => isOpen = !isOpen">
+        <ArrowRightIcon Class="w-4 h-4" />
+        <span>続けて別の機能で処理</span>
+    </button>
+    @if (isOpen)
+    {
+        <div class="grid grid-cols-2 gap-2 mt-2">
+            @foreach (var target in targets.Where(t => t.Href != Exclude))
+            {
+                <button type="button"
+                        class="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-blue-500 hover:bg-blue-50 transition disabled:opacity-50"
+                        disabled="@isBusy"
+                        @onclick="() => ContinueAsync(target.Href)">
+                    <DynamicComponent Type="target.Icon" Parameters="iconParameters" />
+                    <span class="text-xs text-gray-700">@target.Label</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>処理結果PDFのBlob URL</summary>
+    [Parameter, EditorRequired] public string Url { get; set; } = "";
+    [Parameter, EditorRequired] public string FileName { get; set; } = "";
+    /// <summary>メニューから除外する機能のhref（現在のページ）</summary>
+    [Parameter] public string? Exclude { get; set; }
+
+    private bool isOpen;
+    private bool isBusy;
+
+    private record Target(string Href, string Label, Type Icon);
+
+    private static readonly Target[] targets =
+    {
+        new("merge", "結合", typeof(MergeIcon)),
+        new("split", "分割", typeof(SplitIcon)),
+        new("edit", "編集", typeof(EditIcon)),
+        new("layout", "レイアウト", typeof(LayoutIcon)),
+        new("trim", "トリミング", typeof(TrimIcon)),
+        new("slice", "スライス", typeof(SliceIcon)),
+        new("ocr", "文字認識", typeof(OcrIcon)),
+        new("compress", "圧縮", typeof(CompressIcon)),
+    };
+
+    private static readonly Dictionary<string, object> iconParameters = new() { ["Class"] = "w-6 h-6" };
+
+    private async Task ContinueAsync(string href)
+    {
+        if (isBusy || string.IsNullOrEmpty(Url)) return;
+        isBusy = true;
+        try
+        {
+            await MessageService.ShowLoadingAsync("読み込み中...");
+            var bytes = await JSRuntime.InvokeAsync<byte[]>("fetchBlobAsBytes", Url);
+
+            PdfDataService.Clear();
+            var name = string.IsNullOrEmpty(FileName) ? "result.pdf" : FileName;
+            var ok = await PdfDataService.AddOrInsertPdfFileAsync(name, bytes);
+            if (!ok)
+            {
+                _ = MessageService.ShowAsync("処理結果の読み込みに失敗しました。", MessageType.Error);
+                return;
+            }
+
+            CompletionState.Reset();
+            Navigation.NavigateTo(href);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ContinueWithPdf error: {ex.Message}");
+            _ = MessageService.ShowAsync("処理結果の読み込みに失敗しました。", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+            isBusy = false;
+        }
+    }
+}

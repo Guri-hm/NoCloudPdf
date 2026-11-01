@@ -21,6 +21,31 @@ npx vite build
 【cssとjsをまとめてビルド】
 npm run build
 
+【SVGからアイコン(○○Icon.razor)を作る手順】
+tools/svg-bbox.js でSVGのpath dのバウンディングボックスを求め、余白なしのviewBoxと原点(0,0)へ平行移動したpathを得る。
+(必要なライブラリ: minimist, svg-path-bounds, svgpath → npm install済みなら追加不要)
+
+1. SVGファイルの <path d="..."> の d の中身だけを d.txt などに保存（複数pathの場合はpathごとに実行）
+2. 次のコマンドを実行
+   node tools/svg-bbox.js --file d.txt --decimals 2
+   (短い場合は node tools/svg-bbox.js --d "M0 0L10 10..." でも可。--out result.json でJSONファイル出力)
+   --decimals N : 小数点以下N桁に丸めた translatedPathRounded も出力する
+3. 出力JSONを使ってRazorコンポーネントを作る
+   viewBox            → <svg viewBox="..."> に設定
+   translatedPathRounded(なければtranslatedPath) → <path d="..."> に設定
+4. 既存のQrCodeIcon.razorなどと同様に fill="currentColor"、class="@Class" とし、
+   @code { [Parameter] public string? Class { get; set; } = "inline-block"; } を付ける
+   (width/heightはSVG側に書かず、利用側で Class="w-8 h-8" のように指定する)
+例: Components/CompressIcon.razor(compress-arrows-alt-svgrepo-com.svg から作成)
+
+【PDF圧縮機能について】
+・wwwroot/js/compress-utils.js(main.jsからimport)がPDF内の画像を再圧縮する。変更後は npx vite build でbundleを更新すること
+・目標サイズ指定で画像の再圧縮だけでは届かない場合、ページ画像化(テキストは画像になる)にフォールバックする
+
+【処理結果を別機能で続ける】
+Components/ContinueWithPdf.razor を各機能の完了画面に置いている。
+結果PDFのBlobURLを PdfDataService に読み込み直して指定ページへ遷移する。
+
 【タグ付け】
 git tag v1.0
 git push origin v1.0

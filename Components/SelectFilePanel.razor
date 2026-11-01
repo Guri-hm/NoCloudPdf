@@ -13,7 +13,7 @@
                 <div class="mb-6 text-neutral-500 text-sm mt-8 px-4">
                     サポートされているファイル形式：<br />
                     <span class="inline-block mt-1 font-mono bg-gray-100 px-2 py-1 rounded">
-                        .pdf, .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg
+                        @SupportedFormats
                     </span>
                 </div>
                 <div class="text-neutral-600">
@@ -30,6 +30,7 @@
 @code {
     [Parameter] public EventCallback OnOpenFileDialog { get; set; }
     [Parameter] public int progress { get; set; }
+    [Parameter] public string SupportedFormats { get; set; } = ".pdf, .jpg, .jpeg, .png, .gif, .bmp, .webp, .svg";
 
     private List<ActionButtonItem> selectFileActions => new()
     {

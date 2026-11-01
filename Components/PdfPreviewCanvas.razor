@@ -3,8 +3,9 @@
     public int MergedPageCount { get; set; }
 }
 
-<div class="flex-1 h-full bg-neutral-100 overflow-hidden">
-    <div class="w-full h-full overflow-auto flex flex-col items-center py-8 gap-8">
+<div class="flex-1 h-full bg-neutral-100 overflow-hidden flex flex-col">
+    <PreviewNotice />
+    <div class="w-full flex-1 min-h-0 overflow-auto flex flex-col items-center py-8 gap-8">
         @for (int i = 0; i < MergedPageCount; i++)
         {
             <canvas id="merged-canvas-@i" class="shadow-lg border border-gray-300 rounded bg-white w-[90%] max-w-[800px]">

@@ -1,0 +1,850 @@
+@page "/compress"
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject PdfDataService PdfDataService
+@inject MessageService MessageService
+@inject CompletionStateService CompletionState
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using System.IO
+@using NoCloudPdf.Models
+@using NoCloudPdf.Services
+@using NoCloudPdf.Components
+
+<PageTitle>圧縮-NoCloudPDF</PageTitle>
+
+@if (result != null)
+{
+    <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
+        <div class="flex items-center px-4 py-2 h-16">
+            <ActionButtonGroup T="string" Actions="backToSettingsActions" />
+        </div>
+    </div>
+
+    <div class="overflow-hidden md:h-[calc(100vh-4rem)]">
+        <div class="flex flex-col md:flex-row h-full">
+            <div class="h-[45vh] md:h-full md:flex-1 flex flex-col">
+                <PdfPreviewCanvas MergedPageCount="analysis?.pageCount ?? 0" />
+            </div>
+            <div class="flex flex-col w-full md:max-w-xs bg-white border-l border-gray-200 shadow-lg md:h-full p-6 justify-center items-center overflow-y-auto">
+                <InfoPanel Title="圧縮完了" FileName="@resultFileName" FileSize="@ResultSizeText" PageCount="@(analysis?.pageCount ?? 0)">
+                    @if (result.unchanged)
+                    {
+                        <div class="bg-yellow-50 border border-yellow-300 text-yellow-900 text-sm rounded-lg p-3 flex gap-2 w-full">
+                            <TriangleExclamationIcon Class="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                            <span>これ以上小さくできなかったため、元のPDFをそのまま出力しています。</span>
+                        </div>
+                    }
+                    else if (result.mode == "raster")
+                    {
+                        <div class="bg-yellow-50 border border-yellow-300 text-yellow-900 text-sm rounded-lg p-3 flex gap-2 w-full">
+                            <TriangleExclamationIcon Class="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                            <span>ページを画像化して圧縮しました（解像度 @(result.dpi)dpi）。テキストの選択・検索はできません。</span>
+                        </div>
+                    }
+                    @if (mode == "target" && !result.reached)
+                    {
+                        <div class="bg-red-50 border border-red-300 text-red-800 text-sm rounded-lg p-3 flex gap-2 w-full">
+                            <TriangleExclamationIcon Class="w-5 h-5 text-red-500 flex-shrink-0" />
+                            <span>目標サイズ（@FormatSize(TargetBytes)）には届きませんでした。</span>
+                        </div>
+                    }
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center gap-2"
+                            @onclick="DownloadResultAsync">
+                        <DownloadIcon Class="w-5 h-5" />
+                        PDFでダウンロード
+                    </button>
+                    <ContinueWithPdf Url="@result.url" FileName="@resultFileName" Exclude="compress" />
+                    <button class="bg-white hover:bg-gray-100 border border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center"
+                            @onclick="StartNewAsync">
+                        <ResetIcon class="mr-2 inline-block align-middle w-[1em] h-[1em]" />
+                        新規作成
+                    </button>
+                </InfoPanel>
+            </div>
+        </div>
+    </div>
+}
+else if (file != null && analysis != null)
+{
+    <div class="min-h-screen bg-neutral-100 pb-16">
+        <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
+            <div class="flex items-center gap-2 px-4 py-2 h-16">
+                <ActionButtonGroup T="string" Actions="resetActions" />
+                <h1 class="hidden md:inline text-lg font-bold ml-2">圧縮</h1>
+                <span class="ml-2 text-sm text-gray-300 truncate">@file.FileName</span>
+            </div>
+        </div>
+
+        <div class="max-w-3xl mx-auto p-4 md:p-8 space-y-8">
+            <!-- ファイル情報 -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+                    <div class="flex flex-col items-center text-center gap-2">
+                        <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
+                            <PageIcon Class="w-7 h-7 text-blue-600" />
+                        </div>
+                        <h3 class="text-sm font-bold text-gray-600">ページ数</h3>
+                        <p class="text-2xl font-bold text-gray-800">@analysis.pageCount<span class="text-base font-normal ml-1">ページ</span></p>
+                    </div>
+                </div>
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+                    <div class="flex flex-col items-center text-center gap-2">
+                        <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
+                            <FileIcon Class="w-7 h-7 text-green-600" />
+                        </div>
+                        <h3 class="text-sm font-bold text-gray-600">現在のサイズ</h3>
+                        <p class="text-2xl font-bold text-gray-800">@FormatSize(analysis.size)</p>
+                    </div>
+                </div>
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+                    <div class="flex flex-col items-center text-center gap-2">
+                        <div class="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
+                            <ImageIcon Class="w-7 h-7 text-purple-600" />
+                        </div>
+                        <h3 class="text-sm font-bold text-gray-600">圧縮できる画像</h3>
+                        <p class="text-2xl font-bold text-gray-800">@analysis.imageCount<span class="text-base font-normal ml-1">点</span></p>
+                        <p class="text-xs text-gray-500">合計 @FormatSize(analysis.imageBytes)</p>
+                        @if (analysis.skippedCount > 0)
+                        {
+                            <p class="text-xs text-yellow-700">対応外の画像 @analysis.skippedCount 点（@FormatSize(analysis.skippedBytes)）</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (analysis.encrypted)
+            {
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-900 p-3 rounded text-sm flex items-start gap-2">
+                    <TriangleExclamationIcon Class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <span>このPDFには操作制限が設定されているため、画像の再圧縮はできません。目標サイズを指定すると、ページを画像化して圧縮できます。</span>
+                </div>
+            }
+            else if (analysis.imageCount == 0 && mode == "target")
+            {
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-900 p-3 rounded text-sm flex items-start gap-2">
+                    <TriangleExclamationIcon Class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <span>再圧縮できる画像がほとんど含まれていないため、圧縮率を指定してもサイズはあまり小さくなりません。目標サイズを指定すると、ページを画像化して圧縮できます。</span>
+                </div>
+            }
+
+            <!-- 圧縮方法の選択 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button type="button" disabled="@analysis.encrypted" @onclick="@(() => SetMode("ratio"))"
+                        class="@ModeCardClass("ratio", "blue") disabled:opacity-40 disabled:cursor-not-allowed">
+                    <div class="flex items-center gap-4 text-left">
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <CompressIcon Class="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">圧縮率で指定</h3>
+                            <p class="text-sm text-gray-600">低・中・高、または数値で圧縮の強さを選びます</p>
+                        </div>
+                    </div>
+                </button>
+                <button type="button" @onclick="@(() => SetMode("target"))"
+                        class="@ModeCardClass("target", "green")">
+                    <div class="flex items-center gap-4 text-left">
+                        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <FileIcon Class="w-6 h-6 text-green-600" />
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">目標サイズで指定</h3>
+                            <p class="text-sm text-gray-600">「○MB未満にしたい」に合わせて自動で圧縮します</p>
+                        </div>
+                    </div>
+                </button>
+            </div>
+
+            @if (mode == "ratio")
+            {
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-6 space-y-5">
+                    <div class="grid grid-cols-3 gap-3">
+                        @foreach (var preset in presets)
+                        {
+                            var p = preset;
+                            <button type="button" @onclick="@(() => strength = p.Strength)"
+                                    class="@PresetClass(p.Strength)">
+                                <span class="block font-bold">@p.Label</span>
+                                <span class="block text-xs text-gray-500">@p.Description</span>
+                            </button>
+                        }
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label for="strength-range" class="text-sm font-medium text-gray-700">圧縮率（大きいほど画質を下げて小さくします）</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" min="0" max="100" step="1"
+                                       value="@strength"
+                                       @onchange="OnStrengthChanged"
+                                       class="w-20 px-2 py-1 border border-gray-300 rounded text-right" />
+                                <span class="text-gray-700">%</span>
+                            </div>
+                        </div>
+                        <input id="strength-range" type="range" min="0" max="100" step="1"
+                               value="@strength"
+                               @oninput="OnStrengthChanged"
+                               class="w-full accent-blue-600" />
+                    </div>
+
+                    @if (IsEstimateFlat)
+                    {
+                        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 text-sm text-yellow-900 flex gap-2">
+                            <TriangleExclamationIcon Class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                            <div class="space-y-1">
+                                <p class="font-bold">このPDFは、圧縮率を変えてもほとんど小さくなりません。</p>
+                                @if (analysis.skippedCount > 0)
+                                {
+                                    <p>再圧縮に対応していない画像が @analysis.skippedCount 点（合計 @FormatSize(analysis.skippedBytes)）含まれています（白黒画像・索引色・JBIG2など）。</p>
+                                }
+                                else
+                                {
+                                    <p>再圧縮できる画像がほとんど含まれていません。</p>
+                                }
+                                <p>「目標サイズで指定」を使うと、ページを画像化して小さくできる場合があります（テキストは画像になります）。</p>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                    var estimated = EstimateSize(strength);
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-700">
+                            <InfoIcon Class="w-5 h-5 text-blue-600" />
+                            <span>予想サイズ</span>
+                        </div>
+                        @if (estimated == null)
+                        {
+                            <div class="flex items-center gap-2 text-gray-600">
+                                <LoadingSpinnerIcon Class="w-5 h-5 animate-spin" />
+                                <span>見積もり中...</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-right">
+                                <span class="text-2xl font-bold text-gray-800">約 @FormatSize(estimated.Value)</span>
+                                <span class="block text-xs text-gray-500">
+                                    @(ReductionPercent(estimated.Value) > 0 ? $"約{ReductionPercent(estimated.Value)}%削減" : "ほぼ変わりません")（目安）
+                                </span>
+                            </div>
+                        }
+                    </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-6 space-y-5">
+                    <div>
+                        <label for="target-size" class="block text-sm font-medium text-gray-700 mb-2">
+                            このサイズ未満にする（現在: @FormatSize(analysis.size)）
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input id="target-size" type="number" min="0" step="any"
+                                   @bind="targetValue" @bind:event="onchange"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-lg text-right" />
+                            <select @bind="targetUnit" class="px-3 py-2 border border-gray-300 rounded-lg text-lg bg-white">
+                                <option value="KB">KB</option>
+                                <option value="MB">MB</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (targetChips.Count > 0)
+                    {
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var chip in targetChips)
+                            {
+                                var c = chip;
+                                <button type="button" @onclick="@(() => SetTarget(c))"
+                                        class="px-3 py-1 rounded-full border border-gray-300 text-sm hover:border-blue-500 hover:bg-blue-50 transition">
+                                    @FormatSize(c)
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @if (!IsTargetValid)
+                    {
+                        <p class="text-sm text-red-600">現在のサイズ（@FormatSize(analysis.size)）より小さい値を入力してください。</p>
+                    }
+                    else if (TargetBytes < analysis.size - analysis.imageBytes)
+                    {
+                        <p class="text-sm text-yellow-700">
+                            画像以外のデータだけで約 @FormatSize(analysis.size - analysis.imageBytes) あるため、画像の圧縮だけでは届かない可能性があります。その場合はページを画像化する方法をご案内します。
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-gray-600">目標サイズに収まる範囲で、できるだけ画質を保つ設定を自動で探します。</p>
+                    }
+                </div>
+            }
+
+            @if (rasterPrompt != null)
+            {
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-6 space-y-3">
+                    <div class="flex items-start gap-2 text-yellow-900">
+                        <TriangleExclamationIcon Class="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                        <div class="text-sm space-y-1">
+                            <p class="font-bold">画像の圧縮だけでは目標サイズに届きませんでした（最小 @FormatSize(rasterPrompt.bestVectorSize)）。</p>
+                            <p>各ページを画像化すると小さくできる可能性がありますが、テキストの選択・検索ができなくなり、画質も低下します。</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg" @onclick="CompressRasterAsync">
+                            ページを画像化して圧縮
+                        </button>
+                        <button class="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg" @onclick="() => rasterPrompt = null">
+                            キャンセル
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <button class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg text-lg flex items-center justify-center gap-2"
+                    disabled="@(isBusy || !CanCompress)"
+                    @onclick="CompressAsync">
+                <CompressIcon Class="w-5 h-5" />
+                圧縮する
+            </button>
+        </div>
+    </div>
+}
+else if (isOpening)
+{
+    <div class="min-h-screen flex items-center justify-center bg-neutral-100">
+        <LoadingSpinnerIcon Class="w-12 h-12 animate-spin" />
+    </div>
+}
+else if (files.Count > 1)
+{
+    <div class="min-h-screen bg-neutral-100">
+        <div class="sticky top-0 left-0 w-full bg-gray-800 text-white shadow z-50 h-16">
+            <div class="flex items-center px-4 py-2 h-16">
+                <ActionButtonGroup T="string" Actions="resetActions" />
+                <h1 class="hidden md:inline text-lg font-bold ml-2">圧縮</h1>
+            </div>
+        </div>
+        <div class="max-w-3xl mx-auto p-4 md:p-8 space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">圧縮するファイルを選択してください</h2>
+            @foreach (var f in files)
+            {
+                var target = f;
+                <button type="button" @onclick="() => OpenFileAsync(target)"
+                        class="w-full bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-blue-500 hover:shadow-lg transition-all duration-200 flex items-center gap-4 text-left">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <FileIcon Class="w-6 h-6 text-green-600" />
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-bold text-gray-800 truncate">@target.FileName</p>
+                        <p class="text-sm text-gray-600">@target.PageCount ページ / @FormatSize(target.FileData.LongLength)</p>
+                    </div>
+                </button>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <SelectFilePanel OnOpenFileDialog="OpenFileDialog" SupportedFormats=".pdf" />
+}
+
+<LoadingOverlay />
+<MessageBar />
+<PasswordInputDialog IsOpen="@isPasswordDialogOpen" FileName="@passwordDialogFileName" OnClose="OnPasswordDialogClose" />
+<InputFile OnChange="HandleFileSelectionAsync" accept=".pdf,application/pdf" class="hidden" id="fileInput" />
+
+@code {
+    private record Preset(string Label, string Description, int Strength);
+
+    private static readonly Preset[] presets =
+    {
+        new("低", "画質優先", 25),
+        new("中", "バランス", 50),
+        new("高", "サイズ優先", 75),
+    };
+
+    private class AnalysisInfo
+    {
+        public int pageCount { get; set; }
+        public long size { get; set; }
+        public bool encrypted { get; set; }
+        public int imageCount { get; set; }
+        public long imageBytes { get; set; }
+        public int skippedCount { get; set; }
+        public long skippedBytes { get; set; }
+    }
+
+    private class EstimatePoint
+    {
+        public int strength { get; set; }
+        public long size { get; set; }
+    }
+
+    private class CompressResult
+    {
+        public string? url { get; set; }
+        public long size { get; set; }
+        public string? mode { get; set; }
+        public bool reached { get; set; }
+        public bool unchanged { get; set; }
+        public int dpi { get; set; }
+        public bool needsRaster { get; set; }
+        public long bestVectorSize { get; set; }
+    }
+
+    private List<FileMetadata> files => PdfDataService.GetModel().Files.Values.ToList();
+    private FileMetadata? file;
+    private AnalysisInfo? analysis;
+    private List<EstimatePoint>? estimates;
+    private CompressResult? result;
+    private CompressResult? rasterPrompt;
+    private string resultFileName = "";
+
+    private string mode = "ratio";
+    private int strength = 50;
+    private double targetValue = 1;
+    private string targetUnit = "MB";
+
+    private bool isOpening;
+    private bool isBusy;
+    private bool _renderedResult;
+    private bool _dropAreaRegistered;
+    private DotNetObjectReference<Compress>? _dotNetRef;
+
+    private bool isPasswordDialogOpen;
+    private string passwordDialogFileName = "";
+    private TaskCompletionSource<string?>? passwordTcs;
+
+    private long TargetBytes => (long)(targetValue * (targetUnit == "MB" ? 1024 * 1024 : 1024));
+    private bool IsTargetValid => analysis != null && TargetBytes > 0 && TargetBytes < analysis.size;
+
+    // どの強さでも予想サイズがほぼ同じ（＝画像の再圧縮では小さくならない）
+    private bool IsEstimateFlat => analysis != null && estimates is { Count: > 0 }
+        && estimates.Max(e => e.size) - estimates.Min(e => e.size) < analysis.size * 0.02;
+    private bool CanCompress => mode == "ratio" ? !analysis!.encrypted : IsTargetValid;
+
+    private string ResultSizeText => analysis == null || result == null
+        ? ""
+        : $"{FormatSize(analysis.size)} → {FormatSize(result.size)}（{(ReductionPercent(result.size) > 0 ? $"{ReductionPercent(result.size)}%削減" : "削減なし")}）";
+
+    private List<long> targetChips
+    {
+        get
+        {
+            if (analysis == null) return new();
+            long[] candidates = { 100 * 1024, 500 * 1024, 1024 * 1024, 2 * 1024 * 1024, 3 * 1024 * 1024, 5 * 1024 * 1024, 10 * 1024 * 1024, 20 * 1024 * 1024 };
+            return candidates.Where(c => c < analysis.size).TakeLast(5).ToList();
+        }
+    }
+
+    private List<ActionButtonItem> resetActions => new()
+    {
+        new ActionButtonItem
+        {
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.AddAttribute(1, "Class", "w-5 h-5");
+                builder.CloseComponent();
+            },
+            Title = "最初からやり直す",
+            OnClick = EventCallback.Factory.Create(this, StartNewAsync),
+            ButtonClass = "bg-amber-200 hover:bg-amber-300 border border-amber-400 font-bold py-2 px-3 rounded",
+            TextColor = "text-black"
+        }
+    };
+
+    private List<ActionButtonItem> backToSettingsActions => new()
+    {
+        new ActionButtonItem
+        {
+            Label = "設定に戻る",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(ArrowLeftIcon));
+                builder.CloseComponent();
+            },
+            Title = "設定に戻る",
+            OnClick = EventCallback.Factory.Create(this, BackToSettingsAsync),
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        PdfDataService.OnChange += OnServiceChanged;
+        PdfDataService.PasswordInputDialogFunc = ShowPasswordInputDialogAsync;
+        PdfDataService.SwitchDisplayMode(DisplayMode.File);
+        CompletionState.Reset();
+        await SyncFilesAsync();
+    }
+
+    private void OnServiceChanged()
+    {
+        _ = InvokeAsync(SyncFilesAsync);
+    }
+
+    // サービス上のファイルが1つだけなら自動で解析を始める（他機能からの引き継ぎ・アップロード共通）
+    private async Task SyncFilesAsync()
+    {
+        // 結果表示中は他機能へ引き継ぐ操作で変化するだけなので何もしない
+        if (result != null) return;
+
+        var current = files;
+        if (file != null && !current.Any(f => f.FileId == file.FileId))
+        {
+            await ResetStateAsync();
+        }
+        if (file == null && !isOpening && current.Count == 1)
+        {
+            await OpenFileAsync(current[0]);
+        }
+        StateHasChanged();
+    }
+
+    private async Task OpenFileAsync(FileMetadata target)
+    {
+        if (isOpening) return;
+        isOpening = true;
+        StateHasChanged();
+        try
+        {
+            await MessageService.ShowLoadingAsync("PDFを解析中...");
+            analysis = await JSRuntime.InvokeAsync<AnalysisInfo>("pdfCompress.open", target.FileData);
+            file = target;
+            estimates = null;
+            rasterPrompt = null;
+            mode = analysis.encrypted ? "target" : "ratio";
+            strength = 50;
+            SetTarget(analysis.size / 2);
+            _ = LoadEstimatesAsync(target.FileId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress open error: {ex.Message}");
+            _ = MessageService.ShowAsync("PDFの解析に失敗しました。", MessageType.Error);
+            file = null;
+            analysis = null;
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+            isOpening = false;
+        }
+    }
+
+    private async Task LoadEstimatesAsync(string fileId)
+    {
+        try
+        {
+            var points = await JSRuntime.InvokeAsync<List<EstimatePoint>>("pdfCompress.estimate");
+            if (file?.FileId == fileId)
+            {
+                estimates = points;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress estimate error: {ex.Message}");
+        }
+    }
+
+    private long? EstimateSize(int s)
+    {
+        if (estimates == null || estimates.Count == 0) return null;
+        var lower = estimates.LastOrDefault(e => e.strength <= s) ?? estimates[0];
+        var upper = estimates.FirstOrDefault(e => e.strength >= s) ?? estimates[^1];
+        if (lower.strength == upper.strength) return lower.size;
+        var t = (s - lower.strength) / (double)(upper.strength - lower.strength);
+        return (long)(lower.size + (upper.size - lower.size) * t);
+    }
+
+    private int ReductionPercent(long newSize)
+    {
+        if (analysis == null || analysis.size <= 0) return 0;
+        return (int)Math.Round((1.0 - (double)newSize / analysis.size) * 100);
+    }
+
+    private void SetMode(string value)
+    {
+        mode = value;
+        rasterPrompt = null;
+    }
+
+    private void OnStrengthChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+        {
+            strength = Math.Clamp(v, 0, 100);
+        }
+    }
+
+    // 目標サイズ入力欄へ値を反映（MB単位で1以上ならMB、それ以外はKB）
+    private void SetTarget(long bytes)
+    {
+        if (bytes >= 1024 * 1024)
+        {
+            targetUnit = "MB";
+            targetValue = Math.Round(bytes / 1024.0 / 1024.0, 1);
+        }
+        else
+        {
+            targetUnit = "KB";
+            targetValue = Math.Max(1, Math.Round(bytes / 1024.0));
+        }
+    }
+
+    private string ModeCardClass(string value, string color)
+    {
+        var selected = mode == value;
+        var border = selected ? (color == "blue" ? "border-blue-500 bg-blue-50" : "border-green-500 bg-green-50") : "border-gray-200 bg-white hover:border-gray-400";
+        return $"border-2 rounded-xl p-5 transition-all duration-200 hover:shadow-lg {border}";
+    }
+
+    private string PresetClass(int value)
+    {
+        var selected = strength == value;
+        return $"border-2 rounded-lg py-2 text-center transition {(selected ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 hover:border-blue-300 text-gray-800")}";
+    }
+
+    private async Task CompressAsync()
+    {
+        if (isBusy || analysis == null || !CanCompress) return;
+        isBusy = true;
+        rasterPrompt = null;
+        try
+        {
+            await MessageService.ShowLoadingAsync(mode == "ratio" ? "圧縮中..." : "目標サイズに合わせて圧縮中...");
+            CompressResult res;
+            if (mode == "ratio")
+            {
+                res = await JSRuntime.InvokeAsync<CompressResult>("pdfCompress.compress", strength);
+            }
+            else
+            {
+                res = await JSRuntime.InvokeAsync<CompressResult>("pdfCompress.compressToTarget", TargetBytes);
+                if (res.needsRaster)
+                {
+                    rasterPrompt = res;
+                    return;
+                }
+            }
+            await ShowResultAsync(res);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress error: {ex.Message}");
+            _ = MessageService.ShowAsync("圧縮中にエラーが発生しました。", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+            isBusy = false;
+        }
+    }
+
+    private async Task CompressRasterAsync()
+    {
+        if (isBusy || analysis == null) return;
+        isBusy = true;
+        rasterPrompt = null;
+        try
+        {
+            await MessageService.ShowLoadingAsync("ページを画像化して圧縮中...");
+            var res = await JSRuntime.InvokeAsync<CompressResult>("pdfCompress.compressRasterToTarget", TargetBytes);
+            await ShowResultAsync(res);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress raster error: {ex.Message}");
+            _ = MessageService.ShowAsync("圧縮中にエラーが発生しました。", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+            isBusy = false;
+        }
+    }
+
+    private async Task ShowResultAsync(CompressResult res)
+    {
+        await RevokeResultAsync();
+        resultFileName = $"{Path.GetFileNameWithoutExtension(file!.FileName)}_compressed.pdf";
+        _renderedResult = false;
+        result = res;
+    }
+
+    private async Task RevokeResultAsync()
+    {
+        var url = result?.url;
+        result = null;
+        if (!string.IsNullOrEmpty(url))
+        {
+            try { await JSRuntime.InvokeVoidAsync("revokeObjectUrl", url); } catch { }
+        }
+    }
+
+    private async Task BackToSettingsAsync()
+    {
+        await RevokeResultAsync();
+    }
+
+    private async Task DownloadResultAsync()
+    {
+        if (result?.url == null) return;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("downloadFileFromUrl", result.url, resultFileName, "application/pdf");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress download error: {ex.Message}");
+            _ = MessageService.ShowAsync("PDFのダウンロードに失敗しました。", MessageType.Error);
+        }
+    }
+
+    private async Task ResetStateAsync()
+    {
+        await RevokeResultAsync();
+        try { await JSRuntime.InvokeVoidAsync("pdfCompress.close"); } catch { }
+        file = null;
+        analysis = null;
+        estimates = null;
+        rasterPrompt = null;
+    }
+
+    private async Task StartNewAsync()
+    {
+        await ResetStateAsync();
+        PdfDataService.Clear();
+    }
+
+    private async Task OpenFileDialog()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("openFileDialog", "fileInput");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening file dialog: {ex.Message}");
+            _ = MessageService.ShowAsync("ファイル選択ダイアログの表示に失敗しました。", MessageType.Error);
+        }
+    }
+
+    private async Task HandleFileSelectionAsync(InputFileChangeEventArgs e)
+    {
+        if (e.GetMultipleFiles().Any(f => !IsPdf(f.Name)))
+        {
+            _ = MessageService.ShowAsync("PDFファイルのみ選択できます。", MessageType.Warn);
+            return;
+        }
+        try
+        {
+            await MessageService.ShowLoadingAsync("ファイル読み込み中...");
+            await PdfDataService.HandleFileInputAsync(e, null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress file input error: {ex.Message}");
+            _ = MessageService.ShowAsync("ファイルの読み込み中にエラーが発生しました。", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnJsFileDropped(string fileName, string contentType, string base64Data)
+    {
+        try
+        {
+            if (!IsPdf(fileName))
+            {
+                _ = MessageService.ShowAsync("PDFファイルのみ対応しています。", MessageType.Warn);
+                return;
+            }
+            await PdfDataService.HandleDroppedFileAsync(fileName, base64Data);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Compress drop error: {ex.Message}");
+            _ = MessageService.ShowAsync("ファイルの読み込み中にエラーが発生しました。", MessageType.Error);
+        }
+        finally
+        {
+            await MessageService.HideLoadingAsync();
+        }
+    }
+
+    private static bool IsPdf(string name) =>
+        string.Equals(Path.GetExtension(name), ".pdf", StringComparison.OrdinalIgnoreCase);
+
+    private Task<string?> ShowPasswordInputDialogAsync(string fileName)
+    {
+        passwordDialogFileName = fileName;
+        isPasswordDialogOpen = true;
+        passwordTcs = new TaskCompletionSource<string?>();
+        StateHasChanged();
+        return passwordTcs.Task;
+    }
+
+    private void OnPasswordDialogClose(string? password)
+    {
+        isPasswordDialogOpen = false;
+        passwordTcs?.SetResult(password);
+        passwordTcs = null;
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var showSelectPanel = result == null && file == null && !isOpening && files.Count == 0;
+        if (showSelectPanel && !_dropAreaRegistered)
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("registerSelectDropArea", _dotNetRef);
+            _dropAreaRegistered = true;
+        }
+        else if (!showSelectPanel && _dropAreaRegistered)
+        {
+            await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea");
+            _dropAreaRegistered = false;
+        }
+
+        if (result?.url != null && analysis != null && !_renderedResult)
+        {
+            _renderedResult = true;
+            var canvasIds = Enumerable.Range(0, analysis.pageCount).Select(i => $"merged-canvas-{i}").ToArray();
+            await JSRuntime.InvokeVoidAsync("renderPdfPages", result.url, canvasIds);
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes >= 1024 * 1024) return $"{bytes / 1024.0 / 1024.0:0.##} MB";
+        if (bytes >= 1024) return $"{bytes / 1024.0:0.#} KB";
+        return $"{bytes} B";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        PdfDataService.OnChange -= OnServiceChanged;
+        PdfDataService.PasswordInputDialogFunc = null;
+        passwordTcs?.TrySetCanceled();
+
+        try { await JSRuntime.InvokeVoidAsync("unregisterSelectDropArea"); } catch { }
+        try { await JSRuntime.InvokeVoidAsync("pdfCompress.close"); } catch { }
+        var url = result?.url;
+        if (!string.IsNullOrEmpty(url))
+        {
+            try { await JSRuntime.InvokeVoidAsync("revokeObjectUrl", url); } catch { }
+        }
+        _dotNetRef?.Dispose();
+    }
+}

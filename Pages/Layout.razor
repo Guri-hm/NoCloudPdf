@@ -309,7 +309,9 @@
     <div class="overflow-hidden h-[calc(100vh-4rem)]">
         <div class="flex flex-col md:flex-row h-full">
             <!-- PDF結果プレビュー -->
-            <div class="flex flex-col flex-1 gap-1 overflow-y-auto items-center">
+            <div class="flex flex-col flex-1 overflow-y-auto items-center">
+                <PreviewNotice />
+                <div class="flex flex-col flex-1 gap-1 items-center w-full">
                 @foreach (var info in resultPdfInfos)
                 {
                     <div class="flex flex-row items-center bg-white rounded shadow p-4 my-2 w-full max-w-lg">
@@ -340,9 +342,13 @@
                                     @onclick="() => DownloadResultPdf(info)">
                                 ダウンロード
                             </button>
+                            <div class="w-full mt-2">
+                                <ContinueWithPdf Url="@info.Url" FileName="@info.Name" Exclude="layout" />
+                            </div>
                         </div>
                     </div>
                 }
+                </div>
             </div>
             <!-- 情報パネル（PCのみ表示） -->
             <div

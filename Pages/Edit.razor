@@ -163,6 +163,7 @@
                         PrimaryLabel="PDFでダウンロード"
                         OnPrimaryClick="DownloadMergedPdf"
                         MenuItems="@downloadMenuItems" />
+                    <ContinueWithPdf Url="@mergedPdfUrl" FileName="@mergedFileName" Exclude="edit" />
                     <button
                         class="bg-white hover:bg-gray-100 border-1 border-solid border-gray-300 font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
@@ -188,6 +189,7 @@
                         PrimaryLabel="PDFでダウンロード"
                         OnPrimaryClick="DownloadMergedPdf"
                         MenuItems="@downloadMenuItems" />
+                    <ContinueWithPdf Url="@mergedPdfUrl" FileName="@mergedFileName" Exclude="edit" />
                     <button
                         class="bg-neutral-500 hover:bg-neutral-600 text-white font-bold py-2 px-6 rounded-lg w-full flex items-center justify-center mt-4"
                         @onclick="StartNew">
