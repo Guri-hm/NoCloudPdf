@@ -43,12 +43,55 @@ window.loadHtml5QrcodeLibrary = async function() {
 // 1. 画像からQRコード読み取り
 // ========================================
 
+window.loadJsQrLibrary = function() {
+    if (window.jsQR) {
+        return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('jsQR is not available'));
+        document.head.appendChild(script);
+    });
+};
+
+async function decodeWithJsQr(file) {
+    await window.loadJsQrLibrary();
+    const url = URL.createObjectURL(file);
+    try {
+        const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = url;
+        });
+        const p = Math.round(Math.max(img.naturalWidth, img.naturalHeight) * 0.1);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth + p * 2;
+        canvas.height = img.naturalHeight + p * 2;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, p, p);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = window.jsQR(data.data, data.width, data.height, { inversionAttempts: 'attemptBoth' });
+        if (!code || !code.data) {
+            throw new Error('jsQR could not detect the code');
+        }
+        return code.data;
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
 /**
  * 画像ファイル（Base64 or File object）からQRコードをデコード
  * @param {string|File} imageSource - Base64文字列 or File object
  * @returns {Promise<string>} デコードされたテキスト
  */
 window.decodeQrCodeFromImage = async function(imageSource) {
+    let file;
     try {
         await window.loadHtml5QrcodeLibrary();
 
@@ -63,15 +106,23 @@ window.decodeQrCodeFromImage = async function(imageSource) {
             // Base64 data URLの場合、Blobに変換してFileを作成
             const response = await fetch(imageSource);
             const blob = await response.blob();
-            const file = new File([blob], "qrcode.png", { type: blob.type });
+            file = new File([blob], "qrcode.png", { type: blob.type });
             result = await html5QrCode.scanFile(file, true);
         } else {
             // File objectの場合
+            file = imageSource;
             result = await html5QrCode.scanFile(imageSource, true);
         }
 
         return result.decodedText || result;
     } catch (error) {
+        try {
+            if (file) {
+                return await decodeWithJsQr(file);
+            }
+        } catch (jsQrError) {
+            console.error('QR decode error:', jsQrError);
+        }
         console.error('QR decode error:', error);
         throw new Error('QRコードが見つかりませんでした。画像が鮮明でQRコードが含まれているか確認してください。');
     }
