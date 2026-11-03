@@ -1,6 +1,6 @@
 // ========================================
 // QRコード処理ユーティリティ
-// html5-qrcode ライブラリの動的ロード＆統合
+// カメラには html5-qrcode、画像には jsQR を使用
 // ========================================
 
 let html5QrcodeLibLoaded = false;
@@ -43,17 +43,36 @@ window.loadHtml5QrcodeLibrary = async function() {
 // 1. 画像からQRコード読み取り
 // ========================================
 
+let jsQrLoadPromise = null;
+
 window.loadJsQrLibrary = function() {
-    if (window.jsQR) {
+    if (typeof window.jsQR === 'function') {
         return Promise.resolve();
     }
-    return new Promise((resolve, reject) => {
+    if (jsQrLoadPromise) {
+        return jsQrLoadPromise;
+    }
+
+    jsQrLoadPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('jsQR is not available'));
+        script.onload = () => {
+            if (typeof window.jsQR !== 'function') {
+                script.remove();
+                jsQrLoadPromise = null;
+                reject(new Error('jsQR is not available'));
+                return;
+            }
+            resolve();
+        };
+        script.onerror = () => {
+            script.remove();
+            jsQrLoadPromise = null;
+            reject(new Error('Failed to load jsQR library'));
+        };
         document.head.appendChild(script);
     });
+    return jsQrLoadPromise;
 };
 
 async function decodeWithJsQr(file) {
@@ -66,14 +85,16 @@ async function decodeWithJsQr(file) {
             i.onerror = reject;
             i.src = url;
         });
-        const p = Math.round(Math.max(img.naturalWidth, img.naturalHeight) * 0.1);
         const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth + p * 2;
-        canvas.height = img.naturalHeight + p * 2;
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) {
+            throw new Error('Could not create canvas context');
+        }
         ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, p, p);
+        ctx.drawImage(img, 0, 0);
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = window.jsQR(data.data, data.width, data.height, { inversionAttempts: 'attemptBoth' });
         if (!code || !code.data) {
@@ -91,38 +112,22 @@ async function decodeWithJsQr(file) {
  * @returns {Promise<string>} デコードされたテキスト
  */
 window.decodeQrCodeFromImage = async function(imageSource) {
-    let file;
     try {
-        await window.loadHtml5QrcodeLibrary();
-
-        if (!window.Html5Qrcode) {
-            throw new Error('Html5Qrcode is not available');
-        }
-
-        const html5QrCode = new Html5Qrcode("qr-reader-hidden");
-        
-        let result;
+        let file = imageSource;
         if (typeof imageSource === 'string') {
-            // Base64 data URLの場合、Blobに変換してFileを作成
             const response = await fetch(imageSource);
-            const blob = await response.blob();
-            file = new File([blob], "qrcode.png", { type: blob.type });
-            result = await html5QrCode.scanFile(file, true);
-        } else {
-            // File objectの場合
-            file = imageSource;
-            result = await html5QrCode.scanFile(imageSource, true);
+            if (!response.ok) {
+                throw new Error(`Failed to load image: ${response.status}`);
+            }
+            file = await response.blob();
         }
 
-        return result.decodedText || result;
-    } catch (error) {
-        try {
-            if (file) {
-                return await decodeWithJsQr(file);
-            }
-        } catch (jsQrError) {
-            console.error('QR decode error:', jsQrError);
+        if (!(file instanceof Blob)) {
+            throw new TypeError('Image source must be a URL or Blob');
         }
+
+        return await decodeWithJsQr(file);
+    } catch (error) {
         console.error('QR decode error:', error);
         throw new Error('QRコードが見つかりませんでした。画像が鮮明でQRコードが含まれているか確認してください。');
     }
@@ -152,8 +157,6 @@ window.decodeMultipleQrCodesFromImage = async function(imageSource) {
  */
 window.scanQrCodeFromCanvas = async function(canvasId) {
     try {
-        await window.loadHtml5QrcodeLibrary();
-
         const canvas = document.getElementById(canvasId);
         if (!canvas) {
             throw new Error(`Canvas not found: ${canvasId}`);
@@ -180,8 +183,6 @@ window.scanQrCodeFromCanvas = async function(canvasId) {
  */
 window.scanQrCodeFromImageUrl = async function(imageUrl) {
     try {
-        await window.loadHtml5QrcodeLibrary();
-
         // 画像をロードしてCanvasに描画
         const img = new Image();
         img.crossOrigin = 'anonymous';

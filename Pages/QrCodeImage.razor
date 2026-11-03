@@ -85,9 +85,6 @@ else
 }
 
 
-<!-- 隠しQRリーダー要素 -->
-<div id="qr-reader-hidden" style="display: none;"></div>
-
 <!-- ファイル選択用の隠しinput -->
 <InputFile OnChange="HandleFileSelectionAsync" accept="image/*" class="hidden" id="fileInput" />
 
@@ -245,18 +242,6 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            try
-            {
-                await JSRuntime.InvokeVoidAsync("loadHtml5QrcodeLibrary");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to load QR library: {ex.Message}");
-            }
-        }
-
         // 画像未選択の初期画面のときのみ登録
         if (string.IsNullOrEmpty(imagePreviewUrl))
         {
