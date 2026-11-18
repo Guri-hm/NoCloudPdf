@@ -1788,7 +1788,9 @@ public class PdfDataService
 
             var pageItem = _model.Pages[index];
             // ここでデータ自体は変更せず、回転角度だけを更新
-            pageItem.RotateAngle = (pageItem.RotateAngle + angle + 360) % 360;
+            pageItem.RotateAngle = ((pageItem.RotateAngle + angle % 360) % 360 + 360) % 360;
+            foreach (var rect in pageItem.TrimRects)
+                rect.RotateWithPage(angle);
             
             // プレビューキャッシュを破棄（回転後は再生成が必要）
             ClearPreviewCache(pageItem.Id);

@@ -4,3 +4,52 @@
     height: 100%;
     overflow: hidden; /* EditPage 内でスクロールを制御 */
 }
+
+#edit-canvas-container {
+    min-height: 0;
+    padding-inline: 20px;
+}
+
+.pdf-page {
+    flex: none;
+    margin: 20px auto;
+}
+
+#edit-canvas-container[data-tool="Select"],
+#edit-canvas-container[data-tool="Cover"] {
+    touch-action: none;
+}
+
+#edit-canvas-container[data-tool="Select"] {
+    cursor: grab;
+}
+
+#edit-canvas-container[data-panning] {
+    cursor: grabbing;
+    user-select: none;
+}
+
+#edit-canvas-container[data-tool="Cover"],
+#edit-canvas-container[data-tool="Eraser"] {
+    cursor: crosshair;
+}
+
+#edit-canvas-container:is([data-tool="Cover"], [data-tool="Eraser"]) .edit-element,
+#edit-canvas-container:is([data-tool="Cover"], [data-tool="Eraser"]) .edit-element ::deep * {
+    pointer-events: none;
+}
+
+.cover-element,
+.cover-preview {
+    position: absolute;
+    pointer-events: none;
+}
+
+#edit-canvas-container[data-tool="Eraser"] .cover-element {
+    pointer-events: auto;
+}
+
+.cover-preview {
+    outline: 1px dashed #2563eb;
+    opacity: 0.75;
+}

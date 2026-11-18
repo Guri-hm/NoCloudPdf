@@ -61,6 +61,18 @@ public class TrimRectInfo
     // 任意のメタ情報
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public string? Tag { get; set; }
+
+    public void RotateWithPage(int angle)
+    {
+        // 座標は表示中のページの左上が原点。
+        (X, Y, Width, Height) = ((angle % 360 + 360) % 360) switch
+        {
+            90 => (1 - (Y + Height), X, Height, Width),
+            180 => (1 - (X + Width), 1 - (Y + Height), Width, Height),
+            270 => (Y, 1 - (X + Width), Height, Width),
+            _ => (X, Y, Width, Height)
+        };
+    }
 }
 
 /// <summary>

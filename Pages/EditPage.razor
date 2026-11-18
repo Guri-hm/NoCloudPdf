@@ -9,6 +9,7 @@
 @inject NavigationManager Navigation
 @inject PdfDataService PdfDataService
 @inject MessageService MessageService
+@implements IAsyncDisposable
 
 <HeadContent>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,7 +36,7 @@
                     OnClick="OnToolChanged" />
                 <ActionButtonGroup T="string" Actions="zoomActions" />
 
-                    @if (currentTool == EditTool.Text)
+                    @if (currentTool == EditTool.Text || (currentTool == EditTool.Select && HasSelectedText))
                     {
                         <div class="flex flex-wrap items-center gap-2 w-full">
 
@@ -44,6 +45,18 @@
                                     var selectedElement = editElements.FirstOrDefault(el => selectedElementIds.Contains(el.Id));
                                     var targetElement = editingElement ?? selectedElement;
                                     var fontFamilyOptions = GetFontFamilyOptions(targetElement);
+                                }
+                                @if (currentTool == EditTool.Cover)
+                                {
+                                    <label class="flex items-center gap-2 text-sm">
+                                        塗りつぶし色
+                                        <input type="color" class="w-8 h-8" @bind="coverColor" @bind:event="oninput" />
+                                    </label>
+                                    <span class="text-sm">ドラッグして範囲を覆います（元の文字は削除されません）</span>
+                                }
+                                @if (currentTool == EditTool.Eraser)
+                                {
+                                    <span class="text-sm">保存前の塗りつぶしをクリックして取り除きます</span>
                                 }
                                 <SelectBox 
                                     Id="font-family-select"
@@ -124,12 +137,13 @@
     </div>
         
     <!-- メインエディタエリア -->
-    <div id="edit-canvas-container" class="flex-1 w-full overflow-auto flex justify-center items-start custom-scrollbar
+    <div id="edit-canvas-container" class="flex-1 w-full overflow-auto flex items-start custom-scrollbar
     @(currentTool == EditTool.Text ? " cursor-text" : "")"
-    @onmousedown="OnCanvasMouseDown" @onmouseup="OnElementMouseUp">
+    data-tool="@currentTool" data-cover-color="@coverColor" data-ready="@(editorReady ? "true" : "false")"
+    @onmouseup="OnElementMouseUp">
                 <!-- PDF ページ -->
                 <div class="pdf-page bg-white shadow-lg relative"
-                    style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px; margin: 20px; transform: scale(1); transform-origin: center center;"
+                    style="width:@(pageWidth * zoomLevel)px; height:@(pageHeight * zoomLevel)px;"
                     @onclick="OnPageClick">
                     <canvas id="pdf-canvas-@canvasUniqueId"
                             width="@(pageWidth)"
@@ -138,11 +152,11 @@
                             class="absolute inset-0"></canvas>
 
                     <!-- 編集要素 -->
-                    @foreach (var element in editElements)
+                    @foreach (var element in editElements.OrderBy(el => el.Type != ElementType.Cover))
                     {
                         @if (element.Type == ElementType.Text)
                         {
-                            <div class="edit-element text-element absolute cursor-move select-none
+                            <div @key="element.Id" class="edit-element text-element absolute cursor-move select-none
                                 @(element.IsEditing
                                     ? "border-3 border-blue-600 bg-blue-50"
                                     : (selectedElementIds.Contains(element.Id)
@@ -183,16 +197,15 @@
                                             word-wrap: break-word; 
                                             word-break: break-word; 
                                             overflow-wrap: break-word;
-                                            white-space: @(element.FitTextToArea ? "nowrap" : "pre-wrap");"
+                                            white-space: @(element.FitTextToArea ? "pre" : "pre-wrap");"
                                         wrap="@(element.FitTextToArea ? "off" : "soft")"
-                                        @ref="textInputRef"
                                         @onclick:stopPropagation
                                         @onmousedown:stopPropagation
                                     />
                                     
                                     <!-- span（表示モード） -->
                                     <span
-                                        @onclick="() => { if (!element.IsEditing) SelectElement(element.Id); }"
+                                        @onclick="(e) => SelectElement(element.Id, e.ShiftKey || e.CtrlKey || e.MetaKey)"
                                         @ondblclick="() => StartTextEdit(element)"
                                         @onclick:stopPropagation
                                         @ondblclick:stopPropagation
@@ -210,9 +223,9 @@
                                             word-wrap: break-word;
                                             word-break: break-word;
                                             overflow-wrap: break-word;
-                                            white-space: @(element.FitTextToArea ? "nowrap" : "pre-wrap");"
+                                            white-space: @(element.FitTextToArea ? "pre" : "pre-wrap");"
                                     >
-                                        @((MarkupString)element.Text.Replace("\n", "<br />"))
+                                        @element.Text
                                     </span>
                                 </div>
                                 
@@ -221,7 +234,7 @@
                                 {
                                     <TextElementControls 
                                         IsVisible="true"
-                                        ShowEditButton="currentTool == EditTool.Text"
+                                        ShowEditButton="currentTool is EditTool.Text or EditTool.Select"
                                         ElementWidth="element.Width"
                                         ElementHeight="element.Height"
                                         ZoomLevel="zoomLevel"
@@ -235,7 +248,7 @@
                         }
                         else if (element.Type == ElementType.Image)
                         {
-                            <div class="edit-element image-element absolute select-none cursor-move
+                            <div @key="element.Id" class="edit-element image-element absolute select-none cursor-move
                                 @(selectedElementIds.Contains(element.Id) ? "border-2 border-blue-600" : "border-2 border-transparent")"
                                 style="
                                     left: @(element.X * zoomLevel)px;
@@ -247,7 +260,7 @@
                                     transform-origin: center center;"
                                 @onmousedown="(e) => OnImageMouseDown(e, element)"
                                 @onmouseup="OnImageMouseUp"
-                                @onclick="() => { if (currentTool == EditTool.Image || currentTool == EditTool.Select) SelectElement(element.Id); }"
+                                @onclick="(e) => currentTool is EditTool.Image or EditTool.Select ? SelectElement(element.Id, e.ShiftKey || e.CtrlKey || e.MetaKey) : Task.CompletedTask"
                                 @onclick:stopPropagation>
                                 
                                 <!-- img だけを反転 -->
@@ -270,7 +283,14 @@
                                 }
                             </div>
                         }
+                        else if (element.Type == ElementType.Cover)
+                        {
+                            <div @key="element.Id" class="cover-element"
+                                 style="left:@(element.X * zoomLevel)px; top:@(element.Y * zoomLevel)px; width:@(element.Width * zoomLevel)px; height:@(element.Height * zoomLevel)px; background-color:@element.Color;"
+                                 @onclick="() => EraseCover(element.Id)" @onclick:stopPropagation></div>
+                        }
                     }
+                    <div class="cover-preview" hidden></div>
                 </div>
         
     </div>
@@ -293,15 +313,6 @@
 
     [Parameter] public string FileId { get; set; } = "";
     [Parameter] public int PageIndex { get; set; }
-    // 例: FileIdをピリオドなしに変換(cssセレクタでピリオドがクラス名として解釈されるため)
-    private string GetSafeId(string fileId) =>
-    fileId.Replace(".", "_").Replace("/", "_").Replace("\\", "_");
-
-    private string safeFileId = "";
-    protected override void OnParametersSet()
-    {
-        safeFileId = GetSafeId(FileId);
-    }
     private string fileName = "";
     private int pageWidth = 595;
     private int pageHeight = 842;
@@ -319,8 +330,8 @@
     private double dragStartImageWidth, dragStartImageHeight;
 
     private EditTool currentTool = EditTool.Select;
-    private double lastMouseX = 0;
-    private double lastMouseY = 0;
+    private bool editorReady;
+    private string coverColor = "#ffffff";
 
     private bool ignoreNextPageClick = false;
     private bool ignoreTextBlur = false;
@@ -501,6 +512,7 @@
 
     // 選択された要素のIDリスト
     private List<string> selectedElementIds = new();
+    private bool HasSelectedText => editElements.Any(el => el.Type == ElementType.Text && selectedElementIds.Contains(el.Id));
 
     private List<ToggleButtonItem<EditTool>> toolToggleItems = new()
     {
@@ -536,13 +548,34 @@
                 builder.AddAttribute(1, "Class", "w-6 h-6");
                 builder.CloseComponent();
             }
+        },
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Cover,
+            Label = "塗りつぶし",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(PenIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
+        },
+        new ToggleButtonItem<EditTool>
+        {
+            Value = EditTool.Eraser,
+            Label = "消しゴム",
+            IconFragment = builder =>
+            {
+                builder.OpenComponent(0, typeof(EraserIcon));
+                builder.AddAttribute(1, "Class", "w-6 h-6");
+                builder.CloseComponent();
+            }
         }
     };
 
     private Task OnToolChanged(EditTool tool)
     {
-        SetTool(tool);
-        return Task.CompletedTask;
+        return SetTool(tool);
     }
 
     private List<ActionButtonItem> backToActions => new()
@@ -764,8 +797,8 @@
         // 高さを常に再計算（削除時も縮小するため）
         try
         {
-            var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-            if (textareaHeightPx > 0)
+            var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", $"text-area-{element.Id}");
+            if (element.IsEditing && textareaHeightPx > 0)
             {
                 var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
                 var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
@@ -831,10 +864,8 @@
 
     private List<EditElement> editElements = new();
 
-    private ElementReference textInputRef;
-
-    private enum EditTool { Select, Text, Image }
-    private enum ElementType { Text, Image }
+    private enum EditTool { Select, Text, Image, Cover, Eraser }
+    private enum ElementType { Text, Image, Cover }
 
     private class EditElement
     {
@@ -1092,59 +1123,21 @@
 
     private async Task OnFontSizeChanged(ChangeEventArgs e)
     {
-        int value;
-        if (!int.TryParse(e.Value?.ToString(), out value))
+        var value = int.TryParse(e.Value?.ToString(), out var size) ? size : DefaultFontSize;
+        var targets = editElements.Where(el => el.Type == ElementType.Text &&
+            (el.IsEditing || selectedElementIds.Contains(el.Id))).ToArray();
+        foreach (var el in targets)
         {
-            value = DefaultFontSize;
+            el.FontSize = value;
+            await FitTextBox(el);
         }
-        var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
-        if (editingElement != null)
-        {
-            editingElement.FontSize = value;
-            _fontSize = value;
-            _userDefaultFontSize = value;
-            if (editingElement.FitTextToArea)
-            {
-                var maxLineWidth = await JSRuntime.InvokeAsync<double>(
-                    "measureMaxLineWidth",
-                    editingElement.Text,
-                    editingElement.FontSize * zoomLevel,
-                    editingElement.FontFamily
-                );
-                editingElement.Width = (maxLineWidth / zoomLevel) + (editingElement.FontSize * 0.5);
-            }
-        }
-        else if (selectedElementIds.Count > 0)
-        {
-            foreach (var el in editElements.Where(el => selectedElementIds.Contains(el.Id)))
-            {
-                el.FontSize = value;
-                if (el.FitTextToArea)
-                {
-                    var maxLineWidth = await JSRuntime.InvokeAsync<double>(
-                        "measureMaxLineWidth",
-                        el.Text,
-                        el.FontSize * zoomLevel,
-                        el.FontFamily
-                    );
-                    el.Width = (maxLineWidth / zoomLevel) + (el.FontSize * 0.5);
-                }
-            }
-            _fontSize = value;
-            _userDefaultFontSize = value;
-        }
-        else
-        {
-            _userDefaultFontSize = value;
-            fontSize = value;
-        }
-        StateHasChanged();
+        _fontSize = value;
+        _userDefaultFontSize = value;
     }
 
-    private async void StartTextEdit(EditElement element)
+    private async Task StartTextEdit(EditElement element)
     {
-        foreach (var el in editElements)
-            el.IsEditing = false;
+        await FinishActiveTextEdit();
 
         element.IsEditing = true;
         selectedElementIds.Clear();
@@ -1152,33 +1145,24 @@
 
         fontFamily = element.FontFamily;
         _fontSize = element.FontSize;
-        uiFitTextToArea = element.FitTextToArea;
+        _uiFitTextToArea = element.FitTextToArea;
 
+        await FocusTextElement(element);
+    }
+
+    private async Task FocusTextElement(EditElement element)
+    {
         StateHasChanged();
-        await Task.Yield();
+        await JSRuntime.InvokeVoidAsync("waitForNextFrame");
 
-        try
+        if (!element.IsEditing) return;
+        var id = $"text-area-{element.Id}";
+        await JSRuntime.InvokeVoidAsync("focusAndSelectTextarea", id);
+        var height = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", id);
+        if (element.IsEditing && height > 0)
         {
-            await textInputRef.FocusAsync();
-            await JSRuntime.InvokeVoidAsync("selectAllTextarea", textInputRef);
-            
-            // 初回の高さ調整（削除時も機能するように修正）
-            var textareaHeightPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-            if (textareaHeightPx > 0)
-            {
-                var lineHeight = element.LineHeight > 0 ? element.LineHeight : element.FontSize * 1.2;
-                var newHeight = Math.Max(lineHeight, textareaHeightPx / zoomLevel);
-                
-                if (Math.Abs(element.Height - newHeight) > 0.1)
-                {
-                    element.Height = newHeight;
-                    StateHasChanged();
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"StartTextEdit error: {ex.Message}");
+            element.Height = height / zoomLevel;
+            StateHasChanged();
         }
     }
 
@@ -1922,6 +1906,7 @@ private void RotateSelectedImageRight()
                 _dotNetRef = DotNetObjectReference.Create(this);
                 await JSRuntime.InvokeVoidAsync("registerEditPageMouseHandlers", _dotNetRef);
                 await JSRuntime.InvokeVoidAsync("registerEditPageKeyHandler", _dotNetRef);
+                await JSRuntime.InvokeVoidAsync("registerEditPageCanvasHandlers", _dotNetRef);
 
                 // 初期コンテナサイズを取得
                 var size = await JSRuntime.InvokeAsync<SizeDto>("updateEditContainerSize");
@@ -1953,7 +1938,7 @@ private void RotateSelectedImageRight()
                     return;
                 }
 
-                cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", safeFileId, PageIndex, originalPageData);
+                cachedPageSource = await JSRuntime.InvokeAsync<PageSourceInfo>("getPageSourceInfo", originalPageData, pageItem.RotateAngle);
                 if (cachedPageSource == null)
                 {
                     cachedPageSource = new PageSourceInfo { 
@@ -1979,6 +1964,7 @@ private void RotateSelectedImageRight()
                 // 初期表示時にキャンバス/親要素の実サイズを取得して、ページ全体が見える倍率に合わせる
                 await RedrawPdfPage(applyFit: true);
 
+                editorReady = true;
                 StateHasChanged();
 
             }catch(Exception ex)
@@ -2012,6 +1998,7 @@ private void RotateSelectedImageRight()
 
     public async ValueTask DisposeAsync()
     {
+        await JSRuntime.InvokeVoidAsync("unregisterEditPageCanvasHandlers");
         await JSRuntime.InvokeVoidAsync("unregisterEditPageMouseHandlers");
         await JSRuntime.InvokeVoidAsync("unregisterEditPageKeyHandler");
         _dotNetRef?.Dispose();
@@ -2163,6 +2150,7 @@ private async void FitToHeight()
         public double backingW { get; set; } 
         public double backingH { get; set; } 
         public double dpr { get; set; }
+        public double[]? pdfTransform { get; set; }
     }
 
     // PDF再描画用メソッド
@@ -2211,35 +2199,75 @@ private async void FitToHeight()
         await JSRuntime.InvokeVoidAsync("drawPdfPageToCanvas", canvasUniqueId, drawData, zoomLevel, rotateAngle);
     }
 
-    private void SetTool(EditTool tool)
+    private async Task SetTool(EditTool tool)
     {
+        if (currentTool == tool) return;
+        await FinishActiveTextEdit();
         currentTool = tool;
-        selectedElementIds.Clear();
+        if (tool is not (EditTool.Select or EditTool.Text))
+            selectedElementIds.Clear();
     }
 
-    private void OnCanvasMouseDown(MouseEventArgs e)
+    [JSInvokable]
+    public void AddCover(double x, double y, double width, double height)
     {
-        // テキストエリアのドラッグ中はページ移動を開始しない
-        if (draggingElementId != null) return;
-
-        if (currentTool == EditTool.Select)
+        if (!editorReady || currentTool != EditTool.Cover) return;
+        editElements.Add(new EditElement
         {
-            lastMouseX = e.ClientX;
-            lastMouseY = e.ClientY;
+            Type = ElementType.Cover,
+            X = x * pageWidth,
+            Y = y * pageHeight,
+            Width = width * pageWidth,
+            Height = height * pageHeight,
+            Color = coverColor
+        });
+        StateHasChanged();
+    }
+
+    private void EraseCover(string elementId)
+    {
+        if (currentTool == EditTool.Eraser)
+            DeleteElement(elementId);
+    }
+
+    [JSInvokable]
+    public async Task PasteTextBoxes(string text, double clientX, double clientY)
+    {
+        if (!editorReady || currentTool is not (EditTool.Select or EditTool.Text)) return;
+        await FinishActiveTextEdit();
+        var coords = await JSRuntime.InvokeAsync<CanvasCoords>("getCanvasCoords",
+            $"#pdf-canvas-{canvasUniqueId}", clientX, clientY, zoomLevel);
+        var lines = text.ReplaceLineEndings("\n").Split('\n');
+        var lineHeight = fontSize * 1.2;
+        var rowHeight = lineHeight + 4;
+        var y = Math.Clamp(coords.y, 0, Math.Max(0, pageHeight - lines.Length * rowHeight));
+        var boxes = new List<EditElement>();
+        foreach (var line in lines)
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                var box = new EditElement
+                {
+                    Type = ElementType.Text,
+                    Y = y,
+                    Text = line,
+                    FontSize = fontSize,
+                    FontFamily = ResolveFontForText(line, fontFamily),
+                    Color = textColor,
+                    IsBold = _isBoldDefault
+                };
+                await FitTextBox(box);
+                box.X = Math.Clamp(coords.x, 0, Math.Max(0, pageWidth - box.Width));
+                boxes.Add(box);
+            }
+            y += rowHeight;
         }
-    }
 
-    private void OnCanvasMouseUp(MouseEventArgs e)
-    {
-        draggingElementId = null;
-    }
-
-    private void OnCanvasWheel(WheelEventArgs e)
-    {
-        if (e.DeltaY < 0)
-            ZoomIn();
-        else
-            ZoomOut();
+        editElements.AddRange(boxes);
+        selectedElementIds = boxes.Select(box => box.Id).ToList();
+        StateHasChanged();
+        if (boxes.Any(box => box.Y + box.Height > pageHeight || box.Width > pageWidth))
+            _ = MessageService.ShowAsync("貼り付けたテキストの一部がページ外にあります。保存前に位置やサイズを調整してください。", MessageType.Warn);
     }
 
     // C#で座標を受け取るクラス
@@ -2250,6 +2278,7 @@ private async void FitToHeight()
     }
     private async Task OnPageClick(MouseEventArgs e)
     {
+        if (!editorReady || currentTool is EditTool.Cover or EditTool.Eraser) return;
         // リサイズ/ドラッグ中はページクリックを無視
         if (isResizingOrDragging)
         {
@@ -2268,10 +2297,7 @@ private async void FitToHeight()
         var editingElement = editElements.FirstOrDefault(el => el.IsEditing);
         if (editingElement != null)
         {
-            // ここで全てのIsEditingをfalseにしておく
-            foreach (var el in editElements)
-                el.IsEditing = false;
-            StateHasChanged();
+            await FinishActiveTextEdit();
             return;
         }
 
@@ -2316,25 +2342,7 @@ private async void FitToHeight()
             selectedElementIds.Clear();
             selectedElementIds.Add(element.Id);
 
-            // 実行しないと新規作成したテキストボックスが文字列が初期状態で選択されない
-            StateHasChanged();
-            await InvokeAsync(StateHasChanged);
-            await Task.Yield();
-            try
-            {
-                await textInputRef.FocusAsync();
-                await JSRuntime.InvokeVoidAsync("selectAllTextarea", textInputRef);
-                var totalParentPx = await JSRuntime.InvokeAsync<double>("autoResizeTextarea", textInputRef);
-                if (totalParentPx > 0)
-                {
-                    element.Height = Math.Max(6, totalParentPx / zoomLevel);
-                    StateHasChanged();
-                }
-            }
-            catch
-            {
-                // フォーカス失敗は無視
-            }
+            await FocusTextElement(element);
         }
         else
         {
@@ -2344,15 +2352,13 @@ private async void FitToHeight()
     }
 
     // 選択された要素のIDを格納
-    private void SelectElement(string elementId, bool multi = false)
+    private async Task SelectElement(string elementId, bool multi = false)
     {
-        // すべての編集中状態を解除
-        foreach (var el in editElements)
-            el.IsEditing = false;
+        await FinishActiveTextEdit();
 
         if (multi)
         {
-            if (!selectedElementIds.Contains(elementId))
+            if (!selectedElementIds.Remove(elementId))
                 selectedElementIds.Add(elementId);
         }
         else
@@ -2373,7 +2379,7 @@ private async void FitToHeight()
             {
                 _fontSize = selected.FontSize;
                 _userDefaultFontSize = selected.FontSize;
-                uiFitTextToArea = selected.FitTextToArea;
+                _uiFitTextToArea = selected.FitTextToArea;
                 _isBoldDefault = selected.IsBold;
             }
         }
@@ -2381,8 +2387,9 @@ private async void FitToHeight()
         StateHasChanged();
     }
 
-    private void FinishTextEdit(EditElement element)
+    private async Task FinishTextEdit(EditElement element)
     {
+        if (!element.IsEditing) return;
         if (ignoreTextBlur)
         {
             ignoreTextBlur = false;
@@ -2390,23 +2397,32 @@ private async void FitToHeight()
             return;
         }
 
-        element.IsEditing = false;
-        _userDefaultFontSize = element.FontSize;
-        fontFamily = ResolveFontForText(element.Text, element.FontFamily);
-
-        // blur直後のクリックを1回だけ無視
-        ignoreNextPageClick = true;
-
-        StateHasChanged();
+        await CompleteTextEdit(element);
     }
 
-    private async Task OnTextKeyPress(KeyboardEventArgs e, EditElement element)
+    private async Task FinishActiveTextEdit()
     {
-        if (e.Key == "Enter")
-        {
-            element.IsEditing = false;
-            await textInputRef.FocusAsync();
-        }
+        var editing = editElements.FirstOrDefault(el => el.IsEditing);
+        if (editing != null)
+            await CompleteTextEdit(editing);
+    }
+
+    private async Task CompleteTextEdit(EditElement element)
+    {
+        element.IsEditing = false;
+        _userDefaultFontSize = element.FontSize;
+        fontFamily = element.FontFamily = ResolveFontForText(element.Text, element.FontFamily);
+        await FitTextBox(element);
+    }
+
+    private async Task FitTextBox(EditElement element)
+    {
+        var text = element.Text;
+        var size = element.FontSize;
+        var width = await JSRuntime.InvokeAsync<double>("measureMaxLineWidth", text, size, element.FontFamily, element.IsBold);
+        element.Width = Math.Max(6, Math.Ceiling(width) + 2);
+        var lineHeight = element.LineHeight > 0 ? element.LineHeight : size * 1.2;
+        element.Height = lineHeight * (1 + text.Count(c => c == '\n'));
     }
 
     private void DeleteElement(string elementId)
@@ -2425,8 +2441,15 @@ private async void FitToHeight()
     private List<EditElement> GetElementsForSave(int pageWidth, int pageHeight, int rotateAngle)
     {
         var result = new List<EditElement>();
-        foreach (var el in editElements)
+        foreach (var el in editElements.OrderBy(el => el.Type != ElementType.Cover))
         {
+            if (el.Type == ElementType.Cover)
+            {
+                // 塗りつぶしは PDF.js のビューポートを使って保存時に PDF 座標へ戻す。
+                result.Add(el);
+                continue;
+            }
+
             var newEl = new EditElement
             {
                 Id = el.Id,
@@ -2506,6 +2529,7 @@ private async void FitToHeight()
             try
             {
                 await MessageService.ShowLoadingAsync("保存中...");
+                await FinishActiveTextEdit();
                 var elementsForSave = GetElementsForSave(pageWidth, pageHeight, pageItem.RotateAngle);
                 var editJson = JsonSerializer.Serialize(elementsForSave);
 
@@ -2513,7 +2537,8 @@ private async void FitToHeight()
                 var newPdfBase64 = await JSRuntime.InvokeAsync<string>(
                     "editPdfPageWithElements",
                     originalPageData, // getStoredPageDataで取得したPDF Base64
-                    editJson
+                    editJson,
+                    cachedPageSource?.pdfTransform
                 );
 
                 // 結果をストレージに保存

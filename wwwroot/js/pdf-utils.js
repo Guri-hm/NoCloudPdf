@@ -1160,12 +1160,13 @@ window.unlockPdf = async function (pdfData, password) {
 };
 
 // ========================================
-// PDF編集（テキスト・画像追加）
+// PDF編集（テキスト・画像・塗りつぶし追加）
 // ========================================
-window.editPdfPageWithElements = async function (pdfBase64, editJson) {
-    const { PDFDocument, rgb, StandardFonts, degrees } = PDFLib;
+window.editPdfPageWithElements = async function (pdfBase64, editJson, pdfTransform) {
+    const { PDFDocument, degrees } = PDFLib;
+    const editElements = JSON.parse(editJson);
 
-    if (!PDFLib._fontkitRegistered) {
+    if (editElements.some(el => el.Type === 0 || el.Type === "Text") && !PDFLib._fontkitRegistered) {
         if (window.fontkit) {
             PDFLib.PDFDocument.prototype.registerFontkit(window.fontkit);
             PDFLib._fontkitRegistered = true;
@@ -1179,17 +1180,30 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
     const page = pdfDoc.getPage(0);
     const pageHeight = page.getHeight();
 
-    let editElements = [];
-    try {
-        editElements = JSON.parse(editJson);
-    } catch (e) {
-        console.error("editJson parse error", e, editJson);
-    }
-
     const fontManager = new PdfFontManager(pdfDoc);
 
     for (const el of editElements) {
-        if (el.Type === 0 || el.Type === "Text") {
+        if (el.Type === 2 || el.Type === "Cover") {
+            if (!pdfTransform || pdfTransform.length !== 6 || !pdfTransform.every(Number.isFinite)) {
+                throw new Error("塗りつぶしを配置するためのページ座標を取得できませんでした。");
+            }
+            const [a, b, c, d, tx, ty] = pdfTransform;
+            const determinant = a * d - b * c;
+            if (!determinant) throw new Error("ページ座標を変換できませんでした。");
+            const toPdfPoint = (x, y) => [
+                (d * (x - tx) - c * (y - ty)) / determinant,
+                (a * (y - ty) - b * (x - tx)) / determinant
+            ];
+            const [x1, y1] = toPdfPoint(el.X, el.Y);
+            const [x2, y2] = toPdfPoint(el.X + el.Width, el.Y + el.Height);
+            page.drawRectangle({
+                x: Math.min(x1, x2),
+                y: Math.min(y1, y2),
+                width: Math.abs(x2 - x1),
+                height: Math.abs(y2 - y1),
+                color: hexToRgb(el.Color)
+            });
+        } else if (el.Type === 0 || el.Type === "Text") {
             // ...existing text rendering code...
             const font = await fontManager.getFont(el.Text, {
                 isBold: el.IsBold,
@@ -1199,7 +1213,7 @@ window.editPdfPageWithElements = async function (pdfBase64, editJson) {
             const rotateDegrees = degrees(el.Rotation || 0);
             const fontSize = Number(el.FontSize) || 16;
             const specifiedLineHeight = (typeof el.LineHeight !== "undefined" && el.LineHeight > 0) ? Number(el.LineHeight) : null;
-            const lineHeightPx = specifiedLineHeight || fontSize;
+            const lineHeightPx = specifiedLineHeight || fontSize * 1.2;
 
             const text = el.Text || "";
             const startX = (typeof el.X === "number") ? el.X : 0;

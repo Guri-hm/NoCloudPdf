@@ -86,6 +86,44 @@ test('vector crop maps displayed coordinates at all rotations', async () => {
     }
 });
 
+test('editor fill is saved over the selected area of a rotated, cropped PDF without removing its text', async () => {
+    const app = createApp();
+    const source = await PDFLib.PDFDocument.create();
+    const page = source.addPage([200, 300]);
+    page.setCropBox(10, 20, 160, 240);
+    page.drawText('Original', { x: 30, y: 210, size: 12 });
+    const base64 = Buffer.from(await source.save()).toString('base64');
+    const pdf = await pdfjs.getDocument({ data: Uint8Array.from(Buffer.from(base64, 'base64')) }).promise;
+    const pdfPage = await pdf.getPage(1);
+    const cover = { Type: 2, X: 15, Y: 25, Width: 30, Height: 45, Color: '#ff0000' };
+    const expected = {
+        0: [25, 190, 30, 45],
+        90: [35, 35, 45, 30],
+        180: [125, 45, 30, 45],
+        270: [100, 215, 45, 30]
+    };
+
+    for (const rotation of [0, 90, 180, 270]) {
+        const { transform } = pdfPage.getViewport({ scale: 1, rotation });
+        const result = await app.editPdfPageWithElements(base64, JSON.stringify([cover]), transform);
+        const bytes = Uint8Array.from(Buffer.from(result, 'base64'));
+        const output = await PDFLib.PDFDocument.load(bytes);
+        const contents = output.getPage(0).node.Contents();
+        const stream = contents.lookup(contents.size() - 1, PDFLib.PDFRawStream);
+        const commands = new TextDecoder().decode(PDFLib.decodePDFRawStream(stream).decode());
+        const [x, y, width, height] = expected[rotation];
+        assert.ok(commands.includes(`1 0 0 1 ${x} ${y} cm`), commands);
+        assert.ok(commands.includes(`0 ${height} l\n${width} ${height} l\n${width} 0 l`), commands);
+        assert.ok(commands.includes('1 0 0 rg'));
+
+        const saved = await pdfjs.getDocument({ data: bytes }).promise;
+        const text = await (await saved.getPage(1)).getTextContent();
+        assert.equal(text.items.map(item => item.str).join(''), 'Original');
+        await saved.destroy();
+    }
+    await pdf.destroy();
+});
+
 test('vector tiles retain the requested rotation, including after combining', async () => {
     const app = createApp();
     const base64 = Buffer.from(await pdfBytes([270])).toString('base64');
