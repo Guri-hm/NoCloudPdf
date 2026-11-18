@@ -406,7 +406,7 @@ window.mergePDFPages = async function (pdfPageDataList) {
             const pdfDoc = await PDFDocument.load(bytes);
             const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
 
-            if (typeof pageInfo === 'object' && pageInfo.rotateAngle && pageInfo.rotateAngle % 360 !== 0) {
+            if (pageInfo.rotateAngle != null) {
                 page.setRotation(degrees(pageInfo.rotateAngle));
             }
 
@@ -605,7 +605,8 @@ window.generatePdfThumbnailFromFileMetaData = async function (pdfFileData, pageI
             thumbnail: blobUrl,
             isError: false,
             isPasswordProtected: false,
-            securityInfo: ""
+            securityInfo: "",
+            pageRotation: page.rotate
         };
     } catch (error) {
         return handlePdfError(error, 'generatePdfThumbnailFromFileMetaData');
@@ -653,6 +654,21 @@ window.getPDFPageCount = async function (pdfData) {
     } catch (error) {
         console.error('Error in getPDFPageCount:', error);
         throw error;
+    } finally {
+        destroyPdfDocument(pdf);
+    }
+};
+
+window.getPDFPageRotations = async function (pdfData) {
+    let pdf = null;
+    try {
+        pdf = await loadPdfDocument(toUint8Array(pdfData), { stopAtErrors: false, verbosity: 1 });
+        const rotations = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            rotations.push(page.rotate);
+        }
+        return rotations;
     } finally {
         destroyPdfDocument(pdf);
     }
@@ -941,7 +957,7 @@ window.mergePdfPagesFromStorage = async function (pageKeys) {
             const pdfDoc = await PDFDocument.load(pageBytes);
             const [page] = await mergedPdf.copyPages(pdfDoc, [0]);
 
-            if (rotateAngle && rotateAngle % 360 !== 0) {
+            if (rotateAngle != null) {
                 page.setRotation(degrees(rotateAngle));
             }
 
@@ -1911,9 +1927,9 @@ window.cropPdfPageToTrimVector = async function (pdfBase64, normX, normY, normWi
 
             if (quant === 90) {
                 // 90度時計回り
-                llx = displayH - sy - sh;
+                llx = sy;
                 lly = sx;
-                urx = displayH - sy;
+                urx = sy + sh;
                 ury = sx + sw;
             } else {
                 // 270度反時計回り
@@ -2217,18 +2233,14 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
                 let finalY = y + offsetY;
 
                 if (normalizedAngle === 90) {
-                    // 90度回転時の正しい配置
-                    // 回転後にセル中央に来るよう、回転前の左下位置を計算
-                    finalX = x + offsetX + rotatedDrawWidth;  // 回転後の幅分だけ右に移動
-                    finalY = y + offsetY;                      // Y座標はそのまま
+                    finalY = y + offsetY + rotatedDrawHeight;
                 } else if (normalizedAngle === 180) {
                     // 180度回転
                     finalX = x + offsetX + drawWidth;
                     finalY = y + offsetY + drawHeight;
                 } else if (normalizedAngle === 270) {
                     // 270度回転
-                    finalX = x + offsetX;
-                    finalY = y + offsetY + rotatedDrawHeight;
+                    finalX = x + offsetX + rotatedDrawWidth;
                 }
 
                 outputPage.drawPage(embeddedPage, {
@@ -2236,7 +2248,7 @@ window.createNUpPdf = async function (pages, nup, direction, orientation, showDi
                     y: finalY,
                     width: drawWidth,    // 元のサイズ × scale
                     height: drawHeight,  // 元のサイズ × scale
-                    rotate: degrees(normalizedAngle)
+                    rotate: degrees(-normalizedAngle)
                 });
 
             } catch (embedError) {
@@ -2398,7 +2410,7 @@ function getCellPosition(index, rows, cols, cellWidth, cellHeight, direction) {
 /**
  * PDFページをタイル分割（ラスタ化オプション対応）
  */
-window.splitPdfPageIntoTiles = async function (pageData, tileCount, direction, rasterize = false) {
+window.splitPdfPageIntoTiles = async function (pageData, tileCount, direction, rasterize = false, rotateAngle = 0) {
     try {
         const { PDFDocument } = PDFLib;
         const uint8Array = base64ToUint8Array(pageData);
@@ -2421,10 +2433,10 @@ window.splitPdfPageIntoTiles = async function (pageData, tileCount, direction, r
                 let tileUrl;
                 if (rasterize) {
                     // ラスタ化：指定領域を画像として抽出してPDF化
-                    tileUrl = await createRasterizedTile(uint8Array, x, y, tileWidth, tileHeight, width, height);
+                    tileUrl = await createRasterizedTile(uint8Array, x, y, tileWidth, tileHeight, width, height, rotateAngle);
                 } else {
                     // ベクトル：CropBox でトリミング
-                    tileUrl = await createVectorTile(srcPdf, x, y, tileWidth, tileHeight);
+                    tileUrl = await createVectorTile(srcPdf, x, y, tileWidth, tileHeight, rotateAngle);
                 }
 
                 if (tileUrl) {
@@ -2463,12 +2475,13 @@ function getTileGrid(tileCount, direction) {
 /**
  * ベクトルタイル生成（CropBox使用）
  */
-async function createVectorTile(srcPdf, x, y, w, h) {
+async function createVectorTile(srcPdf, x, y, w, h, rotateAngle) {
     try {
-        const { PDFDocument, PDFName } = PDFLib;
+        const { PDFDocument, PDFName, degrees } = PDFLib;
         const outputPdf = await PDFDocument.create();
         const [copiedPage] = await outputPdf.copyPages(srcPdf, [0]);
         outputPdf.addPage(copiedPage);
+        copiedPage.setRotation(degrees(rotateAngle));
 
         // CropBox を設定
         copiedPage.node.set(PDFName.of('CropBox'), outputPdf.context.obj([
@@ -2490,7 +2503,7 @@ async function createVectorTile(srcPdf, x, y, w, h) {
 /**
  * ラスタ化タイル生成（画像化）
  */
-async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeight) {
+async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeight, rotateAngle) {
     let pdf = null;
     try {
         pdf = await loadPdfDocument(uint8Array);
@@ -2520,9 +2533,14 @@ async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeigh
 
         // 指定領域を切り出し
         const tileCanvas = document.createElement('canvas');
-        tileCanvas.width = sw;
-        tileCanvas.height = sh;
+        const angle = normalizeRotationAngle(rotateAngle);
+        tileCanvas.width = angle === 90 || angle === 270 ? sh : sw;
+        tileCanvas.height = angle === 90 || angle === 270 ? sw : sh;
         const tileCtx = tileCanvas.getContext('2d', { alpha: false });
+        if (angle === 90) tileCtx.translate(sh, 0);
+        else if (angle === 180) tileCtx.translate(sw, sh);
+        else if (angle === 270) tileCtx.translate(0, sw);
+        tileCtx.rotate(angle * Math.PI / 180);
         tileCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
 
         // PNG → PDF 化
@@ -2532,8 +2550,8 @@ async function createRasterizedTile(uint8Array, x, y, w, h, pageWidth, pageHeigh
         const { PDFDocument } = PDFLib;
         const tilePdf = await PDFDocument.create();
         const pngImage = await tilePdf.embedPng(imgBytes);
-        const tilePage = tilePdf.addPage([sw, sh]);
-        tilePage.drawImage(pngImage, { x: 0, y: 0, width: sw, height: sh });
+        const tilePage = tilePdf.addPage([tileCanvas.width, tileCanvas.height]);
+        tilePage.drawImage(pngImage, { x: 0, y: 0, width: tileCanvas.width, height: tileCanvas.height });
 
         const pdfBytes = await tilePdf.save();
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -2634,4 +2652,3 @@ window.generatePdfThumbnailUrl = async function (pdfBlobUrl) {
         destroyPdfDocument(pdf);
     }
 };
-

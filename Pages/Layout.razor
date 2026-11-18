@@ -1246,7 +1246,8 @@ private int GetTargetIndexForDirection(int sourceIndex, int rows, int cols)
                         pageData,
                         LayoutNumber,
                         TileDirection,
-                        RasterizeTiles  // 画像化オプションを渡す
+                        RasterizeTiles,
+                        page.RotateAngle % 360
                     );
                     
                     if (urls == null || urls.Length == 0)
@@ -2034,7 +2035,7 @@ OnClick = EventCallback.Factory.Create(this, () => InsertPdfAtPosition(DisplayIt
             await MessageService.ShowLoadingAsync("PDFを結合中...");
 
             // 各結果PDFをMergePageDataに変換
-            var mergeData = new List<MergePageDto>();
+            var mergeData = new List<object>();
             
             foreach (var pdfInfo in resultPdfInfos)
             {
@@ -2042,13 +2043,9 @@ OnClick = EventCallback.Factory.Create(this, () => InsertPdfAtPosition(DisplayIt
                 var pdfBytes = await JSRuntime.InvokeAsync<byte[]>("fetchBlobAsBytes", pdfInfo.Url);
                 var base64Data = Convert.ToBase64String(pdfBytes);
                 
-                mergeData.Add(new MergePageDto
+                mergeData.Add(new
                 {
-                    FileId = pdfInfo.Id,
-                    FileName = pdfInfo.Name,
-                    PageData = base64Data,
-                    IsPdf = true,
-                    RotateAngle = 0
+                    pageData = base64Data
                 });
             }
 

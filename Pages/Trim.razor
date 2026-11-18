@@ -1070,7 +1070,7 @@
                 mergeData.Add(new
                 {
                     pageData = pageDataToUse,
-                    rotateAngle = useRasterize ? 0 : (page.RotateAngle % 360)
+                    rotateAngle = useRasterize && info.Trim != null ? 0 : (page.RotateAngle % 360)
                 });
             }
 

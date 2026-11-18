@@ -63,6 +63,14 @@ dotnet run
 dotnet publish -c Release -o ./publish
 ```
 
+### PDF処理のテスト
+```bash
+npm install
+npm test
+```
+
+JavaScriptを変更した場合は、`npm run build:js` で配布用バンドルも更新します。
+
 ## 🎯 使い方
 
 ### PDF分割

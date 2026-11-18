@@ -230,7 +230,8 @@ public class PdfDataService
 
             RegisterBlobUrl(renderResult.thumbnail);
 
-            var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
+            var pageRotations = await _jsRuntime.InvokeAsync<int[]>("getPDFPageRotations", fileData);
+            var pageCount = pageRotations.Length;
             if (pageCount <= 0)
             {
                 return false;
@@ -269,7 +270,7 @@ public class PdfDataService
                     IsLoading = true,
                     HasThumbnailError = false,
                     ColorHsl = GenerateColorHsl(fileId),
-                    RotateAngle = fileMetadata.DefaultRotateAngle,
+                    RotateAngle = pageRotations[i],
                     IsPasswordProtected = wasPasswordProtected,
                     IsOperationRestricted = renderResult.isOperationRestricted,
                 };
@@ -439,7 +440,8 @@ public class PdfDataService
             var fileId = $"{fileName}_{DateTime.Now.Ticks}";
             var colorHsl = GenerateColorHsl(fileId);
 
-            var pageCount = await _jsRuntime.InvokeAsync<int>("getPDFPageCount", fileData);
+            var pageRotations = await _jsRuntime.InvokeAsync<int[]>("getPDFPageRotations", fileData);
+            var pageCount = pageRotations.Length;
             if (pageCount <= 0) return false;
 
             // 有効なページインデックスのみ絞り込む
@@ -477,7 +479,7 @@ public class PdfDataService
                     HasThumbnailError = false,
                     IsPageDataStoredInJs = false,
                     ColorHsl = colorHsl,
-                    RotateAngle = 0,
+                    RotateAngle = pageRotations[targetIdx],
                 };
                 int insertIdx = insertPosition.HasValue ? insertPosition.Value + i : _model.Pages.Count;
                 _model.Pages.Insert(insertIdx, pageItem);
@@ -507,10 +509,6 @@ public class PdfDataService
                         capturedPageItem.Thumbnail = renderResult.isError ? "" : renderResult.thumbnail;
                         capturedPageItem.HasThumbnailError = renderResult.isError;
                         capturedPageItem.IsOperationRestricted = renderResult.isOperationRestricted;
-                        capturedPageItem.RotateAngle = fileMetadata.DefaultRotateAngle != 0
-                            ? fileMetadata.DefaultRotateAngle
-                            : renderResult.pageRotation;
-
                         if (!coverSet)
                         {
                             fileMetadata.CoverThumbnail = capturedPageItem.Thumbnail;
@@ -1742,7 +1740,8 @@ public class PdfDataService
                     IsPageDataStoredInJs = false, // ストレージへの再登録が必要
                     IsLoading = true,
                     HasThumbnailError = false,
-                    ColorHsl = GenerateColorHsl(newFileId)
+                    ColorHsl = GenerateColorHsl(newFileId),
+                    RotateAngle = page.RotateAngle
                 };
                 _model.Pages.Insert(pageInsertIndex++, copy);
             }
@@ -1763,7 +1762,8 @@ public class PdfDataService
                 IsPageDataStoredInJs = page.IsPageDataStoredInJs,
                 IsLoading = false,
                 HasThumbnailError = false,
-                ColorHsl = page.ColorHsl
+                ColorHsl = page.ColorHsl,
+                RotateAngle = page.RotateAngle
             };
             int pageIndex = _model.Pages.FindIndex(p => p.Id == id);
             if (pageIndex >= 0)
@@ -2566,4 +2566,3 @@ public class StorageResult
     public bool IsRestricted { get; set; }
     public string? Error { get; set; }
 }
-
