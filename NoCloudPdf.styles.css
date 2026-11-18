@@ -594,6 +594,55 @@ main[b-zdpdkgcm98] {
     height: 100%;
     overflow: hidden; /* EditPage 内でスクロールを制御 */
 }
+
+#edit-canvas-container[b-us3e0upuex] {
+    min-height: 0;
+    padding-inline: 20px;
+}
+
+.pdf-page[b-us3e0upuex] {
+    flex: none;
+    margin: 20px auto;
+}
+
+#edit-canvas-container[data-tool="Select"][b-us3e0upuex],
+#edit-canvas-container[data-tool="Cover"][b-us3e0upuex] {
+    touch-action: none;
+}
+
+#edit-canvas-container[data-tool="Select"][b-us3e0upuex] {
+    cursor: grab;
+}
+
+#edit-canvas-container[data-panning][b-us3e0upuex] {
+    cursor: grabbing;
+    user-select: none;
+}
+
+#edit-canvas-container[data-tool="Cover"][b-us3e0upuex],
+#edit-canvas-container[data-tool="Eraser"][b-us3e0upuex] {
+    cursor: crosshair;
+}
+
+#edit-canvas-container:is([data-tool="Cover"], [data-tool="Eraser"]) .edit-element[b-us3e0upuex],
+#edit-canvas-container:is([data-tool="Cover"], [data-tool="Eraser"]) .edit-element[b-us3e0upuex]  * {
+    pointer-events: none;
+}
+
+.cover-element[b-us3e0upuex],
+.cover-preview[b-us3e0upuex] {
+    position: absolute;
+    pointer-events: none;
+}
+
+#edit-canvas-container[data-tool="Eraser"] .cover-element[b-us3e0upuex] {
+    pointer-events: auto;
+}
+
+.cover-preview[b-us3e0upuex] {
+    outline: 1px dashed #2563eb;
+    opacity: 0.75;
+}
 /* /Pages/Home.razor.rz.scp.css */
 .bg-gradient-home[b-8ebwfo5w87] {
     background: linear-gradient(to bottom, #d7dfe9 0%, #e6effb 25%, #dae8fa 50%, #f8f8f8 100%);

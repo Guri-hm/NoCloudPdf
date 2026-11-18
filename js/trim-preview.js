@@ -220,6 +220,7 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
         container.style.pointerEvents = 'auto';
         svg.style.pointerEvents = 'auto';
         
+        let selectedGroup;
         rects.forEach((rect, rectIndex) => {
             const normX = Number(rect.X ?? rect.x ?? 0);
             const normY = Number(rect.Y ?? rect.y ?? 0);
@@ -363,8 +364,11 @@ window.drawTrimOverlayAsSvg = function (canvasId, rects) {
                 g.appendChild(deleteBtn);
             }
 
-            svg.appendChild(g);
+            if (isSelected) selectedGroup = g;
+            else svg.appendChild(g);
         });
+        // SVG の描画順だけ変え、切り出しの順序と矩形インデックスは維持する。
+        if (selectedGroup) svg.appendChild(selectedGroup);
 
         if (!isDrawing) {
             trimState.overlayDom = container;

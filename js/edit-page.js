@@ -4,7 +4,7 @@ window.getDevicePixelRatio = function() {
     return window.devicePixelRatio || 1;
 };
 
-window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
+window.getPageSourceInfo = async function (pageData, rotateAngle) {
     try {
         if (!pageData) return null;
         // base64 の中身を取り出す（data:...;base64, を想定）
@@ -25,8 +25,9 @@ window.getPageSourceInfo = async function (fileId, pageIndex, pageData) {
             }).promise;
             try {
                 const page = await pdf.getPage(1);
-                const baseViewport = page.getViewport({ scale: 1.0 });
-                return { origW: baseViewport.width, origH: baseViewport.height, dpr: dpr };
+                const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
+                const { transform } = page.getViewport({ scale: 1, rotation: rotateAngle });
+                return { origW: baseViewport.width, origH: baseViewport.height, dpr, pdfTransform: transform };
             } finally {
                 if (pdf && typeof pdf.destroy === 'function') {
                     try { pdf.destroy(); } catch (e) { console.warn('pdf.destroy() error', e); }
@@ -254,10 +255,10 @@ window.waitForNextFrame = function () {
     return new Promise(resolve => requestAnimationFrame(resolve));
 };
 
-window.measureMaxLineWidth = function (text, fontSize, fontFamily) {
+window.measureMaxLineWidth = function (text, fontSize, fontFamily, isBold = false) {
     const canvas = window._measureTextCanvas || (window._measureTextCanvas = document.createElement("canvas"));
     const ctx = canvas.getContext("2d");
-    ctx.font = `${fontSize}px ${fontFamily}`;
+    ctx.font = `${isBold ? 'bold ' : ''}${fontSize}px ${fontFamily}`;
     const lines = text.split('\n');
     let maxWidth = 0;
     for (const line of lines) {
@@ -267,9 +268,11 @@ window.measureMaxLineWidth = function (text, fontSize, fontFamily) {
     return maxWidth;
 };
 
-window.selectAllTextarea = function (ref) {
-    if (!ref) return;
-    ref.select();
+window.focusAndSelectTextarea = function (id) {
+    const textarea = document.getElementById(id);
+    if (!textarea) throw new Error(`Textarea not found: ${id}`);
+    textarea.focus({ preventScroll: true });
+    textarea.select();
 };
 
 window.autoResizeTextarea = function (ref) {
@@ -434,4 +437,113 @@ window.unregisterEditPageKeyHandler = function() {
         document.removeEventListener('keydown', window._editPageKey.keyDownHandler);
         window._editPageKey = null;
     }
+};
+
+let editCanvasListeners;
+
+window.registerEditPageCanvasHandlers = function (dotNetRef) {
+    window.unregisterEditPageCanvasHandlers();
+    const container = document.getElementById('edit-canvas-container');
+    const page = container.querySelector('.pdf-page');
+    const canvas = page.querySelector('canvas');
+    const preview = page.querySelector('.cover-preview');
+    editCanvasListeners = new AbortController();
+    const { signal } = editCanvasListeners;
+    let gesture;
+    let suppressClick = false;
+
+    function coverBounds(e) {
+        const { bounds, x, y } = gesture;
+        const nextX = Math.max(0, Math.min(bounds.width, e.clientX - bounds.left));
+        const nextY = Math.max(0, Math.min(bounds.height, e.clientY - bounds.top));
+        return [Math.min(x, nextX), Math.min(y, nextY), Math.abs(nextX - x), Math.abs(nextY - y)];
+    }
+
+    container.addEventListener('pointerdown', e => {
+        suppressClick = false;
+        if (gesture || e.button !== 0 || !e.isPrimary || container.dataset.ready !== 'true') return;
+        const tool = container.dataset.tool;
+        if (tool === 'Select' && !e.target.closest('.edit-element')) {
+            if (e.target === container) {
+                const bounds = container.getBoundingClientRect();
+                if (e.clientX >= bounds.left + container.clientWidth || e.clientY >= bounds.top + container.clientHeight) return;
+            }
+            if (container.scrollWidth <= container.clientWidth && container.scrollHeight <= container.clientHeight) return;
+            gesture = { tool, id: e.pointerId, x: e.clientX, y: e.clientY,
+                left: container.scrollLeft, top: container.scrollTop, moved: false };
+        } else if (tool === 'Cover' && e.target === canvas) {
+            const bounds = canvas.getBoundingClientRect();
+            gesture = { tool, id: e.pointerId, bounds, x: e.clientX - bounds.left, y: e.clientY - bounds.top };
+            preview.style.backgroundColor = container.dataset.coverColor;
+            container.setPointerCapture(e.pointerId);
+        }
+    }, { signal });
+
+    window.addEventListener('pointermove', e => {
+        if (gesture?.id !== e.pointerId) return;
+        if (gesture.tool === 'Select') {
+            const dx = e.clientX - gesture.x;
+            const dy = e.clientY - gesture.y;
+            if (!gesture.moved) {
+                if (Math.hypot(dx, dy) < 4) return;
+                container.setPointerCapture(e.pointerId);
+                gesture.moved = true;
+                container.setAttribute('data-panning', '');
+            }
+            container.scrollLeft = gesture.left - dx;
+            container.scrollTop = gesture.top - dy;
+        } else {
+            const [x, y, width, height] = coverBounds(e);
+            preview.style.left = `${x}px`;
+            preview.style.top = `${y}px`;
+            preview.style.width = `${width}px`;
+            preview.style.height = `${height}px`;
+            preview.hidden = false;
+        }
+    }, { signal });
+
+    function endGesture(e) {
+        if (gesture?.id !== e.pointerId) return;
+        if (e.type === 'pointerup' && gesture.tool === 'Cover') {
+            const [x, y, width, height] = coverBounds(e);
+            const bounds = gesture.bounds;
+            if (width >= 2 && height >= 2) {
+                dotNetRef.invokeMethodAsync('AddCover', x / bounds.width, y / bounds.height,
+                    width / bounds.width, height / bounds.height).catch(console.error);
+            }
+        }
+        suppressClick = gesture.tool === 'Cover' || gesture.moved;
+        preview.hidden = true;
+        container.removeAttribute('data-panning');
+        gesture = undefined;
+    }
+
+    window.addEventListener('pointerup', endGesture, { signal });
+    window.addEventListener('pointercancel', endGesture, { signal });
+    container.addEventListener('lostpointercapture', endGesture, { signal });
+    container.addEventListener('click', e => {
+        if (suppressClick && e.detail > 0) {
+            suppressClick = false;
+            e.stopPropagation();
+        }
+    }, { capture: true, signal });
+
+    document.addEventListener('paste', e => {
+        if (container.dataset.ready !== 'true' || !['Select', 'Text'].includes(container.dataset.tool)) return;
+        if (e.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+        const text = e.clipboardData?.getData('text/plain');
+        if (!text?.trim()) return;
+
+        const bounds = canvas.getBoundingClientRect();
+        const viewport = container.getBoundingClientRect();
+        const x = Math.max(bounds.left, viewport.left) + 12;
+        const y = Math.max(bounds.top, viewport.top) + 12;
+        e.preventDefault();
+        dotNetRef.invokeMethodAsync('PasteTextBoxes', text, x, y).catch(console.error);
+    }, { signal });
+};
+
+window.unregisterEditPageCanvasHandlers = function () {
+    editCanvasListeners?.abort();
+    editCanvasListeners = undefined;
 };
